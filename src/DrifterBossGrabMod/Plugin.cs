@@ -658,6 +658,7 @@ namespace DrifterBossGrabMod
             [HarmonyPrefix]
             public static void Prefix(GameObject passengerObject)
             {
+                CharacterBody body = null;
                 if (cachedDebugLogsEnabled)
                 {
                     Log.Info($"{Constants.LogPrefix} AssignPassenger called for {passengerObject}");
@@ -688,7 +689,7 @@ namespace DrifterBossGrabMod
                     }
 
                     // Cache component lookups
-                    var body = passengerObject.GetComponent<CharacterBody>();
+                    body = passengerObject.GetComponent<CharacterBody>();
                     var interactable = passengerObject.GetComponent<IInteractable>();
                     var rb = passengerObject.GetComponent<Rigidbody>();
                     var highlight = passengerObject.GetComponent<Highlight>();
@@ -775,13 +776,16 @@ namespace DrifterBossGrabMod
                     }
                 }
                 // TODO, this might cause problems with junk cube, or for other objects, needs more testing
-                // Store and disable StandableSurface to prevent movement bugs for flying bosses
-                if (cachedDebugLogsEnabled)
+                // Store and disable StandableSurface and movement colliders to prevent movement bugs for flying bosses
+                if (body != null) // Only for enemies, not environment objects
                 {
-                    var modelLocator = passengerObject.GetComponent<ModelLocator>();
-                    Log.Info($"{Constants.LogPrefix} ModelLocator for {passengerObject.name}: {modelLocator != null}");
+                    if (cachedDebugLogsEnabled)
+                    {
+                        var modelLocator = passengerObject.GetComponent<ModelLocator>();
+                        Log.Info($"{Constants.LogPrefix} ModelLocator for {passengerObject.name}: {modelLocator != null}");
+                    }
+                    DisableMovementColliders(passengerObject, originalStandableStates);
                 }
-                DisableMovementColliders(passengerObject, originalStandableStates);
             }
         }
 
@@ -876,19 +880,22 @@ namespace DrifterBossGrabMod
                     var grabbedState = targetObject.GetComponent<GrabbedObjectState>();
                     if (grabbedState != null)
                     {
-                        // Restore renderers immediately for environment invisibility
-                        if (cachedEnableEnvironmentInvisibility && grabbedState.originalRendererStates.Count > 0)
+                        // For environment objects, restore renderers and highlights immediately on throw
+                        // Colliders and other states will be restored on projectile impact
+                        RestoreRenderers(grabbedState.originalRendererStates);
+                        foreach (var kvp in grabbedState.originalHighlightStates)
                         {
-                            RestoreRenderers(grabbedState.originalRendererStates);
-                            if (cachedDebugLogsEnabled)
+                            if (kvp.Key != null)
                             {
-                                Log.Info($"{Constants.LogPrefix} Restored renderers for thrown {targetObject.name}");
+                                kvp.Key.enabled = kvp.Value;
                             }
                         }
-                        // let projectile impact handle other restorations
+                        grabbedState.originalRendererStates.Clear();
+                        grabbedState.originalHighlightStates.Clear();
+
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Bag exiting for {targetObject.name} - projectile will handle remaining restorations");
+                            Log.Info($"{Constants.LogPrefix} Restored renderers and highlights immediately for thrown {targetObject.name} - colliders will restore on impact");
                         }
                     }
                     else
