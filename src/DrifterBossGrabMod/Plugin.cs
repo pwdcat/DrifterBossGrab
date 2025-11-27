@@ -83,7 +83,7 @@ namespace DrifterBossGrabMod
             EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
             MaxSmacks = cfg.Bind("Bag", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out", new AcceptableValueRange<int>(1, 100)));
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
-            BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "MinePodBody,HeaterPodBodyNoRespawn,GenericPickup",
+            BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "HeaterPodBodyNoRespawn,GenericPickup",
                 "Comma-separated list of body names to never grab.\n" +
                 "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
@@ -171,21 +171,45 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Disables StandableSurface components
-        private static void DisableStandableSurfaces(GameObject obj, Dictionary<GameObject, bool> originalStates)
+        // Disables colliders on CollideWithCharacterHullOnly and World layers
+        private static void DisableMovementColliders(GameObject obj, Dictionary<GameObject, bool> originalStates)
         {
             var modelLocator = obj.GetComponent<ModelLocator>();
             if (modelLocator && modelLocator.modelTransform)
             {
                 foreach (Transform child in modelLocator.modelTransform.GetComponentsInChildren<Transform>(true))
                 {
-                    if (child.name == Constants.StandableSurface)
+                    var collider = child.GetComponent<Collider>();
+                    int layer = child.gameObject.layer;
+                    string layerName = LayerMask.LayerToName(layer);
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Checking {child.name}, layer: {layer} ({layerName}), hasCollider: {collider != null}");
+                    }
+                    if (layer == LayerMask.NameToLayer("CollideWithCharacterHullOnly") || layer == LayerMask.NameToLayer("World"))
                     {
                         if (!originalStates.ContainsKey(child.gameObject))
                         {
                             originalStates[child.gameObject] = child.gameObject.activeSelf;
                         }
                         child.gameObject.SetActive(false);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Disabled {child.name} due to layer {layerName} and collider: {collider != null}");
+                        }
+                    }
+                    // Special case for StandableSurface
+                    else if (child.name == Constants.StandableSurface)
+                    {
+                        if (!originalStates.ContainsKey(child.gameObject))
+                        {
+                            originalStates[child.gameObject] = child.gameObject.activeSelf;
+                        }
+                        child.gameObject.SetActive(false);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Disabled {child.name} as StandableSurface");
+                        }
                     }
                 }
             }
@@ -234,8 +258,8 @@ namespace DrifterBossGrabMod
             originalStates.Clear();
         }
 
-        // Restores StandableSurface states
-        private static void RestoreStandableSurfaces(Dictionary<GameObject, bool> originalStates)
+        // Restores collider states
+        private static void RestoreMovementColliders(Dictionary<GameObject, bool> originalStates)
         {
             foreach (var kvp in originalStates)
             {
@@ -252,7 +276,7 @@ namespace DrifterBossGrabMod
         {
             public Dictionary<Collider, bool> originalColliderStates = new Dictionary<Collider, bool>();
             public Dictionary<MonoBehaviour, bool> originalInteractableStates = new Dictionary<MonoBehaviour, bool>();
-            public Dictionary<GameObject, bool> originalStandableStates = new Dictionary<GameObject, bool>();
+            public Dictionary<GameObject, bool> originalMovementStates = new Dictionary<GameObject, bool>();
             public Dictionary<Renderer, bool> originalRendererStates = new Dictionary<Renderer, bool>();
             public Dictionary<Highlight, bool> originalHighlightStates = new Dictionary<Highlight, bool>();
 
@@ -266,7 +290,7 @@ namespace DrifterBossGrabMod
                 // Restore all states
                 RestoreColliders(originalColliderStates);
                 RestoreInteractables(originalInteractableStates);
-                RestoreStandableSurfaces(originalStandableStates);
+                RestoreMovementColliders(originalMovementStates);
                 RestoreRenderers(originalRendererStates);
 
                 // Restore highlight states
@@ -485,11 +509,20 @@ namespace DrifterBossGrabMod
         public class SpecialObjectAttributes_get_isTargetable
         {
             [HarmonyPostfix]
-            public static void Postfix(ref bool __result)
+            public static void Postfix(SpecialObjectAttributes __instance, ref bool __result)
             {
-                if (PluginConfig.EnableBossGrabbing.Value)
+                var body = __instance.gameObject.GetComponent<CharacterBody>();
+                if (body)
                 {
-                    __result = true;
+                    bool isBoss = body.isBoss;
+                    bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
+                    bool canOverride = ((isBoss && PluginConfig.EnableBossGrabbing.Value) ||
+                                        (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value)) &&
+                                       !PluginConfig.IsBlacklisted(__instance.gameObject.name);
+                    if (canOverride)
+                    {
+                        __result = true;
+                    }
                 }
             }
         }
@@ -501,6 +534,7 @@ namespace DrifterBossGrabMod
             [HarmonyPostfix]
             public static void Postfix(ref bool __result, HurtBox hurtBox)
             {
+                __result = false;
                 if (hurtBox && hurtBox.healthComponent)
                 {
                     var body = hurtBox.healthComponent.body;
@@ -517,26 +551,39 @@ namespace DrifterBossGrabMod
                             allowTargeting = true;
                         }
                     }
-                    if (allowTargeting && !PluginConfig.IsBlacklisted(body?.name))
+                    if (allowTargeting && !PluginConfig.IsBlacklisted(body.name))
                     {
                         __result = true;
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Allowing targeting of boss/elite/NPC: {body?.name}, isBoss: {body?.isBoss}, isElite: {body?.isElite}, ungrabbable: {body?.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}, currentVehicle: {body?.currentVehicle != null}");
+                            Log.Info($"{Constants.LogPrefix} Allowing targeting of boss/elite/NPC: {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, ungrabbable: {body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}, currentVehicle: {body.currentVehicle != null}");
                         }
                     }
                 }
             }
         }
 
-        // Prevent bosses from dodging, kinda ass
+        // Prevent bosses and NPCs from dodging
         [HarmonyPatch(typeof(SpecialObjectAttributes), "AvoidCapture")]
         public class SpecialObjectAttributes_AvoidCapture
         {
             [HarmonyPrefix]
-            public static bool Prefix()
+            public static bool Prefix(SpecialObjectAttributes __instance)
             {
-                return !PluginConfig.EnableBossGrabbing.Value;
+                if (PluginConfig.IsBlacklisted(__instance.gameObject.name))
+                {
+                    return true; // Allow original behavior for blacklisted
+                }
+                var body = __instance.gameObject.GetComponent<CharacterBody>();
+                if (body)
+                {
+                    bool isBoss = body.isBoss;
+                    bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
+                    bool shouldPrevent = (isBoss && PluginConfig.EnableBossGrabbing.Value) ||
+                                         (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value);
+                    return !shouldPrevent;
+                }
+                return true; // Allow if no body
             }
         }
 
@@ -574,6 +621,21 @@ namespace DrifterBossGrabMod
 
         #region Bag Patches
 
+        // Prevent assigning blacklisted passengers
+        [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
+        public class DrifterBagController_AssignPassenger_PreventBlacklisted
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(GameObject passengerObject)
+            {
+                if (passengerObject && PluginConfig.IsBlacklisted(passengerObject.name))
+                {
+                    return false;
+                }
+                return true;
+            }
+        }
+
         // Modify AssignPassenger to eject bosses from vehicles
         [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
         public class DrifterBagController_AssignPassenger
@@ -602,6 +664,29 @@ namespace DrifterBossGrabMod
                 }
                 if (passengerObject)
                 {
+                    // Clean SpecialObjectAttributes lists to remove null entries
+                    var soa = passengerObject.GetComponent<SpecialObjectAttributes>();
+                    if (soa)
+                    {
+                        soa.childSpecialObjectAttributes.RemoveAll(s => s == null);
+                        soa.renderersToDisable.RemoveAll(r => r == null);
+                        soa.behavioursToDisable.RemoveAll(b => b == null);
+                        soa.childObjectsToDisable.RemoveAll(c => c == null);
+                        soa.pickupDisplaysToDisable.RemoveAll(p => p == null);
+                        soa.lightsToDisable.RemoveAll(l => l == null);
+                        soa.objectsToDetach.RemoveAll(o => o == null);
+                        soa.skillHighlightRenderers.RemoveAll(r => r == null);
+                        // For MinePodBody, disable all colliders and hurtboxes to prevent collision issues
+                        if (passengerObject.name.Contains("MinePodBody"))
+                        {
+                            Traverse.Create(soa).Field("disableAllCollidersAndHurtboxes").SetValue(true);
+                        }
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Cleaned null entries from SpecialObjectAttributes on {passengerObject.name}");
+                        }
+                    }
+
                     // Cache component lookups
                     var body = passengerObject.GetComponent<CharacterBody>();
                     var interactable = passengerObject.GetComponent<IInteractable>();
@@ -672,7 +757,7 @@ namespace DrifterBossGrabMod
                         var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
                         grabbedState.originalColliderStates = new Dictionary<Collider, bool>(originalColliderStates);
                         grabbedState.originalInteractableStates = new Dictionary<MonoBehaviour, bool>(originalInteractableEnabled);
-                        grabbedState.originalStandableStates = new Dictionary<GameObject, bool>(originalStandableStates);
+                        grabbedState.originalMovementStates = new Dictionary<GameObject, bool>(originalStandableStates);
                         grabbedState.originalRendererStates = new Dictionary<Renderer, bool>(originalRendererStates);
                         grabbedState.originalHighlightStates = new Dictionary<Highlight, bool>(originalHighlightStates);
 
@@ -696,7 +781,7 @@ namespace DrifterBossGrabMod
                     var modelLocator = passengerObject.GetComponent<ModelLocator>();
                     Log.Info($"{Constants.LogPrefix} ModelLocator for {passengerObject.name}: {modelLocator != null}");
                 }
-                DisableStandableSurfaces(passengerObject, originalStandableStates);
+                DisableMovementColliders(passengerObject, originalStandableStates);
             }
         }
 
@@ -816,7 +901,7 @@ namespace DrifterBossGrabMod
                         // This shouldn't happen in normal flow (hopefully), but restore anyway
                         RestoreColliders(DrifterBagController_AssignPassenger.originalColliderStates);
                         RestoreInteractables(DrifterBagController_AssignPassenger.originalInteractableEnabled);
-                        RestoreStandableSurfaces(DrifterBagController_AssignPassenger.originalStandableStates);
+                        RestoreMovementColliders(DrifterBagController_AssignPassenger.originalStandableStates);
                         RestoreRenderers(DrifterBagController_AssignPassenger.originalRendererStates);
 
                         // TODO
@@ -896,11 +981,12 @@ namespace DrifterBossGrabMod
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
                         bool canGrab = (PluginConfig.EnableBossGrabbing.Value && isBoss) ||
                                         (PluginConfig.EnableNPCGrabbing.Value && isUngrabbable);
+                        bool isBlacklisted = PluginConfig.IsBlacklisted(component2.name);
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, canGrab={canGrab}");
+                            Log.Info($"{Constants.LogPrefix} Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
                         }
-                        if (canGrab)
+                        if (canGrab && !isBlacklisted)
                         {
                             if (cachedDebugLogsEnabled)
                             {

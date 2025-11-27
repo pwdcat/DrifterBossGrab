@@ -10,13 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better performance with cached config values, optimized blacklist checking, improved component caching
 - Replaced timer-based interactable caching with hooks
 - Reduced garbage collection
+- Preserved original behavior for blacklisted objects in SpecialObjectAttributes
+- Improved DisableMovementColliders to handle both CollideWithCharacterHullOnly and World layers
 
 ### Added
 - Interactables are added/removed from cache as they spawn/destroy
 - Cache automatically refreshes when players join to catch late-loaded objects
+- SpecialObjectAttributes patches now apply per entity type
 
 ### Changed
 - Default config values
+- Cleaner code for disabling movement-related colliders
 
 ## [1.1.3] - 2025-11-26
 
