@@ -39,6 +39,7 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> EnableNPCGrabbing { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; }
         public static ConfigEntry<int> MaxSmacks { get; private set; }
+        public static ConfigEntry<string> MassMultiplier { get; private set; }
         public static ConfigEntry<bool> EnableDebugLogs { get; private set; }
         public static ConfigEntry<string> BodyBlacklist { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentInvisibility { get; private set; }
@@ -82,6 +83,7 @@ namespace DrifterBossGrabMod
             EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag");
             EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
             MaxSmacks = cfg.Bind("Bag", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out", new AcceptableValueRange<int>(1, 100)));
+            MassMultiplier = cfg.Bind("Bag", "MassMultiplier", "1", "Multiplier for the mass of bagged objects");
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
             BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "HeaterPodBodyNoRespawn,GenericPickup",
                 "Comma-separated list of body names to never grab.\n" +
@@ -436,6 +438,7 @@ namespace DrifterBossGrabMod
                 ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableNPCGrabbing));
                 ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentGrabbing));
                 ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxSmacks));
+                ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.MassMultiplier));
                 ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableDebugLogs));
                 ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.BodyBlacklist));
                 ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentInvisibility));
@@ -474,6 +477,23 @@ namespace DrifterBossGrabMod
             public static void Postfix(DrifterBagController __instance)
             {
                 __instance.maxSmacks = PluginConfig.MaxSmacks.Value;
+            }
+        }
+
+        // Apply mass multiplier to bagged objects
+        [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
+        public class DrifterBagController_CalculateBaggedObjectMass_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(ref float __result)
+            {
+                float multiplier = 1.0f;
+                if (float.TryParse(PluginConfig.MassMultiplier.Value, out float parsed))
+                {
+                    multiplier = parsed;
+                }
+                __result *= multiplier;
+                __result = Mathf.Clamp(__result, 0f, DrifterBagController.maxMass);
             }
         }
 

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interactables are added/removed from cache as they spawn/destroy
 - Cache automatically refreshes when players join to catch late-loaded objects
 - SpecialObjectAttributes patches now apply per entity type
+- Configurable mass multiplier for bagged objects
 
 ### Changed
 - Default config values
