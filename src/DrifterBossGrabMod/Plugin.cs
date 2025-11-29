@@ -814,6 +814,18 @@ namespace DrifterBossGrabMod
                     DisableMovementColliders(passengerObject, localDisabledStates);
                 }
 
+                // Remove any existing GrabbedObjectState to prevent duplicates
+                var existingState = passengerObject.GetComponent<GrabbedObjectState>();
+                if (existingState != null)
+                {
+                    // Restore the object's original states before destroying the component
+                    existingState.RestoreAllStates();
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Restored and destroyed existing GrabbedObjectState on {passengerObject.name}");
+                    }
+                }
+
                 // Add state storage component to all passengers
                 var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
                 grabbedState.originalColliderStates = localColliderStates;
