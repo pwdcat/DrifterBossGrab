@@ -24,7 +24,6 @@ namespace DrifterBossGrabMod
         public const string FullBodyOverride = "FullBody, Override";
         public const string SuffocateHit = "SuffocateHit";
         public const string SuffocatePlaybackRate = "Suffocate.playbackRate";
-        public const string StandableSurface = "StandableSurface";
         public const string CloneSuffix = "(Clone)";
     }
 
@@ -109,6 +108,8 @@ namespace DrifterBossGrabMod
         // Cache for IInteractable objects
         private static HashSet<GameObject> cachedInteractables = new HashSet<GameObject>();
         private static bool isCacheInitialized = false;
+        private const int MAX_CACHE_SIZE = 1000;
+        private static readonly object cacheLock = new object();
 
         // Cached config values
         private static bool cachedDebugLogsEnabled;
@@ -119,6 +120,14 @@ namespace DrifterBossGrabMod
         private static FieldInfo? upwardVelocityField;
         private static float? originalForwardVelocity;
         private static float? originalUpwardVelocity;
+
+        // Event handler references for cleanup
+        private EventHandler debugLogsHandler;
+        private EventHandler envInvisHandler;
+        private EventHandler envInteractHandler;
+        private EventHandler blacklistHandler;
+        private EventHandler forwardVelHandler;
+        private EventHandler upwardVelHandler;
 
         // Disables renderers on the given GameObject for invisibility
         private static void DisableRenderersForInvisibility(GameObject obj, Dictionary<Renderer, bool> originalStates)
@@ -173,7 +182,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Disables colliders on CollideWithCharacterHullOnly and World layers
+        // Disables all colliders on enemies to prevent collision issues
         private static void DisableMovementColliders(GameObject obj, Dictionary<GameObject, bool> originalStates)
         {
             var modelLocator = obj.GetComponent<ModelLocator>();
@@ -188,7 +197,7 @@ namespace DrifterBossGrabMod
                     {
                         Log.Info($"{Constants.LogPrefix} Checking {child.name}, layer: {layer} ({layerName}), hasCollider: {collider != null}");
                     }
-                    if (layer == LayerMask.NameToLayer("CollideWithCharacterHullOnly") || layer == LayerMask.NameToLayer("World"))
+                    if (collider != null)
                     {
                         if (!originalStates.ContainsKey(child.gameObject))
                         {
@@ -197,20 +206,7 @@ namespace DrifterBossGrabMod
                         child.gameObject.SetActive(false);
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Disabled {child.name} due to layer {layerName} and collider: {collider != null}");
-                        }
-                    }
-                    // Special case for StandableSurface
-                    else if (child.name == Constants.StandableSurface)
-                    {
-                        if (!originalStates.ContainsKey(child.gameObject))
-                        {
-                            originalStates[child.gameObject] = child.gameObject.activeSelf;
-                        }
-                        child.gameObject.SetActive(false);
-                        if (cachedDebugLogsEnabled)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Disabled {child.name} as StandableSurface");
+                            Log.Info($"{Constants.LogPrefix} Disabled {child.name} due to collider on layer {layerName}");
                         }
                     }
                 }
@@ -359,45 +355,51 @@ namespace DrifterBossGrabMod
             upwardVelocityField = AccessTools.Field(typeof(EntityStates.Drifter.Repossess), "upwardVelocity");
 
             // Subscribe to config changes for real-time updates
-            PluginConfig.EnableDebugLogs.SettingChanged += (sender, args) =>
+            debugLogsHandler = (sender, args) =>
             {
                 cachedDebugLogsEnabled = PluginConfig.EnableDebugLogs.Value;
                 Log.EnableDebugLogs = cachedDebugLogsEnabled;
             };
+            PluginConfig.EnableDebugLogs.SettingChanged += debugLogsHandler;
 
-            PluginConfig.EnableEnvironmentInvisibility.SettingChanged += (sender, args) =>
+            envInvisHandler = (sender, args) =>
             {
                 cachedEnableEnvironmentInvisibility = PluginConfig.EnableEnvironmentInvisibility.Value;
             };
+            PluginConfig.EnableEnvironmentInvisibility.SettingChanged += envInvisHandler;
 
-            PluginConfig.EnableEnvironmentInteractionDisable.SettingChanged += (sender, args) =>
+            envInteractHandler = (sender, args) =>
             {
                 cachedEnableEnvironmentInteractionDisable = PluginConfig.EnableEnvironmentInteractionDisable.Value;
             };
+            PluginConfig.EnableEnvironmentInteractionDisable.SettingChanged += envInteractHandler;
 
-            PluginConfig.BodyBlacklist.SettingChanged += (sender, args) =>
+            blacklistHandler = (sender, args) =>
             {
                 // Clear cache so it rebuilds with new value
                 PluginConfig._blacklistCache = null;
                 PluginConfig._blacklistCacheWithClones = null;
             };
+            PluginConfig.BodyBlacklist.SettingChanged += blacklistHandler;
 
             // Runtime updates for multipliers
-            PluginConfig.ForwardVelocityMultiplier.SettingChanged += (sender, args) =>
+            forwardVelHandler = (sender, args) =>
             {
                 if (originalForwardVelocity.HasValue)
                 {
                     forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.ForwardVelocityMultiplier.Value);
                 }
             };
+            PluginConfig.ForwardVelocityMultiplier.SettingChanged += forwardVelHandler;
 
-            PluginConfig.UpwardVelocityMultiplier.SettingChanged += (sender, args) =>
+            upwardVelHandler = (sender, args) =>
             {
                 if (originalUpwardVelocity.HasValue)
                 {
                     upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.UpwardVelocityMultiplier.Value);
                 }
             };
+            PluginConfig.UpwardVelocityMultiplier.SettingChanged += upwardVelHandler;
 
             Harmony harmony = new Harmony("com.DrifterBossGrab");
             harmony.PatchAll();
@@ -407,6 +409,17 @@ namespace DrifterBossGrabMod
 
             // Scene changes to refresh cache
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnSceneChanged;
+        }
+
+        // Cleanup event handlers to prevent memory leaks
+        public void OnDestroy()
+        {
+            PluginConfig.EnableDebugLogs.SettingChanged -= debugLogsHandler;
+            PluginConfig.EnableEnvironmentInvisibility.SettingChanged -= envInvisHandler;
+            PluginConfig.EnableEnvironmentInteractionDisable.SettingChanged -= envInteractHandler;
+            PluginConfig.BodyBlacklist.SettingChanged -= blacklistHandler;
+            PluginConfig.ForwardVelocityMultiplier.SettingChanged -= forwardVelHandler;
+            PluginConfig.UpwardVelocityMultiplier.SettingChanged -= upwardVelHandler;
         }
 
         private static void OnPlayerFirstCreated(Run run, PlayerCharacterMasterController pcm)
@@ -683,155 +696,136 @@ namespace DrifterBossGrabMod
         [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
         public class DrifterBagController_AssignPassenger
         {
-            // Store collider states
-            public static readonly Dictionary<Collider, bool> originalColliderStates = new Dictionary<Collider, bool>();
-            // Store renderer states
-            public static readonly Dictionary<Renderer, bool> originalRendererStates = new Dictionary<Renderer, bool>();
-            // Store purchase interaction
-            public static readonly Dictionary<PurchaseInteraction, bool> originalPurchaseStates = new Dictionary<PurchaseInteraction, bool>();
-            // Store highlight states
-            public static readonly Dictionary<Highlight, bool> originalHighlightStates = new Dictionary<Highlight, bool>();
-            // Store layer
-            public static readonly Dictionary<GameObject, int> originalLayers = new Dictionary<GameObject, int>();
-            // Store enabled state
-            public static readonly Dictionary<MonoBehaviour, bool> originalInteractableEnabled = new Dictionary<MonoBehaviour, bool>();
-            // Store isTrigger state
-            public static readonly Dictionary<Collider, bool> originalIsTrigger = new Dictionary<Collider, bool>();
-            // Store StandableSurface states
-            public static readonly Dictionary<GameObject, bool> originalStandableStates = new Dictionary<GameObject, bool>();
-
             [HarmonyPrefix]
             public static void Prefix(GameObject passengerObject)
             {
+                if (!passengerObject) return;
+
                 CharacterBody body = null;
+                var interactable = passengerObject.GetComponent<IInteractable>();
+                var rb = passengerObject.GetComponent<Rigidbody>();
+                var highlight = passengerObject.GetComponent<Highlight>();
+
+                // Create local state dictionaries
+                var localColliderStates = new Dictionary<Collider, bool>();
+                var localRendererStates = new Dictionary<Renderer, bool>();
+                var localInteractableEnabled = new Dictionary<MonoBehaviour, bool>();
+                var localHighlightStates = new Dictionary<Highlight, bool>();
+                var localDisabledStates = new Dictionary<GameObject, bool>();
+
                 if (cachedDebugLogsEnabled)
                 {
                     Log.Info($"{Constants.LogPrefix} AssignPassenger called for {passengerObject}");
                 }
-                if (passengerObject)
+
+                // Clean SpecialObjectAttributes lists to remove null entries
+                var soa = passengerObject.GetComponent<SpecialObjectAttributes>();
+                if (soa)
                 {
-                    // Clean SpecialObjectAttributes lists to remove null entries
-                    var soa = passengerObject.GetComponent<SpecialObjectAttributes>();
-                    if (soa)
+                    soa.childSpecialObjectAttributes.RemoveAll(s => s == null);
+                    soa.renderersToDisable.RemoveAll(r => r == null);
+                    soa.behavioursToDisable.RemoveAll(b => b == null);
+                    soa.childObjectsToDisable.RemoveAll(c => c == null);
+                    soa.pickupDisplaysToDisable.RemoveAll(p => p == null);
+                    soa.lightsToDisable.RemoveAll(l => l == null);
+                    soa.objectsToDetach.RemoveAll(o => o == null);
+                    soa.skillHighlightRenderers.RemoveAll(r => r == null);
+                    // For MinePodBody, disable all colliders and hurtboxes to prevent collision issues
+                    if (passengerObject.name.Contains("MinePodBody"))
                     {
-                        soa.childSpecialObjectAttributes.RemoveAll(s => s == null);
-                        soa.renderersToDisable.RemoveAll(r => r == null);
-                        soa.behavioursToDisable.RemoveAll(b => b == null);
-                        soa.childObjectsToDisable.RemoveAll(c => c == null);
-                        soa.pickupDisplaysToDisable.RemoveAll(p => p == null);
-                        soa.lightsToDisable.RemoveAll(l => l == null);
-                        soa.objectsToDetach.RemoveAll(o => o == null);
-                        soa.skillHighlightRenderers.RemoveAll(r => r == null);
-                        // For MinePodBody, disable all colliders and hurtboxes to prevent collision issues
-                        if (passengerObject.name.Contains("MinePodBody"))
-                        {
-                            Traverse.Create(soa).Field("disableAllCollidersAndHurtboxes").SetValue(true);
-                        }
-                        if (cachedDebugLogsEnabled)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Cleaned null entries from SpecialObjectAttributes on {passengerObject.name}");
-                        }
+                        Traverse.Create(soa).Field("disableAllCollidersAndHurtboxes").SetValue(true);
                     }
-
-                    // Cache component lookups
-                    body = passengerObject.GetComponent<CharacterBody>();
-                    var interactable = passengerObject.GetComponent<IInteractable>();
-                    var rb = passengerObject.GetComponent<Rigidbody>();
-                    var highlight = passengerObject.GetComponent<Highlight>();
-
-                    if (body)
+                    if (cachedDebugLogsEnabled)
                     {
-                        if (cachedDebugLogsEnabled)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Assigning {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, currentVehicle: {body.currentVehicle != null}");
-                        }
-                        // Eject ungrabbable enemies from vehicles before assigning
-                        if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && body.currentVehicle != null)
-                        {
-                            body.currentVehicle.EjectPassenger(passengerObject);
-                            if (cachedDebugLogsEnabled)
-                            {
-                                Log.Info($"{Constants.LogPrefix} Ejected {body.name} from vehicle");
-                            }
-                        }
-                        // TODO, need a revisit
-                        // If has Rigidbody, make kinematic to prevent physics issues
-                        if (rb)
-                        {
-                            rb.isKinematic = true;
-                            rb.detectCollisions = false;
-                        }
-                    }
-                    else if (interactable != null)
-                    {
-                        if (cachedDebugLogsEnabled)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Assigning IInteractable: {passengerObject.name}");
-                        }
-                        if (cachedEnableEnvironmentInvisibility)
-                        {
-                            DisableRenderersForInvisibility(passengerObject, originalRendererStates);
-                        }
-                        if (cachedEnableEnvironmentInteractionDisable)
-                        {
-                            DisableInteractable(interactable, originalInteractableEnabled);
-                            if (cachedDebugLogsEnabled)
-                            {
-                                Log.Info($"{Constants.LogPrefix} Disabling IInteractable on {passengerObject.name}");
-                            }
-                        }
-                        DisableColliders(passengerObject, originalColliderStates);
-                        // TODO, need a revisit
-                        // If has Rigidbody, make kinematic
-                        if (rb)
-                        {
-                            rb.isKinematic = true;
-                            rb.detectCollisions = false;
-                        }
-                        // TODO, inconsistent
-                        // Disable highlight to prevent persistent glow effect
-                        if (highlight != null)
-                        {
-                            if (!originalHighlightStates.ContainsKey(highlight))
-                            {
-                                originalHighlightStates[highlight] = highlight.enabled;
-                            }
-                            highlight.enabled = false;
-                        }
-
-                        // Add state storage component
-                        var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
-                        grabbedState.originalColliderStates = new Dictionary<Collider, bool>(originalColliderStates);
-                        grabbedState.originalIsTrigger = new Dictionary<Collider, bool>(originalIsTrigger);
-                        grabbedState.originalInteractableStates = new Dictionary<MonoBehaviour, bool>(originalInteractableEnabled);
-                        grabbedState.originalMovementStates = new Dictionary<GameObject, bool>(originalStandableStates);
-                        grabbedState.originalRendererStates = new Dictionary<Renderer, bool>(originalRendererStates);
-                        grabbedState.originalHighlightStates = new Dictionary<Highlight, bool>(originalHighlightStates);
-
-                        // Clear the static dictionaries
-                        originalColliderStates.Clear();
-                        originalIsTrigger.Clear();
-                        originalInteractableEnabled.Clear();
-                        originalStandableStates.Clear();
-                        originalRendererStates.Clear();
-                        originalHighlightStates.Clear();
-
-                        if (cachedDebugLogsEnabled)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Added GrabbedObjectState to {passengerObject.name}");
-                        }
+                        Log.Info($"{Constants.LogPrefix} Cleaned null entries from SpecialObjectAttributes on {passengerObject.name}");
                     }
                 }
-                // TODO, this might cause problems with junk cube, or for other objects, needs more testing
-                // Store and disable StandableSurface and movement colliders to prevent movement bugs for flying bosses
-                if (body != null) // Only for enemies, not environment objects
+
+                // Cache component lookups
+                body = passengerObject.GetComponent<CharacterBody>();
+
+                if (body)
+                {
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Assigning {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, currentVehicle: {body.currentVehicle != null}");
+                    }
+                    // Eject ungrabbable enemies from vehicles before assigning
+                    if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && body.currentVehicle != null)
+                    {
+                        body.currentVehicle.EjectPassenger(passengerObject);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Ejected {body.name} from vehicle");
+                        }
+                    }
+                    // TODO, need a revisit
+                    // If has Rigidbody, make kinematic to prevent physics issues
+                    if (rb)
+                    {
+                        rb.isKinematic = true;
+                        rb.detectCollisions = false;
+                    }
+                }
+
+                if (interactable != null)
+                {
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Assigning IInteractable: {passengerObject.name}");
+                    }
+                    if (cachedEnableEnvironmentInvisibility)
+                    {
+                        DisableRenderersForInvisibility(passengerObject, localRendererStates);
+                    }
+                    if (cachedEnableEnvironmentInteractionDisable)
+                    {
+                        DisableInteractable(interactable, localInteractableEnabled);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Disabling IInteractable on {passengerObject.name}");
+                        }
+                    }
+                    DisableColliders(passengerObject, localColliderStates);
+                    // TODO, need a revisit
+                    // If has Rigidbody, make kinematic
+                    if (rb)
+                    {
+                        rb.isKinematic = true;
+                        rb.detectCollisions = false;
+                    }
+                    // TODO, inconsistent
+                    // Disable highlight to prevent persistent glow effect
+                    if (highlight != null)
+                    {
+                        localHighlightStates[highlight] = highlight.enabled;
+                        highlight.enabled = false;
+                    }
+                }
+
+                // Disable all colliders on enemies to prevent movement bugs for flying bosses
+                if (body != null)
                 {
                     if (cachedDebugLogsEnabled)
                     {
                         var modelLocator = passengerObject.GetComponent<ModelLocator>();
                         Log.Info($"{Constants.LogPrefix} ModelLocator for {passengerObject.name}: {modelLocator != null}");
                     }
-                    DisableMovementColliders(passengerObject, originalStandableStates);
+                    DisableMovementColliders(passengerObject, localDisabledStates);
+                }
+
+                // Add state storage component to all passengers
+                var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
+                grabbedState.originalColliderStates = localColliderStates;
+                grabbedState.originalRendererStates = localRendererStates;
+                grabbedState.originalInteractableStates = localInteractableEnabled;
+                grabbedState.originalMovementStates = localDisabledStates;
+                grabbedState.originalHighlightStates = localHighlightStates;
+                grabbedState.originalIsTrigger = new Dictionary<Collider, bool>();
+
+                if (cachedDebugLogsEnabled)
+                {
+                    Log.Info($"{Constants.LogPrefix} Added GrabbedObjectState to {passengerObject.name}");
                 }
             }
         }
@@ -854,20 +848,27 @@ namespace DrifterBossGrabMod
                 // Initialize or refresh cache when needed
                 if (!isCacheInitialized || cacheNeedsRefresh)
                 {
-                    cachedInteractables.Clear();
-                    foreach (MonoBehaviour mb in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+                    lock (cacheLock)
                     {
-                        if (mb is IInteractable)
+                        cachedInteractables.Clear();
+                        foreach (MonoBehaviour mb in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
                         {
-                            cachedInteractables.Add(mb.gameObject);
+                            if (mb is IInteractable)
+                            {
+                                cachedInteractables.Add(mb.gameObject);
+                                if (cachedInteractables.Count >= MAX_CACHE_SIZE)
+                                {
+                                    break; // Prevent excessive memory usage
+                                }
+                            }
                         }
-                    }
-                    isCacheInitialized = true;
-                    cacheNeedsRefresh = false;
+                        isCacheInitialized = true;
+                        cacheNeedsRefresh = false;
 
-                    if (cachedDebugLogsEnabled)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Refreshed interactable cache: {cachedInteractables.Count} objects cached");
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Refreshed interactable cache: {cachedInteractables.Count} objects cached");
+                        }
                     }
                 }
 
@@ -957,43 +958,18 @@ namespace DrifterBossGrabMod
 
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Restored renderers and highlights immediately for thrown {targetObject.name} - colliders will restore on impact");
+                            Log.Info($"{Constants.LogPrefix} Restored renderers and highlights immediately for thrown {targetObject.name} - other states will restore on impact");
                         }
                     }
                     else
                     {
-                        // Object is not being thrown (breakout or other release)
+                        // Fallback for objects without GrabbedObjectState (should not happen in normal flow)
                         if (cachedDebugLogsEnabled)
                         {
-                            Log.Info($"{Constants.LogPrefix} Bag exiting for {targetObject.name} - restoring states immediately");
+                            Log.Info($"{Constants.LogPrefix} No GrabbedObjectState found for {targetObject.name} - skipping state restoration");
                         }
-                        // This shouldn't happen in normal flow (hopefully), but restore anyway
-                        RestoreColliders(DrifterBagController_AssignPassenger.originalColliderStates);
-                        RestoreInteractables(DrifterBagController_AssignPassenger.originalInteractableEnabled);
-                        RestoreMovementColliders(DrifterBagController_AssignPassenger.originalStandableStates);
-                        RestoreRenderers(DrifterBagController_AssignPassenger.originalRendererStates);
-
-                        // TODO
-                        // Restore highlight states
-                        foreach (var kvp in DrifterBagController_AssignPassenger.originalHighlightStates)
-                        {
-                            if (kvp.Key != null)
-                            {
-                                kvp.Key.enabled = kvp.Value;
-                            }
-                        }
-                        DrifterBagController_AssignPassenger.originalHighlightStates.Clear();
                     }
 
-                    // Clear all dictionaries
-                    DrifterBagController_AssignPassenger.originalColliderStates.Clear();
-                    DrifterBagController_AssignPassenger.originalIsTrigger.Clear();
-                    DrifterBagController_AssignPassenger.originalRendererStates.Clear();
-                    DrifterBagController_AssignPassenger.originalPurchaseStates.Clear();
-                    DrifterBagController_AssignPassenger.originalHighlightStates.Clear();
-                    DrifterBagController_AssignPassenger.originalLayers.Clear();
-                    DrifterBagController_AssignPassenger.originalInteractableEnabled.Clear();
-                    DrifterBagController_AssignPassenger.originalStandableStates.Clear();
                 }
                 catch (Exception ex)
                 {
@@ -1035,16 +1011,16 @@ namespace DrifterBossGrabMod
                     {
                         Log.Info($"{Constants.LogPrefix} Allowing grab for IInteractable: {chosenTarget.name}");
                         var colliders = chosenTarget.GetComponentsInChildren<Collider>();
+                        var grabbedState = chosenTarget.GetComponent<GrabbedObjectState>();
                         foreach (var col in colliders)
                         {
                             if (cachedDebugLogsEnabled)
                             {
                                 Log.Info($"{Constants.LogPrefix} Found collider {col.name} on {chosenTarget.name}, isTrigger: {col.isTrigger}, enabled: {col.enabled}");
                             }
-                            if (!DrifterBagController_AssignPassenger.originalColliderStates.ContainsKey(col))
+                            if (grabbedState != null && !grabbedState.originalIsTrigger.ContainsKey(col))
                             {
-                                DrifterBagController_AssignPassenger.originalColliderStates[col] = col.enabled;
-                                DrifterBagController_AssignPassenger.originalIsTrigger[col] = col.isTrigger;
+                                grabbedState.originalIsTrigger[col] = col.isTrigger;
                             }
                             if (!col.isTrigger)
                             {
