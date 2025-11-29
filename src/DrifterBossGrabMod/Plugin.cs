@@ -1019,28 +1019,31 @@ namespace DrifterBossGrabMod
                 if (cachedDebugLogsEnabled)
                 {
                     Log.Info($"{Constants.LogPrefix} RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}");
-                    if (chosenTarget && chosenTarget.GetComponent<IInteractable>() != null)
+                }
+                if (chosenTarget && chosenTarget.GetComponent<IInteractable>() != null)
+                {
+                    if (cachedDebugLogsEnabled)
                     {
                         Log.Info($"{Constants.LogPrefix} Allowing grab for IInteractable: {chosenTarget.name}");
-                        var colliders = chosenTarget.GetComponentsInChildren<Collider>();
-                        var grabbedState = chosenTarget.GetComponent<GrabbedObjectState>();
-                        foreach (var col in colliders)
+                    }
+                    var colliders = chosenTarget.GetComponentsInChildren<Collider>();
+                    var grabbedState = chosenTarget.GetComponent<GrabbedObjectState>();
+                    foreach (var col in colliders)
+                    {
+                        if (cachedDebugLogsEnabled)
                         {
+                            Log.Info($"{Constants.LogPrefix} Found collider {col.name} on {chosenTarget.name}, isTrigger: {col.isTrigger}, enabled: {col.enabled}");
+                        }
+                        if (grabbedState != null && !grabbedState.originalIsTrigger.ContainsKey(col))
+                        {
+                            grabbedState.originalIsTrigger[col] = col.isTrigger;
+                        }
+                        if (!col.isTrigger)
+                        {
+                            col.isTrigger = true;
                             if (cachedDebugLogsEnabled)
                             {
-                                Log.Info($"{Constants.LogPrefix} Found collider {col.name} on {chosenTarget.name}, isTrigger: {col.isTrigger}, enabled: {col.enabled}");
-                            }
-                            if (grabbedState != null && !grabbedState.originalIsTrigger.ContainsKey(col))
-                            {
-                                grabbedState.originalIsTrigger[col] = col.isTrigger;
-                            }
-                            if (!col.isTrigger)
-                            {
-                                col.isTrigger = true;
-                                if (cachedDebugLogsEnabled)
-                                {
-                                    Log.Info($"{Constants.LogPrefix} Set collider {col.name} on {chosenTarget.name} to trigger to prevent collision during grab");
-                                }
+                                Log.Info($"{Constants.LogPrefix} Set collider {col.name} on {chosenTarget.name} to trigger to prevent collision during grab");
                             }
                         }
                     }
