@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Replaced static shared dictionaries to prevent buildup over time
 
-## [1.2.0] - 2025-11-26
+## [1.2.0] - 2025-11-27
 
 ### Fixed
 - Environment objects now restore states on projectile impact instead of immediately after throwing
