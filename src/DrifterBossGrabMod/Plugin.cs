@@ -662,13 +662,20 @@ namespace DrifterBossGrabMod
             [HarmonyPostfix]
             public static void Postfix(UnityEngine.Object obj)
             {
-                if (obj is GameObject go && go.GetComponent<IInteractable>() != null)
+                try
                 {
-                    cachedInteractables.Remove(go);
-                    if (cachedDebugLogsEnabled)
+                    if (obj is GameObject go && go.GetComponent<IInteractable>() != null)
                     {
-                        Log.Info($"{Constants.LogPrefix} Removed destroyed interactable {go.name}");
+                        cachedInteractables.Remove(go);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Removed destroyed interactable {go.name}");
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    // Ignore exceptions during object destruction
                 }
             }
         }
@@ -814,26 +821,21 @@ namespace DrifterBossGrabMod
                     DisableMovementColliders(passengerObject, localDisabledStates);
                 }
 
-                // Remove any existing GrabbedObjectState to prevent duplicates
-                var existingState = passengerObject.GetComponent<GrabbedObjectState>();
-                if (existingState != null)
+                // Check if GrabbedObjectState already exists (created in RepossessExit for trigger state storage)
+                var grabbedState = passengerObject.GetComponent<GrabbedObjectState>();
+                if (grabbedState == null)
                 {
-                    // Restore the object's original states before destroying the component
-                    existingState.RestoreAllStates();
-                    if (cachedDebugLogsEnabled)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Restored and destroyed existing GrabbedObjectState on {passengerObject.name}");
-                    }
+                    // Create new GrabbedObjectState if it doesn't exist
+                    grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
+                    grabbedState.originalIsTrigger = new Dictionary<Collider, bool>();
                 }
-
-                // Add state storage component to all passengers
-                var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
+                
+                // Set the other state dictionaries
                 grabbedState.originalColliderStates = localColliderStates;
                 grabbedState.originalRendererStates = localRendererStates;
                 grabbedState.originalInteractableStates = localInteractableEnabled;
                 grabbedState.originalMovementStates = localDisabledStates;
                 grabbedState.originalHighlightStates = localHighlightStates;
-                grabbedState.originalIsTrigger = new Dictionary<Collider, bool>();
 
                 if (cachedDebugLogsEnabled)
                 {
@@ -1028,16 +1030,26 @@ namespace DrifterBossGrabMod
                     }
                     var colliders = chosenTarget.GetComponentsInChildren<Collider>();
                     var grabbedState = chosenTarget.GetComponent<GrabbedObjectState>();
+                    
+                    // Create GrabbedObjectState early if it doesn't exist yet to store trigger states
+                    if (grabbedState == null)
+                    {
+                        grabbedState = chosenTarget.AddComponent<GrabbedObjectState>();
+                    }
+                    
                     foreach (var col in colliders)
                     {
                         if (cachedDebugLogsEnabled)
                         {
                             Log.Info($"{Constants.LogPrefix} Found collider {col.name} on {chosenTarget.name}, isTrigger: {col.isTrigger}, enabled: {col.enabled}");
                         }
-                        if (grabbedState != null && !grabbedState.originalIsTrigger.ContainsKey(col))
+                        bool originalTrigger = col.isTrigger;
+                        
+                        if (!grabbedState.originalIsTrigger.ContainsKey(col))
                         {
-                            grabbedState.originalIsTrigger[col] = col.isTrigger;
+                            grabbedState.originalIsTrigger[col] = originalTrigger;
                         }
+                        
                         if (!col.isTrigger)
                         {
                             col.isTrigger = true;
