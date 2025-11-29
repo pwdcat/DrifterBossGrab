@@ -260,6 +260,23 @@ namespace DrifterBossGrabMod
             originalStates.Clear();
         }
 
+        // Restores collider isTrigger states
+        private static void RestoreIsTrigger(Dictionary<Collider, bool> originalStates)
+        {
+            foreach (var kvp in originalStates)
+            {
+                if (kvp.Key != null)
+                {
+                    kvp.Key.isTrigger = kvp.Value;
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Restored collider {kvp.Key.name} isTrigger to {kvp.Value}");
+                    }
+                }
+            }
+            originalStates.Clear();
+        }
+
         // Restores collider states
         private static void RestoreMovementColliders(Dictionary<GameObject, bool> originalStates)
         {
@@ -277,6 +294,7 @@ namespace DrifterBossGrabMod
         private class GrabbedObjectState : MonoBehaviour
         {
             public Dictionary<Collider, bool> originalColliderStates = new Dictionary<Collider, bool>();
+            public Dictionary<Collider, bool> originalIsTrigger = new Dictionary<Collider, bool>();
             public Dictionary<MonoBehaviour, bool> originalInteractableStates = new Dictionary<MonoBehaviour, bool>();
             public Dictionary<GameObject, bool> originalMovementStates = new Dictionary<GameObject, bool>();
             public Dictionary<Renderer, bool> originalRendererStates = new Dictionary<Renderer, bool>();
@@ -291,6 +309,7 @@ namespace DrifterBossGrabMod
 
                 // Restore all states
                 RestoreColliders(originalColliderStates);
+                RestoreIsTrigger(originalIsTrigger);
                 RestoreInteractables(originalInteractableStates);
                 RestoreMovementColliders(originalMovementStates);
                 RestoreRenderers(originalRendererStates);
@@ -633,6 +652,10 @@ namespace DrifterBossGrabMod
                 if (obj is GameObject go && go.GetComponent<IInteractable>() != null)
                 {
                     cachedInteractables.Remove(go);
+                    if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Removed destroyed interactable {go.name}");
+                    }
                 }
             }
         }
@@ -672,6 +695,8 @@ namespace DrifterBossGrabMod
             public static readonly Dictionary<GameObject, int> originalLayers = new Dictionary<GameObject, int>();
             // Store enabled state
             public static readonly Dictionary<MonoBehaviour, bool> originalInteractableEnabled = new Dictionary<MonoBehaviour, bool>();
+            // Store isTrigger state
+            public static readonly Dictionary<Collider, bool> originalIsTrigger = new Dictionary<Collider, bool>();
             // Store StandableSurface states
             public static readonly Dictionary<GameObject, bool> originalStandableStates = new Dictionary<GameObject, bool>();
 
@@ -777,6 +802,7 @@ namespace DrifterBossGrabMod
                         // Add state storage component
                         var grabbedState = passengerObject.AddComponent<GrabbedObjectState>();
                         grabbedState.originalColliderStates = new Dictionary<Collider, bool>(originalColliderStates);
+                        grabbedState.originalIsTrigger = new Dictionary<Collider, bool>(originalIsTrigger);
                         grabbedState.originalInteractableStates = new Dictionary<MonoBehaviour, bool>(originalInteractableEnabled);
                         grabbedState.originalMovementStates = new Dictionary<GameObject, bool>(originalStandableStates);
                         grabbedState.originalRendererStates = new Dictionary<Renderer, bool>(originalRendererStates);
@@ -784,6 +810,7 @@ namespace DrifterBossGrabMod
 
                         // Clear the static dictionaries
                         originalColliderStates.Clear();
+                        originalIsTrigger.Clear();
                         originalInteractableEnabled.Clear();
                         originalStandableStates.Clear();
                         originalRendererStates.Clear();
@@ -819,6 +846,11 @@ namespace DrifterBossGrabMod
                 if (!PluginConfig.EnableEnvironmentGrabbing.Value)
                     return;
 
+                if (cachedDebugLogsEnabled)
+                {
+                    Log.Info($"{Constants.LogPrefix} Searching for interactables: origin={__instance.searchOrigin}, minDist={__instance.minDistanceFilter}, maxDist={__instance.maxDistanceFilter}");
+                }
+
                 // Initialize or refresh cache when needed
                 if (!isCacheInitialized || cacheNeedsRefresh)
                 {
@@ -849,7 +881,13 @@ namespace DrifterBossGrabMod
 
                     // Check blacklist
                     if (PluginConfig.IsBlacklisted(go.name))
+                    {
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Skipped blacklisted interactable {go.name}");
+                        }
                         continue;
+                    }
 
                     Vector3 position = go.transform.position;
                     Vector3 vector = position - __instance.searchOrigin;
@@ -860,6 +898,10 @@ namespace DrifterBossGrabMod
                         // Simple distance check
                         results.Add(go);
                         existingResults.Add(go);
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Added interactable {go.name} at distance {Mathf.Sqrt(sqrMagnitude)}");
+                        }
                     }
                 }
                 __result = results;
@@ -945,6 +987,7 @@ namespace DrifterBossGrabMod
 
                     // Clear all dictionaries
                     DrifterBagController_AssignPassenger.originalColliderStates.Clear();
+                    DrifterBagController_AssignPassenger.originalIsTrigger.Clear();
                     DrifterBagController_AssignPassenger.originalRendererStates.Clear();
                     DrifterBagController_AssignPassenger.originalPurchaseStates.Clear();
                     DrifterBagController_AssignPassenger.originalHighlightStates.Clear();
@@ -991,6 +1034,27 @@ namespace DrifterBossGrabMod
                     if (chosenTarget && chosenTarget.GetComponent<IInteractable>() != null)
                     {
                         Log.Info($"{Constants.LogPrefix} Allowing grab for IInteractable: {chosenTarget.name}");
+                        var colliders = chosenTarget.GetComponentsInChildren<Collider>();
+                        foreach (var col in colliders)
+                        {
+                            if (cachedDebugLogsEnabled)
+                            {
+                                Log.Info($"{Constants.LogPrefix} Found collider {col.name} on {chosenTarget.name}, isTrigger: {col.isTrigger}, enabled: {col.enabled}");
+                            }
+                            if (!DrifterBagController_AssignPassenger.originalColliderStates.ContainsKey(col))
+                            {
+                                DrifterBagController_AssignPassenger.originalColliderStates[col] = col.enabled;
+                                DrifterBagController_AssignPassenger.originalIsTrigger[col] = col.isTrigger;
+                            }
+                            if (!col.isTrigger)
+                            {
+                                col.isTrigger = true;
+                                if (cachedDebugLogsEnabled)
+                                {
+                                    Log.Info($"{Constants.LogPrefix} Set collider {col.name} on {chosenTarget.name} to trigger to prevent collision during grab");
+                                }
+                            }
+                        }
                     }
                 }
                 // If chosenTarget was rejected but it's grabbable, allow it
