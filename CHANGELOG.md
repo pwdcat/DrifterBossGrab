@@ -3,6 +3,20 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-11-29
+
+### Fixed
+- Bug when grabbing object mid air that added two GrabbedObjectStates, causing visibility and collision issues
+- DisableMovementColliders now includes all colliders and works with Spex
+- Possible memory leak from event handlers
+- Legendary chest interaction
+
+### Added
+- Max cache size
+
+### Changed
+- Replaced static shared dictionaries to prevent buildup over time
+
 ## [1.2.0] - 2025-11-26
 
 ### Fixed
