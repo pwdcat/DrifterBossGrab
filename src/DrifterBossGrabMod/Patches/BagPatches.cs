@@ -56,6 +56,16 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($"{Constants.LogPrefix} AssignPassenger called for {passengerObject}");
                 }
 
+                // Special case: persist teleporters immediately when bagged
+                if (passengerObject.name.ToLower().Contains("teleporter") && PluginConfig.EnableObjectPersistence.Value)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Teleporter {passengerObject.name} bagged - persisting immediately");
+                    }
+                    PersistenceManager.AddPersistedObject(passengerObject);
+                }
+
                 // Clean SpecialObjectAttributes lists to remove null entries
                 var soa = passengerObject.GetComponent<SpecialObjectAttributes>();
                 if (soa)

@@ -26,6 +26,9 @@ namespace DrifterBossGrabMod
         private static bool _persistenceWindowActive = false;
         private static readonly HashSet<GameObject> _thrownObjectsMarkedForPersistence = new HashSet<GameObject>();
 
+        // Tracking for objects that should have TeleporterInteraction disabled
+        private static readonly HashSet<GameObject> _teleportersToDisable = new HashSet<GameObject>();
+
         // Constants
         private const string PERSISTENCE_CONTAINER_NAME = "DBG_PersistenceContainer";
 
@@ -205,7 +208,20 @@ namespace DrifterBossGrabMod
         // Mark a thrown object for persistence (called when thrown object impacts)
         public static void MarkThrownObjectForPersistence(GameObject obj)
         {
-            if (obj == null || !_persistenceWindowActive) return;
+            if (obj == null) return;
+
+            // Special case: persist teleporters immediately when thrown
+            if (obj.name.ToLower().Contains("teleporter") && _persistenceWindowActive)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Teleporter {obj.name} thrown - persisting immediately");
+                }
+                AddPersistedObject(obj);
+                return;
+            }
+
+            if (!_persistenceWindowActive) return;
 
             lock (_lock)
             {
@@ -418,6 +434,7 @@ namespace DrifterBossGrabMod
             // Deactivate persistence window when scene changes
             DeactivatePersistenceWindow();
 
+
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 Log.Info($"{Constants.LogPrefix} Scene changed from {oldScene.name} to {newScene.name}, restoring {GetPersistedObjectsCount()} persisted objects");
@@ -523,6 +540,62 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // Helper class to re-enable teleporter after restoration to prevent FixedUpdate errors
+        private class TeleporterEnabler : MonoBehaviour
+        {
+            private RoR2.TeleporterInteraction _teleporterInteraction;
+
+            public void Initialize(RoR2.TeleporterInteraction teleporterInteraction)
+            {
+                _teleporterInteraction = teleporterInteraction;
+                StartCoroutine(DelayedEnable());
+            }
+
+            private System.Collections.IEnumerator DelayedEnable()
+            {
+                // Wait longer for the teleporter to fully initialize and state machine to settle
+                for (int i = 0; i < 10; i++)
+                {
+                    yield return null;
+                }
+
+                if (_teleporterInteraction != null)
+                {
+                    // Debug: Check teleporter state before re-enabling
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Pre-re-enable check for {_teleporterInteraction.name}:");
+                        Log.Info($"{Constants.LogPrefix} - enabled: {_teleporterInteraction.enabled}");
+                        Log.Info($"{Constants.LogPrefix} - gameObject.activeInHierarchy: {_teleporterInteraction.gameObject.activeInHierarchy}");
+                        Log.Info($"{Constants.LogPrefix} - mainStateMachine: {_teleporterInteraction.mainStateMachine}");
+                        if (_teleporterInteraction.mainStateMachine != null)
+                        {
+                            Log.Info($"{Constants.LogPrefix} - currentState: {_teleporterInteraction.mainStateMachine.state}");
+                            Log.Info($"{Constants.LogPrefix} - stateMachine enabled: {_teleporterInteraction.mainStateMachine.enabled}");
+                        }
+                        Log.Info($"{Constants.LogPrefix} - activationState: {_teleporterInteraction.activationState}");
+
+                        // Check for common null references that might cause FixedUpdate errors
+                        var sceneExitController = _teleporterInteraction.GetComponent<RoR2.SceneExitController>();
+                        Log.Info($"{Constants.LogPrefix} - SceneExitController: {sceneExitController}");
+                        if (sceneExitController != null)
+                        {
+                            Log.Info($"{Constants.LogPrefix} - SceneExitController enabled: {sceneExitController.enabled}");
+                        }
+                    }
+
+                    _teleporterInteraction.enabled = true;
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Re-enabled TeleporterInteraction on {_teleporterInteraction.name} after restoration");
+                    }
+                }
+
+                // Clean up this component
+                UnityEngine.Object.Destroy(this);
+            }
+        }
+
         // Restore persisted objects
         private static void RestorePersistedObjects()
         {
@@ -534,13 +607,6 @@ namespace DrifterBossGrabMod
                 }
 
                 var objectsToRemove = new List<GameObject>();
-
-                // Check if current scene already has a teleporter
-                bool sceneHasTeleporter = TeleporterInteraction.instance != null;
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Scene has teleporter: {sceneHasTeleporter}");
-                }
 
                 foreach (var obj in _persistedObjects.ToArray())
                 {
@@ -556,18 +622,6 @@ namespace DrifterBossGrabMod
 
                     string objName = obj.name.ToLower();
 
-                    // Skip teleporters if scene already has one
-                    if (objName.Contains("teleporter") && sceneHasTeleporter)
-                    {
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Skipping restoration of {obj.name} - scene already has a teleporter");
-                        }
-                        // Destroy the persisted teleporter instead of restoring it
-                        UnityEngine.Object.Destroy(obj);
-                        _persistedObjects.Remove(obj);
-                        continue;
-                    }
 
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
@@ -829,6 +883,34 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // Check if teleporter should be disabled
+        public static bool ShouldDisableTeleporter(GameObject obj)
+        {
+            lock (_lock)
+            {
+                return _teleportersToDisable.Contains(obj);
+            }
+        }
+
+        // Mark teleporter for disabling
+        public static void MarkTeleporterForDisabling(GameObject obj)
+        {
+            if (obj == null) return;
+            lock (_lock)
+            {
+                _teleportersToDisable.Add(obj);
+            }
+        }
+
+        // Clear teleporter disabling marks
+        public static void ClearTeleporterDisablingMarks()
+        {
+            lock (_lock)
+            {
+                _teleportersToDisable.Clear();
+            }
+        }
+
         // Handle special restoration logic
         private static void HandleSpecialObjectRestoration(GameObject obj)
         {
@@ -836,9 +918,17 @@ namespace DrifterBossGrabMod
 
             string objName = obj.name.ToLower();
 
+            // Handle teleporters - mark for disabling to prevent FixedUpdate errors
+            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
+            if (teleporterInteraction != null)
+            {
+                // Mark this teleporter to be disabled in FixedUpdate
+                MarkTeleporterForDisabling(obj);
+            }
+
             // Handle DitherModel objects first (chests, purchasables)
-            var ditherModel = obj.GetComponent<RoR2.DitherModel>();
-            if (ditherModel != null)
+             var ditherModel = obj.GetComponent<RoR2.DitherModel>();
+             if (ditherModel != null)
             {
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
