@@ -12,11 +12,11 @@ namespace DrifterBossGrabMod
             _logSource = logSource;
         }
 
-        internal static void Debug(object data) { if (EnableDebugLogs) _logSource?.LogDebug(data); }
-        internal static void Error(object data) => _logSource?.LogError(data);
-        internal static void Fatal(object data) => _logSource?.LogFatal(data);
-        internal static void Info(object data) { if (EnableDebugLogs) _logSource?.LogInfo(data); }
+        internal static void Debug(object data) { if (EnableDebugLogs) _logSource?.LogMessage($"[DEBUG] {data}"); }
+        internal static void Error(object data) => _logSource?.LogMessage($"[ERROR] {data}");
+        internal static void Fatal(object data) => _logSource?.LogMessage($"[FATAL] {data}");
+        internal static void Info(object data) { if (EnableDebugLogs) _logSource?.LogMessage($"[INFO] {data}"); }
         internal static void Message(object data) => _logSource?.LogMessage(data);
-        internal static void Warning(object data) => _logSource?.LogWarning(data);
+        internal static void Warning(object data) => _logSource?.LogMessage($"[WARNING] {data}");
     }
 }

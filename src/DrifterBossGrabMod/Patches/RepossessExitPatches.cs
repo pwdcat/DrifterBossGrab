@@ -47,6 +47,13 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.Info($"{Constants.LogPrefix} Restored renderers and highlights immediately for thrown {targetObject.name} - other states will restore on impact");
                         }
+
+                        // Set upright rotation for all thrown objects
+                        targetObject.transform.rotation = Quaternion.identity;
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Set upright rotation for thrown {targetObject.name}");
+                        }
                     }
                     else
                     {

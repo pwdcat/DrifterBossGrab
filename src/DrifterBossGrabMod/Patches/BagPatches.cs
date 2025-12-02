@@ -174,6 +174,9 @@ namespace DrifterBossGrabMod.Patches
                 grabbedState.originalMovementStates = localDisabledStates;
                 grabbedState.originalHighlightStates = localHighlightStates;
 
+                // Track the bagged object for persistence
+                PersistenceObjectsTracker.TrackBaggedObject(passengerObject);
+
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
                     Log.Info($"{Constants.LogPrefix} Added GrabbedObjectState to {passengerObject.name}");

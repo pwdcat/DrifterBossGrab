@@ -208,6 +208,13 @@ namespace DrifterBossGrabMod
         public Dictionary<Renderer, bool> originalRendererStates = new Dictionary<Renderer, bool>();
         public Dictionary<Highlight, bool> originalHighlightStates = new Dictionary<Highlight, bool>();
 
+        // Persistence-related states
+        public bool isPersisted = false;
+        public Vector3 originalPosition;
+        public Quaternion originalRotation;
+        public Transform originalParent;
+        public string originalSceneName;
+
         public void RestoreAllStates()
         {
             if (StateManagement.cachedDebugLogsEnabled)
@@ -230,6 +237,44 @@ namespace DrifterBossGrabMod
 
             // Remove this component since restoration is complete
             Destroy(this);
+        }
+
+        // Capture persistence state before moving to persistence container
+        public void CapturePersistenceState()
+        {
+            isPersisted = true;
+            originalPosition = transform.position;
+            originalRotation = transform.rotation;
+            originalParent = transform.parent;
+            originalSceneName = gameObject.scene.name;
+
+            if (StateManagement.cachedDebugLogsEnabled)
+            {
+                Log.Info($"{Constants.LogPrefix} Captured persistence state for {gameObject.name} in scene {originalSceneName}");
+            }
+        }
+
+        // Restore persistence state when returning to scene
+        public void RestorePersistenceState()
+        {
+            if (!isPersisted) return;
+
+            // Reset rotation if configured
+            if (PluginConfig.EnableUprightRecovery.Value)
+            {
+                transform.rotation = Quaternion.identity;
+            }
+            else
+            {
+                transform.rotation = originalRotation;
+            }
+
+            isPersisted = false;
+
+            if (StateManagement.cachedDebugLogsEnabled)
+            {
+                Log.Info($"{Constants.LogPrefix} Restored persistence state for {gameObject.name}");
+            }
         }
     }
 }

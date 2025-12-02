@@ -29,6 +29,9 @@ namespace DrifterBossGrabMod
         private EventHandler forwardVelHandler;
         private EventHandler upwardVelHandler;
         private EventHandler recoveryBlacklistHandler;
+        private EventHandler persistenceHandler;
+        private EventHandler autoGrabHandler;
+        private EventHandler maxPersistHandler;
 
         public void Awake()
         {
@@ -42,6 +45,9 @@ namespace DrifterBossGrabMod
             StateManagement.Initialize(PluginConfig.EnableDebugLogs.Value);
             Log.EnableDebugLogs = PluginConfig.EnableDebugLogs.Value;
 
+            // Initialize persistence system
+            PersistenceManager.Initialize();
+
             // Initialize patch systems
             Patches.RepossessPatches.Initialize();
 
@@ -50,6 +56,12 @@ namespace DrifterBossGrabMod
 
             // Apply all Harmony patches
             ApplyHarmonyPatches();
+
+            // Initialize run lifecycle event handlers
+            Patches.RunLifecyclePatches.Initialize();
+
+            // Initialize teleporter event handlers
+            Patches.TeleporterPatches.Initialize();
 
             // Register for game events
             RegisterGameEvents();
@@ -67,6 +79,20 @@ namespace DrifterBossGrabMod
                 upwardVelHandler,
                 recoveryBlacklistHandler
             );
+
+            // Remove persistence event handlers
+            PluginConfig.EnableObjectPersistence.SettingChanged -= persistenceHandler;
+            PluginConfig.EnableAutoGrab.SettingChanged -= autoGrabHandler;
+            PluginConfig.MaxPersistedObjects.SettingChanged -= maxPersistHandler;
+
+            // Cleanup run lifecycle event handlers
+            Patches.RunLifecyclePatches.Cleanup();
+
+            // Cleanup teleporter event handlers
+            Patches.TeleporterPatches.Cleanup();
+
+            // Cleanup persistence system
+            PersistenceManager.Cleanup();
 
             // Clear caches
             Patches.InteractableCachingPatches.ClearCache();
@@ -129,7 +155,27 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
 
-            // Initialize environment settings cache
+            // Persistence event handlers
+            persistenceHandler = (sender, args) =>
+            {
+                PersistenceManager.UpdateCachedConfig();
+            };
+            PluginConfig.EnableObjectPersistence.SettingChanged += persistenceHandler;
+
+            autoGrabHandler = (sender, args) =>
+            {
+                PersistenceManager.UpdateCachedConfig();
+            };
+            PluginConfig.EnableAutoGrab.SettingChanged += autoGrabHandler;
+
+            maxPersistHandler = (sender, args) =>
+            {
+                PersistenceManager.UpdateCachedConfig();
+            };
+            PluginConfig.MaxPersistedObjects.SettingChanged += maxPersistHandler;
+
+            // Initialize caches
+            PersistenceManager.UpdateCachedConfig();
             Patches.BagPatches.UpdateEnvironmentSettings(
                 PluginConfig.EnableEnvironmentInvisibility.Value,
                 PluginConfig.EnableEnvironmentInteractionDisable.Value
@@ -155,7 +201,7 @@ namespace DrifterBossGrabMod
             // Player spawn event to refresh cache
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
 
-            // Scene changes to refresh cache
+            // Scene changes to refresh cache and handle persistence
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnSceneChanged;
         }
 
@@ -174,6 +220,9 @@ namespace DrifterBossGrabMod
         {
             // Mark cache as needing refresh when scene changes
             Patches.InteractableCachingPatches.MarkCacheForRefresh();
+
+            // Handle persistence restoration
+            PersistenceManager.OnSceneChanged(oldScene, newScene);
 
             if (PluginConfig.EnableDebugLogs.Value)
             {
@@ -237,6 +286,17 @@ namespace DrifterBossGrabMod
 
             // Recovery options
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.RecoveryObjectBlacklist));
+
+            // Persistence options
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableObjectPersistence));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableAutoGrab));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.AutoGrabDelay));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxPersistedObjects));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedBosses));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedNPCs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedEnvironmentObjects));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.PersistenceBlacklist));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.OnlyPersistCurrentlyBagged));
         }
 
         #endregion

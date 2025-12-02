@@ -10,6 +10,41 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class OtherPatches
     {
+        private static void RecoverObject(ThrownObjectProjectileController thrownController, GameObject passenger, Vector3 projectilePos)
+        {
+            // Get the player who threw the projectile
+            var projectileController = Traverse.Create(thrownController).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
+            GameObject owner = projectileController?.owner;
+            if (owner != null)
+            {
+                Vector3 playerPos = owner.transform.position;
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Recovering {passenger.name} to player position {playerPos}");
+                }
+
+                // Restore states
+                var grabbedState = passenger.GetComponent<GrabbedObjectState>();
+                if (grabbedState != null)
+                {
+                    grabbedState.RestoreAllStates();
+                }
+
+                // Teleport passenger to a position in front of the player
+                Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
+                passenger.transform.position = teleportPos;
+
+                // Optionally reset rotation to upright if configured
+                if (PluginConfig.EnableUprightRecovery.Value)
+                {
+                    passenger.transform.rotation = Quaternion.identity;
+                }
+
+                // Destroy the projectile
+                UnityEngine.Object.Destroy(thrownController.gameObject);
+            }
+        }
+
         [HarmonyPatch(typeof(HackingMainState), "FixedUpdate")]
         public class HackingMainState_FixedUpdate_Patch
         {
@@ -50,6 +85,17 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
                         Log.Info($"{Constants.LogPrefix} Projectile passenger: {passenger.name}");
+                    }
+
+                    // Check if persistence window is active and mark thrown object for persistence
+                    if (PersistenceManager.IsPersistenceWindowActive() && PluginConfig.EnableObjectPersistence.Value)
+                    {
+                        PersistenceManager.MarkThrownObjectForPersistence(passenger);
+
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Thrown object {passenger.name} marked for persistence during active window");
+                        }
                     }
 
                     // Check if the passenger has our state storage component
@@ -106,15 +152,80 @@ namespace DrifterBossGrabMod.Patches
                 Vector3 projectilePos = thrownController.transform.position;
                 MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None);
 
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} CheckAndRecoverProjectile: Found {mapZones.Length} MapZone objects at position {projectilePos}");
+                }
+
                 bool isInAnySafeZone = false;
+                int outOfBoundsCount = 0;
+                int characterHullLayer = LayerMask.NameToLayer("CollideWithCharacterHullOnly");
 
                 foreach (MapZone zone in mapZones)
                 {
-                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.IsPointInsideMapZone(projectilePos))
+                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
                     {
-                        isInAnySafeZone = true;
-                        break;
+                        outOfBoundsCount++;
+                        bool isInside = zone.IsPointInsideMapZone(projectilePos);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
+                        }
+                        if (isInside)
+                        {
+                            isInAnySafeZone = true;
+                        }
                     }
+                }
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
+                }
+
+                // If no out of bounds zones are defined, use fallback recovery based on height
+                if (outOfBoundsCount == 0)
+                {
+                    // Fallback: recover if projectile is below a reasonable map floor level
+                    const float abyssThreshold = -1000f;
+                    if (projectilePos.y < abyssThreshold)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {passenger.name}");
+                        }
+                        RecoverObject(thrownController, passenger, projectilePos);
+                    }
+                    else
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found and projectile is above abyss threshold, skipping recovery");
+                        }
+                    }
+                    return;
+                }
+
+                foreach (MapZone zone in mapZones)
+                {
+                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
+                    {
+                        outOfBoundsCount++;
+                        bool isInside = zone.IsPointInsideMapZone(projectilePos);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
+                        }
+                        if (isInside)
+                        {
+                            isInAnySafeZone = true;
+                        }
+                    }
+                }
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
                 }
 
                 // If projectile is NOT in any safe zone, it's out of bounds and should be recovered
@@ -124,38 +235,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         Log.Info($"{Constants.LogPrefix} Projectile impacted OUTSIDE safe zones at {projectilePos}, recovering {passenger.name}");
                     }
-
-                    // Get the player who threw the projectile
-                    var projectileController = Traverse.Create(thrownController).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-                    GameObject owner = projectileController?.owner;
-                    if (owner != null)
-                    {
-                        Vector3 playerPos = owner.transform.position;
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Recovering {passenger.name} to player position {playerPos}");
-                        }
-
-                        // Restore states
-                        var grabbedState = passenger.GetComponent<GrabbedObjectState>();
-                        if (grabbedState != null)
-                        {
-                            grabbedState.RestoreAllStates();
-                        }
-
-                        // Teleport passenger to a position in front of the player
-                        Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
-                        passenger.transform.position = teleportPos;
-
-                        // Optionally reset rotation to upright if configured
-                        if (PluginConfig.EnableUprightRecovery.Value)
-                        {
-                            passenger.transform.rotation = Quaternion.identity;
-                        }
-
-                        // Destroy the projectile
-                        UnityEngine.Object.Destroy(thrownController.gameObject);
-                    }
+                    RecoverObject(thrownController, passenger, projectilePos);
                 }
             }
         }
@@ -185,6 +265,9 @@ namespace DrifterBossGrabMod.Patches
                 if (thrownController != null && thrownController.Networkpassenger != null &&
                     thrownController.Networkpassenger.GetComponent<GrabbedObjectState>() != null)
                 {
+                    // Untrack the thrown object from persistence tracking
+                    PersistenceObjectsTracker.UntrackBaggedObject(thrownController.Networkpassenger);
+
                     // Only recover objects, not characters/enemies/bosses
                     if (thrownController.Networkpassenger.GetComponent<CharacterBody>() == null)
                     {
@@ -197,20 +280,64 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
+
             private static void CheckAndRecoverProjectileZoneChecker(ThrownObjectProjectileController thrownController, MapZoneChecker zoneChecker)
             {
                 Vector3 projectilePos = thrownController.transform.position;
                 MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None);
 
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} CheckAndRecoverProjectileZoneChecker: Found {mapZones.Length} MapZone objects at position {projectilePos}");
+                }
+
                 bool isInAnySafeZone = false;
+                int outOfBoundsCount = 0;
+                int characterHullLayer = LayerMask.NameToLayer("CollideWithCharacterHullOnly");
 
                 foreach (MapZone zone in mapZones)
                 {
-                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.IsPointInsideMapZone(projectilePos))
+                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
                     {
-                        isInAnySafeZone = true;
-                        break;
+                        outOfBoundsCount++;
+                        bool isInside = zone.IsPointInsideMapZone(projectilePos);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
+                        }
+                        if (isInside)
+                        {
+                            isInAnySafeZone = true;
+                        }
                     }
+                }
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
+                }
+
+                // If no out of bounds zones are defined, use fallback recovery based on height
+                if (outOfBoundsCount == 0)
+                {
+                    // Fallback: recover if projectile is below a reasonable map floor level
+                    const float abyssThreshold = -100f;
+                    if (projectilePos.y < abyssThreshold)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {thrownController.Networkpassenger.name}");
+                        }
+                        RecoverObject(thrownController, thrownController.Networkpassenger, projectilePos);
+                    }
+                    else
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found and projectile is above abyss threshold, skipping recovery");
+                        }
+                    }
+                    return;
                 }
 
                 // If projectile is NOT in any safe zone, it's out of bounds and should be recovered
@@ -220,38 +347,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         Log.Info($"{Constants.LogPrefix} Projectile at {projectilePos} is OUTSIDE all safe zones, recovering {thrownController.Networkpassenger.name}");
                     }
-
-                    // Get the player who threw the projectile
-                    var projectileController = Traverse.Create(thrownController).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-                    GameObject owner = projectileController?.owner;
-                    if (owner != null)
-                    {
-                        Vector3 playerPos = owner.transform.position;
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Recovering {thrownController.Networkpassenger.name} to player position {playerPos}");
-                        }
-
-                        // Restore states
-                        var grabbedState = thrownController.Networkpassenger.GetComponent<GrabbedObjectState>();
-                        if (grabbedState != null)
-                        {
-                            grabbedState.RestoreAllStates();
-                        }
-
-                        // Teleport passenger to a position in front of the player
-                        Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
-                        thrownController.Networkpassenger.transform.position = teleportPos;
-
-                        // Optionally reset rotation to upright if configured
-                        if (PluginConfig.EnableUprightRecovery.Value)
-                        {
-                            thrownController.Networkpassenger.transform.rotation = Quaternion.identity;
-                        }
-
-                        // Destroy the projectile
-                        UnityEngine.Object.Destroy(thrownController.gameObject);
-                    }
+                    RecoverObject(thrownController, thrownController.Networkpassenger, projectilePos);
                 }
             }
         }

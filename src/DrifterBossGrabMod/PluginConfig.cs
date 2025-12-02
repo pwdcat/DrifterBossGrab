@@ -26,6 +26,17 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> EnableUprightRecovery { get; private set; }
         public static ConfigEntry<string> RecoveryObjectBlacklist { get; private set; }
 
+        // Persistence settings
+        public static ConfigEntry<bool> EnableObjectPersistence { get; private set; }
+        public static ConfigEntry<bool> EnableAutoGrab { get; private set; }
+        public static ConfigEntry<float> AutoGrabDelay { get; private set; }
+        public static ConfigEntry<int> MaxPersistedObjects { get; private set; }
+        public static ConfigEntry<bool> PersistBaggedBosses { get; private set; }
+        public static ConfigEntry<bool> PersistBaggedNPCs { get; private set; }
+        public static ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; }
+        public static ConfigEntry<string> PersistenceBlacklist { get; private set; }
+        public static ConfigEntry<bool> OnlyPersistCurrentlyBagged { get; private set; }
+
         // Internal cache for blacklist to avoid parsing every time
         internal static HashSet<string>? _blacklistCache;
         internal static HashSet<string>? _blacklistCacheWithClones;
@@ -120,7 +131,7 @@ namespace DrifterBossGrabMod
             // Environment object settings
             EnableEnvironmentInvisibility = cfg.Bind("General", "EnableEnvironmentInvisibility", true, "Make grabbed environment objects invisible while in the bag");
             EnableEnvironmentInteractionDisable = cfg.Bind("General", "EnableEnvironmentInteractionDisable", true, "Disable interactions for grabbed environment objects while in the bag");
-            EnableUprightRecovery = cfg.Bind("General", "EnableUprightRecovery", false, "Reset rotation of recovered thrown objects to upright position");
+            EnableUprightRecovery = cfg.Bind("General", "EnableUprightRecovery", false, "Reset rotation thrown objects to upright position");
 
             // Abyss recovery settings
             RecoveryObjectBlacklist = cfg.Bind("Recovery", "RecoveryObjectBlacklist", "",
@@ -128,6 +139,21 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
+
+            // Persistence settings
+            EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence", false, "Enable persistence of grabbed objects across stage transitions");
+            EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab", false, "Automatically re-grab persisted objects on Drifter respawn (experimental)");
+            AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 2.0f, new ConfigDescription("Delay in seconds before auto-grab attempts", new AcceptableValueRange<float>(0.5f, 10.0f)));
+            MaxPersistedObjects = cfg.Bind("Persistence", "MaxPersistedObjects", 10, new ConfigDescription("Maximum number of objects that can be persisted at once", new AcceptableValueRange<int>(1, 50)));
+            PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses", true, "Allow persistence of bagged boss enemies");
+            PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs", true, "Allow persistence of bagged NPCs");
+            PersistBaggedEnvironmentObjects = cfg.Bind("Persistence", "PersistBaggedEnvironmentObjects", true, "Allow persistence of bagged environment objects");
+            PersistenceBlacklist = cfg.Bind("Persistence", "PersistenceBlacklist", "",
+                "Comma-separated list of object names to never persist.\n" +
+                "Example: Teleporter1,Chest1,ShrineChance\n" +
+                "Automatically handles (Clone) - just enter the base name.\n" +
+                "Use debug logs to see object names, case-insensitive matching");
+            OnlyPersistCurrentlyBagged = cfg.Bind("Persistence", "OnlyPersistCurrentlyBagged", true, "Only persist objects that are currently in the bag (excludes thrown objects)");
         }
 
         // Sets up event handlers for real-time configuration updates
