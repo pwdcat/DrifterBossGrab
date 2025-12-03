@@ -16,6 +16,16 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        [HarmonyPatch(typeof(SceneExitController), "OnDisable")]
+        public class SceneExitController_OnDisable
+        {
+            [HarmonyPostfix]
+            public static void Postfix(SceneExitController __instance)
+            {
+                SceneExitController.onBeginExit -= OnBeginExit;
+            }
+        }
+
         private static void OnBeginExit(SceneExitController exitController)
         {
             if (!PluginConfig.EnableObjectPersistence.Value)

@@ -290,7 +290,6 @@ namespace DrifterBossGrabMod
             // Persistence options
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableObjectPersistence));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableAutoGrab));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.AutoGrabDelay));
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxPersistedObjects));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedBosses));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedNPCs));

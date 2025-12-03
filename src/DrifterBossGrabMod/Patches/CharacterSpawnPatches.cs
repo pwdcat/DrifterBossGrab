@@ -26,7 +26,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Scheduled auto-regab for Drifter respawn");
+                        Log.Info($"{Constants.LogPrefix} Scheduled auto-grab for Drifter respawn");
                     }
                 }
             }

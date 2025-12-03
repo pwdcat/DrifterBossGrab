@@ -28,15 +28,14 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/co
 - **EnableEnvironmentInteractionDisable** (true/false): Disable interactions for grabbed environment objects while in the bag.
 - **EnableUprightRecovery** (true/false): Reset rotation of recovered thrown objects to upright position.
 - **EnableDebugLogs** (true/false): Enable debug logging.
-- **BodyBlacklist** (string): Comma-separated list of body names to never grab. Defaults to "MinePodBody,HeaterPodBodyNoRespawn,GenericPickup" for safety.
+- **BodyBlacklist** (string): Comma-separated list of body names to never grab. Defaults to "HeaterPodBodyNoRespawn,GenericPickup" for safety.
 
 ### Recovery Section
 - **RecoveryObjectBlacklist** (string): Comma-separated list of object names to never recover from abyss falls. Leave empty to recover all objects.
 
 ### Persistence Section
 - **EnableObjectPersistence** (true/false): Enable persistence of grabbed objects across stage transitions.
-- **EnableAutoGrab** (true/false): Automatically re-grab persisted objects when they restore to the new stage (experimental).
-- **AutoGrabDelay** (0.5-10.0): Delay in seconds before auto-grab attempts.
+- **EnableAutoGrab** (true/false): Automatically re-grab persisted objects when Drifter respawns in a new stage.
 - **MaxPersistedObjects** (1-50): Maximum number of objects that can be persisted at once.
 - **PersistBaggedBosses** (true/false): Allow persistence of bagged boss enemies.
 - **PersistBaggedNPCs** (true/false): Allow persistence of bagged NPCs.

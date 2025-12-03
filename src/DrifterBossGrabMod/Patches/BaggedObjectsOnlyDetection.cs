@@ -16,7 +16,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (PluginConfig.EnableDebugLogs.Value)
             {
-                Log.Info($"{Constants.LogPrefix} [DEBUG] GetCurrentlyBaggedObjects called - inspecting Drifter bags directly");
+                Log.Info($"{Constants.LogPrefix} GetCurrentlyBaggedObjects called - inspecting Drifter bags directly");
             }
 
             var currentlyBaggedObjects = new List<GameObject>();
@@ -27,7 +27,7 @@ namespace DrifterBossGrabMod.Patches
                 _drifterBodyIndex = BodyCatalog.FindBodyIndex("DrifterBody");
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} [DEBUG] DrifterBody index: {_drifterBodyIndex}");
+                    Log.Info($"{Constants.LogPrefix} DrifterBody index: {_drifterBodyIndex}");
                 }
             }
 
@@ -37,15 +37,15 @@ namespace DrifterBossGrabMod.Patches
 
             if (PluginConfig.EnableDebugLogs.Value)
             {
-                Log.Info($"{Constants.LogPrefix} [DEBUG] Found {drifterPlayers.Count} Drifter players");
-                Log.Info($"{Constants.LogPrefix} [DEBUG] Total PlayerCharacterMasterController instances: {PlayerCharacterMasterController.instances.Count}");
+                Log.Info($"{Constants.LogPrefix} Found {drifterPlayers.Count} Drifter players");
+                Log.Info($"{Constants.LogPrefix} Total PlayerCharacterMasterController instances: {PlayerCharacterMasterController.instances.Count}");
             }
 
             foreach (var drifter in drifterPlayers)
             {
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} [DEBUG] Inspecting Drifter: {drifter.master.name}, body: {drifter.master.GetBody()?.name ?? "null"}");
+                    Log.Info($"{Constants.LogPrefix} Inspecting Drifter: {drifter.master.name}, body: {drifter.master.GetBody()?.name ?? "null"}");
                 }
 
                 // Try to find bag controller on the master first
@@ -60,7 +60,7 @@ namespace DrifterBossGrabMod.Patches
                         bagController = body.GetComponent<DrifterBagController>();
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} [DEBUG] Found bag controller on body: {body.name}");
+                            Log.Info($"{Constants.LogPrefix} Found bag controller on body: {body.name}");
                         }
                     }
                 }
@@ -68,7 +68,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} [DEBUG] Found bag controller on master");
+                        Log.Info($"{Constants.LogPrefix} Found bag controller on master");
                     }
                 }
 
@@ -76,14 +76,14 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} [DEBUG] No bag controller found for this Drifter");
+                        Log.Info($"{Constants.LogPrefix} No bag controller found for this Drifter");
                     }
                     continue;
                 }
 
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} [DEBUG] Bag controller found, inspecting contents...");
+                    Log.Info($"{Constants.LogPrefix} Bag controller found, inspecting contents...");
                 }
 
                 try
@@ -94,7 +94,7 @@ namespace DrifterBossGrabMod.Patches
                         var allProperties = bagController.GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
                         var allFields = bagController.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
-                        Log.Info($"{Constants.LogPrefix} [DEBUG] Available properties on {bagController.GetType().Name}:");
+                        Log.Info($"{Constants.LogPrefix} Available properties on {bagController.GetType().Name}:");
                         foreach (var prop in allProperties)
                         {
                             if (prop.PropertyType == typeof(GameObject) || prop.PropertyType == typeof(NetworkIdentity) || prop.Name.ToLower().Contains("passenger") || prop.Name.ToLower().Contains("network"))
@@ -102,16 +102,16 @@ namespace DrifterBossGrabMod.Patches
                                 try
                                 {
                                     var value = prop.GetValue(bagController);
-                                    Log.Info($"{Constants.LogPrefix} [DEBUG]   Property: {prop.Name} ({prop.PropertyType.Name}) = {value?.ToString() ?? "null"}");
+                                    Log.Info($"{Constants.LogPrefix}   Property: {prop.Name} ({prop.PropertyType.Name}) = {value?.ToString() ?? "null"}");
                                 }
                                 catch
                                 {
-                                    Log.Info($"{Constants.LogPrefix} [DEBUG]   Property: {prop.Name} ({prop.PropertyType.Name}) = <access error>");
+                                    Log.Info($"{Constants.LogPrefix}   Property: {prop.Name} ({prop.PropertyType.Name}) = <access error>");
                                 }
                             }
                         }
 
-                        Log.Info($"{Constants.LogPrefix} [DEBUG] Available fields on {bagController.GetType().Name}:");
+                        Log.Info($"{Constants.LogPrefix} Available fields on {bagController.GetType().Name}:");
                         foreach (var field in allFields)
                         {
                             if (field.FieldType == typeof(GameObject) || field.FieldType == typeof(NetworkIdentity) || field.Name.ToLower().Contains("passenger") || field.Name.ToLower().Contains("network"))
@@ -119,11 +119,11 @@ namespace DrifterBossGrabMod.Patches
                                 try
                                 {
                                     var value = field.GetValue(bagController);
-                                    Log.Info($"{Constants.LogPrefix} [DEBUG]   Field: {field.Name} ({field.FieldType.Name}) = {value?.ToString() ?? "null"}");
+                                    Log.Info($"{Constants.LogPrefix}   Field: {field.Name} ({field.FieldType.Name}) = {value?.ToString() ?? "null"}");
                                 }
                                 catch
                                 {
-                                    Log.Info($"{Constants.LogPrefix} [DEBUG]   Field: {field.Name} ({field.FieldType.Name}) = <access error>");
+                                    Log.Info($"{Constants.LogPrefix}   Field: {field.Name} ({field.FieldType.Name}) = <access error>");
                                 }
                             }
                         }
@@ -177,11 +177,11 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (baggedObject != null)
                         {
-                            Log.Info($"{Constants.LogPrefix} [DEBUG] Found bagged object via {foundVia}: {baggedObject.name}");
+                            Log.Info($"{Constants.LogPrefix} Found bagged object via {foundVia}: {baggedObject.name}");
                         }
                         else
                         {
-                            Log.Info($"{Constants.LogPrefix} [DEBUG] No bagged object found in bag controller");
+                            Log.Info($"{Constants.LogPrefix} No bagged object found in bag controller");
                         }
                     }
 
@@ -194,17 +194,17 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} [DEBUG] Error checking bagged objects: {ex.Message}");
+                        Log.Info($"{Constants.LogPrefix} Error checking bagged objects: {ex.Message}");
                     }
                 }
             }
 
             if (PluginConfig.EnableDebugLogs.Value)
             {
-                Log.Info($"{Constants.LogPrefix} [DEBUG] Found {currentlyBaggedObjects.Count} currently bagged objects via direct bag inspection");
+                Log.Info($"{Constants.LogPrefix} Found {currentlyBaggedObjects.Count} currently bagged objects via direct bag inspection");
                 for (int i = 0; i < currentlyBaggedObjects.Count; i++)
                 {
-                    Log.Info($"{Constants.LogPrefix} [DEBUG] Bagged object {i}: {currentlyBaggedObjects[i]?.name ?? "null"}");
+                    Log.Info($"{Constants.LogPrefix} Bagged object {i}: {currentlyBaggedObjects[i]?.name ?? "null"}");
                 }
             }
 

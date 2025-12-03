@@ -13,7 +13,16 @@ namespace DrifterBossGrabMod.Patches
         private static bool cacheNeedsRefresh = false;
         private static readonly object cacheLock = new object();
 
-        public static HashSet<GameObject> CachedInteractables => cachedInteractables;
+        public static HashSet<GameObject> CachedInteractables
+        {
+            get
+            {
+                lock (cacheLock)
+                {
+                    return new HashSet<GameObject>(cachedInteractables);
+                }
+            }
+        }
 
         public static void MarkCacheForRefresh()
         {

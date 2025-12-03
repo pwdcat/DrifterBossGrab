@@ -2,7 +2,7 @@ using System;
 
 namespace DrifterBossGrabMod
 {
-// Shared constants used throughout the DrifterBossGrabMod
+    // Shared constants used throughout the DrifterBossGrabMod
     internal static class Constants
     {
         public const string LogPrefix = "[DrifterBossGrab]";

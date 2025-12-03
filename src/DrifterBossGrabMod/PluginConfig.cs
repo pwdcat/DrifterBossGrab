@@ -5,8 +5,8 @@ using BepInEx.Configuration;
 
 namespace DrifterBossGrabMod
 {
-// Configuration management for the DrifterBossGrabMod
-// Handles all user-configurable settings and real-time updates
+    /// Configuration management for the DrifterBossGrabMod
+    /// Handles all user-configurable settings and real-time updates
     public static class PluginConfig
     {
         // Configuration entries
@@ -29,7 +29,6 @@ namespace DrifterBossGrabMod
         // Persistence settings
         public static ConfigEntry<bool> EnableObjectPersistence { get; private set; }
         public static ConfigEntry<bool> EnableAutoGrab { get; private set; }
-        public static ConfigEntry<float> AutoGrabDelay { get; private set; }
         public static ConfigEntry<int> MaxPersistedObjects { get; private set; }
         public static ConfigEntry<bool> PersistBaggedBosses { get; private set; }
         public static ConfigEntry<bool> PersistBaggedNPCs { get; private set; }
@@ -142,8 +141,7 @@ namespace DrifterBossGrabMod
 
             // Persistence settings
             EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence", false, "Enable persistence of grabbed objects across stage transitions");
-            EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab", false, "Automatically re-grab persisted objects on Drifter respawn (experimental)");
-            AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 2.0f, new ConfigDescription("Delay in seconds before auto-grab attempts", new AcceptableValueRange<float>(0.5f, 10.0f)));
+            EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab", false, "Automatically re-grab persisted objects on Drifter respawn");
             MaxPersistedObjects = cfg.Bind("Persistence", "MaxPersistedObjects", 10, new ConfigDescription("Maximum number of objects that can be persisted at once", new AcceptableValueRange<int>(1, 50)));
             PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses", true, "Allow persistence of bagged boss enemies");
             PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs", true, "Allow persistence of bagged NPCs");
@@ -156,31 +154,6 @@ namespace DrifterBossGrabMod
             OnlyPersistCurrentlyBagged = cfg.Bind("Persistence", "OnlyPersistCurrentlyBagged", true, "Only persist objects that are currently in the bag (excludes thrown objects)");
         }
 
-        // Sets up event handlers for real-time configuration updates
-        // debugLogsHandler: Handler for debug log settings changes
-        // envInvisHandler: Handler for environment invisibility changes
-        // envInteractHandler: Handler for environment interaction disable changes
-        // blacklistHandler: Handler for blacklist changes
-        // forwardVelHandler: Handler for forward velocity multiplier changes
-        // upwardVelHandler: Handler for upward velocity multiplier changes
-        // recoveryBlacklistHandler: Handler for recovery blacklist changes
-        public static void SetupEventHandlers(
-            EventHandler debugLogsHandler,
-            EventHandler envInvisHandler,
-            EventHandler envInteractHandler,
-            EventHandler blacklistHandler,
-            EventHandler forwardVelHandler,
-            EventHandler upwardVelHandler,
-            EventHandler recoveryBlacklistHandler)
-        {
-            EnableDebugLogs.SettingChanged += debugLogsHandler;
-            EnableEnvironmentInvisibility.SettingChanged += envInvisHandler;
-            EnableEnvironmentInteractionDisable.SettingChanged += envInteractHandler;
-            BodyBlacklist.SettingChanged += blacklistHandler;
-            ForwardVelocityMultiplier.SettingChanged += forwardVelHandler;
-            UpwardVelocityMultiplier.SettingChanged += upwardVelHandler;
-            RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
-        }
 
         // Removes all event handlers to prevent memory leaks
         // debugLogsHandler: Handler for debug log settings changes

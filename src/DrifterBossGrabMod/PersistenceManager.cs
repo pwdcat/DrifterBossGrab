@@ -18,7 +18,6 @@ namespace DrifterBossGrabMod
         // Cached config values for performance
         private static bool _cachedEnablePersistence;
         private static bool _cachedEnableAutoGrab;
-        private static float _cachedAutoGrabDelay;
         private static int _cachedMaxPersistedObjects;
         private static bool _cachedOnlyPersistCurrentlyBagged;
 
@@ -69,7 +68,6 @@ namespace DrifterBossGrabMod
         {
             _cachedEnablePersistence = PluginConfig.EnableObjectPersistence.Value;
             _cachedEnableAutoGrab = PluginConfig.EnableAutoGrab.Value;
-            _cachedAutoGrabDelay = PluginConfig.AutoGrabDelay.Value;
             _cachedMaxPersistedObjects = PluginConfig.MaxPersistedObjects.Value;
             _cachedOnlyPersistCurrentlyBagged = PluginConfig.OnlyPersistCurrentlyBagged.Value;
         }
@@ -240,70 +238,42 @@ namespace DrifterBossGrabMod
             return _persistenceWindowActive;
         }
 
+        // Check if the current scene has any teleporters
+        private static bool SceneHasTeleporter()
+        {
+            var teleporters = UnityEngine.Object.FindObjectsOfType<TeleporterInteraction>(false);
+            return teleporters.Length > 0;
+        }
+
         // Capture currently bagged objects
         public static void CaptureCurrentlyBaggedObjects()
         {
-            if (PluginConfig.EnableDebugLogs.Value)
-            {
-                Log.Info($"{Constants.LogPrefix} CaptureCurrentlyBaggedObjects called - EnablePersistence: {_cachedEnablePersistence}, OnlyPersistCurrentlyBagged: {_cachedOnlyPersistCurrentlyBagged}");
-            }
-
             if (!_cachedEnablePersistence)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Persistence disabled, skipping capture");
-                }
                 return;
             }
 
+            // Always capture currently bagged objects for persistence
+            var baggedObjects = GetCurrentlyBaggedObjects();
+
             if (PluginConfig.EnableDebugLogs.Value)
             {
-                Log.Info($"{Constants.LogPrefix} Starting capture of currently bagged objects");
+                Log.Info($"{Constants.LogPrefix} Capturing {baggedObjects.Count} currently bagged objects for persistence");
             }
 
-            // Capture bagged objects if configured to do so
-            if (_cachedOnlyPersistCurrentlyBagged)
+            foreach (var obj in baggedObjects)
             {
-                var baggedObjects = GetCurrentlyBaggedObjects();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (IsValidForPersistence(obj))
                 {
-                    Log.Info($"{Constants.LogPrefix} Found {baggedObjects.Count} bagged objects to potentially persist");
-                    for (int i = 0; i < baggedObjects.Count; i++)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Bagged object {i}: {baggedObjects[i]?.name ?? "null"}");
-                    }
-                }
-
-                foreach (var obj in baggedObjects)
-                {
-                    if (IsValidForPersistence(obj))
-                    {
-                        AddPersistedObject(obj);
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Successfully added bagged object {obj.name} to persistence");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Bagged object {obj.name} failed validation for persistence");
-                        }
-                    }
+                    AddPersistedObject(obj);
                 }
             }
-            else
+
+            // If OnlyPersistCurrentlyBagged is false, also capture thrown objects marked for persistence
+            if (!_cachedOnlyPersistCurrentlyBagged)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} OnlyPersistCurrentlyBagged is false, skipping bagged object capture");
-                }
+                CaptureMarkedThrownObjects();
             }
-
-            // Always capture thrown objects marked for persistence
-            CaptureMarkedThrownObjects();
         }
 
         // Capture thrown objects that were marked for persistence
@@ -332,27 +302,14 @@ namespace DrifterBossGrabMod
         // Check if object is valid for persistence
         private static bool IsValidForPersistence(GameObject obj)
         {
-            if (PluginConfig.EnableDebugLogs.Value)
-            {
-                Log.Info($"{Constants.LogPrefix} Checking if {obj?.name ?? "null"} is valid for persistence");
-            }
-
             if (obj == null)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Object is null - invalid for persistence");
-                }
                 return false;
             }
 
             // Check if already persisted
             if (_persistedObjects.Contains(obj))
             {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Object {obj.name} is already persisted - skipping");
-                }
                 return false;
             }
 
@@ -362,10 +319,6 @@ namespace DrifterBossGrabMod
                 var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
                 if (projectileController != null)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Object {obj.name} has ThrownObjectProjectileController - excluding from bagged-only persistence");
-                    }
                     return false;
                 }
             }
@@ -373,16 +326,7 @@ namespace DrifterBossGrabMod
             // Check blacklist
             if (PluginConfig.IsBlacklisted(obj.name))
             {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Object {obj.name} is blacklisted - invalid for persistence");
-                }
                 return false;
-            }
-
-            if (PluginConfig.EnableDebugLogs.Value)
-            {
-                Log.Info($"{Constants.LogPrefix} Object {obj.name} passed all validation checks");
             }
 
             return true;
@@ -434,6 +378,15 @@ namespace DrifterBossGrabMod
             // Deactivate persistence window when scene changes
             DeactivatePersistenceWindow();
 
+            // In stages without teleporters, activate persistence window immediately
+            if (!SceneHasTeleporter())
+            {
+                ActivatePersistenceWindow();
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} No teleporters found in scene {newScene.name}, activating persistence window immediately");
+                }
+            }
 
             if (PluginConfig.EnableDebugLogs.Value)
             {
@@ -443,7 +396,6 @@ namespace DrifterBossGrabMod
             // Delay restoration to ensure player is fully spawned
             // Use a coroutine to wait for the next frame when player bodies are available
             var coroutineRunner = new GameObject("PersistenceCoroutineRunner");
-            UnityEngine.Object.DontDestroyOnLoad(coroutineRunner);
             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
             runner.StartCoroutine(DelayedRestorePersistedObjects());
         }
@@ -451,47 +403,66 @@ namespace DrifterBossGrabMod
         // Coroutine to delay restoration until player is ready
         private static System.Collections.IEnumerator DelayedRestorePersistedObjects()
         {
-            // Wait one frame for initial scene setup
-            yield return null;
-
-            // Wait additional frames until player body is available
-            // TODO, revisit. Works for right now
-            int maxWaitFrames = 30;
-            int framesWaited = 0;
-
-            while (framesWaited < maxWaitFrames)
+            PersistenceCoroutineRunner? runner = null;
+            
+            try
             {
-                var players = PlayerCharacterMasterController.instances;
-                if (players.Count > 0)
+                // Get the current runner reference for cleanup
+                runner = UnityEngine.Object.FindObjectOfType<PersistenceCoroutineRunner>();
+                
+                // Wait one frame for initial scene setup
+                yield return null;
+
+                // Wait additional frames until player body is available
+                // TODO, revisit. Works for right now
+                int maxWaitFrames = 30;
+                int framesWaited = 0;
+
+                while (framesWaited < maxWaitFrames)
                 {
-                    var playerBody = players[0].master.GetBody();
-                    if (playerBody != null)
+                    var players = PlayerCharacterMasterController.instances;
+                    if (players.Count > 0)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        var playerBody = players[0].master.GetBody();
+                        if (playerBody != null)
                         {
-                            Log.Info($"{Constants.LogPrefix} Player body found after {framesWaited} frames, proceeding with restoration");
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"{Constants.LogPrefix} Player body found after {framesWaited} frames, proceeding with restoration");
+                            }
+                            break;
                         }
-                        break;
                     }
+
+                    framesWaited++;
+                    yield return null;
                 }
 
-                framesWaited++;
-                yield return null;
+                // Restore persisted objects to new scene
+                RestorePersistedObjects();
             }
-
-            // Restore persisted objects to new scene
-            RestorePersistedObjects();
-
-            // Clean up the coroutine runner
-            var runner = UnityEngine.Object.FindObjectOfType<PersistenceCoroutineRunner>();
-            if (runner != null)
+            finally
             {
-                UnityEngine.Object.Destroy(runner.gameObject);
+                // Always clean up the coroutine runner, even if an exception occurs
+                if (runner != null)
+                {
+                    UnityEngine.Object.Destroy(runner.gameObject);
+                }
             }
         }
 
         // Helper class for running coroutines
-        private class PersistenceCoroutineRunner : MonoBehaviour { }
+        private class PersistenceCoroutineRunner : MonoBehaviour 
+        {
+            private void OnDestroy()
+            {
+                // Ensure cleanup even if coroutine fails
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} PersistenceCoroutineRunner destroyed - cleanup completed");
+                }
+            }
+        }
 
         // Helper class for delayed BossGroup cleanup to avoid InvalidCastException during scene loading
         private class BossGroupCleanupRunner : MonoBehaviour
@@ -561,29 +532,6 @@ namespace DrifterBossGrabMod
 
                 if (_teleporterInteraction != null)
                 {
-                    // Debug: Check teleporter state before re-enabling
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Pre-re-enable check for {_teleporterInteraction.name}:");
-                        Log.Info($"{Constants.LogPrefix} - enabled: {_teleporterInteraction.enabled}");
-                        Log.Info($"{Constants.LogPrefix} - gameObject.activeInHierarchy: {_teleporterInteraction.gameObject.activeInHierarchy}");
-                        Log.Info($"{Constants.LogPrefix} - mainStateMachine: {_teleporterInteraction.mainStateMachine}");
-                        if (_teleporterInteraction.mainStateMachine != null)
-                        {
-                            Log.Info($"{Constants.LogPrefix} - currentState: {_teleporterInteraction.mainStateMachine.state}");
-                            Log.Info($"{Constants.LogPrefix} - stateMachine enabled: {_teleporterInteraction.mainStateMachine.enabled}");
-                        }
-                        Log.Info($"{Constants.LogPrefix} - activationState: {_teleporterInteraction.activationState}");
-
-                        // Check for common null references that might cause FixedUpdate errors
-                        var sceneExitController = _teleporterInteraction.GetComponent<RoR2.SceneExitController>();
-                        Log.Info($"{Constants.LogPrefix} - SceneExitController: {sceneExitController}");
-                        if (sceneExitController != null)
-                        {
-                            Log.Info($"{Constants.LogPrefix} - SceneExitController enabled: {sceneExitController.enabled}");
-                        }
-                    }
-
                     _teleporterInteraction.enabled = true;
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
@@ -708,24 +656,11 @@ namespace DrifterBossGrabMod
         private static void PositionNearPlayer(GameObject obj)
         {
             var players = PlayerCharacterMasterController.instances;
-            if (PluginConfig.EnableDebugLogs.Value)
-            {
-                Log.Info($"{Constants.LogPrefix} Positioning object near player. Found {players.Count} player instances.");
-            }
 
             if (players.Count > 0)
             {
                 var playerMaster = players[0].master;
                 var playerBody = playerMaster.GetBody();
-
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Player master: {playerMaster}, body: {playerBody}");
-                    if (playerBody != null)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Player position: {playerBody.transform.position}, forward: {playerBody.transform.forward}");
-                    }
-                }
 
                 if (playerBody != null)
                 {
@@ -739,7 +674,7 @@ namespace DrifterBossGrabMod
 
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Positioned {obj.name} at {targetPos} (player was at {playerPos})");
+                        Log.Info($"{Constants.LogPrefix} Positioned {obj.name} near player");
                     }
                 }
                 else
@@ -757,7 +692,7 @@ namespace DrifterBossGrabMod
 
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Used camera fallback positioning for {obj.name} at {fallbackPos}");
+                            Log.Info($"{Constants.LogPrefix} Used camera fallback positioning for {obj.name}");
                         }
                     }
                     else
@@ -789,12 +724,29 @@ namespace DrifterBossGrabMod
         // Try to auto-grab a restored object
         private static void TryAutoGrabObject(GameObject obj)
         {
-            if (obj == null) return;
+            if (obj == null)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} TryAutoGrabObject called with null object");
+                }
+                return;
+            }
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Attempting auto-grab for restored object {obj.name}");
+            }
 
             // Find Drifter player
             var drifterPlayers = PlayerCharacterMasterController.instances
                 .Where(pcm => pcm.master.GetBody()?.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
                 .ToList();
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Found {drifterPlayers.Count} Drifter players for auto-grab");
+            }
 
             if (drifterPlayers.Count == 0)
             {
@@ -808,42 +760,82 @@ namespace DrifterBossGrabMod
             // Try to grab with each Drifter (in case of multiple players)
             foreach (var drifter in drifterPlayers)
             {
-                var bagController = drifter.GetComponent<DrifterBagController>();
-                if (bagController != null && !bagController.bagFull)
+                if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    try
-                    {
-                        // Use reflection to call the private AssignPassenger method
-                        var assignPassengerMethod = typeof(DrifterBagController).GetMethod("AssignPassenger",
-                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    Log.Info($"{Constants.LogPrefix} Checking Drifter player {drifter.master.name} for auto-grab");
+                }
 
-                        if (assignPassengerMethod != null)
+                // Get the character body - the bag state machine is on the body, not the master
+                var body = drifter.master.GetBody();
+                if (body == null)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} No character body found for Drifter player");
+                    }
+                    continue;
+                }
+
+                // Try to find bag controller on the body
+                var bagController = body.GetComponent<DrifterBagController>();
+                if (bagController == null)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} No DrifterBagController found on Drifter body");
+                    }
+                    continue;
+                }
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Found DrifterBagController, bagFull: {bagController.bagFull}");
+                }
+
+                if (!bagController.bagFull)
+                {
+                    // Use the proper EntityStateMachine approach like RepossessExit does
+                    // The bag state machine is on the character body
+                    var bagStateMachine = EntityStateMachine.FindByCustomName(body.gameObject, "Bag");
+                    if (bagStateMachine != null)
+                    {
+                        try
                         {
-                            assignPassengerMethod.Invoke(bagController, new object[] { obj });
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"{Constants.LogPrefix} Found Bag state machine, setting BaggedObject state for {obj.name}");
+                            }
+
+                            // Create BaggedObject state and set target
+                            var baggedObject = new EntityStates.Drifter.Bag.BaggedObject();
+                            baggedObject.targetObject = obj;
+
+                            // Set the next state on the bag state machine
+                            bagStateMachine.SetNextState(baggedObject);
 
                             if (PluginConfig.EnableDebugLogs.Value)
                             {
-                                Log.Info($"{Constants.LogPrefix} Successfully auto-grabbed {obj.name} for Drifter");
+                                Log.Info($"{Constants.LogPrefix} Successfully initiated auto-grab for {obj.name} using proper state machine");
                             }
                             return; // Successfully grabbed, exit
                         }
-                        else
+                        catch (System.Exception ex)
                         {
                             if (PluginConfig.EnableDebugLogs.Value)
                             {
-                                Log.Info($"{Constants.LogPrefix} Could not find AssignPassenger method for auto-grab");
+                                Log.Info($"{Constants.LogPrefix} Auto-grab failed for {obj.name}: {ex.Message}");
                             }
                         }
                     }
-                    catch (System.Exception ex)
+                    else
                     {
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Auto-grab failed for {obj.name}: {ex.Message}");
+                            Log.Info($"{Constants.LogPrefix} Could not find Bag state machine on character body for auto-grab");
                         }
                     }
                 }
-                else if (bagController != null && bagController.bagFull)
+                else
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
@@ -863,6 +855,151 @@ namespace DrifterBossGrabMod
         public static void ScheduleAutoGrab(CharacterMaster master)
         {
             if (!_cachedEnableAutoGrab) return;
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Executing immediate auto-grab for Drifter");
+            }
+
+            // Get the Drifter's body and bag controller
+            var body = master.GetBody();
+            if (body == null)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} No body found for Drifter during auto-grab");
+                }
+                return;
+            }
+
+            // Try to find bag controller on the master first (same logic as GetCurrentlyBaggedObjects)
+            var bagController = master.GetComponent<DrifterBagController>();
+
+            // If not found on master, try to find it on the body
+            if (bagController == null)
+            {
+                bagController = body.GetComponent<DrifterBagController>();
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Found bag controller on body during auto-grab");
+                }
+            }
+            else
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Found bag controller on master during auto-grab");
+                }
+            }
+
+            if (bagController == null)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} No DrifterBagController found on Drifter master or body");
+                }
+                return;
+            }
+
+            // Find all persisted objects in the current scene
+            var persistedObjectsInScene = new List<GameObject>();
+            lock (_lock)
+            {
+                foreach (var obj in _persistedObjects)
+                {
+                    if (obj != null && obj.scene == UnityEngine.SceneManagement.SceneManager.GetActiveScene())
+                    {
+                        persistedObjectsInScene.Add(obj);
+                    }
+                }
+            }
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Found {persistedObjectsInScene.Count} persisted objects in scene for auto-grab");
+            }
+
+            // Also find currently bagged objects in the scene (for same-stage respawns)
+            var currentlyBaggedObjectsInScene = new List<GameObject>();
+            if (_cachedOnlyPersistCurrentlyBagged)
+            {
+                var allCurrentlyBagged = GetCurrentlyBaggedObjects();
+                foreach (var obj in allCurrentlyBagged)
+                {
+                    if (obj != null && obj.scene == UnityEngine.SceneManagement.SceneManager.GetActiveScene())
+                    {
+                        currentlyBaggedObjectsInScene.Add(obj);
+                    }
+                }
+            }
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Found {currentlyBaggedObjectsInScene.Count} currently bagged objects in scene for auto-grab");
+            }
+
+            // Combine both lists, preferring persisted objects first
+            var objectsToGrab = new List<GameObject>();
+            objectsToGrab.AddRange(persistedObjectsInScene);
+            objectsToGrab.AddRange(currentlyBaggedObjectsInScene);
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Total objects to attempt auto-grab: {objectsToGrab.Count}");
+            }
+
+            // Try to grab each object
+            foreach (var obj in objectsToGrab)
+            {
+                if (bagController.bagFull)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Drifter bag is full, stopping auto-grab");
+                    }
+                    break;
+                }
+
+                // Use the proper EntityStateMachine approach like RepossessExit does
+                // The bag state machine is on the character body, not the master
+                var bagStateMachine = EntityStateMachine.FindByCustomName(body.gameObject, "Bag");
+                if (bagStateMachine != null)
+                {
+                    try
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Found Bag state machine, setting BaggedObject state for {obj.name}");
+                        }
+
+                        // Create BaggedObject state and set target
+                        var baggedObject = new EntityStates.Drifter.Bag.BaggedObject();
+                        baggedObject.targetObject = obj;
+
+                        // Set the next state on the bag state machine
+                        bagStateMachine.SetNextState(baggedObject);
+
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Successfully initiated auto-grab for {obj.name} using proper state machine");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Auto-grab failed for {obj.name}: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Could not find Bag state machine on character body for auto-grab");
+                    }
+                }
+            }
         }
 
         // Get current persisted objects count
@@ -1077,7 +1214,6 @@ namespace DrifterBossGrabMod
                 {
                     // Schedule BossGroup removal for next frame to avoid InvalidCastException during scene loading
                     var coroutineRunner = new GameObject("BossGroupCleanupRunner");
-                    UnityEngine.Object.DontDestroyOnLoad(coroutineRunner);
                     var runner = coroutineRunner.AddComponent<BossGroupCleanupRunner>();
                     runner.Initialize(characterMaster, obj.name);
                 }

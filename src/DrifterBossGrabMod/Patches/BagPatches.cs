@@ -18,26 +18,18 @@ namespace DrifterBossGrabMod.Patches
         }
 
         [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
-        public class DrifterBagController_AssignPassenger_PreventBlacklisted
+        public class DrifterBagController_AssignPassenger
         {
             [HarmonyPrefix]
             public static bool Prefix(GameObject passengerObject)
             {
+                // Check blacklist first - return false to prevent grabbing blacklisted objects
                 if (passengerObject && PluginConfig.IsBlacklisted(passengerObject.name))
                 {
                     return false;
                 }
-                return true;
-            }
-        }
 
-        [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
-        public class DrifterBagController_AssignPassenger
-        {
-            [HarmonyPrefix]
-            public static void Prefix(GameObject passengerObject)
-            {
-                if (!passengerObject) return;
+                if (passengerObject == null) return true;
 
                 CharacterBody body = null;
                 var interactable = passengerObject.GetComponent<IInteractable>();
@@ -56,15 +48,6 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($"{Constants.LogPrefix} AssignPassenger called for {passengerObject}");
                 }
 
-                // Special case: persist teleporters immediately when bagged
-                if (passengerObject.name.ToLower().Contains("teleporter") && PluginConfig.EnableObjectPersistence.Value)
-                {
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Teleporter {passengerObject.name} bagged - persisting immediately");
-                    }
-                    PersistenceManager.AddPersistedObject(passengerObject);
-                }
 
                 // Clean SpecialObjectAttributes lists to remove null entries
                 var soa = passengerObject.GetComponent<SpecialObjectAttributes>();
@@ -191,6 +174,8 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($"{Constants.LogPrefix} Added GrabbedObjectState to {passengerObject.name}");
                 }
+
+                return true;
             }
         }
 

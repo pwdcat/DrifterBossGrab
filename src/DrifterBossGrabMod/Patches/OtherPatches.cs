@@ -206,28 +206,6 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                foreach (MapZone zone in mapZones)
-                {
-                    if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
-                    {
-                        outOfBoundsCount++;
-                        bool isInside = zone.IsPointInsideMapZone(projectilePos);
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
-                        }
-                        if (isInside)
-                        {
-                            isInAnySafeZone = true;
-                        }
-                    }
-                }
-
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
-                }
-
                 // If projectile is NOT in any safe zone, it's out of bounds and should be recovered
                 if (!isInAnySafeZone)
                 {
