@@ -2,6 +2,7 @@
 using System.IO;
 using BepInEx;
 using BepInEx.Bootstrap;
+using UnityEngine.Networking;
 using HarmonyLib;
 using RiskOfOptions;
 using RiskOfOptions.Options;
@@ -12,6 +13,7 @@ namespace DrifterBossGrabMod
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
     public class DrifterBossGrabPlugin : BaseUnityPlugin
     {
+        private const short BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE = 85;
         // Plugin instance
         public static DrifterBossGrabPlugin Instance { get; private set; }
 

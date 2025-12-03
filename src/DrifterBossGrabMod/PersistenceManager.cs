@@ -3,11 +3,37 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Networking;
 using RoR2;
+using RoR2.Networking;
 using RoR2.Projectile;
 
 namespace DrifterBossGrabMod
 {
+    // Network message for broadcasting bagged objects for persistence
+    public class BaggedObjectsPersistenceMessage : MessageBase
+    {
+        public List<NetworkInstanceId> baggedObjectNetIds = new List<NetworkInstanceId>();
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write((int)baggedObjectNetIds.Count);
+            foreach (var netId in baggedObjectNetIds)
+            {
+                writer.Write(netId);
+            }
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            int count = reader.ReadInt32();
+            baggedObjectNetIds.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                baggedObjectNetIds.Add(reader.ReadNetworkId());
+            }
+        }
+    }
     public static class PersistenceManager
     {
         // Singleton instance
@@ -28,8 +54,12 @@ namespace DrifterBossGrabMod
         // Tracking for objects that should have TeleporterInteraction disabled
         private static readonly HashSet<GameObject> _teleportersToDisable = new HashSet<GameObject>();
 
+        // Flag to prevent adding objects to persistence after restoration
+        private static bool _hasRestoredThisScene = false;
+
         // Constants
         private const string PERSISTENCE_CONTAINER_NAME = "DBG_PersistenceContainer";
+        private const short BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE = 85;
 
         // Initialization
         public static void Initialize()
@@ -44,6 +74,76 @@ namespace DrifterBossGrabMod
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 Log.Info($"{Constants.LogPrefix} PersistenceManager initialized");
+            }
+        }
+
+        // Handle incoming bagged objects persistence messages
+        public static void HandleBaggedObjectsPersistenceMessage(NetworkMessage netMsg)
+        {
+            // Don't process messages after restoration has completed for this scene
+            if (_hasRestoredThisScene)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Ignoring bagged objects persistence message - restoration already completed for this scene");
+                }
+                return;
+            }
+
+            BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
+            message.Deserialize(netMsg.reader);
+
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Received bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
+            }
+
+            // Add the received objects to persistence
+            foreach (var netId in message.baggedObjectNetIds)
+            {
+                GameObject obj = ClientScene.FindLocalObject(netId);
+                if (obj != null && IsValidForPersistence(obj))
+                {
+                    AddPersistedObject(obj);
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Added object {obj.name} (netId: {netId}) to persistence from network message");
+                    }
+                }
+                else if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Object with netId {netId} not found or invalid for persistence");
+                }
+            }
+        }
+
+        // Send bagged objects persistence message to all clients
+        public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects)
+        {
+            if (baggedObjects == null || baggedObjects.Count == 0) return;
+
+            BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
+
+            foreach (var obj in baggedObjects)
+            {
+                if (obj != null)
+                {
+                    NetworkIdentity identity = obj.GetComponent<NetworkIdentity>();
+                    if (identity != null)
+                    {
+                        message.baggedObjectNetIds.Add(identity.netId);
+                    }
+                }
+            }
+
+            if (message.baggedObjectNetIds.Count > 0)
+            {
+                NetworkServer.SendToAll(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, message);
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Sent bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
+                }
             }
         }
 
@@ -208,8 +308,8 @@ namespace DrifterBossGrabMod
         {
             if (obj == null) return;
 
-            // Special case: persist teleporters immediately when thrown
-            if (obj.name.ToLower().Contains("teleporter") && _persistenceWindowActive)
+            // Special case: persist teleporters immediately when thrown (only if not OnlyPersistCurrentlyBagged)
+            if (obj.name.ToLower().Contains("teleporter") && _persistenceWindowActive && !_cachedOnlyPersistCurrentlyBagged)
             {
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
@@ -293,7 +393,7 @@ namespace DrifterBossGrabMod
         }
 
         // Get all objects currently in Drifter bags
-        private static List<GameObject> GetCurrentlyBaggedObjects()
+        public static List<GameObject> GetCurrentlyBaggedObjects()
         {
             // Use the centralized detection method
             return Patches.BaggedObjectsOnlyDetection.GetCurrentlyBaggedObjects();
@@ -364,6 +464,19 @@ namespace DrifterBossGrabMod
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 Log.Info($"{Constants.LogPrefix} OnSceneChanged called - EnablePersistence: {_cachedEnablePersistence}, from {oldScene.name} to {newScene.name}");
+            }
+
+            // Reset restoration flag for new scene
+            _hasRestoredThisScene = false;
+
+            // Register network message handler if client is available
+            if (UnityEngine.Networking.NetworkManager.singleton?.client != null)
+            {
+                UnityEngine.Networking.NetworkManager.singleton.client.RegisterHandler(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, HandleBaggedObjectsPersistenceMessage);
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Registered bagged objects persistence message handler");
+                }
             }
 
             if (!_cachedEnablePersistence)
@@ -440,6 +553,9 @@ namespace DrifterBossGrabMod
 
                 // Restore persisted objects to new scene
                 RestorePersistedObjects();
+
+                // Mark that restoration has completed for this scene
+                _hasRestoredThisScene = true;
             }
             finally
             {

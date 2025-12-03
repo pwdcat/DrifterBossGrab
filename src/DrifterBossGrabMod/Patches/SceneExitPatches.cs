@@ -1,5 +1,6 @@
 using HarmonyLib;
 using RoR2;
+using UnityEngine.Networking;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -33,6 +34,15 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
+            // Get currently bagged objects
+            var baggedObjects = PersistenceManager.GetCurrentlyBaggedObjects();
+
+            // Send persistence message to all clients (only from server to avoid duplicates)
+            if (NetworkServer.active)
+            {
+                PersistenceManager.SendBaggedObjectsPersistenceMessage(baggedObjects);
+            }
+
             // Capture currently bagged objects before scene transition
             PersistenceManager.CaptureCurrentlyBaggedObjects();
 
@@ -41,7 +51,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (PluginConfig.EnableDebugLogs.Value)
             {
-                Log.Info($"{Constants.LogPrefix} Captured bagged objects on scene exit");
+                Log.Info($"{Constants.LogPrefix} Captured bagged objects on scene exit{(NetworkServer.active ? " and sent persistence message" : "")}");
             }
         }
     }
