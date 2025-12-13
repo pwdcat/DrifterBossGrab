@@ -29,6 +29,9 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"{Constants.LogPrefix} Scheduled auto-grab for Drifter respawn");
                     }
                 }
+
+                // Detect zone inversion on first player spawn
+                Patches.OtherPatches.DetectZoneInversion(body.transform.position);
             }
         }
     }

@@ -10,6 +10,61 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class OtherPatches
     {
+        // Tracks whether OutOfBounds zones are inverted in the current stage
+        private static bool areOutOfBoundsZonesInverted = false;
+        private static bool zoneInversionDetected = false;
+
+        public static void DetectZoneInversion(Vector3 playerPosition)
+        {
+            if (zoneInversionDetected) return; // Already detected for this stage
+
+            MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None);
+            int outOfBoundsCount = 0;
+            bool playerInsideAnyOutOfBounds = false;
+            int characterHullLayer = LayerMask.NameToLayer("CollideWithCharacterHullOnly");
+
+            foreach (MapZone zone in mapZones)
+            {
+                if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
+                {
+                    outOfBoundsCount++;
+                    if (zone.IsPointInsideMapZone(playerPosition))
+                    {
+                        playerInsideAnyOutOfBounds = true;
+                    }
+                }
+            }
+
+            if (outOfBoundsCount > 0)
+            {
+                // If player is not inside OutOfBounds zones at spawn, zones are inverted
+                areOutOfBoundsZonesInverted = !playerInsideAnyOutOfBounds;
+                zoneInversionDetected = true;
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Zone inversion detection: Player at {playerPosition} is {(playerInsideAnyOutOfBounds ? "inside" : "outside")} {outOfBoundsCount} OutOfBounds zones. Zones are {(areOutOfBoundsZonesInverted ? "inverted" : "normal")}.");
+                }
+            }
+            else
+            {
+                // No OutOfBounds zones found
+                areOutOfBoundsZonesInverted = false;
+                zoneInversionDetected = true;
+
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found, assuming normal zone logic.");
+                }
+            }
+        }
+
+        public static void ResetZoneInversionDetection()
+        {
+            zoneInversionDetected = false;
+            areOutOfBoundsZonesInverted = false;
+        }
+
         private static void RecoverObject(ThrownObjectProjectileController thrownController, GameObject passenger, Vector3 projectilePos)
         {
             // Get the player who threw the projectile
@@ -171,7 +226,9 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
                         }
-                        if (isInside)
+                        // If zones are inverted, being inside means out of bounds
+                        // If zones are normal, being inside means safe
+                        if (areOutOfBoundsZonesInverted ? !isInside : isInside)
                         {
                             isInAnySafeZone = true;
                         }
@@ -180,7 +237,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
+                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone} (zones {(areOutOfBoundsZonesInverted ? "inverted" : "normal")})");
                 }
 
                 // If no out of bounds zones are defined, use fallback recovery based on height
@@ -283,7 +340,9 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.Info($"{Constants.LogPrefix} OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
                         }
-                        if (isInside)
+                        // If zones are inverted, being inside means out of bounds (not safe)
+                        // If zones are normal, being inside means safe
+                        if (areOutOfBoundsZonesInverted ? !isInside : isInside)
                         {
                             isInAnySafeZone = true;
                         }
@@ -292,7 +351,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone}");
+                    Log.Info($"{Constants.LogPrefix} Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone} (zones {(areOutOfBoundsZonesInverted ? "inverted" : "normal")})");
                 }
 
                 // If no out of bounds zones are defined, use fallback recovery based on height

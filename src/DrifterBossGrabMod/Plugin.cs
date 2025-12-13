@@ -223,6 +223,9 @@ namespace DrifterBossGrabMod
             // Mark cache as needing refresh when scene changes
             Patches.InteractableCachingPatches.MarkCacheForRefresh();
 
+            // Reset zone inversion detection for new stage
+            Patches.OtherPatches.ResetZoneInversionDetection();
+
             // Handle persistence restoration
             PersistenceManager.OnSceneChanged(oldScene, newScene);
 

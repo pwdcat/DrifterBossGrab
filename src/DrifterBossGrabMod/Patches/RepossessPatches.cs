@@ -95,6 +95,20 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(SpecialObjectAttributes), "get_isTargetable")]
         public class SpecialObjectAttributes_get_isTargetable
         {
+            [HarmonyPrefix]
+            public static void Prefix(SpecialObjectAttributes __instance)
+            {
+                // Clean null entries from SpecialObjectAttributes lists to prevent NullReferenceException
+                __instance.childSpecialObjectAttributes.RemoveAll(s => s == null);
+                __instance.renderersToDisable.RemoveAll(r => r == null);
+                __instance.behavioursToDisable.RemoveAll(b => b == null);
+                __instance.childObjectsToDisable.RemoveAll(c => c == null);
+                __instance.pickupDisplaysToDisable.RemoveAll(p => p == null);
+                __instance.lightsToDisable.RemoveAll(l => l == null);
+                __instance.objectsToDetach.RemoveAll(o => o == null);
+                __instance.skillHighlightRenderers.RemoveAll(r => r == null);
+            }
+
             [HarmonyPostfix]
             public static void Postfix(SpecialObjectAttributes __instance, ref bool __result)
             {
