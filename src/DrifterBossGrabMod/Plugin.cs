@@ -31,6 +31,7 @@ namespace DrifterBossGrabMod
         private EventHandler forwardVelHandler;
         private EventHandler upwardVelHandler;
         private EventHandler recoveryBlacklistHandler;
+        private EventHandler grabbableComponentTypesHandler;
         private EventHandler persistenceHandler;
         private EventHandler autoGrabHandler;
         private EventHandler maxPersistHandler;
@@ -79,7 +80,8 @@ namespace DrifterBossGrabMod
                 blacklistHandler,
                 forwardVelHandler,
                 upwardVelHandler,
-                recoveryBlacklistHandler
+                recoveryBlacklistHandler,
+                grabbableComponentTypesHandler
             );
 
             // Remove persistence event handlers
@@ -157,6 +159,13 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
 
+            grabbableComponentTypesHandler = (sender, args) =>
+            {
+                // Clear grabbable component types cache so it rebuilds with new value
+                PluginConfig.ClearGrabbableComponentTypesCache();
+            };
+            PluginConfig.GrabbableComponentTypes.SettingChanged += grabbableComponentTypesHandler;
+
             // Persistence event handlers
             persistenceHandler = (sender, args) =>
             {
@@ -229,6 +238,12 @@ namespace DrifterBossGrabMod
             // Handle persistence restoration
             PersistenceManager.OnSceneChanged(oldScene, newScene);
 
+            // Ensure all interactables have SpecialObjectAttributes for grabbing
+            Patches.InteractableCachingPatches.EnsureAllInteractablesHaveSpecialObjectAttributes();
+
+            // Scan all scene components if component analysis is enabled
+            Patches.BagPatches.ScanAllSceneComponents();
+
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 Log.Info($"{Constants.LogPrefix} Marked cache for refresh on scene change from {oldScene.name} to {newScene.name}");
@@ -275,6 +290,8 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableBossGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableNPCGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentGrabbing));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableComponentTypes));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
 
             // Bag options
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxSmacks));
@@ -287,7 +304,6 @@ namespace DrifterBossGrabMod
             // Environment options
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentInvisibility));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentInteractionDisable));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableUprightRecovery));
 
             // Recovery options
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.RecoveryObjectBlacklist));

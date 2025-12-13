@@ -89,12 +89,6 @@ namespace DrifterBossGrabMod.Patches
                 Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
                 passenger.transform.position = teleportPos;
 
-                // Optionally reset rotation to upright if configured
-                if (PluginConfig.EnableUprightRecovery.Value)
-                {
-                    passenger.transform.rotation = Quaternion.identity;
-                }
-
                 // Destroy the projectile
                 UnityEngine.Object.Destroy(thrownController.gameObject);
             }

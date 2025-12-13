@@ -35,24 +35,38 @@ namespace DrifterBossGrabMod
 
         public static void DisableColliders(GameObject obj, Dictionary<Collider, bool> originalStates)
         {
-            Collider[] colliders = obj.GetComponentsInChildren<Collider>();
-            foreach (Collider col in colliders)
+            var specialAttrs = obj.GetComponent<SpecialObjectAttributes>();
+            if (specialAttrs != null)
             {
-                if (!originalStates.ContainsKey(col))
+                // For SpecialObjectAttributes objects, let VehicleSeat handle all collider management
+                // We don't disable any colliders to avoid conflicts
+                if (cachedDebugLogsEnabled)
                 {
-                    originalStates[col] = col.enabled;
+                    Log.Info($"{Constants.LogPrefix} Skipping collider disabling for SpecialObjectAttributes object {obj.name} - VehicleSeat handles it");
                 }
-                if (!col.isTrigger)
+            }
+            else
+            {
+                // Original logic for objects without SpecialObjectAttributes
+                Collider[] colliders = obj.GetComponentsInChildren<Collider>();
+                foreach (Collider col in colliders)
                 {
-                    col.enabled = false;
-                    if (cachedDebugLogsEnabled)
+                    if (!originalStates.ContainsKey(col))
                     {
-                        Log.Info($"{Constants.LogPrefix} Disabled non-trigger collider {col.name} on {obj.name}");
+                        originalStates[col] = col.enabled;
                     }
-                }
-                else if (cachedDebugLogsEnabled)
-                {
-                    Log.Info($"{Constants.LogPrefix} Kept trigger collider {col.name} enabled on {obj.name}");
+                    if (!col.isTrigger)
+                    {
+                        col.enabled = false;
+                        if (cachedDebugLogsEnabled)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Disabled non-trigger collider {col.name} on {obj.name}");
+                        }
+                    }
+                    else if (cachedDebugLogsEnabled)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Kept trigger collider {col.name} enabled on {obj.name}");
+                    }
                 }
             }
         }
@@ -259,15 +273,8 @@ namespace DrifterBossGrabMod
         {
             if (!isPersisted) return;
 
-            // Reset rotation if configured
-            if (PluginConfig.EnableUprightRecovery.Value)
-            {
-                transform.rotation = Quaternion.identity;
-            }
-            else
-            {
-                transform.rotation = originalRotation;
-            }
+            // Reset rotation to upright (always upright now)
+            transform.rotation = Quaternion.identity;
 
             isPersisted = false;
 

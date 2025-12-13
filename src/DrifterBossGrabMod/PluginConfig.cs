@@ -23,8 +23,9 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<string> BodyBlacklist { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentInvisibility { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentInteractionDisable { get; private set; }
-        public static ConfigEntry<bool> EnableUprightRecovery { get; private set; }
         public static ConfigEntry<string> RecoveryObjectBlacklist { get; private set; }
+        public static ConfigEntry<string> GrabbableComponentTypes { get; private set; }
+        public static ConfigEntry<bool> EnableComponentAnalysisLogs { get; private set; }
 
         // Persistence settings
         public static ConfigEntry<bool> EnableObjectPersistence { get; private set; }
@@ -45,6 +46,10 @@ namespace DrifterBossGrabMod
         internal static HashSet<string>? _recoveryBlacklistCache;
         internal static HashSet<string>? _recoveryBlacklistCacheWithClones;
         private static string? _lastRecoveryBlacklistValue;
+
+        // Grabbable component types cache
+        internal static HashSet<string>? _grabbableComponentTypesCache;
+        private static string? _lastGrabbableComponentTypesValue;
 
         // Checks if a body name is blacklisted from being grabbed
         // name: The body name to check
@@ -100,6 +105,36 @@ namespace DrifterBossGrabMod
             return _recoveryBlacklistCacheWithClones.Contains(name);
         }
 
+        // Checks if an object is grabbable based on its components
+        // obj: The GameObject to check
+        // Returns: True if the object has any of the grabbable component types
+        public static bool IsGrabbable(UnityEngine.GameObject? obj)
+        {
+            if (obj == null) return false;
+
+            string currentValue = GrabbableComponentTypes.Value;
+            if (_grabbableComponentTypesCache == null || _lastGrabbableComponentTypesValue != currentValue)
+            {
+                _lastGrabbableComponentTypesValue = currentValue;
+                _grabbableComponentTypesCache = string.IsNullOrEmpty(currentValue)
+                    ? new HashSet<string>()
+                    : currentValue.Split(',')
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToHashSet(StringComparer.Ordinal);
+            }
+
+            foreach (var componentType in _grabbableComponentTypesCache)
+            {
+                var component = obj.GetComponent(componentType);
+                if (component != null)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Initializes all configuration entries
         // cfg: The BepInEx configuration file
         public static void Init(ConfigFile cfg)
@@ -130,7 +165,6 @@ namespace DrifterBossGrabMod
             // Environment object settings
             EnableEnvironmentInvisibility = cfg.Bind("General", "EnableEnvironmentInvisibility", true, "Make grabbed environment objects invisible while in the bag");
             EnableEnvironmentInteractionDisable = cfg.Bind("General", "EnableEnvironmentInteractionDisable", true, "Disable interactions for grabbed environment objects while in the bag");
-            EnableUprightRecovery = cfg.Bind("General", "EnableUprightRecovery", false, "Reset rotation thrown objects to upright position");
 
             // Abyss recovery settings
             RecoveryObjectBlacklist = cfg.Bind("Recovery", "RecoveryObjectBlacklist", "",
@@ -138,6 +172,19 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
+
+            // Grabbable component types
+            GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "IInteractable",
+                "Comma-separated list of component type names that make objects grabbable.\n" +
+                "Example: IInteractable,CharacterBody\n" +
+                "Objects must have at least one of these components to be grabbable.\n" +
+                "Use exact component type names (case-sensitive).");
+
+            // Component analysis debug logs
+            EnableComponentAnalysisLogs = cfg.Bind("General", "EnableComponentAnalysisLogs", false,
+                "Enable scanning of all objects in the current scene to log component types.\n" +
+                "This can be performance-intensive and should only be enabled for debugging.\n" +
+                "Shows all unique component types found in the scene for potential grabbable objects.");
 
             // Persistence settings
             EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence", false, "Enable persistence of grabbed objects across stage transitions");
@@ -163,6 +210,7 @@ namespace DrifterBossGrabMod
         // forwardVelHandler: Handler for forward velocity multiplier changes
         // upwardVelHandler: Handler for upward velocity multiplier changes
         // recoveryBlacklistHandler: Handler for recovery blacklist changes
+        // grabbableComponentTypesHandler: Handler for grabbable component types changes
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
             EventHandler envInvisHandler,
@@ -170,7 +218,8 @@ namespace DrifterBossGrabMod
             EventHandler blacklistHandler,
             EventHandler forwardVelHandler,
             EventHandler upwardVelHandler,
-            EventHandler recoveryBlacklistHandler)
+            EventHandler recoveryBlacklistHandler,
+            EventHandler grabbableComponentTypesHandler)
         {
             EnableDebugLogs.SettingChanged -= debugLogsHandler;
             EnableEnvironmentInvisibility.SettingChanged -= envInvisHandler;
@@ -179,6 +228,7 @@ namespace DrifterBossGrabMod
             ForwardVelocityMultiplier.SettingChanged -= forwardVelHandler;
             UpwardVelocityMultiplier.SettingChanged -= upwardVelHandler;
             RecoveryObjectBlacklist.SettingChanged -= recoveryBlacklistHandler;
+            GrabbableComponentTypes.SettingChanged -= grabbableComponentTypesHandler;
         }
 
         // Clears the blacklist cache to force a rebuild
@@ -193,6 +243,13 @@ namespace DrifterBossGrabMod
         {
             _recoveryBlacklistCache = null;
             _recoveryBlacklistCacheWithClones = null;
+        }
+
+        // Clears the grabbable component types cache to force a rebuild
+        public static void ClearGrabbableComponentTypesCache()
+        {
+            _grabbableComponentTypesCache = null;
+            _lastGrabbableComponentTypesValue = null;
         }
     }
 }
