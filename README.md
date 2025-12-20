@@ -1,6 +1,6 @@
 # DrifterBossGrab
 
-Allows Drifter to grab and bag boss enemies, NPCs, and environment objects.
+Allows Drifter to grab and bag any object or NPC.
 
 ## Risk of Options Compatibility
 
@@ -18,19 +18,17 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/co
 ### Bag Section
 - **BreakoutTimeMultiplier**: Multiplier for how long bagged enemies take to break out.
 - **MaxSmacks** (1-100): Maximum number of hits before bagged enemies break out.
-- **MassMultiplier**: Multiplier for the mass of bagged objects (affects throwing physics).
+- **MassMultiplier**: Multiplier for the mass of bagged objects.
 
 ### General Section
 - **EnableBossGrabbing** (true/false): Enable grabbing of boss enemies.
 - **EnableNPCGrabbing** (true/false): Enable grabbing of NPCs with ungrabbable flag.
-- **EnableEnvironmentGrabbing** (true/false): Enable grabbing of environment objects like teleporters and portals.
-- **EnableEnvironmentInvisibility** (true/false): Make grabbed environment objects invisible while in the bag.
-- **EnableEnvironmentInteractionDisable** (true/false): Disable interactions for grabbed environment objects while in the bag.
-- **EnableUprightRecovery** (true/false): Reset rotation of recovered thrown objects to upright position.
+- **EnableEnvironmentGrabbing** (true/false): Enable grabbing of environment objects.
 - **EnableDebugLogs** (true/false): Enable debug logging.
-- **BodyBlacklist** (string): Comma-separated list of body names to never grab. Defaults to "HeaterPodBodyNoRespawn,GenericPickup" for safety.
-
-### Recovery Section
+- **EnableComponentAnalysisLogs** (true/false): Enable scanning of all objects in the current scene to log component types.
+- **BodyBlacklist** (string): Comma-separated list of body names to never grab.
+- **GrabbableComponentTypes** (string): Comma-separated list of component type names that make objects grabbable. (Recommend upping the search range and use the ping to find where to grab for huge objects)
+- **GrabbableKeywordBlacklist** (string): Comma-separated list of keywords that make objects NOT grabbable if found in their name.
 - **RecoveryObjectBlacklist** (string): Comma-separated list of object names to never recover from abyss falls. Leave empty to recover all objects.
 
 ### Persistence Section

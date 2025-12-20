@@ -205,23 +205,7 @@ namespace DrifterBossGrabMod
                     // Move to persistence container
                     obj.transform.SetParent(_persistenceContainer.transform, true);
 
-                    // Capture persistence state
-                    var grabbedState = obj.GetComponent<GrabbedObjectState>();
-                    if (grabbedState != null)
-                    {
-                        grabbedState.CapturePersistenceState();
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Captured persistence state for {obj.name}");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} No GrabbedObjectState found on {obj.name} - persistence state not captured");
-                        }
-                    }
+                    // Removed GrabbedObjectState persistence state capture - testing if SpecialObjectAttributes handles this automatically
 
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
@@ -343,6 +327,20 @@ namespace DrifterBossGrabMod
         {
             var teleporters = UnityEngine.Object.FindObjectsOfType<TeleporterInteraction>(false);
             return teleporters.Length > 0;
+        }
+
+        // Check if there's another active teleporter in the scene
+        private static bool HasActiveTeleporterInScene(GameObject excludeTeleporter)
+        {
+            var allTeleporters = UnityEngine.Object.FindObjectsOfType<RoR2.TeleporterInteraction>(false);
+            foreach (var teleporter in allTeleporters)
+            {
+                if (teleporter.gameObject != excludeTeleporter && teleporter.enabled && !ShouldDisableTeleporter(teleporter.gameObject))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // Capture currently bagged objects
@@ -627,38 +625,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Helper class to re-enable teleporter after restoration to prevent FixedUpdate errors
-        private class TeleporterEnabler : MonoBehaviour
-        {
-            private RoR2.TeleporterInteraction _teleporterInteraction;
-
-            public void Initialize(RoR2.TeleporterInteraction teleporterInteraction)
-            {
-                _teleporterInteraction = teleporterInteraction;
-                StartCoroutine(DelayedEnable());
-            }
-
-            private System.Collections.IEnumerator DelayedEnable()
-            {
-                // Wait longer for the teleporter to fully initialize and state machine to settle
-                for (int i = 0; i < 10; i++)
-                {
-                    yield return null;
-                }
-
-                if (_teleporterInteraction != null)
-                {
-                    _teleporterInteraction.enabled = true;
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Re-enabled TeleporterInteraction on {_teleporterInteraction.name} after restoration");
-                    }
-                }
-
-                // Clean up this component
-                UnityEngine.Object.Destroy(this);
-            }
-        }
 
         // Restore persisted objects
         private static void RestorePersistedObjects()
@@ -704,23 +670,7 @@ namespace DrifterBossGrabMod
                     // Position near player
                     PositionNearPlayer(obj);
 
-                    // Restore persistence state
-                    var grabbedState = obj.GetComponent<GrabbedObjectState>();
-                    if (grabbedState != null)
-                    {
-                        grabbedState.RestorePersistenceState();
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Restored persistence state for {obj.name}");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} No GrabbedObjectState found on {obj.name}");
-                        }
-                    }
+                    // Removed GrabbedObjectState persistence state restoration - testing if SpecialObjectAttributes handles this automatically
 
                     // Special handling for teleporters and portals
                     HandleSpecialObjectRestoration(obj);
@@ -1152,6 +1102,10 @@ namespace DrifterBossGrabMod
             lock (_lock)
             {
                 _teleportersToDisable.Add(obj);
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Marked {obj.name} for teleporter disabling, total marked: {_teleportersToDisable.Count}");
+                }
             }
         }
 
@@ -1171,12 +1125,46 @@ namespace DrifterBossGrabMod
 
             string objName = obj.name.ToLower();
 
-            // Handle teleporters - mark for disabling to prevent FixedUpdate errors
-            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
+            // Handle teleporters - disable if there's another active teleporter
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"{Constants.LogPrefix} Checking for TeleporterInteraction on persisted object {obj.name}");
+            }
+            var teleporterInteraction = obj.GetComponentInChildren<RoR2.TeleporterInteraction>();
             if (teleporterInteraction != null)
             {
-                // Mark this teleporter to be disabled in FixedUpdate
-                MarkTeleporterForDisabling(obj);
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Found TeleporterInteraction on {teleporterInteraction.gameObject.name} for persisted object {obj.name}");
+                }
+
+                // Check if there's another teleporter in the scene that is not disabled
+                bool hasActiveTeleporter = HasActiveTeleporterInScene(teleporterInteraction.gameObject);
+                if (hasActiveTeleporter)
+                {
+                    teleporterInteraction.enabled = false;
+                    // Mark the GameObject that has the TeleporterInteraction for disabling in FixedUpdate
+                    MarkTeleporterForDisabling(teleporterInteraction.gameObject);
+
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Disabled TeleporterInteraction on persisted teleporter {obj.name}, marked {teleporterInteraction.gameObject.name} for FixedUpdate disabling - active teleporter found");
+                    }
+                }
+                else
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Left TeleporterInteraction enabled on persisted teleporter {obj.name} - no active teleporter found");
+                    }
+                }
+            }
+            else
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} No TeleporterInteraction found on persisted object {obj.name}");
+                }
             }
 
             // Handle DitherModel objects first (chests, purchasables)
@@ -1381,9 +1369,9 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // General IInteractable re-enabling as fallback
+            // General IInteractable re-enabling as fallback (skip teleporters as they should remain disabled)
             var interactable = obj.GetComponent<IInteractable>();
-            if (interactable != null)
+            if (interactable != null && !(interactable is RoR2.TeleporterInteraction))
             {
                 var interactableMB = interactable as MonoBehaviour;
                 if (interactableMB != null && !interactableMB.enabled)

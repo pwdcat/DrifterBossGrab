@@ -3,6 +3,48 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2025-12-20
+
+### Changed
+- Added "Controller" to default grabbable keyword blacklist
+- Replacing "EntityStateMachine" with "TeleporterInteraction" from GrabbableComponentTypes, seems to problematic (just readded it if you want it)
+- Added "MultiShopTerminal,MultiShopLargeTerminal" to default body blacklist
+
+### Fixed
+- Bug when there's two teleporters in a stage, still buggy
+- Bug when throwing the junkcube
+- General refactor, removed some doodoo code
+
+## [1.4.2] - 2025-12-17
+
+### Added
+- Support for grabbing Captain supply drops
+
+## [1.4.1] - 2025-12-15
+
+### Added
+- Mass and durability now scale based on object collider volume (0.5x to 5x range)
+
+### Fixed
+- Teleporter interaction bug
+- Grabbed object icons
+ 
+### Changed
+- Removed numeric suffixes like (1)
+
+## [1.4.0] - 2025-12-13
+
+### Added
+- Dynamic SpecialObjectAttributes addition to all specified objects on spawn
+
+### Changed
+- Completely replaced the 500-object caching limit with SpecialObjectAttributes-based system
+- Search logic now uses SpecialObjectAttributes instead of cached IInteractable lists
+
+### Fixed
+- Recovery for certain maps
+- Multi shops causing NRE, when broken
+
 ## [1.3.2] - 2025-12-03
 
 ### Added

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace DrifterBossGrabMod
 {
@@ -21,10 +22,9 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<string> MassMultiplier { get; private set; }
         public static ConfigEntry<bool> EnableDebugLogs { get; private set; }
         public static ConfigEntry<string> BodyBlacklist { get; private set; }
-        public static ConfigEntry<bool> EnableEnvironmentInvisibility { get; private set; }
-        public static ConfigEntry<bool> EnableEnvironmentInteractionDisable { get; private set; }
         public static ConfigEntry<string> RecoveryObjectBlacklist { get; private set; }
-        public static ConfigEntry<string> GrabbableComponentTypes { get; private set; }
+        public static ConfigEntry<string> GrabbableComponentTypes { get; private set; } = null!;
+        public static ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; }
         public static ConfigEntry<bool> EnableComponentAnalysisLogs { get; private set; }
 
         // Persistence settings
@@ -50,6 +50,10 @@ namespace DrifterBossGrabMod
         // Grabbable component types cache
         internal static HashSet<string>? _grabbableComponentTypesCache;
         private static string? _lastGrabbableComponentTypesValue;
+
+        // Grabbable keyword blacklist cache
+        internal static HashSet<string>? _grabbableKeywordBlacklistCache;
+        private static string? _lastGrabbableKeywordBlacklistValue;
 
         // Checks if a body name is blacklisted from being grabbed
         // name: The body name to check
@@ -105,13 +109,55 @@ namespace DrifterBossGrabMod
             return _recoveryBlacklistCacheWithClones.Contains(name);
         }
 
-        // Checks if an object is grabbable based on its components
+        // Checks if an object name contains blacklisted keywords
+        // name: The object name to check
+        // Returns: True if the object name contains any blacklisted keywords
+        public static bool IsKeywordBlacklisted(string? name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+
+            string currentValue = GrabbableKeywordBlacklist.Value;
+            if (_grabbableKeywordBlacklistCache == null || _lastGrabbableKeywordBlacklistValue != currentValue)
+            {
+                _lastGrabbableKeywordBlacklistValue = currentValue;
+                _grabbableKeywordBlacklistCache = string.IsNullOrEmpty(currentValue)
+                    ? new HashSet<string>()
+                    : currentValue.Split(',')
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var keyword in _grabbableKeywordBlacklistCache)
+            {
+                if (name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Checks if an object is grabbable based on its components and configuration toggles
         // obj: The GameObject to check
-        // Returns: True if the object has any of the grabbable component types
-        public static bool IsGrabbable(UnityEngine.GameObject? obj)
+        // Returns: True if the object has any of the grabbable component types and is allowed by toggles
+        public static bool IsGrabbable(GameObject? obj)
         {
             if (obj == null) return false;
 
+            // Check for keyword blacklist first
+            if (IsKeywordBlacklisted(obj.name))
+            {
+                return false;
+            }
+
+            // Check for body blacklist
+            if (IsBlacklisted(obj.name))
+            {
+                return false;
+            }
+
+            // Check if object has required components
             string currentValue = GrabbableComponentTypes.Value;
             if (_grabbableComponentTypesCache == null || _lastGrabbableComponentTypesValue != currentValue)
             {
@@ -124,15 +170,41 @@ namespace DrifterBossGrabMod
                         .ToHashSet(StringComparer.Ordinal);
             }
 
+            bool hasRequiredComponent = false;
             foreach (var componentType in _grabbableComponentTypesCache)
             {
                 var component = obj.GetComponent(componentType);
                 if (component != null)
                 {
-                    return true;
+                    hasRequiredComponent = true;
+                    break;
                 }
             }
-            return false;
+
+            if (!hasRequiredComponent)
+            {
+                return false;
+            }
+
+            // Now check the appropriate toggle based on object type
+            var characterBody = obj.GetComponent<RoR2.CharacterBody>();
+            if (characterBody != null)
+            {
+                // It's an enemy/NPC
+                if (characterBody.isBoss || characterBody.isChampion)
+                {
+                    return EnableBossGrabbing.Value;
+                }
+                else
+                {
+                    return EnableNPCGrabbing.Value;
+                }
+            }
+            else
+            {
+                // It's an environment object (has IInteractable or other components but no CharacterBody)
+                return EnableEnvironmentGrabbing.Value;
+            }
         }
 
         // Initializes all configuration entries
@@ -156,29 +228,34 @@ namespace DrifterBossGrabMod
 
             // Debug and blacklist
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
-            BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "HeaterPodBodyNoRespawn,GenericPickup",
+            BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "HeaterPodBodyNoRespawn,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal",
                 "Comma-separated list of body names to never grab.\n" +
                 "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see body names, case-insensitive matching");
 
-            // Environment object settings
-            EnableEnvironmentInvisibility = cfg.Bind("General", "EnableEnvironmentInvisibility", true, "Make grabbed environment objects invisible while in the bag");
-            EnableEnvironmentInteractionDisable = cfg.Bind("General", "EnableEnvironmentInteractionDisable", true, "Disable interactions for grabbed environment objects while in the bag");
 
             // Abyss recovery settings
-            RecoveryObjectBlacklist = cfg.Bind("Recovery", "RecoveryObjectBlacklist", "",
+            RecoveryObjectBlacklist = cfg.Bind("General", "RecoveryObjectBlacklist", "",
                 "Comma-separated list of object names to never recover from abyss falls.\n" +
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
 
             // Grabbable component types
-            GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "IInteractable",
+            GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction",
                 "Comma-separated list of component type names that make objects grabbable.\n" +
-                "Example: IInteractable,CharacterBody\n" +
+                "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
                 "Objects must have at least one of these components to be grabbable.\n" +
                 "Use exact component type names (case-sensitive).");
+
+            // Grabbable keyword blacklist
+            GrabbableKeywordBlacklist = cfg.Bind("General", "GrabbableKeywordBlacklist", "Master,Controller",
+                "Comma-separated list of keywords that make objects NOT grabbable if found in their name.\n" +
+                "Example: Master\n" +
+                "Objects with these keywords in their name will be excluded from grabbing.\n" +
+                "Case-insensitive matching, partial matches allowed.\n" +
+                "'Master' prevents grabbing enemy masters");
 
             // Component analysis debug logs
             EnableComponentAnalysisLogs = cfg.Bind("General", "EnableComponentAnalysisLogs", false,
@@ -204,31 +281,37 @@ namespace DrifterBossGrabMod
 
         // Removes all event handlers to prevent memory leaks
         // debugLogsHandler: Handler for debug log settings changes
-        // envInvisHandler: Handler for environment invisibility changes
-        // envInteractHandler: Handler for environment interaction disable changes
         // blacklistHandler: Handler for blacklist changes
         // forwardVelHandler: Handler for forward velocity multiplier changes
         // upwardVelHandler: Handler for upward velocity multiplier changes
         // recoveryBlacklistHandler: Handler for recovery blacklist changes
         // grabbableComponentTypesHandler: Handler for grabbable component types changes
+        // grabbableKeywordBlacklistHandler: Handler for grabbable keyword blacklist changes
+        // bossGrabbingHandler: Handler for boss grabbing toggle changes
+        // npcGrabbingHandler: Handler for NPC grabbing toggle changes
+        // environmentGrabbingHandler: Handler for environment grabbing toggle changes
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
-            EventHandler envInvisHandler,
-            EventHandler envInteractHandler,
             EventHandler blacklistHandler,
             EventHandler forwardVelHandler,
             EventHandler upwardVelHandler,
             EventHandler recoveryBlacklistHandler,
-            EventHandler grabbableComponentTypesHandler)
+            EventHandler grabbableComponentTypesHandler,
+            EventHandler grabbableKeywordBlacklistHandler,
+            EventHandler bossGrabbingHandler,
+            EventHandler npcGrabbingHandler,
+            EventHandler environmentGrabbingHandler)
         {
             EnableDebugLogs.SettingChanged -= debugLogsHandler;
-            EnableEnvironmentInvisibility.SettingChanged -= envInvisHandler;
-            EnableEnvironmentInteractionDisable.SettingChanged -= envInteractHandler;
             BodyBlacklist.SettingChanged -= blacklistHandler;
             ForwardVelocityMultiplier.SettingChanged -= forwardVelHandler;
             UpwardVelocityMultiplier.SettingChanged -= upwardVelHandler;
             RecoveryObjectBlacklist.SettingChanged -= recoveryBlacklistHandler;
             GrabbableComponentTypes.SettingChanged -= grabbableComponentTypesHandler;
+            GrabbableKeywordBlacklist.SettingChanged -= grabbableKeywordBlacklistHandler;
+            EnableBossGrabbing.SettingChanged -= bossGrabbingHandler;
+            EnableNPCGrabbing.SettingChanged -= npcGrabbingHandler;
+            EnableEnvironmentGrabbing.SettingChanged -= environmentGrabbingHandler;
         }
 
         // Clears the blacklist cache to force a rebuild
@@ -250,6 +333,13 @@ namespace DrifterBossGrabMod
         {
             _grabbableComponentTypesCache = null;
             _lastGrabbableComponentTypesValue = null;
+        }
+
+        // Clears the grabbable keyword blacklist cache to force a rebuild
+        public static void ClearGrabbableKeywordBlacklistCache()
+        {
+            _grabbableKeywordBlacklistCache = null;
+            _lastGrabbableKeywordBlacklistValue = null;
         }
     }
 }

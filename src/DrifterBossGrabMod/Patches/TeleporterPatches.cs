@@ -9,10 +9,6 @@ namespace DrifterBossGrabMod.Patches
         {
             // Subscribe to teleporter charged event
             TeleporterInteraction.onTeleporterChargedGlobal += OnTeleporterChargedGlobal;
-
-            // Patch FixedUpdate to debug NullReferenceException
-            var harmony = new Harmony("com.DrifterBossGrab.TeleporterDebug");
-            harmony.PatchAll(typeof(TeleporterPatches));
         }
 
         public static void Cleanup()
@@ -57,7 +53,8 @@ namespace DrifterBossGrabMod.Patches
             bool shouldDisable = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
             if (shouldDisable)
             {
-                return false; // Skip original method for persisted teleporters
+                // Skip original method for persisted teleporters
+                return false;
             }
 
             return true; // Continue with original method
@@ -67,11 +64,15 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         private static bool PingTeleporterPrefix(TeleporterInteraction __instance)
         {
-            // Check if this is a persisted teleporter
-            bool isPersisted = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
-            if (isPersisted)
+            // Check if this teleporter should be disabled
+            bool shouldDisable = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
+            if (PluginConfig.EnableDebugLogs.Value)
             {
-                return false; // Skip pinging persisted teleporters
+                Log.Info($"{Constants.LogPrefix} PingTeleporterPrefix for {__instance.gameObject.name}, shouldDisable: {shouldDisable}");
+            }
+            if (shouldDisable)
+            {
+                return false; // Skip pinging disabled teleporters
             }
 
             return true; // Continue with original method
@@ -81,11 +82,15 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         private static bool CancelTeleporterPingPrefix(TeleporterInteraction __instance)
         {
-            // Check if this is a persisted teleporter
-            bool isPersisted = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
-            if (isPersisted)
+            // Check if this teleporter should be disabled
+            bool shouldDisable = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
+            if (PluginConfig.EnableDebugLogs.Value)
             {
-                return false; // Skip canceling ping for persisted teleporters
+                Log.Info($"{Constants.LogPrefix} CancelTeleporterPingPrefix for {__instance.gameObject.name}, shouldDisable: {shouldDisable}");
+            }
+            if (shouldDisable)
+            {
+                return false; // Skip canceling ping for disabled teleporters
             }
 
             return true; // Continue with original method

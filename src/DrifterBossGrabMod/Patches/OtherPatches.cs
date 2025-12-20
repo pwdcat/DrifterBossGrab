@@ -3,8 +3,11 @@ using System.Reflection;
 using HarmonyLib;
 using RoR2;
 using RoR2.Projectile;
+using RoR2.UI;
+using RoR2.HudOverlay;
 using UnityEngine;
 using EntityStates.CaptainSupplyDrop;
+using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -73,21 +76,27 @@ namespace DrifterBossGrabMod.Patches
             if (owner != null)
             {
                 Vector3 playerPos = owner.transform.position;
-                if (PluginConfig.EnableDebugLogs.Value)
+                string passengerName = "unknown";
+                try
                 {
-                    Log.Info($"{Constants.LogPrefix} Recovering {passenger.name} to player position {playerPos}");
+                    passengerName = passenger.name;
+                }
+                catch (System.NullReferenceException)
+                {
+                    passengerName = "corrupted";
                 }
 
-                // Restore states
-                var grabbedState = passenger.GetComponent<GrabbedObjectState>();
-                if (grabbedState != null)
+                if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    grabbedState.RestoreAllStates();
+                    Log.Info($"{Constants.LogPrefix} Recovering {passengerName} to player position {playerPos}");
                 }
+
+                // Removed GrabbedObjectState restoration - testing if SpecialObjectAttributes handles this automatically
 
                 // Teleport passenger to a position in front of the player
                 Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
                 passenger.transform.position = teleportPos;
+
 
                 // Destroy the projectile
                 UnityEngine.Object.Destroy(thrownController.gameObject);
@@ -124,16 +133,40 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
                     GameObject passengerObj = __instance.Networkpassenger;
-                    Log.Info($"{Constants.LogPrefix} ThrownObjectProjectileController.ImpactBehavior called - Passenger: {passengerObj?.name ?? "null"}");
+                    string passengerName = "null";
+                    try
+                    {
+                        passengerName = passengerObj?.name ?? "null";
+                    }
+                    catch (System.NullReferenceException)
+                    {
+                        passengerName = "corrupted";
+                    }
+                    Log.Info($"{Constants.LogPrefix} ThrownObjectProjectileController.ImpactBehavior called - Passenger: {passengerName}");
                 }
 
                 // Get the passenger from the projectile
                 GameObject passenger = __instance.Networkpassenger;
                 if (passenger != null)
                 {
+                    string passengerName = "unknown";
+                    try
+                    {
+                        passengerName = passenger.name;
+                    }
+                    catch (System.NullReferenceException)
+                    {
+                        // Passenger object is corrupted, skip processing
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Skipping processing of corrupted passenger object");
+                        }
+                        return;
+                    }
+
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Projectile passenger: {passenger.name}");
+                        Log.Info($"{Constants.LogPrefix} Projectile passenger: {passengerName}");
                     }
 
                     // Check if persistence window is active and mark thrown object for persistence
@@ -143,26 +176,78 @@ namespace DrifterBossGrabMod.Patches
 
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Thrown object {passenger.name} marked for persistence during active window");
+                            Log.Info($"{Constants.LogPrefix} Thrown object {passengerName} marked for persistence during active window");
                         }
                     }
 
-                    // Check if the passenger has our state storage component
-                    var grabbedState = passenger.GetComponent<GrabbedObjectState>();
-                    if (grabbedState != null)
+                    // For objects with SpecialObjectAttributes (like that wing guy), eject from VehicleSeat and manually restore
+                    var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
+                    if (specialAttrs != null)
                     {
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Projectile impacted - restoring states for {passenger.name}");
+                            Log.Info($"{Constants.LogPrefix} Processing SpecialObjectAttributes collision restoration for {passengerName}");
                         }
-                        // Restore all the stored states
-                        grabbedState.RestoreAllStates();
-                    }
-                    else
-                    {
+
+                        // Eject the passenger from VehicleSeat to restore VehicleSeat-managed colliders/behaviors
+                        var vehicleSeatField = typeof(ThrownObjectProjectileController).GetField("vehicleSeat", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
+
+                        if (vehicleSeat != null && vehicleSeat.hasPassenger && vehicleSeat.currentPassengerBody != null)
+                        {
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"{Constants.LogPrefix} Ejecting passenger {passengerName} from VehicleSeat");
+                            }
+
+                            // Calculate final position for ejection
+                            var calculateMethod = typeof(ThrownObjectProjectileController).GetMethod("CalculatePassengerFinalPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            if (calculateMethod != null)
+                            {
+                                var parameters = new object[] { null, null };
+                                calculateMethod.Invoke(__instance, parameters);
+                                Vector3 finalPosition = (Vector3)parameters[0];
+                                Quaternion finalRotation = (Quaternion)parameters[1];
+
+                                // Eject the passenger
+                                vehicleSeat.EjectPassenger(finalPosition, finalRotation);
+
+                                if (PluginConfig.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"{Constants.LogPrefix} Successfully ejected passenger {passengerName} to position {finalPosition}");
+                                }
+                            }
+                            else
+                            {
+                                vehicleSeat.EjectPassenger();
+                            }
+                        }
+
+                        // Additionally, manually restore all colliders for SpecialObjectAttributes objects
+                        // This handles colliders disabled by the grabbing code that VehicleSeat ejection doesn't restore
+                        // Behaviors are restored by VehicleSeat ejection
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} No GrabbedObjectState found on passenger {passenger.name}");
+                            Log.Info($"{Constants.LogPrefix} Manually restoring all colliders for {passengerName}");
+                        }
+
+                        var allColliders = passenger.GetComponentsInChildren<Collider>(true);
+                        foreach (var collider in allColliders)
+                        {
+                            collider.enabled = true;
+                        }
+
+                        // Ensure Rigidbody is not kinematic
+                        var rb = passenger.GetComponent<Rigidbody>();
+                        if (rb != null)
+                        {
+                            rb.isKinematic = false;
+                            rb.detectCollisions = true;
+                        }
+
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Restored {allColliders.Length} colliders for {passengerName}");
                         }
                     }
 
@@ -181,7 +266,7 @@ namespace DrifterBossGrabMod.Patches
             private static void CheckAndRecoverProjectile(ThrownObjectProjectileController thrownController, MapZoneChecker? zoneChecker)
             {
                 GameObject passenger = thrownController.Networkpassenger;
-                if (passenger == null || passenger.GetComponent<GrabbedObjectState>() == null)
+                if (passenger == null)
                 {
                     return;
                 }
@@ -193,7 +278,18 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Check if object is blacklisted from recovery
-                if (PluginConfig.IsRecoveryBlacklisted(passenger.name))
+                string passengerName = "unknown";
+                try
+                {
+                    passengerName = passenger.name;
+                }
+                catch (System.NullReferenceException)
+                {
+                    // Passenger object is corrupted, skip processing
+                    return;
+                }
+
+                if (PluginConfig.IsRecoveryBlacklisted(passengerName))
                 {
                     return;
                 }
@@ -291,8 +387,7 @@ namespace DrifterBossGrabMod.Patches
                 lastCheckTimes[__instance] = Time.time;
 
                 var thrownController = __instance.GetComponent<ThrownObjectProjectileController>();
-                if (thrownController != null && thrownController.Networkpassenger != null &&
-                    thrownController.Networkpassenger.GetComponent<GrabbedObjectState>() != null)
+                if (thrownController != null && thrownController.Networkpassenger != null)
                 {
                     // Untrack the thrown object from persistence tracking
                     PersistenceObjectsTracker.UntrackBaggedObject(thrownController.Networkpassenger);
@@ -301,7 +396,18 @@ namespace DrifterBossGrabMod.Patches
                     if (thrownController.Networkpassenger.GetComponent<CharacterBody>() == null)
                     {
                         // Check if object is blacklisted from recovery
-                        if (!PluginConfig.IsRecoveryBlacklisted(thrownController.Networkpassenger.name))
+                        string passengerName = "unknown";
+                        try
+                        {
+                            passengerName = thrownController.Networkpassenger.name;
+                        }
+                        catch (System.NullReferenceException)
+                        {
+                            // Passenger object is corrupted, skip processing
+                            return;
+                        }
+
+                        if (!PluginConfig.IsRecoveryBlacklisted(passengerName))
                         {
                             CheckAndRecoverProjectileZoneChecker(thrownController, __instance);
                         }
@@ -355,9 +461,19 @@ namespace DrifterBossGrabMod.Patches
                     const float abyssThreshold = -100f;
                     if (projectilePos.y < abyssThreshold)
                     {
+                        string passengerName = "unknown";
+                        try
+                        {
+                            passengerName = thrownController.Networkpassenger.name;
+                        }
+                        catch (System.NullReferenceException)
+                        {
+                            passengerName = "corrupted";
+                        }
+
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {thrownController.Networkpassenger.name}");
+                            Log.Info($"{Constants.LogPrefix} No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {passengerName}");
                         }
                         RecoverObject(thrownController, thrownController.Networkpassenger, projectilePos);
                     }
@@ -374,11 +490,114 @@ namespace DrifterBossGrabMod.Patches
                 // If projectile is NOT in any safe zone, it's out of bounds and should be recovered
                 if (!isInAnySafeZone)
                 {
+                    string passengerName2 = "unknown";
+                    try
+                    {
+                        passengerName2 = thrownController.Networkpassenger.name;
+                    }
+                    catch (System.NullReferenceException)
+                    {
+                        passengerName2 = "corrupted";
+                    }
+
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Projectile at {projectilePos} is OUTSIDE all safe zones, recovering {thrownController.Networkpassenger.name}");
+                        Log.Info($"{Constants.LogPrefix} Projectile at {projectilePos} is OUTSIDE all safe zones, recovering {passengerName2}");
                     }
                     RecoverObject(thrownController, thrownController.Networkpassenger, projectilePos);
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(SpecialObjectAttributes), "Start")]
+        public class SpecialObjectAttributes_Start_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(SpecialObjectAttributes __instance)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    string iconName = (__instance.portraitIcon != null) ? __instance.portraitIcon.name : "null";
+                    Log.Info($"{Constants.LogPrefix} SpecialObjectAttributes.Start - Object: {__instance.gameObject.name}, portraitIcon: {iconName}, bestName: {__instance.bestName}");
+
+                    // Log collisionToDisable count and contents
+                    var collisionToDisableField = typeof(SpecialObjectAttributes).GetField("collisionToDisable", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var collisionToDisable = collisionToDisableField?.GetValue(__instance) as System.Collections.Generic.List<GameObject>;
+                    Log.Info($"{Constants.LogPrefix} SpecialObjectAttributes.Start - collisionToDisable count: {collisionToDisable?.Count ?? 0}");
+                    if (collisionToDisable != null)
+                    {
+                        for (int i = 0; i < collisionToDisable.Count; i++)
+                        {
+                            var go = collisionToDisable[i];
+                            if (go != null)
+                            {
+                                var colliders = go.GetComponentsInChildren<Collider>(true); // include inactive
+                                Log.Info($"{Constants.LogPrefix} SpecialObjectAttributes.Start - collisionToDisable[{i}]: {go.name}, colliders found: {colliders.Length}");
+                                foreach (var col in colliders)
+                                {
+                                    Log.Info($"{Constants.LogPrefix}   - Collider: {col.name}, enabled: {col.enabled}, gameObject: {col.gameObject.name}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        [HarmonyPatch(typeof(BaggedObject), "OnEnter")]
+        public class BaggedObject_OnEnter_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(BaggedObject __instance)
+            {
+                // Store colliders in SpecialObjectAttributes before BaggedObject.OnEnter disables them
+                var targetObjectField = typeof(BaggedObject).GetField("targetObject", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var targetObject = targetObjectField?.GetValue(__instance) as GameObject;
+
+                if (targetObject != null)
+                {
+                    var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();
+                    if (specialAttrs != null)
+                    {
+                        var colliders = targetObject.GetComponentsInChildren<Collider>(true);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} BaggedObject.OnEnter: Storing {colliders.Length} colliders for {targetObject.name} in SpecialObjectAttributes");
+                        }
+
+                        // Use reflection to access collidersToDisable
+                        var collidersToDisableField = typeof(SpecialObjectAttributes).GetField("collidersToDisable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var collidersToDisable = collidersToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<Collider>;
+
+                        if (collidersToDisable != null)
+                        {
+                            foreach (var collider in colliders)
+                            {
+                                if (!collidersToDisable.Contains(collider))
+                                {
+                                    collidersToDisable.Add(collider);
+                                }
+                            }
+                        }
+
+                        // Also store behaviors
+                        var behavioursToDisableField = typeof(SpecialObjectAttributes).GetField("behavioursToDisable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var behavioursToDisable = behavioursToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<MonoBehaviour>;
+
+                        if (behavioursToDisable != null)
+                        {
+                            var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
+                            foreach (var behavior in behaviors)
+                            {
+                                // Only store behaviors that should be disabled
+                                if (!behavioursToDisable.Contains(behavior))
+                                {
+                                    behavioursToDisable.Add(behavior);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

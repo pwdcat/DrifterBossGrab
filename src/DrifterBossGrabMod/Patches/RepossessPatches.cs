@@ -128,6 +128,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+
         [HarmonyPatch(typeof(RepossessBullseyeSearch), "HurtBoxPassesRequirements")]
         public class RepossessBullseyeSearch_HurtBoxPassesRequirements
         {
@@ -141,15 +142,8 @@ namespace DrifterBossGrabMod.Patches
                     bool allowTargeting = false;
                     if (body)
                     {
-                        if ((PluginConfig.EnableBossGrabbing.Value && body.isBoss) ||
-                            (PluginConfig.EnableNPCGrabbing.Value && body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)))
-                        {
-                            allowTargeting = true;
-                        }
-                        else if (!body.currentVehicle)
-                        {
-                            allowTargeting = true;
-                        }
+                        // Allow targeting of any body (bosses, NPCs, regular enemies) as long as not blacklisted
+                        allowTargeting = true;
                     }
                     if (allowTargeting && !PluginConfig.IsBlacklisted(body.name))
                     {
@@ -179,7 +173,7 @@ namespace DrifterBossGrabMod.Patches
                     bool isBoss = body.isBoss;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
                     bool shouldPrevent = (isBoss && PluginConfig.EnableBossGrabbing.Value) ||
-                                         (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value);
+                                          (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value);
                     return !shouldPrevent;
                 }
                 return true; // Allow if no body
