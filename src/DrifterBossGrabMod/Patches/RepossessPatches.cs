@@ -152,7 +152,16 @@ namespace DrifterBossGrabMod.Patches
                     bool allowTargeting = false;
                     if (body)
                     {
-                        // Allow targeting of any body (bosses, NPCs, regular enemies) as long as not blacklisted
+                        // Check config settings for bosses and ungrabbable NPCs
+                        if (body.isBoss && !PluginConfig.EnableBossGrabbing.Value)
+                        {
+                            return; // Don't allow targeting if boss grabbing is disabled
+                        }
+                        if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && !PluginConfig.EnableNPCGrabbing.Value)
+                        {
+                            return; // Don't allow targeting if NPC grabbing is disabled
+                        }
+                        // Allow targeting of regular enemies and enabled boss/NPC types as long as not blacklisted
                         allowTargeting = true;
                     }
                     if (allowTargeting && !PluginConfig.IsBlacklisted(body.name))

@@ -245,7 +245,7 @@ namespace DrifterBossGrabMod
                 "Use debug logs to see object names, case-insensitive matching");
 
             // Grabbable component types
-            GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction",
+            GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction",
                 "Comma-separated list of component type names that make objects grabbable.\n" +
                 "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
                 "Objects must have at least one of these components to be grabbable.\n" +
