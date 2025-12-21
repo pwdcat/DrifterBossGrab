@@ -24,6 +24,7 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/co
 - **EnableBossGrabbing** (true/false): Enable grabbing of boss enemies.
 - **EnableNPCGrabbing** (true/false): Enable grabbing of NPCs with ungrabbable flag.
 - **EnableEnvironmentGrabbing** (true/false): Enable grabbing of environment objects.
+- **EnableLockedObjectGrabbing** (true/false): Enable grabbing of locked objects.
 - **EnableDebugLogs** (true/false): Enable debug logging.
 - **EnableComponentAnalysisLogs** (true/false): Enable scanning of all objects in the current scene to log component types.
 - **BodyBlacklist** (string): Comma-separated list of body names to never grab.

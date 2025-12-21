@@ -125,6 +125,16 @@ namespace DrifterBossGrabMod.Patches
                         __result = true;
                     }
                 }
+
+                // Check for locked objects
+                if (PluginConfig.EnableLockedObjectGrabbing.Value && __instance.locked)
+                {
+                    __result = true;
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Allowing targeting of locked object: {__instance.gameObject.name}");
+                    }
+                }
             }
         }
 

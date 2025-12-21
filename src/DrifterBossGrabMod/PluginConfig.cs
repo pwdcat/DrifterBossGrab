@@ -18,6 +18,7 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> EnableBossGrabbing { get; private set; }
         public static ConfigEntry<bool> EnableNPCGrabbing { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; }
+        public static ConfigEntry<bool> EnableLockedObjectGrabbing { get; private set; }
         public static ConfigEntry<int> MaxSmacks { get; private set; }
         public static ConfigEntry<string> MassMultiplier { get; private set; }
         public static ConfigEntry<bool> EnableDebugLogs { get; private set; }
@@ -225,6 +226,7 @@ namespace DrifterBossGrabMod
             EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies");
             EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag");
             EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
+            EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", true, "Enable grabbing of locked objects");
 
             // Debug and blacklist
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
@@ -290,6 +292,7 @@ namespace DrifterBossGrabMod
         // bossGrabbingHandler: Handler for boss grabbing toggle changes
         // npcGrabbingHandler: Handler for NPC grabbing toggle changes
         // environmentGrabbingHandler: Handler for environment grabbing toggle changes
+        // lockedObjectGrabbingHandler: Handler for locked object grabbing toggle changes
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
             EventHandler blacklistHandler,
@@ -300,7 +303,8 @@ namespace DrifterBossGrabMod
             EventHandler grabbableKeywordBlacklistHandler,
             EventHandler bossGrabbingHandler,
             EventHandler npcGrabbingHandler,
-            EventHandler environmentGrabbingHandler)
+            EventHandler environmentGrabbingHandler,
+            EventHandler lockedObjectGrabbingHandler)
         {
             EnableDebugLogs.SettingChanged -= debugLogsHandler;
             BodyBlacklist.SettingChanged -= blacklistHandler;
@@ -312,6 +316,7 @@ namespace DrifterBossGrabMod
             EnableBossGrabbing.SettingChanged -= bossGrabbingHandler;
             EnableNPCGrabbing.SettingChanged -= npcGrabbingHandler;
             EnableEnvironmentGrabbing.SettingChanged -= environmentGrabbingHandler;
+            EnableLockedObjectGrabbing.SettingChanged -= lockedObjectGrabbingHandler;
         }
 
         // Clears the blacklist cache to force a rebuild

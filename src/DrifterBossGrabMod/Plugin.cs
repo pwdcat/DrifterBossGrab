@@ -35,6 +35,7 @@ namespace DrifterBossGrabMod
         private EventHandler bossGrabbingHandler;
         private EventHandler npcGrabbingHandler;
         private EventHandler environmentGrabbingHandler;
+        private EventHandler lockedObjectGrabbingHandler;
         private EventHandler persistenceHandler;
         private EventHandler autoGrabHandler;
         private EventHandler maxPersistHandler;
@@ -89,7 +90,8 @@ namespace DrifterBossGrabMod
                 grabbableKeywordBlacklistHandler,
                 bossGrabbingHandler,
                 npcGrabbingHandler,
-                environmentGrabbingHandler
+                environmentGrabbingHandler,
+                lockedObjectGrabbingHandler
             );
 
             // Remove persistence event handlers
@@ -184,6 +186,12 @@ namespace DrifterBossGrabMod
                 Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
             };
             PluginConfig.EnableEnvironmentGrabbing.SettingChanged += environmentGrabbingHandler;
+
+            lockedObjectGrabbingHandler = (sender, args) =>
+            {
+                // it's checked at runtime
+            };
+            PluginConfig.EnableLockedObjectGrabbing.SettingChanged += lockedObjectGrabbingHandler;
 
             // Persistence event handlers
             persistenceHandler = (sender, args) =>
@@ -365,6 +373,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableBossGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableNPCGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableLockedObjectGrabbing));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableComponentTypes));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableKeywordBlacklist));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
