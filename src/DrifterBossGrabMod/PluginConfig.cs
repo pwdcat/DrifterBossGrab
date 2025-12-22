@@ -36,7 +36,6 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> PersistBaggedNPCs { get; private set; }
         public static ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; }
         public static ConfigEntry<string> PersistenceBlacklist { get; private set; }
-        public static ConfigEntry<bool> OnlyPersistCurrentlyBagged { get; private set; }
 
         // Internal cache for blacklist to avoid parsing every time
         internal static HashSet<string>? _blacklistCache;
@@ -277,7 +276,6 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
-            OnlyPersistCurrentlyBagged = cfg.Bind("Persistence", "OnlyPersistCurrentlyBagged", true, "Only persist objects that are currently in the bag (excludes thrown objects)");
         }
 
 

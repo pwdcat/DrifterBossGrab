@@ -398,7 +398,6 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedNPCs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedEnvironmentObjects));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.PersistenceBlacklist));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.OnlyPersistCurrentlyBagged));
         }
 
         #endregion

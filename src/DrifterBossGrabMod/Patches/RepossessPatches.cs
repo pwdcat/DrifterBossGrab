@@ -87,8 +87,43 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
+
+                // If targetObject is null, log error and skip processing to prevent NRE
+                if (targetObject == null)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} BaggedObject.OnEnter: targetObject is null, skipping breakout time modification");
+                    }
+                    return;
+                }
+
                 var currentBreakoutTime = traverse.Field("breakoutTime").GetValue<float>();
                 traverse.Field("breakoutTime").SetValue(currentBreakoutTime * PluginConfig.BreakoutTimeMultiplier.Value);
+
+                // Synchronize persistence across clients in multiplayer
+                if (UnityEngine.Networking.NetworkServer.active && PluginConfig.EnableObjectPersistence.Value)
+                {
+                    PersistenceManager.SendBaggedObjectsPersistenceMessage(new System.Collections.Generic.List<GameObject> { targetObject });
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Sent persistence message for bagged object {targetObject.name}");
+                    }
+                }
+                
+                // Spawn the object on network if server
+                if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
+                {
+                    var networkIdentity = targetObject.GetComponent<UnityEngine.Networking.NetworkIdentity>();
+                    if (networkIdentity != null)
+                    {
+                        UnityEngine.Networking.NetworkServer.Spawn(targetObject);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Spawned bagged object {targetObject.name} on network");
+                        }
+                    }
+                }
             }
         }
 

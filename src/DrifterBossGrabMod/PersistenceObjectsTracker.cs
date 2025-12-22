@@ -50,6 +50,9 @@ namespace DrifterBossGrabMod
             {
                 if (_currentlyBaggedObjects.Remove(obj))
                 {
+                    // Remove from persistence when thrown
+                    PersistenceManager.RemovePersistedObject(obj);
+
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
                         Log.Info($"{Constants.LogPrefix} Untracked bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");

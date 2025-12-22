@@ -3,6 +3,25 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.6] - 2025-12-22
+
+### Removed
+- `OnlyPersistCurrentlyBagged` configuration option - persistence now only applies to objects currently in the bag
+- Thrown object persistence feature entirely
+- Teleporter persistence window logic
+
+### Changed
+- Simplified persistence logic to always only capture bagged objects
+- Persistence now only applies to objects with dither models (like common chests and shrines)
+
+### Fixed
+- Multiplayer synchronization for removing objects from persistence on impact
+
+## [1.4.5] - 2025-12-21
+
+### Fixed 
+- Fixed EnableBossGrabbing and EnableNPCGrabbing not working correctly
+
 ## [1.4.4] - 2025-12-21
 
 ### Added

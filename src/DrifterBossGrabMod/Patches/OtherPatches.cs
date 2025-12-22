@@ -169,17 +169,6 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"{Constants.LogPrefix} Projectile passenger: {passengerName}");
                     }
 
-                    // Check if persistence window is active and mark thrown object for persistence
-                    if (PersistenceManager.IsPersistenceWindowActive() && PluginConfig.EnableObjectPersistence.Value)
-                    {
-                        PersistenceManager.MarkThrownObjectForPersistence(passenger);
-
-                        if (PluginConfig.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"{Constants.LogPrefix} Thrown object {passengerName} marked for persistence during active window");
-                        }
-                    }
-
                     // For objects with SpecialObjectAttributes (like that wing guy), eject from VehicleSeat and manually restore
                     var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
                     if (specialAttrs != null)
@@ -219,7 +208,10 @@ namespace DrifterBossGrabMod.Patches
                             }
                             else
                             {
-                                vehicleSeat.EjectPassenger();
+                                if (UnityEngine.Networking.NetworkServer.active)
+                                {
+                                    vehicleSeat.EjectPassenger();
+                                }
                             }
                         }
 

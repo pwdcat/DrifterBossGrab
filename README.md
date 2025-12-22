@@ -35,9 +35,7 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/co
 ### Persistence Section
 - **EnableObjectPersistence** (true/false): Enable persistence of grabbed objects across stage transitions.
 - **EnableAutoGrab** (true/false): Automatically re-grab persisted objects when Drifter respawns in a new stage.
-- **MaxPersistedObjects** (1-50): Maximum number of objects that can be persisted at once.
 - **PersistBaggedBosses** (true/false): Allow persistence of bagged boss enemies.
 - **PersistBaggedNPCs** (true/false): Allow persistence of bagged NPCs.
 - **PersistBaggedEnvironmentObjects** (true/false): Allow persistence of bagged environment objects.
 - **PersistenceBlacklist** (string): Comma-separated list of object names to never persist. Leave empty to allow all objects.
-- **OnlyPersistCurrentlyBagged** (true/false): Only persist objects that are currently in the bag (excludes thrown objects).
