@@ -193,15 +193,6 @@ namespace DrifterBossGrabMod
 
             lock (_lock)
             {
-                if (_persistedObjects.Count >= _cachedMaxPersistedObjects)
-                {
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Max persisted objects limit reached ({_cachedMaxPersistedObjects}), cannot add {obj.name}");
-                    }
-                    return;
-                }
-
                 if (_persistedObjects.Add(obj))
                 {
                     // Move to persistence container
