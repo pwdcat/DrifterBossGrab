@@ -38,7 +38,6 @@ namespace DrifterBossGrabMod
         private EventHandler lockedObjectGrabbingHandler;
         private EventHandler persistenceHandler;
         private EventHandler autoGrabHandler;
-        private EventHandler maxPersistHandler;
 
         // Debounce coroutine for grabbable component types updates
         private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
@@ -97,7 +96,6 @@ namespace DrifterBossGrabMod
             // Remove persistence event handlers
             PluginConfig.EnableObjectPersistence.SettingChanged -= persistenceHandler;
             PluginConfig.EnableAutoGrab.SettingChanged -= autoGrabHandler;
-            PluginConfig.MaxPersistedObjects.SettingChanged -= maxPersistHandler;
 
             // Cleanup run lifecycle event handlers
             Patches.RunLifecyclePatches.Cleanup();
@@ -206,11 +204,6 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.EnableAutoGrab.SettingChanged += autoGrabHandler;
 
-            maxPersistHandler = (sender, args) =>
-            {
-                PersistenceManager.UpdateCachedConfig();
-            };
-            PluginConfig.MaxPersistedObjects.SettingChanged += maxPersistHandler;
 
             // Initialize caches
             PersistenceManager.UpdateCachedConfig();
@@ -363,41 +356,39 @@ namespace DrifterBossGrabMod
         {
             if (!RooInstalled) return;
 
-            // Repossess options
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.SearchRangeMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.BreakoutTimeMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.ForwardVelocityMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.UpwardVelocityMultiplier));
-
-            // General grabbing options
+            // Grabbing Toggles
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableBossGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableNPCGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableLockedObjectGrabbing));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableComponentTypes));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableKeywordBlacklist));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableProjectileGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.ProjectileGrabbingSurvivorOnly));
 
-            // Bag options
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxSmacks));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.MassMultiplier));
-
-            // Debug and blacklist
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableDebugLogs));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.BodyBlacklist));
-
-
-            // Recovery options
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.RecoveryObjectBlacklist));
-
-            // Persistence options
+            // Persistence Settings
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableObjectPersistence));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableAutoGrab));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxPersistedObjects));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedBosses));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedNPCs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedEnvironmentObjects));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.PersistenceBlacklist));
+
+            // Skill Settings
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.SearchRangeMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.ForwardVelocityMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.UpwardVelocityMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.BreakoutTimeMultiplier));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxSmacks));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.MassMultiplier));
+
+            // Safety & Filtering
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.BodyBlacklist));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableComponentTypes));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableKeywordBlacklist));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.RecoveryObjectBlacklist));
+
+            // Debug & Development
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableDebugLogs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
         }
 
         #endregion

@@ -19,6 +19,8 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> EnableNPCGrabbing { get; private set; }
         public static ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; }
         public static ConfigEntry<bool> EnableLockedObjectGrabbing { get; private set; }
+        public static ConfigEntry<bool> EnableProjectileGrabbing { get; private set; }
+        public static ConfigEntry<bool> ProjectileGrabbingSurvivorOnly { get; private set; }
         public static ConfigEntry<int> MaxSmacks { get; private set; }
         public static ConfigEntry<string> MassMultiplier { get; private set; }
         public static ConfigEntry<bool> EnableDebugLogs { get; private set; }
@@ -31,7 +33,6 @@ namespace DrifterBossGrabMod
         // Persistence settings
         public static ConfigEntry<bool> EnableObjectPersistence { get; private set; }
         public static ConfigEntry<bool> EnableAutoGrab { get; private set; }
-        public static ConfigEntry<int> MaxPersistedObjects { get; private set; }
         public static ConfigEntry<bool> PersistBaggedBosses { get; private set; }
         public static ConfigEntry<bool> PersistBaggedNPCs { get; private set; }
         public static ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; }
@@ -211,34 +212,34 @@ namespace DrifterBossGrabMod
         // cfg: The BepInEx configuration file
         public static void Init(ConfigFile cfg)
         {
-            // Repossess settings
-            SearchRangeMultiplier = cfg.Bind("Repossess", "SearchRangeMultiplier", 1.0f, "Multiplier for Drifter's repossess search range");
-            ForwardVelocityMultiplier = cfg.Bind("Repossess", "ForwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess forward velocity");
-            UpwardVelocityMultiplier = cfg.Bind("Repossess", "UpwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess upward velocity");
-
-            // Bag settings
-            BreakoutTimeMultiplier = cfg.Bind("Bag", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out");
-            MaxSmacks = cfg.Bind("Bag", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out", new AcceptableValueRange<int>(1, 100)));
-            MassMultiplier = cfg.Bind("Bag", "MassMultiplier", "1", "Multiplier for the mass of bagged objects");
+            // Skill settings
+            SearchRangeMultiplier = cfg.Bind("Skill", "SearchRangeMultiplier", 1.0f, "Multiplier for Drifter's repossess search range");
+            ForwardVelocityMultiplier = cfg.Bind("Skill", "ForwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess forward velocity");
+            UpwardVelocityMultiplier = cfg.Bind("Skill", "UpwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess upward velocity");
+            BreakoutTimeMultiplier = cfg.Bind("Skill", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out");
+            MaxSmacks = cfg.Bind("Skill", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out", new AcceptableValueRange<int>(1, 100)));
+            MassMultiplier = cfg.Bind("Skill", "MassMultiplier", "1", "Multiplier for the mass of bagged objects");
 
             // General grabbing settings
             EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies");
             EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag");
             EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
             EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", true, "Enable grabbing of locked objects");
+            EnableProjectileGrabbing = cfg.Bind("General", "EnableProjectileGrabbing", false, "Enable grabbing of projectiles");
+            ProjectileGrabbingSurvivorOnly = cfg.Bind("General", "ProjectileGrabbingSurvivorOnly", true, "Restrict projectile grabbing to only those fired by survivor players");
 
             // Debug and blacklist
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
-            BodyBlacklist = cfg.Bind("General", "BodyBlacklist", "HeaterPodBodyNoRespawn,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal",
-                "Comma-separated list of body names to never grab.\n" +
-                "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop\n" +
+            BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike",
+                "Comma-separated list of body and projectile names to never grab.\n" +
+                "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop,RailgunnerPistolProjectile,SyringeProjectile\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
-                "Use debug logs to see body names, case-insensitive matching");
+                "Use debug logs to see body/projectile names, case-insensitive matching");
 
 
             // Abyss recovery settings
             RecoveryObjectBlacklist = cfg.Bind("General", "RecoveryObjectBlacklist", "",
-                "Comma-separated list of object names to never recover from abyss falls.\n" +
+                "Comma-separated list of object names to never recover from the abyss\n" +
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
@@ -267,7 +268,6 @@ namespace DrifterBossGrabMod
             // Persistence settings
             EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence", false, "Enable persistence of grabbed objects across stage transitions");
             EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab", false, "Automatically re-grab persisted objects on Drifter respawn");
-            MaxPersistedObjects = cfg.Bind("Persistence", "MaxPersistedObjects", 10, new ConfigDescription("Maximum number of objects that can be persisted at once", new AcceptableValueRange<int>(1, 50)));
             PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses", true, "Allow persistence of bagged boss enemies");
             PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs", true, "Allow persistence of bagged NPCs");
             PersistBaggedEnvironmentObjects = cfg.Bind("Persistence", "PersistBaggedEnvironmentObjects", true, "Allow persistence of bagged environment objects");

@@ -243,6 +243,37 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
 
+                    // Special handling for ProjectileStickOnImpact components (fixes EngiBubbleShield and Engie mines position reset)
+                    var stickOnImpactComponents = passenger.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
+                    foreach (var stickComponent in stickOnImpactComponents)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Resetting ProjectileStickOnImpact state for {passengerName}");
+                        }
+
+                        // Call Detach() to clear stored victim/position data that causes position reset
+                        stickComponent.Detach();
+
+                        // Reset event flags to prevent stick event from firing inappropriately
+                        // Use reflection to access private fields
+                        var runStickEventField = typeof(RoR2.Projectile.ProjectileStickOnImpact).GetField("runStickEvent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var alreadyRanStickEventField = typeof(RoR2.Projectile.ProjectileStickOnImpact).GetField("alreadyRanStickEvent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                        if (runStickEventField != null)
+                            runStickEventField.SetValue(stickComponent, false);
+                        if (alreadyRanStickEventField != null)
+                            alreadyRanStickEventField.SetValue(stickComponent, false);
+
+                        // Re-enable the component so it can function normally for future impacts
+                        stickComponent.enabled = true;
+
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Reset and re-enabled ProjectileStickOnImpact for {passengerName}");
+                        }
+                    }
+
                     // Also check if projectile impacted while out of bounds (fallback recovery)
                     CheckAndRecoverProjectile(__instance, null);
                 }
@@ -498,6 +529,21 @@ namespace DrifterBossGrabMod.Patches
                     }
                     RecoverObject(thrownController, thrownController.Networkpassenger, projectilePos);
                 }
+            }
+        }
+
+        [HarmonyPatch(typeof(RoR2.Projectile.ProjectileFuse), "FixedUpdate")]
+        public class ProjectileFuse_FixedUpdate_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(ProjectileFuse __instance)
+            {
+                // If the component is disabled (e.g., projectile is grabbed), don't decrement the fuse
+                if (!__instance.enabled)
+                {
+                    return false; // Skip the original method
+                }
+                return true; // Continue with original method
             }
         }
 

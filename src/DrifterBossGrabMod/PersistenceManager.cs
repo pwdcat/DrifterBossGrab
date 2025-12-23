@@ -60,7 +60,6 @@ namespace DrifterBossGrabMod
         // Cached config values for performance
         private static bool _cachedEnablePersistence;
         private static bool _cachedEnableAutoGrab;
-        private static int _cachedMaxPersistedObjects;
 
 
         // Tracking for objects that should have TeleporterInteraction disabled
@@ -171,7 +170,6 @@ namespace DrifterBossGrabMod
         {
             _cachedEnablePersistence = PluginConfig.EnableObjectPersistence.Value;
             _cachedEnableAutoGrab = PluginConfig.EnableAutoGrab.Value;
-            _cachedMaxPersistedObjects = PluginConfig.MaxPersistedObjects.Value;
         }
 
         // Add object to persistence
