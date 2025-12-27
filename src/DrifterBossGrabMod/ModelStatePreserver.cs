@@ -32,6 +32,7 @@ namespace DrifterBossGrabMod
 
         /// <summary>
         /// Restores the ModelLocator to its original state.
+        /// For thrown objects, only restores parent and autoUpdateModelTransform to avoid resetting position.
         /// </summary>
         public void RestoreOriginalState()
         {
@@ -40,10 +41,8 @@ namespace DrifterBossGrabMod
                 // First restore the parent relationship
                 _modelLocator.modelTransform.SetParent(originalModelParent, false);
 
-                // Then restore the initial transform values on the modelTransform
-                _modelLocator.modelTransform.localPosition = originalInitialPosition;
-                _modelLocator.modelTransform.localRotation = originalInitialRotation;
-                _modelLocator.modelTransform.localScale = originalInitialScale;
+                // Note: Do not restore localPosition, localRotation, localScale for thrown objects
+                // as they should remain at their landed position
 
                 // Finally restore autoUpdateModelTransform to false if it was originally false
                 if (!originalAutoUpdateModelTransform)
