@@ -20,18 +20,18 @@ namespace DrifterBossGrabMod
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Error(object data) => _logSource?.LogMessage(ERROR_PREFIX + Constants.LogPrefix + data);
-
+        internal static void Error(object data) => _logSource?.LogMessage(ERROR_PREFIX + data);
+    
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Fatal(object data) => _logSource?.LogMessage(FATAL_PREFIX + Constants.LogPrefix + data);
-
+        internal static void Fatal(object data) => _logSource?.LogMessage(FATAL_PREFIX + data);
+    
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Info(object data) { if (EnableDebugLogs) _logSource?.LogMessage(INFO_PREFIX + Constants.LogPrefix + data); }
-
+        internal static void Info(object data) { if (EnableDebugLogs) _logSource?.LogMessage(INFO_PREFIX + data); }
+    
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Message(object data) => _logSource?.LogMessage(data);
-
+    
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Warning(object data) => _logSource?.LogMessage(WARNING_PREFIX + Constants.LogPrefix + data);
+        internal static void Warning(object data) => _logSource?.LogMessage(WARNING_PREFIX + data);
     }
 }

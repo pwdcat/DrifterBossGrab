@@ -56,6 +56,7 @@ namespace DrifterBossGrabMod
         internal static HashSet<string>? _grabbableKeywordBlacklistCache;
         private static string? _lastGrabbableKeywordBlacklistValue;
 
+
         // Checks if a body name is blacklisted from being grabbed
         // name: The body name to check
         // Returns: True if the body is blacklisted
@@ -138,6 +139,7 @@ namespace DrifterBossGrabMod
             }
             return false;
         }
+
 
         // Checks if an object is grabbable based on its components and configuration toggles
         // obj: The GameObject to check
@@ -230,7 +232,7 @@ namespace DrifterBossGrabMod
 
             // Debug and blacklist
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
-            BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike",
+            BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,ThrownObjectProjectile,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,MultiShopEquipmentTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike,LunarNeedleProjectile,StickyBomb,RocketProjectile,StunAndPierceBoomerang",
                 "Comma-separated list of body and projectile names to never grab.\n" +
                 "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop,RailgunnerPistolProjectile,SyringeProjectile\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
@@ -344,5 +346,6 @@ namespace DrifterBossGrabMod
             _grabbableKeywordBlacklistCache = null;
             _lastGrabbableKeywordBlacklistValue = null;
         }
+
     }
 }

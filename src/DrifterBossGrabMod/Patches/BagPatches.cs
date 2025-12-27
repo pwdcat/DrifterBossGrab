@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System.Linq;
 using System.Reflection;
+using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -93,6 +94,20 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
                     Log.Info($"{Constants.LogPrefix} AssignPassenger called for {passengerObject}");
+                }
+
+                // Ensure autoUpdateModelTransform is true so model follows GameObject if ModelLocator exists
+                var modelLocator = passengerObject.GetComponent<ModelLocator>();
+                if (modelLocator != null && !modelLocator.autoUpdateModelTransform)
+                {
+                    // Add ModelStatePreserver to store original state before modifying
+                    var statePreserver = passengerObject.AddComponent<ModelStatePreserver>();
+
+                    modelLocator.autoUpdateModelTransform = true;
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Set autoUpdateModelTransform=true for object with ModelLocator {passengerObject.name}");
+                    }
                 }
 
                 // Cache component lookups

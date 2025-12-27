@@ -81,11 +81,6 @@ namespace DrifterBossGrabMod
             UnityEngine.Object.DontDestroyOnLoad(_persistenceContainer);
 
             UpdateCachedConfig();
-
-            if (PluginConfig.EnableDebugLogs.Value)
-            {
-                Log.Info($"{Constants.LogPrefix} PersistenceManager initialized");
-            }
         }
 
         // Handle incoming bagged objects persistence messages
@@ -196,9 +191,9 @@ namespace DrifterBossGrabMod
                     // Move to persistence container
                     obj.transform.SetParent(_persistenceContainer.transform, true);
 
-                    // Also persist the model if it exists and has DitherModel or ShrineHealingBehavior (for objects that need special rendering)
+                    // Also persist the model if it exists and ModelLocator is enabled
                     var modelLocator = obj.GetComponent<ModelLocator>();
-                    if (modelLocator != null && modelLocator.modelTransform != null && (obj.GetComponent<DitherModel>() != null || obj.GetComponent<ShrineHealingBehavior>() != null))
+                    if (modelLocator != null && modelLocator.enabled && modelLocator.modelTransform != null)
                     {
                         var modelObj = modelLocator.modelTransform.gameObject;
                         if (modelObj != obj) // Only if it's a separate object
@@ -206,12 +201,21 @@ namespace DrifterBossGrabMod
                             modelObj.transform.SetParent(_persistenceContainer.transform, true);
                             if (PluginConfig.EnableDebugLogs.Value)
                             {
-                                Log.Info($"{Constants.LogPrefix} Also persisted model {modelObj.name} for {obj.name} (has DitherModel or ShrineHealingBehavior)");
+                                Log.Info($"{Constants.LogPrefix} Also persisted model {modelObj.name} for {obj.name}");
                             }
                         }
                     }
 
-                    // Removed GrabbedObjectState persistence state capture - testing if SpecialObjectAttributes handles this automatically
+                    // Also persist the master for CharacterBody objects
+                    var characterBody = obj.GetComponent<CharacterBody>();
+                    if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null && IsValidForPersistence(characterBody.master.gameObject))
+                    {
+                        AddPersistedObject(characterBody.master.gameObject);
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Also persisted master {characterBody.master.name} for {obj.name}");
+                        }
+                    }
 
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
@@ -257,6 +261,22 @@ namespace DrifterBossGrabMod
                         }
                     }
 
+                    // Also remove master from persistence if it exists
+                    var characterBody = obj.GetComponent<CharacterBody>();
+                    if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null)
+                    {
+                        var masterObj = characterBody.master.gameObject;
+                        if (masterObj.transform.parent == _persistenceContainer.transform)
+                        {
+                            masterObj.transform.SetParent(null, true);
+                            SceneManager.MoveGameObjectToScene(masterObj, SceneManager.GetActiveScene());
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"{Constants.LogPrefix} Also removed master {masterObj.name} from persistence for {obj.name}");
+                            }
+                        }
+                    }
+
                     // Re-attach model if it exists
                     if (modelLocator != null && modelLocator.modelTransform != null)
                     {
@@ -297,9 +317,6 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-
-
-
 
         // Check if the current scene has any teleporters
         private static bool SceneHasTeleporter()
@@ -753,6 +770,16 @@ namespace DrifterBossGrabMod
                 return;
             }
 
+            // Skip CharacterMaster objects (AI controllers) but allow environment objects
+            if (obj.GetComponent<CharacterMaster>() != null)
+            {
+                if (PluginConfig.EnableDebugLogs.Value)
+                {
+                    Log.Info($"{Constants.LogPrefix} Skipping auto-grab for {obj.name} - is CharacterMaster");
+                }
+                return;
+            }
+
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 Log.Info($"{Constants.LogPrefix} Attempting auto-grab for restored object {obj.name}");
@@ -968,6 +995,16 @@ namespace DrifterBossGrabMod
             // Try to grab each object
             foreach (var obj in objectsToGrab)
             {
+                // Skip CharacterMaster objects (AI controllers) but allow environment objects
+                if (obj.GetComponent<CharacterMaster>() != null)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"{Constants.LogPrefix} Skipping auto-grab for {obj.name} - is CharacterMaster");
+                    }
+                    continue;
+                }
+
                 if (bagController.bagFull)
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
@@ -1118,147 +1155,6 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // Handle DitherModel objects first (chests, purchasables)
-             var ditherModel = obj.GetComponent<RoR2.DitherModel>();
-             if (ditherModel != null)
-            {
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} Found DitherModel on {obj.name}, beginning restoration");
-                }
-
-                // Ensure all colliders are properly restored before DitherModel tries to recalculate bounds
-                var allColliders = obj.GetComponentsInChildren<Collider>();
-                bool hasValidBounds = false;
-                int enabledColliders = 0;
-                int totalColliders = 0;
-
-                foreach (var collider in allColliders)
-                {
-                    totalColliders++;
-                    if (collider != null)
-                    {
-                        if (collider.enabled && !collider.isTrigger)
-                        {
-                            hasValidBounds = true;
-                            enabledColliders++;
-                        }
-                        else if (!collider.isTrigger)
-                        {
-                            // Force enable non-trigger colliders that are disabled
-                            collider.enabled = true;
-                            hasValidBounds = true;
-                            enabledColliders++;
-                            if (PluginConfig.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"{Constants.LogPrefix} Enabled disabled collider {collider.name} for DitherModel bounds on {obj.name}");
-                            }
-                        }
-                    }
-                }
-
-                if (PluginConfig.EnableDebugLogs.Value)
-                {
-                    Log.Info($"{Constants.LogPrefix} DitherModel bounds check: {totalColliders} total colliders, {enabledColliders} enabled non-trigger, hasValidBounds: {hasValidBounds}");
-                }
-
-                // If still no valid bounds, try to find and enable any available collider
-                if (!hasValidBounds && allColliders.Length > 0)
-                {
-                    foreach (var collider in allColliders)
-                    {
-                        if (collider != null)
-                        {
-                            collider.enabled = true;
-                            hasValidBounds = true;
-                            if (PluginConfig.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"{Constants.LogPrefix} Force-enabled any collider {collider.name} for DitherModel bounds on {obj.name}");
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                // If object has no colliders at all, destroy DitherModel to prevent errors
-                if (!hasValidBounds && allColliders.Length == 0)
-                {
-                    UnityEngine.Object.Destroy(ditherModel);
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Destroyed DitherModel on {obj.name} - no colliders available for bounds calculation");
-                    }
-                }
-
-                // Try multiple approaches to refresh DitherModel
-                try
-                {
-                    // Disable/re-enable
-                    ditherModel.enabled = false;
-                    ditherModel.enabled = true;
-
-                    // Force Awake/OnEnable cycle by destroying and recreating if needed
-                    // This is more aggressive but ensures clean state
-                    if (!hasValidBounds)
-                    {
-                        // As a last resort, try to manually set bounds if we can access it
-                        var boundsField = typeof(RoR2.DitherModel).GetField("bounds", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                        if (boundsField != null)
-                        {
-                            // Try to recalculate bounds from enabled colliders
-                            Bounds newBounds = new Bounds(obj.transform.position, Vector3.one);
-                            bool boundsSet = false;
-
-                            foreach (var collider in allColliders)
-                            {
-                                if (collider != null && collider.enabled)
-                                {
-                                    if (collider is BoxCollider box)
-                                    {
-                                        newBounds = box.bounds;
-                                        boundsSet = true;
-                                        break;
-                                    }
-                                    else if (collider is SphereCollider sphere)
-                                    {
-                                        newBounds = sphere.bounds;
-                                        boundsSet = true;
-                                        break;
-                                    }
-                                    else if (collider is CapsuleCollider capsule)
-                                    {
-                                        newBounds = capsule.bounds;
-                                        boundsSet = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (boundsSet)
-                            {
-                                boundsField.SetValue(ditherModel, newBounds);
-                                if (PluginConfig.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($"{Constants.LogPrefix} Manually set DitherModel bounds for {obj.name}: {newBounds}");
-                                }
-                            }
-                        }
-                    }
-
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Special DitherModel restoration completed for {obj.name}");
-                    }
-                }
-                catch (System.Exception ex)
-                {
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Error during DitherModel restoration for {obj.name}: {ex.Message}");
-                    }
-                }
-            }
-
             // Remove persisted bosses from BossGroups to prevent teleporter interference
             // Delay this operation to avoid interfering with scene loading/teleporter initialization
             var characterMaster = obj.GetComponent<CharacterMaster>();
@@ -1316,22 +1212,6 @@ namespace DrifterBossGrabMod
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
                         Log.Info($"{Constants.LogPrefix} Disabled corrupted Animator on {obj.name} due to error: {ex.Message}");
-                    }
-                }
-            }
-
-            // General IInteractable re-enabling as fallback (skip teleporters as they should remain disabled)
-            var interactable = obj.GetComponent<IInteractable>();
-            if (interactable != null && !(interactable is RoR2.TeleporterInteraction))
-            {
-                var interactableMB = interactable as MonoBehaviour;
-                if (interactableMB != null && !interactableMB.enabled)
-                {
-                    interactableMB.enabled = true;
-
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"{Constants.LogPrefix} Re-enabled IInteractable on {obj.name}");
                     }
                 }
             }

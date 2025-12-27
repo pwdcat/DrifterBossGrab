@@ -7,6 +7,7 @@ using RoR2;
 using RoR2.UI;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.AddressableAssets;
 using Object = UnityEngine.Object;
 using System.Linq;
 using System.Reflection.Emit;
@@ -18,7 +19,7 @@ namespace DrifterBossGrabMod.Patches
     public static class GrabbableObjectPatches
     {
         // Cache frequently used component types to reduce reflection overhead
-        private static readonly System.Type SceneReductionType = System.Type.GetType("SceneReduction, Assembly-CSharp");
+        private static readonly System.Type SceneReductionType = typeof(SceneReduction);
         private static readonly System.Type EntityStateMachineType = typeof(EntityStateMachine);
         private static readonly System.Type NetworkIdentityType = typeof(NetworkIdentity);
         private static readonly System.Type SpecialObjectAttributesType = typeof(SpecialObjectAttributes);
@@ -830,7 +831,7 @@ namespace DrifterBossGrabMod.Patches
                     string iconPath = GetIconPathForObject(lowerCaseName);
                     if (!string.IsNullOrEmpty(iconPath))
                     {
-                        __instance.portraitIcon = LegacyResourcesAPI.Load<Texture>(iconPath);
+                        __instance.portraitIcon = Addressables.LoadAssetAsync<Texture>(iconPath).WaitForCompletion();
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
                             Log.Info($"{Constants.LogPrefix} Set default icon {iconPath} for {__instance.gameObject.name}");
@@ -842,14 +843,68 @@ namespace DrifterBossGrabMod.Patches
 
         private static string GetIconPathForObject(string lowerCaseName)
         {
-            // Teleporters
-            if (lowerCaseName.Contains("teleporter") || lowerCaseName.Contains("portal"))
+            // Lunar objects (lunar, newt)
+            if (lowerCaseName.Contains("lunar") || lowerCaseName.Contains("newt") || lowerCaseName.Contains("portalshop") || lowerCaseName.Contains("portalms"))
             {
-                return "Textures/MiscIcons/texTeleporterIconOutlined";
+                return "RoR2/Base/LunarIcon_1.png";
             }
 
-            // Default mystery icon for unknown objects
-            return "Textures/MiscIcons/texMysteryIcon";
+            // Void objects
+            if (lowerCaseName.Contains("void"))
+            {
+                return "RoR2/Base/VoidIcon_2.png";
+            }
+
+            // Halyconite, DLC2
+            if (lowerCaseName.Contains("halcyonite") || lowerCaseName.Contains("colossus"))
+            {
+                return "RoR2/Base/texColossusExpansionIcon2White.png";
+            }
+            
+            // Golden Portal
+            if (lowerCaseName.Contains("portalgoldshores"))
+            {
+                return "RoR2/Base/TitanGoldDuringTP/texGoldHeartIcon.png";
+            }
+
+            // Teleporters and portals
+            if (lowerCaseName.Contains("teleporter") || lowerCaseName.Contains("portal"))
+            {
+                return "RoR2/Base/Common/MiscIcons/texTeleporterIconOutlined.png";
+            }
+
+            // Shrines
+            if (lowerCaseName.Contains("shrine") || lowerCaseName.Contains("statue"))
+            {
+                return "RoR2/Base/ShrineIcon.png";
+            }
+
+            // Pillars
+            if (lowerCaseName.Contains("pillar"))
+            {
+                return "RoR2/Base/PillarIcon.png";
+            }
+
+            // Vending Machines
+            if (lowerCaseName.Contains("vending"))
+            {
+                return "RoR2/DLC1/VendingMachine/texVendingMachineBody.png";
+            }
+
+            // Pots
+            if (lowerCaseName.Contains("pot"))
+            {
+                return "RoR2/Base/ExplosivePotDestructible/texExplosivePotDestructibleBody.png";
+            }
+
+            // Rocks
+            if (lowerCaseName.Contains("rock") || lowerCaseName.Contains("chunk") || lowerCaseName.Contains("boulder"))
+            {
+                return "RoR2/Base/skymeadow/texSMMaulingRock.png";
+            }
+
+            // Default fallback
+            return "RoR2/Base/Common/MiscIcons/texMysteryIcon.png";
         }
 
         [HarmonyPatch(typeof(EntityStates.CaptainSupplyDrop.BaseCaptainSupplyDropState), "OnEnter")]

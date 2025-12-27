@@ -9,8 +9,8 @@ namespace DrifterBossGrabMod
         public const string CloneSuffix = "(Clone)";
         
         // Version info
-        public const string PluginGuid = "com.DrifterBossGrab.DrifterBossGrab";
+        public const string PluginGuid = "pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.4.6";
+        public const string PluginVersion = "1.5.1";
     }
 }

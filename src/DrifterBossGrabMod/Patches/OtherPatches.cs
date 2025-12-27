@@ -8,6 +8,7 @@ using RoR2.HudOverlay;
 using UnityEngine;
 using EntityStates.CaptainSupplyDrop;
 using EntityStates.Drifter.Bag;
+using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -221,6 +222,21 @@ namespace DrifterBossGrabMod.Patches
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
                             Log.Info($"{Constants.LogPrefix} Manually restoring all colliders for {passengerName}");
+
+                            // Debug ModelLocator state
+                            var modelLocator = passenger.GetComponent<ModelLocator>();
+                            if (modelLocator != null)
+                            {
+                                if (modelLocator.modelTransform != null)
+                                {
+                                    var modelColliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
+                                    Log.Info($"{Constants.LogPrefix} Model has {modelColliders.Length} colliders");
+                                }
+                            }
+                            else
+                            {
+                                Log.Info($"{Constants.LogPrefix} No ModelLocator found on {passengerName}");
+                            }
                         }
 
                         var allColliders = passenger.GetComponentsInChildren<Collider>(true);
@@ -272,6 +288,18 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.Info($"{Constants.LogPrefix} Reset and re-enabled ProjectileStickOnImpact for {passengerName}");
                         }
+                    }
+
+                    // Restore ModelLocator state if ModelStatePreserver component exists
+                    var modelStatePreserver = passenger.GetComponent<ModelStatePreserver>();
+                    if (modelStatePreserver != null)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"{Constants.LogPrefix} Restoring ModelLocator state for {passengerName}");
+                        }
+                        modelStatePreserver.RestoreOriginalState();
+                        UnityEngine.Object.Destroy(modelStatePreserver);
                     }
 
                     // Also check if projectile impacted while out of bounds (fallback recovery)

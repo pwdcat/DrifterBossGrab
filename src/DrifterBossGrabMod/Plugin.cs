@@ -215,7 +215,7 @@ namespace DrifterBossGrabMod
 
         private void ApplyHarmonyPatches()
         {
-            Harmony harmony = new Harmony("com.DrifterBossGrab");
+            Harmony harmony = new Harmony("pwdcat.DrifterBossGrab");
             harmony.PatchAll();
         }
 

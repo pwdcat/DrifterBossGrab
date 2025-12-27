@@ -8,7 +8,7 @@ This mod is compatible with [Risk of Options](https://thunderstore.io/c/riskofra
 
 ## Configuration
 
-Configurable options that can be adjusted in the config file (`BepInEx/config/com.DrifterBossGrab.DrifterBossGrab.cfg`) or via Risk of Options.
+Configurable options that can be adjusted in the config file (`BepInEx/config/pwdcat.DrifterBossGrab.cfg`) or via Risk of Options.
 
 ### Grabbing Toggles
 - **EnableBossGrabbing** (true/false): Enable grabbing of boss enemies.

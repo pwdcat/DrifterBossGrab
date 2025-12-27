@@ -3,6 +3,18 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2025-12-27
+
+### Fixed
+- Support for persistence for NPCs and bosses, you can persist Mithrix
+- Certain objects not behaving correctly after thrown
+
+### Added
+- Some icons
+
+### Removed
+- Some redundancy
+
 ## [1.5.0] - 2025-12-23
 
 ### Added
@@ -39,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Added "Controller" to default grabbable keyword blacklist
-- Replacing "EntityStateMachine" with "TeleporterInteraction" from GrabbableComponentTypes, seems to problematic (just readded it if you want it)
+- Replacing "EntityStateMachine" with "TeleporterInteraction" from GrabbableComponentTypes, seems too problematic (just readded it if you want it)
 - Added "MultiShopTerminal,MultiShopLargeTerminal" to default body blacklist
 
 ### Fixed
