@@ -897,6 +897,12 @@ namespace DrifterBossGrabMod.Patches
                 return "RoR2/Base/ExplosivePotDestructible/texExplosivePotDestructibleBody.png";
             }
 
+            // SurvivorPod and Ships
+            if (lowerCaseName.Contains("ship") || lowerCaseName.Contains("survivor"))
+            {
+                return "RoR2/Base/Common/MiscIcons/texRescueshipIcon.png";
+            }
+
             // Rocks
             if (lowerCaseName.Contains("rock") || lowerCaseName.Contains("chunk") || lowerCaseName.Contains("boulder"))
             {
