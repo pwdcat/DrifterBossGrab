@@ -8,7 +8,6 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class ProjectilePatches
     {
-        /// Checks if a projectile was fired by a survivor player
         public static bool IsSurvivorProjectile(ProjectileController projectileController)
         {
             if (projectileController == null || projectileController.owner == null)

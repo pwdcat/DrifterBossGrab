@@ -183,12 +183,15 @@ namespace DrifterBossGrabMod.Patches
         public class RepossessExit_OnEnter_Patch
         {
             private static GameObject? originalChosenTarget;
+            private static bool hasLoggedEject = false;
 
             [HarmonyPrefix]
             public static void Prefix(RepossessExit __instance)
             {
                 var traverse = Traverse.Create(__instance);
                 originalChosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                hasLoggedEject = false;
+                
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
                     Log.Info($"{Constants.LogPrefix} RepossessExit Prefix: originalChosenTarget = {originalChosenTarget}");
@@ -204,6 +207,7 @@ namespace DrifterBossGrabMod.Patches
 
                 var traverse = Traverse.Create(__instance);
                 var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
                     Log.Info($"{Constants.LogPrefix} RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}");

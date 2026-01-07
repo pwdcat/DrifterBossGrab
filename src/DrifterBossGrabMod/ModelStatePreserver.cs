@@ -3,9 +3,6 @@ using RoR2;
 
 namespace DrifterBossGrabMod
 {
-    /// <summary>
-    /// Component that preserves the original ModelLocator state for proper restoration after being grabbed/thrown.
-    /// </summary>
     public class ModelStatePreserver : MonoBehaviour
     {
         public bool originalAutoUpdateModelTransform;
@@ -30,9 +27,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        /// <summary>
-        /// Restores the ModelLocator to its original state.
-        /// </summary>
         public void RestoreOriginalState()
         {
             if (_modelLocator != null && _modelLocator.modelTransform != null)

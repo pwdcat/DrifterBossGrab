@@ -6,8 +6,14 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod
 {
-    /// Configuration management for the DrifterBossGrabMod
-    /// Handles all user-configurable settings and real-time updates
+    public enum CycleOrder
+    {
+        FIFO, // First In, First Out - cycles in order of capture
+        LIFO  // Last In, First Out - cycles in reverse order
+    }
+
+    // Configuration management for the DrifterBossGrabMod
+    // Handles all user-configurable settings and real-time updates
     public static class PluginConfig
     {
         // Configuration entries
@@ -37,6 +43,10 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> PersistBaggedNPCs { get; private set; }
         public static ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; }
         public static ConfigEntry<string> PersistenceBlacklist { get; private set; }
+
+        // Bottomless Bag settings (scroll wheel cycling)
+        public static ConfigEntry<bool> BottomlessBagEnabled { get; private set; }
+        public static ConfigEntry<CycleOrder> BottomlessBagCycleOrder { get; private set; }
 
         // Internal cache for blacklist to avoid parsing every time
         internal static HashSet<string>? _blacklistCache;
@@ -278,6 +288,10 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
+
+            // Bottomless Bag settings (scroll wheel cycling)
+            BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag", false, "Enable scroll wheel cycling through bagged passengers");
+            BottomlessBagCycleOrder = cfg.Bind("Bottomless Bag", "CycleOrder", CycleOrder.FIFO, "Order to cycle through passengers: FIFO (First In, First Out) or LIFO (Last In, First Out)");
         }
 
 

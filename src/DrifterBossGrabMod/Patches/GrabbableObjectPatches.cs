@@ -742,7 +742,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        /// Calculates a size metric for an object based on its colliders
         private static float CalculateObjectSizeMetric(GameObject obj)
         {
             if (obj == null) return 1f;
@@ -785,7 +784,6 @@ namespace DrifterBossGrabMod.Patches
             return totalSize;
         }
 
-        /// Calculates scaled mass and durability based on object size
         private static (float massOverride, int maxDurability) CalculateScaledAttributes(GameObject obj, string objName)
         {
             float sizeMetric = CalculateObjectSizeMetric(obj);
