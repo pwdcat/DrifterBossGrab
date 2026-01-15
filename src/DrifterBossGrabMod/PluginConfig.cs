@@ -171,7 +171,7 @@ namespace DrifterBossGrabMod
             EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies");
             EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag");
             EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
-            EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", true, "Enable grabbing of locked objects");
+            EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Enable grabbing of locked objects");
             EnableProjectileGrabbing = cfg.Bind("General", "EnableProjectileGrabbing", false, "Enable grabbing of projectiles");
             ProjectileGrabbingSurvivorOnly = cfg.Bind("General", "ProjectileGrabbingSurvivorOnly", true, "Restrict projectile grabbing to only those fired by survivor players");
             EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
@@ -222,7 +222,7 @@ namespace DrifterBossGrabMod
                 "Use debug logs to see object names, case-insensitive matching");
             BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
-                "Enable scroll wheel cycling through bagged passengers");
+                "Allows the scroll wheel to cycle through stored passengers. Bag capacity scales with the number of repossesses.");
         }
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
