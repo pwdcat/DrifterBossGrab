@@ -329,6 +329,11 @@ namespace DrifterBossGrabMod.Patches
                     {
                         list.Add(passengerObject);
                     }
+                    // Send persistence message for all bagged objects
+                    if (UnityEngine.Networking.NetworkServer.active)
+                    {
+                        PersistenceManager.SendBaggedObjectsPersistenceMessage(list);
+                    }
                 }
             }
         }

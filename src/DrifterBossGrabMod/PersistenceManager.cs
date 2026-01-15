@@ -7,6 +7,7 @@ using UnityEngine.Networking;
 using RoR2;
 using RoR2.Networking;
 using RoR2.Projectile;
+using EntityStates.Drifter.Bag;
 namespace DrifterBossGrabMod
 {
     // Network message for broadcasting bagged objects for persistence
@@ -715,16 +716,15 @@ namespace DrifterBossGrabMod
                 }
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($" Found DrifterBagController, bagFull: {bagController.bagFull}");
+                    Log.Info($" Found DrifterBagController, hasRoom: {Patches.BagPatches.HasRoomForGrab(bagController)}");
                 }
                 if (Patches.BagPatches.HasRoomForGrab(bagController))
                 {
-                    // Use direct AssignPassenger approach like cycling does for immediate grabbing
                     try
                     {
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($" Directly assigning {obj.name} to bag for auto-grab");
+                            Log.Info($" Assigning {obj.name} to bag using AssignPassenger");
                         }
                         bagController.AssignPassenger(obj);
                         // Update UI if this object is now in the main seat
@@ -734,9 +734,8 @@ namespace DrifterBossGrabMod
                         }
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($" Successfully auto-grabbed {obj.name} using direct assignment");
+                            Log.Info($" Successfully auto-grabbed {obj.name} using AssignPassenger");
                         }
-                        return; // Successfully grabbed, exit
                     }
                     catch (System.Exception ex)
                     {
@@ -862,29 +861,149 @@ namespace DrifterBossGrabMod
                     }
                     break;
                 }
-                // Use direct AssignPassenger approach like cycling does for immediate grabbing
-                try
+
+                bool isCharacterBody = obj.GetComponent<CharacterBody>() != null;
+
+                if (isCharacterBody)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    // For CharacterBodies, use EntityStateMachine for main seat, or manual additional seat assignment
+                    bool bagIsEmpty = Patches.BagPatches.GetCurrentBaggedCount(bagController) == 0;
+                    if (bagIsEmpty)
                     {
-                        Log.Info($" Directly assigning {obj.name} to bag for auto-grab");
+                        // Use EntityStateMachine for main seat
+                        var bagStateMachine = EntityStateMachine.FindByCustomName(body.gameObject, "Bag");
+                        if (bagStateMachine != null)
+                        {
+                            try
+                            {
+                                if (PluginConfig.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($" Found Bag state machine, setting BaggedObject state for {obj.name}");
+                                }
+                                // Create BaggedObject state and set target
+                                var baggedObject = new BaggedObject();
+                                baggedObject.targetObject = obj;
+                                // Set the next state on the bag state machine
+                                bagStateMachine.SetNextState(baggedObject);
+                                if (PluginConfig.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($" Successfully initiated auto-grab for {obj.name} using EntityStateMachine");
+                                }
+                            }
+                            catch (System.Exception ex)
+                            {
+                                if (PluginConfig.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($" Auto-grab failed for {obj.name}: {ex.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" Could not find Bag state machine for CharacterBody {obj.name}");
+                            }
+                        }
                     }
-                    bagController.AssignPassenger(obj);
-                    // Update UI if this object is now in the main seat
-                    if (Patches.BagPatches.GetMainSeatObject(bagController) == obj)
+                    else
                     {
-                        Patches.BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, obj);
-                    }
-                    if (PluginConfig.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Successfully auto-grabbed {obj.name} using direct assignment");
+                        // Manually assign to additional seat for CharacterBodies
+                        try
+                        {
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" Manually assigning CharacterBody {obj.name} to additional seat");
+                            }
+                            // Create additional seat
+                            var seatObject = new GameObject($"AdditionalSeat_AutoGrab_{DateTime.Now.Ticks}");
+                            seatObject.transform.SetParent(bagController.transform);
+                            seatObject.transform.localPosition = Vector3.zero;
+                            seatObject.transform.localRotation = Quaternion.identity;
+                            var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
+                            newSeat.seatPosition = bagController.vehicleSeat.seatPosition;
+                            newSeat.exitPosition = bagController.vehicleSeat.exitPosition;
+                            newSeat.ejectOnCollision = bagController.vehicleSeat.ejectOnCollision;
+                            newSeat.hidePassenger = bagController.vehicleSeat.hidePassenger;
+                            newSeat.exitVelocityFraction = bagController.vehicleSeat.exitVelocityFraction;
+                            newSeat.disablePassengerMotor = bagController.vehicleSeat.disablePassengerMotor;
+                            newSeat.isEquipmentActivationAllowed = bagController.vehicleSeat.isEquipmentActivationAllowed;
+                            newSeat.shouldProximityHighlight = bagController.vehicleSeat.shouldProximityHighlight;
+                            newSeat.disableInteraction = bagController.vehicleSeat.disableInteraction;
+                            newSeat.shouldSetIdle = bagController.vehicleSeat.shouldSetIdle;
+                            newSeat.additionalExitVelocity = bagController.vehicleSeat.additionalExitVelocity;
+                            newSeat.disableAllCollidersAndHurtboxes = bagController.vehicleSeat.disableAllCollidersAndHurtboxes;
+                            newSeat.disableColliders = bagController.vehicleSeat.disableColliders;
+                            newSeat.disableCharacterNetworkTransform = bagController.vehicleSeat.disableCharacterNetworkTransform;
+                            newSeat.ejectFromSeatOnMapEvent = bagController.vehicleSeat.ejectFromSeatOnMapEvent;
+                            newSeat.inheritRotation = bagController.vehicleSeat.inheritRotation;
+                            newSeat.holdPassengerAfterDeath = bagController.vehicleSeat.holdPassengerAfterDeath;
+                            newSeat.ejectPassengerToGround = bagController.vehicleSeat.ejectPassengerToGround;
+                            newSeat.ejectRayDistance = bagController.vehicleSeat.ejectRayDistance;
+                            newSeat.handleExitTeleport = bagController.vehicleSeat.handleExitTeleport;
+                            newSeat.setCharacterMotorPositionToCurrentPosition = bagController.vehicleSeat.setCharacterMotorPositionToCurrentPosition;
+                            newSeat.passengerState = bagController.vehicleSeat.passengerState;
+
+                            // Assign to the new seat
+                            newSeat.AssignPassenger(obj);
+
+                            // Track the object
+                            if (!Patches.BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list))
+                            {
+                                list = new List<GameObject>();
+                                Patches.BagPatches.baggedObjectsDict[bagController] = list;
+                            }
+                            if (!list.Contains(obj))
+                            {
+                                list.Add(obj);
+                            }
+                            if (!Patches.BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict))
+                            {
+                                seatDict = new Dictionary<GameObject, RoR2.VehicleSeat>();
+                                Patches.BagPatches.additionalSeatsDict[bagController] = seatDict;
+                            }
+                            seatDict[obj] = newSeat;
+
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            if (PluginConfig.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" Auto-grab failed for CharacterBody {obj.name}: {ex.Message}");
+                            }
+                        }
                     }
                 }
-                catch (System.Exception ex)
+                else
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    // For non-CharacterBodies, use AssignPassenger
+                    try
                     {
-                        Log.Info($" Auto-grab failed for {obj.name}: {ex.Message}");
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Directly assigning {obj.name} to bag for auto-grab");
+                        }
+                        bagController.AssignPassenger(obj);
+                        // Update UI if this object is now in the main seat
+                        if (Patches.BagPatches.GetMainSeatObject(bagController) == obj)
+                        {
+                            Patches.BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, obj);
+                        }
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Successfully auto-grabbed {obj.name} using direct assignment");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        if (PluginConfig.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Auto-grab failed for {obj.name}: {ex.Message}");
+                        }
                     }
                 }
             }
