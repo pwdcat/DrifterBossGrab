@@ -1,6 +1,5 @@
 using HarmonyLib;
 using RoR2;
-
 namespace DrifterBossGrabMod.Patches
 {
     public static class CharacterSpawnPatches
@@ -17,19 +16,16 @@ namespace DrifterBossGrabMod.Patches
                 {
                     return;
                 }
-
                 // Check if this is a Drifter player respawn
                 if (body.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
                 {
                     // Schedule auto-grab with delay to ensure bag controller is ready
                     PersistenceManager.ScheduleAutoGrab(__instance);
-
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Scheduled auto-grab for Drifter respawn");
+                        Log.Info($"[CharacterMaster_OnBodyStart] Scheduled auto-grab for Drifter respawn");
                     }
                 }
-
                 // Detect zone inversion on first player spawn
                 Patches.OtherPatches.DetectZoneInversion(body.transform.position);
             }

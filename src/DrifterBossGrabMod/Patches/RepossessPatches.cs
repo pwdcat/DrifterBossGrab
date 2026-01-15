@@ -4,7 +4,6 @@ using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using EntityStates.Drifter;
-
 namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessPatches
@@ -13,13 +12,11 @@ namespace DrifterBossGrabMod.Patches
         private static FieldInfo? upwardVelocityField;
         private static float? originalForwardVelocity;
         private static float? originalUpwardVelocity;
-
         public static void Initialize()
         {
             forwardVelocityField = AccessTools.Field(typeof(Repossess), "forwardVelocity");
             upwardVelocityField = AccessTools.Field(typeof(Repossess), "upwardVelocity");
         }
-
         [HarmonyPatch(typeof(Repossess), MethodType.Constructor)]
         public class Repossess_Constructor_Patch
         {
@@ -27,19 +24,22 @@ namespace DrifterBossGrabMod.Patches
             public static void Postfix(Repossess __instance)
             {
                 __instance.searchRange *= PluginConfig.SearchRangeMultiplier.Value;
-
                 // Cache original values on first use
-                if (originalForwardVelocity == null)
+                if (originalForwardVelocity == null && forwardVelocityField != null && upwardVelocityField != null)
                 {
                     originalForwardVelocity = (float)forwardVelocityField.GetValue(null);
                     originalUpwardVelocity = (float)upwardVelocityField.GetValue(null);
                 }
-
-                forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.ForwardVelocityMultiplier.Value);
-                upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.UpwardVelocityMultiplier.Value);
+                if (forwardVelocityField != null && originalForwardVelocity.HasValue)
+                {
+                    forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.ForwardVelocityMultiplier.Value);
+                }
+                if (upwardVelocityField != null && originalUpwardVelocity.HasValue)
+                {
+                    upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.UpwardVelocityMultiplier.Value);
+                }
             }
         }
-
         [HarmonyPatch(typeof(DrifterBagController), "Awake")]
         public class DrifterBagController_Awake_Patch
         {
@@ -49,7 +49,6 @@ namespace DrifterBossGrabMod.Patches
                 __instance.maxSmacks = PluginConfig.MaxSmacks.Value;
             }
         }
-
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
@@ -65,7 +64,6 @@ namespace DrifterBossGrabMod.Patches
                 __result = Mathf.Clamp(__result, 0f, DrifterBagController.maxMass);
             }
         }
-
         [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnEnter")]
         public class BaggedObject_OnEnter_ExtendBreakoutTime
         {
@@ -77,40 +75,36 @@ namespace DrifterBossGrabMod.Patches
                 var targetObject = traverse.Field("targetObject").GetValue<GameObject>();
                 if (PluginConfig.EnableDebugLogs.Value)
                 {
-                    Log.Info($"{Constants.LogPrefix} BaggedObject.OnEnter: targetObject = {targetObject}");
+                    Log.Info($" BaggedObject.OnEnter: targetObject = {targetObject}");
                     if (targetObject)
                     {
                         var body = targetObject.GetComponent<CharacterBody>();
                         if (body)
                         {
-                            Log.Info($"{Constants.LogPrefix} Bagging {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, currentVehicle: {body.currentVehicle != null}");
+                            Log.Info($" Bagging {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, currentVehicle: {body.currentVehicle != null}");
                         }
                     }
                 }
-
                 // If targetObject is null, log error and skip processing to prevent NRE
                 if (targetObject == null)
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} BaggedObject.OnEnter: targetObject is null, skipping breakout time modification");
+                        Log.Info($" BaggedObject.OnEnter: targetObject is null, skipping breakout time modification");
                     }
                     return;
                 }
-
                 var currentBreakoutTime = traverse.Field("breakoutTime").GetValue<float>();
                 traverse.Field("breakoutTime").SetValue(currentBreakoutTime * PluginConfig.BreakoutTimeMultiplier.Value);
-
                 // Synchronize persistence across clients in multiplayer
                 if (UnityEngine.Networking.NetworkServer.active && PluginConfig.EnableObjectPersistence.Value)
                 {
                     PersistenceManager.SendBaggedObjectsPersistenceMessage(new System.Collections.Generic.List<GameObject> { targetObject });
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Sent persistence message for bagged object {targetObject.name}");
+                        Log.Info($" Sent persistence message for bagged object {targetObject.name}");
                     }
                 }
-                
                 // Spawn the object on network if server
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
                 {
@@ -120,14 +114,13 @@ namespace DrifterBossGrabMod.Patches
                         UnityEngine.Networking.NetworkServer.Spawn(targetObject);
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Spawned bagged object {targetObject.name} on network");
+                            Log.Info($" Spawned bagged object {targetObject.name} on network");
                         }
                     }
                 }
             }
         }
-
-        [HarmonyPatch(typeof(SpecialObjectAttributes), "get_isTargetable")]
+        [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
         public class SpecialObjectAttributes_get_isTargetable
         {
             [HarmonyPrefix]
@@ -143,7 +136,6 @@ namespace DrifterBossGrabMod.Patches
                 __instance.objectsToDetach.RemoveAll(o => o == null);
                 __instance.skillHighlightRenderers.RemoveAll(r => r == null);
             }
-
             [HarmonyPostfix]
             public static void Postfix(SpecialObjectAttributes __instance, ref bool __result)
             {
@@ -160,20 +152,17 @@ namespace DrifterBossGrabMod.Patches
                         __result = true;
                     }
                 }
-
                 // Check for locked objects
                 if (PluginConfig.EnableLockedObjectGrabbing.Value && __instance.locked)
                 {
                     __result = true;
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($"{Constants.LogPrefix} Allowing targeting of locked object: {__instance.gameObject.name}");
+                        Log.Info($" Allowing targeting of locked object: {__instance.gameObject.name}");
                     }
                 }
             }
         }
-
-
         [HarmonyPatch(typeof(RepossessBullseyeSearch), "HurtBoxPassesRequirements")]
         public class RepossessBullseyeSearch_HurtBoxPassesRequirements
         {
@@ -199,18 +188,17 @@ namespace DrifterBossGrabMod.Patches
                         // Allow targeting of regular enemies and enabled boss/NPC types as long as not blacklisted
                         allowTargeting = true;
                     }
-                    if (allowTargeting && !PluginConfig.IsBlacklisted(body.name))
+                    if (allowTargeting && !PluginConfig.IsBlacklisted(body!.name))
                     {
                         __result = true;
                         if (PluginConfig.EnableDebugLogs.Value)
                         {
-                            Log.Info($"{Constants.LogPrefix} Allowing targeting of boss/elite/NPC: {body.name}, isBoss: {body.isBoss}, isElite: {body.isElite}, ungrabbable: {body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}, currentVehicle: {body.currentVehicle != null}");
+                            Log.Info($" Allowing targeting of boss/elite/NPC: {body!.name}, isBoss: {body!.isBoss}, isElite: {body!.isElite}, ungrabbable: {body!.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}, currentVehicle: {body!.currentVehicle != null}");
                         }
                     }
                 }
             }
         }
-
         [HarmonyPatch(typeof(SpecialObjectAttributes), "AvoidCapture")]
         public class SpecialObjectAttributes_AvoidCapture
         {
@@ -233,18 +221,16 @@ namespace DrifterBossGrabMod.Patches
                 return true; // Allow if no body
             }
         }
-
         public static void OnForwardVelocityChanged(object sender, EventArgs args)
         {
-            if (originalForwardVelocity.HasValue)
+            if (forwardVelocityField != null && originalForwardVelocity.HasValue)
             {
                 forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.ForwardVelocityMultiplier.Value);
             }
         }
-
         public static void OnUpwardVelocityChanged(object sender, EventArgs args)
         {
-            if (originalUpwardVelocity.HasValue)
+            if (upwardVelocityField != null && originalUpwardVelocity.HasValue)
             {
                 upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.UpwardVelocityMultiplier.Value);
             }

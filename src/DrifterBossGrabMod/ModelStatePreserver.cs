@@ -1,6 +1,5 @@
 using UnityEngine;
 using RoR2;
-
 namespace DrifterBossGrabMod
 {
     public class ModelStatePreserver : MonoBehaviour
@@ -9,10 +8,8 @@ namespace DrifterBossGrabMod
         public Vector3 originalInitialPosition;
         public Quaternion originalInitialRotation;
         public Vector3 originalInitialScale;
-        public Transform originalModelParent;
-    
-        private ModelLocator _modelLocator;
-
+        public Transform? originalModelParent;
+        private ModelLocator? _modelLocator;
         private void Awake()
         {
             _modelLocator = GetComponent<ModelLocator>();
@@ -26,14 +23,12 @@ namespace DrifterBossGrabMod
                 originalModelParent = _modelLocator.modelTransform.parent;
             }
         }
-
         public void RestoreOriginalState()
         {
             if (_modelLocator != null && _modelLocator.modelTransform != null)
             {
                 // First restore the parent relationship
                 _modelLocator.modelTransform.SetParent(originalModelParent, false);
-
                 // Root model transforms should keep their thrown position, while child models can be repositioned
                 if (_modelLocator.modelTransform != gameObject.transform)
                 {
@@ -42,7 +37,6 @@ namespace DrifterBossGrabMod
                     _modelLocator.modelTransform.localRotation = originalInitialRotation;
                     _modelLocator.modelTransform.localScale = originalInitialScale;
                 }
-
                 // Finally restore autoUpdateModelTransform to false if it was originally false
                 if (!originalAutoUpdateModelTransform)
                 {
