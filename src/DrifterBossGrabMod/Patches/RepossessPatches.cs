@@ -118,6 +118,16 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
+                // Ensure UI overlay is refreshed for initial grabs (not done via AssignPassenger)
+                var bagController = __instance.outer.GetComponent<DrifterBagController>();
+                if (bagController != null && targetObject != null)
+                {
+                    BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnEnter] Called RefreshUIOverlayForMainSeat for initial grab of {targetObject.name}");
+                    }
+                }
             }
         }
         [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
