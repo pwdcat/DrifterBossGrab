@@ -627,16 +627,29 @@ namespace DrifterBossGrabMod.Patches
             {
                 RefreshUIOverlay(baggedObject);
             }
-            // Force a skill override check by calling TryOverrideUtility with the utility skill
+            // Force a skill override check by calling TryOverrideUtility and TryOverridePrimary with the respective skills
             var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
-            if (skillLocator != null && skillLocator.utility != null)
+            if (skillLocator != null)
             {
-                // Force the utility skill to be reconsidered for override
-                var tryOverrideMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-                if (tryOverrideMethod != null)
+                if (skillLocator.utility != null)
                 {
-                    // Call with skip prefix to avoid the main seat check (since we know it's in main seat now)
-                    tryOverrideMethod.Invoke(baggedObject, new object[] { skillLocator.utility });
+                    // Force the utility skill to be reconsidered for override
+                    var tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
+                    if (tryOverrideUtilityMethod != null)
+                    {
+                        // Call with skip prefix to avoid the main seat check (since we know it's in main seat now)
+                        tryOverrideUtilityMethod.Invoke(baggedObject, new object[] { skillLocator.utility });
+                    }
+                }
+                if (skillLocator.primary != null)
+                {
+                    // Force the primary skill to be reconsidered for override
+                    var tryOverridePrimaryMethod = AccessTools.Method(typeof(BaggedObject), "TryOverridePrimary");
+                    if (tryOverridePrimaryMethod != null)
+                    {
+                        // Call with skip prefix to avoid the main seat check (since we know it's in main seat now)
+                        tryOverridePrimaryMethod.Invoke(baggedObject, new object[] { skillLocator.primary });
+                    }
                 }
             }
         }
@@ -766,23 +779,28 @@ namespace DrifterBossGrabMod.Patches
             var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
             var baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
             var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-            // Clear the target fields
-            targetObjectField.SetValue(baggedObject, null);
-            targetBodyField.SetValue(baggedObject, null);
-            vehiclePassengerAttributesField.SetValue(baggedObject, null);
-            baggedMassField.SetValue(baggedObject, 0f);
-            // Also clear the DrifterBagController's sync vars to properly update the controller state
-            if (bagController != null)
+            // Clear skill overrides since we're in null state
+            if (baggedObject != null)
             {
-                var baggedObjectSyncField = AccessTools.Field(typeof(DrifterBagController), "baggedObject");
-                var baggedAttributesSyncField = AccessTools.Field(typeof(DrifterBagController), "baggedAttributes");
-                var baggedMassSyncField = AccessTools.Field(typeof(DrifterBagController), "baggedMass");
-                baggedObjectSyncField?.SetValue(bagController, null);
-                baggedAttributesSyncField?.SetValue(bagController, null);
-                baggedMassSyncField?.SetValue(bagController, 0f);
-                if (PluginConfig.EnableDebugLogs.Value)
+                var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
+                var overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
+                var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
+                var primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+
+                var overriddenUtility = (GenericSkill)overriddenUtilityField.GetValue(baggedObject);
+                if (overriddenUtility != null)
                 {
-                    Log.Info($" [RemoveUIOverlayForNullState] Cleared DrifterBagController sync vars: baggedObject, baggedAttributes, baggedMass");
+                    var utilityOverride = (SkillDef)utilityOverrideField.GetValue(baggedObject);
+                    overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                    overriddenUtilityField.SetValue(baggedObject, null);
+                }
+
+                var overriddenPrimary = (GenericSkill)overriddenPrimaryField.GetValue(baggedObject);
+                if (overriddenPrimary != null)
+                {
+                    var primaryOverride = (SkillDef)primaryOverrideField.GetValue(baggedObject);
+                    overriddenPrimary.UnsetSkillOverride(baggedObject, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                    overriddenPrimaryField.SetValue(baggedObject, null);
                 }
             }
             // Only remove overlay if we're truly transitioning to null state

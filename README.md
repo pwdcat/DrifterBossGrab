@@ -17,7 +17,7 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/pw
 - **EnableLockedObjectGrabbing** (true/false): Enable grabbing of locked objects during the teleporter event.
 - **EnableProjectileGrabbing** (true/false): Enable grabbing of projectiles.
 - **ProjectileGrabbingSurvivorOnly** (true/false): Restrict projectile grabbing to only those fired by survivor players.
-- **Bottomless Bag [WIP]** (true/false): Bagged objects are now stored in a "bottomless" bag scaled off of how many repossesses you have. This feature is currently in beta and may have issues. Use your scroll wheel to switch between objects.
+- **Bottomless Bag [WIP]** (true/false): Bagged objects are now stored in a "bottomless" bag scaled off of how many repossesses you have. This feature is currently in beta and may have issues. Use your scroll wheel to switch between objects. No controller support yet. Have not tested multiplayer at all.
 
 ### Persistence
 - **EnableObjectPersistence** (true/false): Enable persistence of grabbed objects across stage transitions.
