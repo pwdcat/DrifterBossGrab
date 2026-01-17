@@ -871,7 +871,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverrideUtility] ✓ ALLOWING skill override for {targetObject?.name} (main seat)");
+                        Log.Info($" [TryOverrideUtility] allowing skill override for {targetObject?.name} (main seat)");
                     }
                     return true; // Allow normal execution
                 }
@@ -919,7 +919,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if targetObject is already in the main seat
                 var outerMainSeat = bagController.vehicleSeat;
-                if (outerMainSeat != null && outerMainSeat.currentPassengerBody != null && ReferenceEquals(outerMainSeat.currentPassengerBody.gameObject, targetObject))
+                if (outerMainSeat != null && outerMainSeat.hasPassenger && ReferenceEquals(outerMainSeat.NetworkpassengerBodyObject, targetObject))
                 {
                     // Don't call the original OnEnter logic to avoid double assignment
                     return false;

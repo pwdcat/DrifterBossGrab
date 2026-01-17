@@ -352,13 +352,13 @@ namespace DrifterBossGrabMod.Patches
                 OtherPatches.RemoveFromProjectileState(obj);
             }
             // Check if object is actually in a seat (main or additional)
-            bool isActuallyInMainSeat = controller.vehicleSeat != null && controller.vehicleSeat.currentPassengerBody == obj;
+            bool isActuallyInMainSeat = controller.vehicleSeat != null && controller.vehicleSeat.NetworkpassengerBodyObject == obj;
             bool isActuallyInAdditionalSeat = false;
             if (additionalSeatsDict.TryGetValue(controller, out var additionalSeatsMap))
             {
                 foreach (var kvp in additionalSeatsMap)
                 {
-                    if (kvp.Value != null && kvp.Value.currentPassengerBody == obj)
+                    if (kvp.Value != null && kvp.Value.NetworkpassengerBodyObject == obj)
                     {
                         isActuallyInAdditionalSeat = true;
                         break;
@@ -418,6 +418,8 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
+            // Clean up any other empty additional seats
+            CleanupEmptyAdditionalSeats(controller);
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
@@ -500,6 +502,85 @@ namespace DrifterBossGrabMod.Patches
             int effectiveCapacity = GetUtilityMaxStock(controller);
             int currentCount = GetCurrentBaggedCount(controller);
             return currentCount < effectiveCapacity;
+        }
+        public static void DestroySeatForObject(DrifterBagController controller, GameObject obj)
+        {
+            if (controller == null || obj == null)
+            {
+                Log.Info($"[DestroySeatForObject] Controller or object is null, skipping");
+                return;
+            }
+            string objName = obj.name;
+            Log.Info($"[DestroySeatForObject] Destroying seat for {objName}");
+
+            // Check if it's the main seat
+            if (controller.vehicleSeat != null && controller.vehicleSeat.NetworkpassengerBodyObject == obj)
+            {
+                Log.Info($"[DestroySeatForObject] Object {objName} is in main seat, but main seat should not be destroyed");
+                // Don't destroy the main seat, just eject the passenger
+                controller.vehicleSeat.EjectPassenger();
+                return;
+            }
+
+            // Check if it's an additional seat
+            if (additionalSeatsDict.TryGetValue(controller, out var seatDict))
+            {
+                if (seatDict.TryGetValue(obj, out var seat))
+                {
+                    Log.Info($"[DestroySeatForObject] Found additional seat for {objName}, destroying it");
+                    seatDict.Remove(obj);
+                    if (seat != null && seat.gameObject != null)
+                    {
+                        UnityEngine.Object.Destroy(seat.gameObject);
+                    }
+                    // If the seatDict is now empty, remove it from additionalSeatsDict
+                    if (seatDict.Count == 0)
+                    {
+                        Log.Info($"[DestroySeatForObject] seatDict is empty, removing controller {controller.gameObject.name} from additionalSeatsDict");
+                        additionalSeatsDict.Remove(controller);
+                    }
+                }
+                else
+                {
+                    Log.Info($"[DestroySeatForObject] No additional seat found for {objName}");
+                }
+            }
+            else
+            {
+                Log.Info($"[DestroySeatForObject] No additional seats dict found for controller {controller.gameObject.name}");
+            }
+        }
+        public static void CleanupEmptyAdditionalSeats(DrifterBagController controller)
+        {
+            if (controller == null) return;
+            if (!additionalSeatsDict.TryGetValue(controller, out var seatDict))
+            {
+                return;
+            }
+            var seatsToRemove = new List<GameObject>();
+            foreach (var kvp in seatDict)
+            {
+                var seat = kvp.Value;
+                if (seat != null && (!seat.hasPassenger || seat.NetworkpassengerBodyObject == null))
+                {
+                    // Seat is empty, destroy it
+                    if (seat.gameObject != null)
+                    {
+                        UnityEngine.Object.Destroy(seat.gameObject);
+                    }
+                    seatsToRemove.Add(kvp.Key);
+                }
+            }
+            // Remove from dictionary
+            foreach (var obj in seatsToRemove)
+            {
+                seatDict.Remove(obj);
+            }
+            // If the seatDict is now empty, remove it from additionalSeatsDict
+            if (seatDict.Count == 0)
+            {
+                additionalSeatsDict.Remove(controller);
+            }
         }
     }
     // Postfix for VehicleSeat.AssignPassenger to handle additional seat assignments

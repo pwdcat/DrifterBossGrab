@@ -225,6 +225,9 @@ namespace DrifterBossGrabMod.Patches
                         int currentCount = BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list) ? list.Count : 0;
                         Log.Info($" [ProcessThrownObject] Before RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
                     }
+                    // Destroy the seat for the thrown object before removing from tracking
+                    Log.Info($"[ProcessThrownObject] Destroying seat for thrown object {passengerName}");
+                    BagPatches.DestroySeatForObject(bagController, passenger);
                     // Remove from bag tracking - object is now airborne
                     BagPatches.RemoveBaggedObject(bagController, passenger);
                     if (PluginConfig.EnableDebugLogs.Value)
@@ -233,6 +236,9 @@ namespace DrifterBossGrabMod.Patches
                         int currentCount = BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list) ? list.Count : 0;
                         Log.Info($" [ProcessThrownObject] After RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
                     }
+                    // Clean up any empty additional seats
+                    Log.Info($"[ProcessThrownObject] Calling CleanupEmptyAdditionalSeats for {passengerName}");
+                    BagPatches.CleanupEmptyAdditionalSeats(bagController);
                 }
             }
         }
@@ -289,7 +295,7 @@ namespace DrifterBossGrabMod.Patches
                         // Eject the passenger from VehicleSeat to restore VehicleSeat-managed colliders/behaviors
                         var vehicleSeatField = typeof(ThrownObjectProjectileController).GetField("vehicleSeat", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                         var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
-                        if (vehicleSeat != null && vehicleSeat.hasPassenger && vehicleSeat.currentPassengerBody != null)
+                        if (vehicleSeat != null && vehicleSeat.hasPassenger)
                         {
                             if (PluginConfig.EnableDebugLogs.Value)
                             {
