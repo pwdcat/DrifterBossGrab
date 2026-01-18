@@ -134,8 +134,9 @@ namespace DrifterBossGrabMod.Patches
         public class SpecialObjectAttributes_get_isTargetable
         {
             [HarmonyPrefix]
-            public static void Prefix(SpecialObjectAttributes __instance)
+            public static bool Prefix(SpecialObjectAttributes __instance)
             {
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true; // Skip if no Drifter
                 // Clean null entries from SpecialObjectAttributes lists to prevent NullReferenceException
                 __instance.childSpecialObjectAttributes.RemoveAll(s => s == null);
                 __instance.renderersToDisable.RemoveAll(r => r == null);
@@ -145,10 +146,12 @@ namespace DrifterBossGrabMod.Patches
                 __instance.lightsToDisable.RemoveAll(l => l == null);
                 __instance.objectsToDetach.RemoveAll(o => o == null);
                 __instance.skillHighlightRenderers.RemoveAll(r => r == null);
+                return true;
             }
             [HarmonyPostfix]
             public static void Postfix(SpecialObjectAttributes __instance, ref bool __result)
             {
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return; // Skip if no Drifter
                 var body = __instance.gameObject.GetComponent<CharacterBody>();
                 if (body)
                 {
@@ -215,6 +218,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(SpecialObjectAttributes __instance)
             {
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true; // Skip if no Drifter
                 if (PluginConfig.IsBlacklisted(__instance.gameObject.name))
                 {
                     return true; // Allow original behavior for blacklisted
@@ -225,7 +229,7 @@ namespace DrifterBossGrabMod.Patches
                     bool isBoss = body.isBoss;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
                     bool shouldPrevent = (isBoss && PluginConfig.EnableBossGrabbing.Value) ||
-                                          (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value);
+                                       (isUngrabbable && PluginConfig.EnableNPCGrabbing.Value);
                     return !shouldPrevent;
                 }
                 return true; // Allow if no body

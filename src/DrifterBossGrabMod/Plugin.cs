@@ -35,6 +35,7 @@ namespace DrifterBossGrabMod
         private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
         public static bool _isSwappingPassengers = false;
         public static bool IsSwappingPassengers => _isSwappingPassengers;
+        public static bool IsDrifterPresent { get; set; } = false;
         public void Awake()
         {
             Instance = this;
@@ -122,17 +123,26 @@ namespace DrifterBossGrabMod
             PluginConfig.GrabbableKeywordBlacklist.SettingChanged += grabbableKeywordBlacklistHandler;
             bossGrabbingHandler = (sender, args) =>
             {
-                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                if (DrifterBossGrabPlugin.IsDrifterPresent)
+                {
+                    Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                }
             };
             PluginConfig.EnableBossGrabbing.SettingChanged += bossGrabbingHandler;
             npcGrabbingHandler = (sender, args) =>
             {
-                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                if (DrifterBossGrabPlugin.IsDrifterPresent)
+                {
+                    Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                }
             };
             PluginConfig.EnableNPCGrabbing.SettingChanged += npcGrabbingHandler;
             environmentGrabbingHandler = (sender, args) =>
             {
-                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                if (DrifterBossGrabPlugin.IsDrifterPresent)
+                {
+                    Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                }
             };
             PluginConfig.EnableEnvironmentGrabbing.SettingChanged += environmentGrabbingHandler;
             lockedObjectGrabbingHandler = (sender, args) =>
@@ -170,8 +180,10 @@ namespace DrifterBossGrabMod
         }
         private static void OnSceneChanged(UnityEngine.SceneManagement.Scene oldScene, UnityEngine.SceneManagement.Scene newScene)
         {
+            DrifterBossGrabPlugin.IsDrifterPresent = false; // Reset flag on scene change
             Patches.OtherPatches.ResetZoneInversionDetection();
             PersistenceManager.OnSceneChanged(oldScene, newScene);
+            Instance!.StartCoroutine(DelayedUpdateDrifterPresence());
             Instance!.StartCoroutine(DelayedEnsureSpecialObjectAttributes());
             Instance!.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
             Patches.BagPatches.ScanAllSceneComponents();
@@ -179,11 +191,19 @@ namespace DrifterBossGrabMod
         private static System.Collections.IEnumerator DelayedEnsureSpecialObjectAttributes()
         {
             yield return null;
-            Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+            if (DrifterBossGrabPlugin.IsDrifterPresent)
+            {
+                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+            }
         }
         private static System.Collections.IEnumerator DelayedBatchSpecialObjectAttributesInitialization()
         {
             yield return new UnityEngine.WaitForSeconds(0.2f);
+            if (PluginConfig.EnableDebugLogs.Value)
+            {
+                Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] IsDrifterPresent: {DrifterBossGrabPlugin.IsDrifterPresent}");
+            }
+            if (!DrifterBossGrabPlugin.IsDrifterPresent) yield break;
             var allObjects = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
             const int batchSize = 50;
             for (int i = 0; i < allObjects.Length; i += batchSize)
@@ -207,11 +227,19 @@ namespace DrifterBossGrabMod
                 Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] Completed batched SpecialObjectAttributes initialization for {allObjects.Length} objects");
             }
         }
+        private static System.Collections.IEnumerator DelayedUpdateDrifterPresence()
+        {
+            yield return null; // Wait one frame for objects to spawn
+            DrifterBossGrabPlugin.IsDrifterPresent = UnityEngine.Object.FindAnyObjectByType<RoR2.DrifterBagController>() != null;
+        }
         private static System.Collections.IEnumerator DelayedGrabbableComponentTypesUpdate()
         {
             yield return new UnityEngine.WaitForSeconds(0.5f);
             PluginConfig.ClearGrabbableComponentTypesCache();
-            Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+            if (DrifterBossGrabPlugin.IsDrifterPresent)
+            {
+                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+            }
             _grabbableComponentTypesUpdateCoroutine = null;
         }
         #endregion

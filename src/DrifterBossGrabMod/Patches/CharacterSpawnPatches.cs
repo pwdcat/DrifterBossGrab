@@ -19,6 +19,7 @@ namespace DrifterBossGrabMod.Patches
                 // Check if this is a Drifter player respawn
                 if (body.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
                 {
+                    DrifterBossGrabPlugin.IsDrifterPresent = true;
                     // Schedule auto-grab with delay to ensure bag controller is ready
                     PersistenceManager.ScheduleAutoGrab(__instance);
                     if (PluginConfig.EnableDebugLogs.Value)
