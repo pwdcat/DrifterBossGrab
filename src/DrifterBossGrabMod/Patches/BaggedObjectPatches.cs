@@ -903,6 +903,39 @@ namespace DrifterBossGrabMod.Patches
             {
             }
         }
+        // Patch TryOverridePrimary to only allow skill overrides for main vehicle seat objects
+        [HarmonyPatch(typeof(BaggedObject), "TryOverridePrimary")]
+        public class BaggedObject_TryOverridePrimary
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(BaggedObject __instance, GenericSkill skill)
+            {
+                // Get the DrifterBagController
+                var bagController = __instance.outer.GetComponent<DrifterBagController>();
+                if (bagController == null)
+                {
+                    return true; // Allow normal execution
+                }
+                var targetObject = __instance.targetObject;
+                bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
+                if (isMainSeatOccupant)
+                {
+                    if (PluginConfig.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [TryOverridePrimary] allowing skill override for {targetObject?.name} (main seat)");
+                    }
+                    return true; // Allow normal execution
+                }
+                else
+                {
+                    return false; // Skip the original method - no skill override
+                }
+            }
+            [HarmonyPostfix]
+            public static void Postfix(BaggedObject __instance, GenericSkill skill)
+            {
+            }
+        }
         [HarmonyPatch(typeof(BaggedObject), "OnEnter")]
         public class BaggedObject_OnEnter
         {
