@@ -70,19 +70,18 @@ namespace DrifterBossGrabMod.Patches
         }
         public static int GetUtilityMaxStock(DrifterBagController drifterBagController)
         {
+            if (!PluginConfig.BottomlessBagEnabled.Value)
+            {
+                return 1;
+            }
             var body = drifterBagController.GetComponent<CharacterBody>();
             if (body && body.skillLocator && body.skillLocator.utility)
             {
                 int maxStock = body.skillLocator.utility.maxStock;
-                // Respect BottomlessBagEnabled setting - if disabled, cap capacity at 1
-                if (!PluginConfig.BottomlessBagEnabled.Value && maxStock > 1)
-                {
-                    maxStock = 1;
-                }
-                return maxStock;
+                return maxStock + PluginConfig.BottomlessBagBaseCapacity.Value;
             }
-            // Default to 1 if BottomlessBagEnabled is disabled or skill not found
-            return PluginConfig.BottomlessBagEnabled.Value ? 1 : 1;
+            // Default to base capacity if skill not found
+            return PluginConfig.BottomlessBagBaseCapacity.Value;
         }
         private static bool HasActiveTeleporterInScene(GameObject excludeTeleporter)
         {

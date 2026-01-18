@@ -32,6 +32,10 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; } = null!;
         public static ConfigEntry<string> PersistenceBlacklist { get; private set; } = null!;
         public static ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
+        public static ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
+        public static ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
+        public static ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
+        public static ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; private set; } = null!;
         internal static HashSet<string>? _blacklistCache;
         internal static HashSet<string>? _blacklistCacheWithClones;
         private static string? _lastBlacklistValue;
@@ -223,6 +227,10 @@ namespace DrifterBossGrabMod
             BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
                 "Allows the scroll wheel to cycle through stored passengers. Bag capacity scales with the number of repossesses.");
+            BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, new ConfigDescription("Base capacity for bottomless bag, added to utility max stocks", new AcceptableValueRange<int>(0, 100)));
+            EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers");
+            ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
+            ScrollDownKeybind = cfg.Bind("Bottomless Bag", "ScrollDownKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll down through passengers");
         }
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,

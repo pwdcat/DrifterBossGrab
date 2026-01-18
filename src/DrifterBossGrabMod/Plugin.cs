@@ -260,6 +260,10 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableDebugLogs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.BottomlessBagEnabled));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.BottomlessBagBaseCapacity));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableMouseWheelScrolling));
+            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.ScrollUpKeybind));
+            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.ScrollDownKeybind));
         }
         #endregion
     }

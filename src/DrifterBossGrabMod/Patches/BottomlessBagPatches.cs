@@ -16,11 +16,44 @@ namespace DrifterBossGrabMod.Patches
         {
             if (PluginConfig.BottomlessBagEnabled.Value)
             {
-                float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
-                if (scrollDelta != 0f && Time.time >= _lastCycleTime + CYCLE_COOLDOWN)
+                bool scrollUp = false;
+                bool scrollDown = false;
+                if (PluginConfig.EnableMouseWheelScrolling.Value)
+                {
+                    float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
+                    if (scrollDelta > 0f) scrollUp = true;
+                    else if (scrollDelta < 0f) scrollDown = true;
+                }
+                if (PluginConfig.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.ScrollUpKeybind.Value.MainKey))
+                {
+                    bool modifiersPressed = true;
+                    foreach (var modifier in PluginConfig.ScrollUpKeybind.Value.Modifiers)
+                    {
+                        if (!Input.GetKey(modifier))
+                        {
+                            modifiersPressed = false;
+                            break;
+                        }
+                    }
+                    if (modifiersPressed) scrollUp = true;
+                }
+                if (PluginConfig.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.ScrollDownKeybind.Value.MainKey))
+                {
+                    bool modifiersPressed = true;
+                    foreach (var modifier in PluginConfig.ScrollDownKeybind.Value.Modifiers)
+                    {
+                        if (!Input.GetKey(modifier))
+                        {
+                            modifiersPressed = false;
+                            break;
+                        }
+                    }
+                    if (modifiersPressed) scrollDown = true;
+                }
+                if ((scrollUp || scrollDown) && Time.time >= _lastCycleTime + CYCLE_COOLDOWN)
                 {
                     _lastCycleTime = Time.time;
-                    CyclePassengers(scrollDelta > 0f);
+                    CyclePassengers(scrollUp);
                 }
             }
         }

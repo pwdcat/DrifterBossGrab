@@ -3,6 +3,17 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1]
+
+### Added
+- Base capacity option for bottomless bag (adds to utility max stocks)
+- Toggle for enabling mouse wheel scrolling
+- Keybinds for manual scrolling
+
+### Fixed
+- Overlapping BaggedObject data
+- Blunt force being overrided when there's no object in main vehicle
+
 ## [1.6.0]
 
 ### Added

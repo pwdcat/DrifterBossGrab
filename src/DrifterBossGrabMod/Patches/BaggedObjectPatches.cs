@@ -478,6 +478,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 return;
             }
+            DumpBaggedObjectFields(baggedObject, "RefreshUIOverlayForMainSeat (scroll switch)");
             if (PluginConfig.EnableDebugLogs.Value)
             {
                 var debugSeat = actualBagController.vehicleSeat;
@@ -540,6 +541,7 @@ namespace DrifterBossGrabMod.Patches
             // Update targetBody and vehiclePassengerAttributes for the new target first
             // This must be done BEFORE calling RefreshUIOverlay
             var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
+            var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
             var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
             var baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
             var drifterBagControllerField = AccessTools.Field(typeof(BaggedObject), "drifterBagController");
@@ -547,10 +549,13 @@ namespace DrifterBossGrabMod.Patches
             if (targetObject.TryGetComponent<HealthComponent>(out healthComponent))
             {
                 targetBodyField.SetValue(baggedObject, healthComponent.body);
+                isBodyField.SetValue(baggedObject, true);
                 vehiclePassengerAttributesField.SetValue(baggedObject, targetObject.GetComponent<SpecialObjectAttributes>());
             }
             else
             {
+                targetBodyField.SetValue(baggedObject, null);
+                isBodyField.SetValue(baggedObject, false);
             }
             var specialObjectAttributes = targetObject.GetComponent<SpecialObjectAttributes>();
             if (specialObjectAttributes != null)
@@ -656,16 +661,20 @@ namespace DrifterBossGrabMod.Patches
         private static void UpdateTargetFields(BaggedObject? baggedObject, GameObject targetObject, DrifterBagController bagController)
         {
             var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
+            var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
             var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
             var baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
             HealthComponent healthComponent;
             if (targetObject.TryGetComponent<HealthComponent>(out healthComponent))
             {
                 targetBodyField.SetValue(baggedObject!, healthComponent.body);
+                isBodyField.SetValue(baggedObject!, true);
                 vehiclePassengerAttributesField.SetValue(baggedObject!, targetObject.GetComponent<SpecialObjectAttributes>());
             }
             else
             {
+                targetBodyField.SetValue(baggedObject!, null);
+                isBodyField.SetValue(baggedObject!, false);
             }
             var specialObjectAttributes = targetObject.GetComponent<SpecialObjectAttributes>();
             if (specialObjectAttributes != null)
@@ -729,6 +738,39 @@ namespace DrifterBossGrabMod.Patches
                 uiOverlayField.SetValue(baggedObject, null);
             }
         }
+        // Helper method to dump all BaggedObject fields for debugging
+        public static void DumpBaggedObjectFields(BaggedObject baggedObject, string context)
+        {
+            if (baggedObject == null || !PluginConfig.EnableDebugLogs.Value) return;
+
+            Log.Info($" [DUMP] {context} - Dumping all BaggedObject fields:");
+            try
+            {
+                var fields = typeof(BaggedObject).GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                foreach (var field in fields)
+                {
+                    try
+                    {
+                        var value = field.GetValue(baggedObject);
+                        string valueStr = value != null ? value.ToString() : "null";
+                        if (value is UnityEngine.Object unityObj && unityObj != null)
+                        {
+                            valueStr = $"{unityObj.name} ({unityObj.GetType().Name})";
+                        }
+                        Log.Info($"    {field.Name}: {valueStr}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Info($"    {field.Name}: <error getting value: {ex.Message}>");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Info($" [DUMP] Error dumping fields: {ex.Message}");
+            }
+        }
+
         // Handle UI removal when cycling to null state (main seat becomes empty)
         public static void RemoveUIOverlayForNullState(DrifterBagController bagController)
         {
@@ -774,6 +816,7 @@ namespace DrifterBossGrabMod.Patches
                 _baggedObjectCache.Remove(bagController);
                 return;
             }
+            DumpBaggedObjectFields(baggedObject, "RemoveUIOverlayForNullState");
             var targetObjectField = AccessTools.Field(typeof(BaggedObject), "targetObject");
             var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
             var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
