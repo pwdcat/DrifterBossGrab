@@ -48,6 +48,9 @@ namespace DrifterBossGrabMod.Patches
             seatObject.transform.SetParent(_parent);
             seatObject.transform.localPosition = Vector3.zero;
             seatObject.transform.localRotation = Quaternion.identity;
+            var networkIdentity = seatObject.AddComponent<NetworkIdentity>();
+            networkIdentity.localPlayerAuthority = false;
+            networkIdentity.serverOnly = false;
             var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
             if (_sourceSeat != null)
             {
@@ -311,6 +314,10 @@ namespace DrifterBossGrabMod.Patches
                             .SetParent(__instance.transform)
                             .CopyFrom(__instance.vehicleSeat)
                             .Build();
+                        if (NetworkServer.active)
+                        {
+                            NetworkServer.Spawn(newSeat.gameObject);
+                        }
                         newSeat.AssignPassenger(passengerObject);
                         seatDict[passengerObject] = newSeat;
                         // Add to list if not already present (check by instance ID)
@@ -545,6 +552,10 @@ namespace DrifterBossGrabMod.Patches
                         {
                             // Seat is empty or passenger is thrown, destroy it
                             Debug.Log($"[CleanupEmptyAdditionalSeats] Destroying empty/thrown seat for {objName}");
+                            if (NetworkServer.active)
+                            {
+                                NetworkServer.UnSpawn(seat.gameObject);
+                            }
                             if (seat.gameObject != null)
                             {
                                 UnityEngine.Object.Destroy(seat.gameObject);
@@ -590,6 +601,10 @@ namespace DrifterBossGrabMod.Patches
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     Debug.Log($"[CleanupEmptyAdditionalSeats] Destroying untracked empty seat for {controller.gameObject.name}");
+                    if (NetworkServer.active)
+                    {
+                        NetworkServer.UnSpawn(childSeat.gameObject);
+                    }
                     UnityEngine.Object.Destroy(childSeat.gameObject);
                 }
             }

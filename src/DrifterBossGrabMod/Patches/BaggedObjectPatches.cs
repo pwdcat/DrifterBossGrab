@@ -928,11 +928,13 @@ namespace DrifterBossGrabMod.Patches
                 }
                 var targetObject = __instance.targetObject;
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
-                if (isMainSeatOccupant)
+                // Allow if the object is in the main seat, or if the client has authority over the bag controller
+                // This handles the case where the client is grabbing an object and the seat assignment hasn't synced yet
+                if (isMainSeatOccupant || bagController.hasAuthority)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverrideUtility] allowing skill override for {targetObject?.name} (main seat)");
+                        Log.Info($" [TryOverrideUtility] allowing skill override for {targetObject?.name} (main seat: {isMainSeatOccupant}, hasAuthority: {bagController.hasAuthority})");
                     }
                     return true; // Allow normal execution
                 }
@@ -961,11 +963,13 @@ namespace DrifterBossGrabMod.Patches
                 }
                 var targetObject = __instance.targetObject;
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
-                if (isMainSeatOccupant)
+                // Allow if the object is in the main seat, or if the client has authority over the bag controller
+                // This handles the case where the client is grabbing an object and the seat assignment hasn't synced yet
+                if (isMainSeatOccupant || bagController.hasAuthority)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverridePrimary] allowing skill override for {targetObject?.name} (main seat)");
+                        Log.Info($" [TryOverridePrimary] allowing skill override for {targetObject?.name} (main seat: {isMainSeatOccupant}, hasAuthority: {bagController.hasAuthority})");
                     }
                     return true; // Allow normal execution
                 }
@@ -1059,13 +1063,15 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($" [OnUIOverlayInstanceAdded] Using tracked main seat state: {trackedMainSeatOccupant?.name}");
                     }
                 }
-                else
+                // Allow if the client has authority over the bag controller (for grabbing)
+                bool hasAuthority = bagController.hasAuthority;
+                if (!isMainSeatOccupant && !hasAuthority)
                 {
                     bool isCurrentlyTracked = BagPatches.mainSeatDict.TryGetValue(bagController, out var currentlyTracked) &&
                                             ReferenceEquals(targetObject, currentlyTracked);
                     if (!isCurrentlyTracked)
                     {
-                        // Only remove overlay if this object is not currently tracked as main seat
+                        // Only remove overlay if this object is not currently tracked as main seat and client doesn't have authority
                         if (controller != null)
                         {
                             HudOverlayManager.RemoveOverlay(controller);
@@ -1114,7 +1120,8 @@ namespace DrifterBossGrabMod.Patches
                             var bagController = baggedObject.outer.GetComponent<DrifterBagController>();
                             bool isCurrentlyTracked = bagController != null && BagPatches.mainSeatDict.TryGetValue(bagController, out var currentlyTracked) &&
                                                     ReferenceEquals(targetObject, currentlyTracked);
-                            if (isCurrentlyTracked)
+                            bool hasAuthority = bagController != null && bagController.hasAuthority;
+                            if (isCurrentlyTracked || hasAuthority)
                             {
                                 onUIOverlayInstanceAddedMethod.Invoke(baggedObject, new object[] { uiOverlayController, targetObject });
                             }
