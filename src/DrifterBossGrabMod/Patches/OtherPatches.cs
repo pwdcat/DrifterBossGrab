@@ -73,7 +73,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     passengerName = "corrupted";
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Recovering {passengerName} to player position {playerPos}");
                 }
@@ -148,7 +148,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [ThrownObjectProjectileController.Awake] Projectile has no passenger (will try in Start)");
                     }
@@ -168,7 +168,7 @@ namespace DrifterBossGrabMod.Patches
                     // Check if we've already processed this passenger (avoid double-processing)
                     if (projectileStateObjects.Contains(passenger))
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" [ThrownObjectProjectileController.Start] Passenger {passenger.name} already processed, skipping");
                         }
@@ -201,13 +201,13 @@ namespace DrifterBossGrabMod.Patches
             {
                 passengerName = "corrupted";
             }
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [ProcessThrownObject] Object {passengerName} is now a projectile (airborne) - removing from bag tracking");
             }
             // Track this object as being in projectile state
             projectileStateObjects.Add(passenger);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [ProcessThrownObject] projectileStateObjects count: {projectileStateObjects.Count}");
             }
@@ -219,7 +219,7 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = owner.GetComponent<DrifterBagController>();
                 if (bagController != null)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         int effectiveCapacity = BagPatches.GetUtilityMaxStock(bagController);
                         int currentCount = BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list) ? list.Count : 0;
@@ -227,7 +227,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     // Remove from bag tracking - object is now airborne
                     BagPatches.RemoveBaggedObject(bagController, passenger);
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         int effectiveCapacity = BagPatches.GetUtilityMaxStock(bagController);
                         int currentCount = BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list) ? list.Count : 0;
@@ -242,7 +242,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(ThrownObjectProjectileController __instance)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     GameObject passengerObj = __instance.Networkpassenger;
                     string passengerName = "null";
@@ -268,13 +268,13 @@ namespace DrifterBossGrabMod.Patches
                     catch (System.NullReferenceException)
                     {
                         // Passenger object is corrupted, skip processing
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Skipping processing of corrupted passenger object");
                         }
                         return;
                     }
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Projectile passenger: {passengerName}");
                     }
@@ -282,7 +282,7 @@ namespace DrifterBossGrabMod.Patches
                     var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
                     if (specialAttrs != null)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Processing SpecialObjectAttributes collision restoration for {passengerName}");
                         }
@@ -291,7 +291,7 @@ namespace DrifterBossGrabMod.Patches
                         var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
                         if (vehicleSeat != null && vehicleSeat.hasPassenger)
                         {
-                            if (PluginConfig.EnableDebugLogs.Value)
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
                                 Log.Info($" Ejecting passenger {passengerName} from VehicleSeat");
                             }
@@ -305,7 +305,7 @@ namespace DrifterBossGrabMod.Patches
                                 Quaternion finalRotation = (Quaternion)parameters[1]!;
                                 // Eject the passenger
                                 vehicleSeat.EjectPassenger(finalPosition, finalRotation);
-                                if (PluginConfig.EnableDebugLogs.Value)
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 {
                                     Log.Info($" Successfully ejected passenger {passengerName} to position {finalPosition}");
                                 }
@@ -321,13 +321,13 @@ namespace DrifterBossGrabMod.Patches
                                         // (it may have already been removed in ThrownObjectProjectileController.Awake)
                                         if (BagPatches.IsBaggedObject(bagController, passenger))
                                         {
-                                            if (PluginConfig.EnableDebugLogs.Value)
+                                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                                             {
                                                 Log.Info($" Calling RemoveBaggedObject for ejected passenger {passengerName}");
                                             }
                                             Patches.BagPatches.RemoveBaggedObject(bagController, passenger);
                                         }
-                                        else if (PluginConfig.EnableDebugLogs.Value)
+                                        else if (PluginConfig.Instance.EnableDebugLogs.Value)
                                         {
                                             Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
                                         }
@@ -351,13 +351,13 @@ namespace DrifterBossGrabMod.Patches
                                             // (it may have already been removed in ThrownObjectProjectileController.Awake)
                                             if (BagPatches.IsBaggedObject(bagController, passenger))
                                             {
-                                                if (PluginConfig.EnableDebugLogs.Value)
+                                                if (PluginConfig.Instance.EnableDebugLogs.Value)
                                                 {
                                                     Log.Info($" Calling RemoveBaggedObject for ejected passenger {passengerName}");
                                                 }
                                                 Patches.BagPatches.RemoveBaggedObject(bagController, passenger);
                                             }
-                                            else if (PluginConfig.EnableDebugLogs.Value)
+                                            else if (PluginConfig.Instance.EnableDebugLogs.Value)
                                             {
                                                 Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
                                             }
@@ -369,7 +369,7 @@ namespace DrifterBossGrabMod.Patches
                         // Additionally, manually restore all colliders for SpecialObjectAttributes objects
                         // This handles colliders disabled by the grabbing code that VehicleSeat ejection doesn't restore
                         // Behaviors are restored by VehicleSeat ejection
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Manually restoring all colliders for {passengerName}");
                             // Debug ModelLocator state
@@ -399,7 +399,7 @@ namespace DrifterBossGrabMod.Patches
                             rb.isKinematic = false;
                             rb.detectCollisions = true;
                         }
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Restored {allColliders.Length} colliders for {passengerName}");
                         }
@@ -408,7 +408,7 @@ namespace DrifterBossGrabMod.Patches
                     var stickOnImpactComponents = passenger.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
                     foreach (var stickComponent in stickOnImpactComponents)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Resetting ProjectileStickOnImpact state for {passengerName}");
                         }
@@ -424,7 +424,7 @@ namespace DrifterBossGrabMod.Patches
                             alreadyRanStickEventField.SetValue(stickComponent, false);
                         // Re-enable the component so it can function normally for future impacts
                         stickComponent.enabled = true;
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Reset and re-enabled ProjectileStickOnImpact for {passengerName}");
                         }
@@ -433,7 +433,7 @@ namespace DrifterBossGrabMod.Patches
                     var modelStatePreserver = passenger.GetComponent<ModelStatePreserver>();
                     if (modelStatePreserver != null)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Restoring ModelLocator state for {passengerName}");
                         }
@@ -444,14 +444,14 @@ namespace DrifterBossGrabMod.Patches
                     CheckAndRecoverProjectile(__instance, null);
                     // Remove from projectile state tracking - object has landed
                     projectileStateObjects.Remove(passenger);
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [ImpactBehavior] Removed {passengerName} from projectile state tracking, remaining: {projectileStateObjects.Count}");
                     }
                 }
                 else
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Projectile has no passenger");
                     }
@@ -486,7 +486,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 Vector3 projectilePos = thrownController.transform.position;
                 MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" CheckAndRecoverProjectile: Found {mapZones.Length} MapZone objects at position {projectilePos}");
                 }
@@ -499,7 +499,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         outOfBoundsCount++;
                         bool isInside = zone.IsPointInsideMapZone(projectilePos);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
                         }
@@ -511,7 +511,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone} (zones {(areOutOfBoundsZonesInverted ? "inverted" : "normal")})");
                 }
@@ -522,7 +522,7 @@ namespace DrifterBossGrabMod.Patches
                     const float abyssThreshold = -1000f;
                     if (projectilePos.y < abyssThreshold)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {passenger.name}");
                         }
@@ -530,7 +530,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" No OutOfBounds zones found and projectile is above abyss threshold, skipping recovery");
                         }
@@ -540,7 +540,7 @@ namespace DrifterBossGrabMod.Patches
                 // If projectile is NOT in any safe zone, it's out of bounds and should be recovered
                 if (!isInAnySafeZone)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Projectile impacted OUTSIDE safe zones at {projectilePos}, recovering {passenger.name}");
                     }
@@ -596,7 +596,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 Vector3 projectilePos = thrownController.transform.position;
                 MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" CheckAndRecoverProjectileZoneChecker: Found {mapZones.Length} MapZone objects at position {projectilePos}");
                 }
@@ -609,7 +609,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         outOfBoundsCount++;
                         bool isInside = zone.IsPointInsideMapZone(projectilePos);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" OutOfBounds zone (CollideWithCharacterHullOnly) found, projectile inside: {isInside}");
                         }
@@ -621,7 +621,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Total OutOfBounds (CollideWithCharacterHullOnly) zones: {outOfBoundsCount}, isInAnySafeZone: {isInAnySafeZone} (zones {(areOutOfBoundsZonesInverted ? "inverted" : "normal")})");
                 }
@@ -641,7 +641,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             passengerName = "corrupted";
                         }
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" No OutOfBounds zones found, but projectile is below abyss threshold ({abyssThreshold}), recovering {passengerName}");
                         }
@@ -649,7 +649,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" No OutOfBounds zones found and projectile is above abyss threshold, skipping recovery");
                         }
@@ -668,7 +668,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         passengerName2 = "corrupted";
                     }
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Projectile at {projectilePos} is OUTSIDE all safe zones, recovering {passengerName2}");
                     }
@@ -696,7 +696,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(SpecialObjectAttributes __instance)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     string iconName = (__instance.portraitIcon != null) ? __instance.portraitIcon.name : "null";
                     Log.Info($" SpecialObjectAttributes.Start - Object: {__instance.gameObject.name}, portraitIcon: {iconName}, bestName: {__instance.bestName}");
@@ -738,7 +738,7 @@ namespace DrifterBossGrabMod.Patches
                     if (specialAttrs != null)
                     {
                         var colliders = targetObject.GetComponentsInChildren<Collider>(true);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" BaggedObject.OnEnter: Storing {colliders.Length} colliders for {targetObject.name} in SpecialObjectAttributes");
                         }

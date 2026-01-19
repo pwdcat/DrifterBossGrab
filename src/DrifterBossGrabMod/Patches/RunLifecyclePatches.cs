@@ -22,7 +22,7 @@ namespace DrifterBossGrabMod.Patches
             // Clear any stale data from previous runs
             PersistenceManager.ClearPersistedObjects();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Persistence system initialized on run start");
             }
@@ -32,7 +32,7 @@ namespace DrifterBossGrabMod.Patches
             // Cleanup persistence system
             PersistenceManager.Cleanup();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Persistence system cleaned up on run destroy");
             }

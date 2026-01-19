@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
@@ -9,6 +10,74 @@ using System.Reflection;
 using DrifterBossGrabMod;
 namespace DrifterBossGrabMod.Patches
 {
+    public interface ISeatBuilder
+    {
+        ISeatBuilder SetName(string name);
+        ISeatBuilder SetParent(Transform parent);
+        ISeatBuilder CopyFrom(VehicleSeat source);
+        VehicleSeat Build();
+    }
+
+    public class AdditionalSeatBuilder : ISeatBuilder
+    {
+        private string _name = null!;
+        private Transform _parent = null!;
+        private VehicleSeat _sourceSeat = null!;
+
+        public ISeatBuilder SetName(string name)
+        {
+            _name = name;
+            return this;
+        }
+
+        public ISeatBuilder SetParent(Transform parent)
+        {
+            _parent = parent;
+            return this;
+        }
+
+        public ISeatBuilder CopyFrom(VehicleSeat source)
+        {
+            _sourceSeat = source;
+            return this;
+        }
+
+        public VehicleSeat Build()
+        {
+            var seatObject = new GameObject(_name);
+            seatObject.transform.SetParent(_parent);
+            seatObject.transform.localPosition = Vector3.zero;
+            seatObject.transform.localRotation = Quaternion.identity;
+            var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
+            if (_sourceSeat != null)
+            {
+                newSeat.seatPosition = _sourceSeat.seatPosition;
+                newSeat.exitPosition = _sourceSeat.exitPosition;
+                newSeat.ejectOnCollision = _sourceSeat.ejectOnCollision;
+                newSeat.hidePassenger = _sourceSeat.hidePassenger;
+                newSeat.exitVelocityFraction = _sourceSeat.exitVelocityFraction;
+                newSeat.disablePassengerMotor = _sourceSeat.disablePassengerMotor;
+                newSeat.isEquipmentActivationAllowed = _sourceSeat.isEquipmentActivationAllowed;
+                newSeat.shouldProximityHighlight = _sourceSeat.shouldProximityHighlight;
+                newSeat.disableInteraction = _sourceSeat.disableInteraction;
+                newSeat.shouldSetIdle = _sourceSeat.shouldSetIdle;
+                newSeat.additionalExitVelocity = _sourceSeat.additionalExitVelocity;
+                newSeat.disableAllCollidersAndHurtboxes = _sourceSeat.disableAllCollidersAndHurtboxes;
+                newSeat.disableColliders = _sourceSeat.disableColliders;
+                newSeat.disableCharacterNetworkTransform = _sourceSeat.disableCharacterNetworkTransform;
+                newSeat.ejectFromSeatOnMapEvent = _sourceSeat.ejectFromSeatOnMapEvent;
+                newSeat.inheritRotation = _sourceSeat.inheritRotation;
+                newSeat.holdPassengerAfterDeath = _sourceSeat.holdPassengerAfterDeath;
+                newSeat.ejectPassengerToGround = _sourceSeat.ejectPassengerToGround;
+                newSeat.ejectRayDistance = _sourceSeat.ejectRayDistance;
+                newSeat.handleExitTeleport = _sourceSeat.handleExitTeleport;
+                newSeat.setCharacterMotorPositionToCurrentPosition = _sourceSeat.setCharacterMotorPositionToCurrentPosition;
+                newSeat.passengerState = _sourceSeat.passengerState;
+            }
+            return newSeat;
+        }
+    }
+
     public class SeatValidationContext
     {
         public DrifterBagController? BagController { get; set; }
@@ -27,12 +96,17 @@ namespace DrifterBossGrabMod.Patches
     }
     public static class BagPatches
     {
-        internal static readonly Dictionary<DrifterBagController, List<GameObject>> baggedObjectsDict = new Dictionary<DrifterBagController, List<GameObject>>();
-        internal static readonly Dictionary<DrifterBagController, Dictionary<GameObject, RoR2.VehicleSeat>> additionalSeatsDict = new Dictionary<DrifterBagController, Dictionary<GameObject, RoR2.VehicleSeat>>();
-        internal static readonly Dictionary<DrifterBagController, GameObject> mainSeatDict = new Dictionary<DrifterBagController, GameObject>();
+        private static readonly ConcurrentDictionary<DrifterBagController, List<GameObject>> _baggedObjectsDict = new ConcurrentDictionary<DrifterBagController, List<GameObject>>();
+        public static ConcurrentDictionary<DrifterBagController, List<GameObject>> baggedObjectsDict => _baggedObjectsDict;
+
+        private static readonly ConcurrentDictionary<DrifterBagController, ConcurrentDictionary<GameObject, RoR2.VehicleSeat>> _additionalSeatsDict = new ConcurrentDictionary<DrifterBagController, ConcurrentDictionary<GameObject, RoR2.VehicleSeat>>();
+        public static ConcurrentDictionary<DrifterBagController, ConcurrentDictionary<GameObject, RoR2.VehicleSeat>> additionalSeatsDict => _additionalSeatsDict;
+
+        private static readonly ConcurrentDictionary<DrifterBagController, GameObject> _mainSeatDict = new ConcurrentDictionary<DrifterBagController, GameObject>();
+        public static ConcurrentDictionary<DrifterBagController, GameObject> mainSeatDict => _mainSeatDict;
         public static void ScanAllSceneComponents()
         {
-            if (!PluginConfig.EnableComponentAnalysisLogs.Value) return;
+            if (!PluginConfig.Instance.EnableComponentAnalysisLogs.Value) return;
             Log.Info($"[ScanAllSceneComponents] === SCANNING ALL COMPONENTS IN CURRENT SCENE ===");
             // Get all root GameObjects in the scene
             var rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
@@ -70,7 +144,7 @@ namespace DrifterBossGrabMod.Patches
         }
         public static int GetUtilityMaxStock(DrifterBagController drifterBagController)
         {
-            if (!PluginConfig.BottomlessBagEnabled.Value)
+            if (!PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
                 return 1;
             }
@@ -78,10 +152,10 @@ namespace DrifterBossGrabMod.Patches
             if (body && body.skillLocator && body.skillLocator.utility)
             {
                 int maxStock = body.skillLocator.utility.maxStock;
-                return maxStock + PluginConfig.BottomlessBagBaseCapacity.Value;
+                return maxStock + PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
             }
             // Default to base capacity if skill not found
-            return PluginConfig.BottomlessBagBaseCapacity.Value;
+            return PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
         }
         private static bool HasActiveTeleporterInScene(GameObject excludeTeleporter)
         {
@@ -229,36 +303,14 @@ namespace DrifterBossGrabMod.Patches
                         // Create additional seat if needed
                         if (!additionalSeatsDict.TryGetValue(__instance, out var seatDict))
                         {
-                            seatDict = new Dictionary<GameObject, RoR2.VehicleSeat>();
+                            seatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
                             additionalSeatsDict[__instance] = seatDict;
                         }
-                        var seatObject = new GameObject($"AdditionalSeat_{additionalSeatsCount}");
-                        seatObject.transform.SetParent(__instance.transform);
-                        seatObject.transform.localPosition = Vector3.zero;
-                        seatObject.transform.localRotation = Quaternion.identity;
-                        var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
-                        newSeat.seatPosition = __instance.vehicleSeat.seatPosition;
-                        newSeat.exitPosition = __instance.vehicleSeat.exitPosition;
-                        newSeat.ejectOnCollision = __instance.vehicleSeat.ejectOnCollision;
-                        newSeat.hidePassenger = __instance.vehicleSeat.hidePassenger;
-                        newSeat.exitVelocityFraction = __instance.vehicleSeat.exitVelocityFraction;
-                        newSeat.disablePassengerMotor = __instance.vehicleSeat.disablePassengerMotor;
-                        newSeat.isEquipmentActivationAllowed = __instance.vehicleSeat.isEquipmentActivationAllowed;
-                        newSeat.shouldProximityHighlight = __instance.vehicleSeat.shouldProximityHighlight;
-                        newSeat.disableInteraction = __instance.vehicleSeat.disableInteraction;
-                        newSeat.shouldSetIdle = __instance.vehicleSeat.shouldSetIdle;
-                        newSeat.additionalExitVelocity = __instance.vehicleSeat.additionalExitVelocity;
-                        newSeat.disableAllCollidersAndHurtboxes = __instance.vehicleSeat.disableAllCollidersAndHurtboxes;
-                        newSeat.disableColliders = __instance.vehicleSeat.disableColliders;
-                        newSeat.disableCharacterNetworkTransform = __instance.vehicleSeat.disableCharacterNetworkTransform;
-                        newSeat.ejectFromSeatOnMapEvent = __instance.vehicleSeat.ejectFromSeatOnMapEvent;
-                        newSeat.inheritRotation = __instance.vehicleSeat.inheritRotation;
-                        newSeat.holdPassengerAfterDeath = __instance.vehicleSeat.holdPassengerAfterDeath;
-                        newSeat.ejectPassengerToGround = __instance.vehicleSeat.ejectPassengerToGround;
-                        newSeat.ejectRayDistance = __instance.vehicleSeat.ejectRayDistance;
-                        newSeat.handleExitTeleport = __instance.vehicleSeat.handleExitTeleport;
-                        newSeat.setCharacterMotorPositionToCurrentPosition = __instance.vehicleSeat.setCharacterMotorPositionToCurrentPosition;
-                        newSeat.passengerState = __instance.vehicleSeat.passengerState;
+                        var newSeat = new AdditionalSeatBuilder()
+                            .SetName($"AdditionalSeat_{additionalSeatsCount}")
+                            .SetParent(__instance.transform)
+                            .CopyFrom(__instance.vehicleSeat)
+                            .Build();
                         newSeat.AssignPassenger(passengerObject);
                         seatDict[passengerObject] = newSeat;
                         // Add to list if not already present (check by instance ID)
@@ -331,7 +383,7 @@ namespace DrifterBossGrabMod.Patches
                     // Send persistence message for all bagged objects
                     if (UnityEngine.Networking.NetworkServer.active)
                     {
-                        PersistenceManager.SendBaggedObjectsPersistenceMessage(list);
+                        PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list);
                     }
                 }
             }
@@ -416,7 +468,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (mainSeatDict.ContainsKey(controller))
                 {
-                    mainSeatDict.Remove(controller);
+                    System.Collections.Generic.CollectionExtensions.Remove(mainSeatDict, controller, out _);
                 }
             }
         }
@@ -516,13 +568,13 @@ namespace DrifterBossGrabMod.Patches
                 {
                     string objName = obj != null ? obj.name : "null";
                     Debug.Log($"[CleanupEmptyAdditionalSeats] Removing {objName} from seatDict");
-                    seatDict.Remove(obj);
+                    System.Collections.Generic.CollectionExtensions.Remove(seatDict, obj, out _);
                 }
                 // If the seatDict is now empty, remove it from additionalSeatsDict
                 if (seatDict.Count == 0)
                 {
                     Debug.Log($"[CleanupEmptyAdditionalSeats] seatDict is empty, removing controller {controller.gameObject.name} from additionalSeatsDict");
-                    additionalSeatsDict.Remove(controller);
+                    System.Collections.Generic.CollectionExtensions.Remove(additionalSeatsDict, controller, out _);
                 }
                 else
                 {
@@ -534,7 +586,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var childSeat in childSeats)
             {
                 if (childSeat == controller.vehicleSeat) continue;
-                bool isTracked = seatDict != null && seatDict.ContainsValue(childSeat);
+                bool isTracked = seatDict != null && seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     Debug.Log($"[CleanupEmptyAdditionalSeats] Destroying untracked empty seat for {controller.gameObject.name}");
@@ -564,7 +616,7 @@ namespace DrifterBossGrabMod.Patches
             // Track this object in the additional seat
             if (!BagPatches.additionalSeatsDict.TryGetValue(drifterBagController, out var seatDict))
             {
-                seatDict = new Dictionary<GameObject, RoR2.VehicleSeat>();
+                seatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
                 BagPatches.additionalSeatsDict[drifterBagController] = seatDict;
             }
             // Remove from any existing tracking first
@@ -572,7 +624,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (kvp.Value == __instance)
                 {
-                    seatDict.Remove(kvp.Key);
+                    System.Collections.Generic.CollectionExtensions.Remove(seatDict, kvp.Key, out _);
                 }
             }
             seatDict[bodyObject] = __instance;

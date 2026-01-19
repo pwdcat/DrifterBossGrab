@@ -26,7 +26,7 @@ namespace DrifterBossGrabMod.Patches
         }
         private static void OnBeginExit(SceneExitController exitController)
         {
-            if (!PluginConfig.EnableObjectPersistence.Value)
+            if (!PluginConfig.Instance.EnableObjectPersistence.Value)
             {
                 return;
             }
@@ -35,13 +35,13 @@ namespace DrifterBossGrabMod.Patches
             // Send persistence message to all clients (only from server to avoid duplicates)
             if (NetworkServer.active)
             {
-                PersistenceManager.SendBaggedObjectsPersistenceMessage(baggedObjects);
+                PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(baggedObjects);
             }
             // Capture currently bagged objects before scene transition
             PersistenceManager.CaptureCurrentlyBaggedObjects();
             // Move objects to persistence container
             PersistenceManager.MoveObjectsToPersistenceContainer();
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Captured bagged objects on scene exit{(NetworkServer.active ? " and sent persistence message" : "")}");
             }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
@@ -14,20 +15,20 @@ namespace DrifterBossGrabMod.Patches
         private const float CYCLE_COOLDOWN = 0.1f; // 100ms cooldown to prevent spamming
         public static void HandleInput()
         {
-            if (PluginConfig.BottomlessBagEnabled.Value)
+            if (PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
                 bool scrollUp = false;
                 bool scrollDown = false;
-                if (PluginConfig.EnableMouseWheelScrolling.Value)
+                if (PluginConfig.Instance.EnableMouseWheelScrolling.Value)
                 {
                     float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
                     if (scrollDelta > 0f) scrollUp = true;
                     else if (scrollDelta < 0f) scrollDown = true;
                 }
-                if (PluginConfig.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.ScrollUpKeybind.Value.MainKey))
+                if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
                 {
                     bool modifiersPressed = true;
-                    foreach (var modifier in PluginConfig.ScrollUpKeybind.Value.Modifiers)
+                    foreach (var modifier in PluginConfig.Instance.ScrollUpKeybind.Value.Modifiers)
                     {
                         if (!Input.GetKey(modifier))
                         {
@@ -37,10 +38,10 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (modifiersPressed) scrollUp = true;
                 }
-                if (PluginConfig.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.ScrollDownKeybind.Value.MainKey))
+                if (PluginConfig.Instance.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollDownKeybind.Value.MainKey))
                 {
                     bool modifiersPressed = true;
-                    foreach (var modifier in PluginConfig.ScrollDownKeybind.Value.Modifiers)
+                    foreach (var modifier in PluginConfig.Instance.ScrollDownKeybind.Value.Modifiers)
                     {
                         if (!Input.GetKey(modifier))
                         {
@@ -136,14 +137,14 @@ namespace DrifterBossGrabMod.Patches
         private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, bool scrollUp)
         {
             // Use a local copy of the seatDict for atomic updates
-            Dictionary<GameObject, RoR2.VehicleSeat> localSeatDict;
+            ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict;
             if (!BagPatches.additionalSeatsDict.TryGetValue(bagController, out var existingSeatDict))
             {
-                localSeatDict = new Dictionary<GameObject, RoR2.VehicleSeat>();
+                localSeatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
             }
             else
             {
-                localSeatDict = new Dictionary<GameObject, RoR2.VehicleSeat>(existingSeatDict);
+                localSeatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>(existingSeatDict);
             }
 
             var vehicleSeat = bagController.vehicleSeat;
@@ -300,7 +301,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var childSeat in childSeats)
             {
                 if (childSeat == bagController.vehicleSeat) continue;
-                bool isTracked = localSeatDict.ContainsValue(childSeat);
+                bool isTracked = localSeatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     emptySeatsCount++;
@@ -406,7 +407,7 @@ namespace DrifterBossGrabMod.Patches
                     vehicleSeat.EjectPassenger(actualMainPassenger);
                     if (actualMainPassenger != null)
                     {
-                        BagPatches.mainSeatDict.Remove(bagController);
+                        System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
                     }
                     BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
                     BagPatches.SetMainSeatObject(bagController, null);
@@ -417,7 +418,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (actualMainPassenger != null)
                     {
-                        BagPatches.mainSeatDict.Remove(bagController);
+                        System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
                     }
                     BaggedObjectPatches.RemoveUIOverlayForNullState(bagController);
                     DrifterBossGrabPlugin._isSwappingPassengers = false;
@@ -440,7 +441,7 @@ namespace DrifterBossGrabMod.Patches
                 if (sourceAdditionalSeat != null)
                 {
                     sourceAdditionalSeat.EjectPassenger(targetObject);
-                    localSeatDict.Remove(targetObject);
+                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                 }
                 bagController.AssignPassenger(targetObject);
                 BagPatches.SetMainSeatObject(bagController, targetObject);
@@ -465,13 +466,13 @@ namespace DrifterBossGrabMod.Patches
                 vehicleSeat.EjectPassenger(currentObject);
                 if (currentObject != null)
                 {
-                    BagPatches.mainSeatDict.Remove(bagController);
+                    System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
                 }
                 BaggedObjectPatches.RemoveUIOverlay(currentObject);
                 if (targetAdditionalSeat != null)
                 {
                     targetAdditionalSeat.EjectPassenger(targetObject);
-                    localSeatDict.Remove(targetObject);
+                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                     targetAdditionalSeat.AssignPassenger(currentObject);
                     BagPatches.SetMainSeatObject(bagController, null);
                     BaggedObjectPatches.RemoveUIOverlay(currentObject);
@@ -507,7 +508,7 @@ namespace DrifterBossGrabMod.Patches
                 bagController.AssignPassenger(targetObject);
                 if (targetAdditionalSeat != null)
                 {
-                    localSeatDict.Remove(targetObject);
+                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                 }
                 BagPatches.SetMainSeatObject(bagController, targetObject);
                 BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
@@ -516,14 +517,14 @@ namespace DrifterBossGrabMod.Patches
             // Update the global dict
             if (localSeatDict.Count == 0)
             {
-                BagPatches.additionalSeatsDict.Remove(bagController);
+                System.Collections.Generic.CollectionExtensions.Remove(BagPatches.additionalSeatsDict, bagController, out _);
             }
             else
             {
                 BagPatches.additionalSeatsDict[bagController] = localSeatDict;
             }
         }
-        private static bool ValidateSeatConfiguration(DrifterBagController bagController, List<GameObject> validObjects, GameObject? actualMainPassenger, bool isInNullState, Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static bool ValidateSeatConfiguration(DrifterBagController bagController, List<GameObject> validObjects, GameObject? actualMainPassenger, bool isInNullState, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (!isInNullState && actualMainPassenger == null)
             {
@@ -559,7 +560,7 @@ namespace DrifterBossGrabMod.Patches
             }
             return true;
         }
-        private static bool ValidateSeatStateForSwap(DrifterBagController bagController, GameObject? currentObject, GameObject? targetObject, Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static bool ValidateSeatStateForSwap(DrifterBagController bagController, GameObject? currentObject, GameObject? targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             var mainSeat = bagController.vehicleSeat;
             if (mainSeat == null)
@@ -579,13 +580,11 @@ namespace DrifterBossGrabMod.Patches
             var targetAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject, seatDict);
             if (targetAdditionalSeat != null)
             {
-                bool seatHasCorrectPassenger = false;
                 if (targetAdditionalSeat.hasPassenger)
                 {
                     var actualTargetPassenger = targetAdditionalSeat.NetworkpassengerBodyObject;
                     if (actualTargetPassenger.GetInstanceID() == targetObject.GetInstanceID())
                     {
-                        seatHasCorrectPassenger = true;
                     }
                 }
             }
@@ -614,7 +613,7 @@ namespace DrifterBossGrabMod.Patches
             }
             return true;
         }
-        private static RoR2.VehicleSeat FindOrCreateEmptySeat(DrifterBagController bagController, ref Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static RoR2.VehicleSeat FindOrCreateEmptySeat(DrifterBagController bagController, ref ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             var vehicleSeat = bagController.vehicleSeat;
             foreach (var kvp in seatDict)
@@ -628,7 +627,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var childSeat in childSeats)
             {
                 if (childSeat == vehicleSeat) continue;
-                bool isTracked = seatDict.ContainsValue(childSeat);
+                bool isTracked = seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     return childSeat;
@@ -681,7 +680,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var childSeat in childSeats)
             {
                 if (childSeat == vehicleSeat) continue;
-                bool isTracked = seatDict != null && seatDict.ContainsValue(childSeat);
+                bool isTracked = seatDict != null && seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     return childSeat;
@@ -716,7 +715,7 @@ namespace DrifterBossGrabMod.Patches
             newSeat.passengerState = vehicleSeat.passengerState;
             return newSeat;
         }
-        private static RoR2.VehicleSeat GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj, Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static RoR2.VehicleSeat GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (obj == null) return null;
             if (seatDict.TryGetValue(obj, out var seat))
@@ -829,7 +828,7 @@ namespace DrifterBossGrabMod.Patches
                 additionalSeats[currentMain] = newSeat;
             }
         }
-        private static bool ValidateNullStateTransition(DrifterBagController bagController, GameObject? currentObject, Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static bool ValidateNullStateTransition(DrifterBagController bagController, GameObject? currentObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             var mainSeat = bagController.vehicleSeat;
             if (mainSeat == null)
@@ -868,7 +867,7 @@ namespace DrifterBossGrabMod.Patches
             }
             return true;
         }
-        private static bool HasSpaceForNullStateTransition(DrifterBagController bagController, int currentObjectCount, Dictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static bool HasSpaceForNullStateTransition(DrifterBagController bagController, int currentObjectCount, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             int effectiveCapacity = BagPatches.GetUtilityMaxStock(bagController);
             if (currentObjectCount >= effectiveCapacity)
@@ -887,7 +886,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var childSeat in childSeats)
             {
                 if (childSeat == bagController.vehicleSeat) continue;
-                bool isTracked = seatDict.ContainsValue(childSeat);
+                bool isTracked = seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
                     emptySeatsCount++;

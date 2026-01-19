@@ -10,8 +10,8 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(CharacterMaster __instance, CharacterBody body)
             {
-                if (!PluginConfig.EnableObjectPersistence.Value ||
-                    !PluginConfig.EnableAutoGrab.Value ||
+                if (!PluginConfig.Instance.EnableObjectPersistence.Value ||
+                    !PluginConfig.Instance.EnableAutoGrab.Value ||
                     body == null)
                 {
                     return;
@@ -22,7 +22,7 @@ namespace DrifterBossGrabMod.Patches
                     DrifterBossGrabPlugin.IsDrifterPresent = true;
                     // Schedule auto-grab with delay to ensure bag controller is ready
                     PersistenceManager.ScheduleAutoGrab(__instance);
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($"[CharacterMaster_OnBodyStart] Scheduled auto-grab for Drifter respawn");
                     }

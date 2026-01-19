@@ -42,13 +42,11 @@ namespace DrifterBossGrabMod.Patches
                 {
                     // Try the correct property/field names based on debug inspection
                     GameObject? baggedObject = null;
-                    string foundVia = "";
                     // Try NetworkbaggedObject property (capital B - this is the correct one!)
                     var networkBaggedObjectProperty = bagController.GetType().GetProperty("NetworkbaggedObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
                     if (networkBaggedObjectProperty != null)
                     {
                         baggedObject = (GameObject)networkBaggedObjectProperty.GetValue(bagController);
-                        foundVia = "NetworkbaggedObject property";
                     }
                     // Try baggedObject field (lowercase b - backup)
                     if (baggedObject == null)
@@ -57,7 +55,6 @@ namespace DrifterBossGrabMod.Patches
                         if (baggedObjectField != null)
                         {
                             baggedObject = (GameObject)baggedObjectField.GetValue(bagController);
-                            foundVia = "baggedObject field";
                         }
                     }
                     // Fallback: Try old property names for compatibility
@@ -67,7 +64,6 @@ namespace DrifterBossGrabMod.Patches
                         if (networkPassengerProperty != null)
                         {
                             baggedObject = (GameObject)networkPassengerProperty.GetValue(bagController);
-                            foundVia = "Networkpassenger property (fallback)";
                         }
                     }
                     if (baggedObject == null)
@@ -76,7 +72,6 @@ namespace DrifterBossGrabMod.Patches
                         if (passengerProperty != null)
                         {
                             baggedObject = (GameObject)passengerProperty.GetValue(bagController);
-                            foundVia = "passenger property (fallback)";
                         }
                     }
                     if (baggedObject != null && IsValidForPersistence(baggedObject))
@@ -86,7 +81,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (System.Exception ex)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Error checking bagged objects: {ex.Message}");
                     }
@@ -167,7 +162,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     catch (System.Exception ex)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Error checking if object is bagged: {ex.Message}");
                         }

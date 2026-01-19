@@ -31,7 +31,7 @@ namespace DrifterBossGrabMod.Patches
         {
             // Check if this teleporter should be disabled
             bool shouldDisable = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" PingTeleporterPrefix for {__instance.gameObject.name}, shouldDisable: {shouldDisable}");
             }
@@ -47,7 +47,7 @@ namespace DrifterBossGrabMod.Patches
         {
             // Check if this teleporter should be disabled
             bool shouldDisable = PersistenceManager.ShouldDisableTeleporter(__instance.gameObject);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" CancelTeleporterPingPrefix for {__instance.gameObject.name}, shouldDisable: {shouldDisable}");
             }

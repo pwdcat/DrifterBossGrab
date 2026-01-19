@@ -13,12 +13,20 @@ using RoR2;
 namespace DrifterBossGrabMod
 {
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
-    public class DrifterBossGrabPlugin : BaseUnityPlugin
+    public class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
         private const short BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE = 85;
         public static DrifterBossGrabPlugin? Instance { get; private set; }
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
+        private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
+        public static bool _isSwappingPassengers = false;
+        public static bool IsSwappingPassengers => _isSwappingPassengers;
+        public static bool IsDrifterPresent { get; set; } = false;
+
+        private ConfigurationComposite? _configurationComposite;
+
+        // Event handlers
         private EventHandler? debugLogsHandler;
         private EventHandler? blacklistHandler;
         private EventHandler? forwardVelHandler;
@@ -32,26 +40,44 @@ namespace DrifterBossGrabMod
         private EventHandler? lockedObjectGrabbingHandler;
         private EventHandler? persistenceHandler;
         private EventHandler? autoGrabHandler;
-        private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
-        public static bool _isSwappingPassengers = false;
-        public static bool IsSwappingPassengers => _isSwappingPassengers;
-        public static bool IsDrifterPresent { get; set; } = false;
-        public void Awake()
+        private void InitializeInstance()
         {
             Instance = this;
+        }
+
+        private void InitializeCoreSystems()
+        {
             Log.Init(Logger);
             PluginConfig.Init(Config);
-            StateManagement.Initialize(PluginConfig.EnableDebugLogs.Value);
-            Log.EnableDebugLogs = PluginConfig.EnableDebugLogs.Value;
-            PersistenceManager.Initialize();
-            Patches.RepossessPatches.Initialize();
+            StateManagement.Initialize(PluginConfig.Instance.EnableDebugLogs.Value);
+            Log.EnableDebugLogs = PluginConfig.Instance.EnableDebugLogs.Value;
+        }
+
+        private void InitializeConfigurationComposite()
+        {
+            _configurationComposite = new ConfigurationComposite();
+            // Register patches that need initialization/cleanup
+            PatchFactory.Instance.RegisterPatch(typeof(Patches.RepossessPatches));
+            PatchFactory.Instance.RegisterPatch(typeof(Patches.RunLifecyclePatches));
+            PatchFactory.Instance.RegisterPatch(typeof(Patches.TeleporterPatches));
+            // Add components to composite
+            _configurationComposite.AddComponent((IConfigurable)PatchFactory.Instance);
+            _configurationComposite.AddComponent(new PersistenceManagerWrapper());
+            // Initialize all components
+            _configurationComposite.Initialize();
+        }
+
+        public void Awake()
+        {
+            InitializeInstance();
+            InitializeCoreSystems();
+            InitializeConfigurationComposite();
+            ConfigChangeNotifier.Init();
+            ConfigChangeNotifier.AddObserver(this);
             SetupConfigurationEventHandlers();
-            ApplyHarmonyPatches();
-            Patches.RunLifecyclePatches.Initialize();
-            Patches.TeleporterPatches.Initialize();
             RegisterGameEvents();
         }
-        public void OnDestroy()
+        private void RemoveConfigurationEventHandlers()
         {
             PluginConfig.RemoveEventHandlers(
                 debugLogsHandler ?? ((sender, args) => { }),
@@ -66,14 +92,41 @@ namespace DrifterBossGrabMod
                 environmentGrabbingHandler ?? ((sender, args) => { }),
                 lockedObjectGrabbingHandler ?? ((sender, args) => { })
             );
-            PluginConfig.EnableObjectPersistence.SettingChanged -= persistenceHandler;
-            PluginConfig.EnableAutoGrab.SettingChanged -= autoGrabHandler;
-            Patches.RunLifecyclePatches.Cleanup();
-            Patches.TeleporterPatches.Cleanup();
-            PersistenceManager.Cleanup();
+        }
+
+        private void RemovePersistenceEventHandlers()
+        {
+            PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceHandler;
+            PluginConfig.Instance.EnableAutoGrab.SettingChanged -= autoGrabHandler;
+        }
+
+        private void CleanupConfigurationComposite()
+        {
+            _configurationComposite?.Cleanup();
+        }
+
+        private void StopCoroutines()
+        {
             if (Instance != null)
             {
                 Instance.StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
+            }
+        }
+
+        public void OnDestroy()
+        {
+            RemoveConfigurationEventHandlers();
+            RemovePersistenceEventHandlers();
+            CleanupConfigurationComposite();
+            StopCoroutines();
+        }
+
+        public void OnConfigChanged(string key, object value)
+        {
+            // Handle config changes if needed
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[OnConfigChanged] Config changed: {key} = {value}");
             }
         }
         public void Start()
@@ -87,26 +140,50 @@ namespace DrifterBossGrabMod
         #region Configuration Management
         private void SetupConfigurationEventHandlers()
         {
+            SetupDebugLogsHandler();
+            SetupBlacklistHandlers();
+            SetupVelocityHandlers();
+            SetupGrabbableHandlers();
+            SetupGrabbingHandlers();
+            SetupPersistenceHandlers();
+            PersistenceManager.UpdateCachedConfig();
+        }
+        private void SetupDebugLogsHandler()
+        {
             debugLogsHandler = (sender, args) =>
             {
-                Log.EnableDebugLogs = PluginConfig.EnableDebugLogs.Value;
-                StateManagement.UpdateDebugLogging(PluginConfig.EnableDebugLogs.Value);
+                Log.EnableDebugLogs = PluginConfig.Instance.EnableDebugLogs.Value;
+                StateManagement.UpdateDebugLogging(PluginConfig.Instance.EnableDebugLogs.Value);
             };
-            PluginConfig.EnableDebugLogs.SettingChanged += debugLogsHandler;
+            PluginConfig.Instance.EnableDebugLogs.SettingChanged += debugLogsHandler;
+        }
+
+        private void SetupBlacklistHandlers()
+        {
             blacklistHandler = (sender, args) =>
             {
                 PluginConfig.ClearBlacklistCache();
             };
-            PluginConfig.BodyBlacklist.SettingChanged += blacklistHandler;
-            forwardVelHandler = Patches.RepossessPatches.OnForwardVelocityChanged;
-            PluginConfig.ForwardVelocityMultiplier.SettingChanged += forwardVelHandler;
-            upwardVelHandler = Patches.RepossessPatches.OnUpwardVelocityChanged;
-            PluginConfig.UpwardVelocityMultiplier.SettingChanged += upwardVelHandler;
+            PluginConfig.Instance.BodyBlacklist.SettingChanged += blacklistHandler;
+
             recoveryBlacklistHandler = (sender, args) =>
             {
                 PluginConfig.ClearRecoveryBlacklistCache();
             };
-            PluginConfig.RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
+            PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
+        }
+
+        private void SetupVelocityHandlers()
+        {
+            forwardVelHandler = Patches.RepossessPatches.OnForwardVelocityChanged;
+            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged += forwardVelHandler;
+
+            upwardVelHandler = Patches.RepossessPatches.OnUpwardVelocityChanged;
+            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged += upwardVelHandler;
+        }
+
+        private void SetupGrabbableHandlers()
+        {
             grabbableComponentTypesHandler = (sender, args) =>
             {
                 if (_grabbableComponentTypesUpdateCoroutine != null)
@@ -115,12 +192,17 @@ namespace DrifterBossGrabMod
                 }
                 _grabbableComponentTypesUpdateCoroutine = Instance!.StartCoroutine(DelayedGrabbableComponentTypesUpdate());
             };
-            PluginConfig.GrabbableComponentTypes.SettingChanged += grabbableComponentTypesHandler;
+            PluginConfig.Instance.GrabbableComponentTypes.SettingChanged += grabbableComponentTypesHandler;
+
             grabbableKeywordBlacklistHandler = (sender, args) =>
             {
                 PluginConfig.ClearGrabbableKeywordBlacklistCache();
             };
-            PluginConfig.GrabbableKeywordBlacklist.SettingChanged += grabbableKeywordBlacklistHandler;
+            PluginConfig.Instance.GrabbableKeywordBlacklist.SettingChanged += grabbableKeywordBlacklistHandler;
+        }
+
+        private void SetupGrabbingHandlers()
+        {
             bossGrabbingHandler = (sender, args) =>
             {
                 if (DrifterBossGrabPlugin.IsDrifterPresent)
@@ -128,7 +210,8 @@ namespace DrifterBossGrabMod
                     Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
                 }
             };
-            PluginConfig.EnableBossGrabbing.SettingChanged += bossGrabbingHandler;
+            PluginConfig.Instance.EnableBossGrabbing.SettingChanged += bossGrabbingHandler;
+
             npcGrabbingHandler = (sender, args) =>
             {
                 if (DrifterBossGrabPlugin.IsDrifterPresent)
@@ -136,7 +219,8 @@ namespace DrifterBossGrabMod
                     Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
                 }
             };
-            PluginConfig.EnableNPCGrabbing.SettingChanged += npcGrabbingHandler;
+            PluginConfig.Instance.EnableNPCGrabbing.SettingChanged += npcGrabbingHandler;
+
             environmentGrabbingHandler = (sender, args) =>
             {
                 if (DrifterBossGrabPlugin.IsDrifterPresent)
@@ -144,30 +228,29 @@ namespace DrifterBossGrabMod
                     Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
                 }
             };
-            PluginConfig.EnableEnvironmentGrabbing.SettingChanged += environmentGrabbingHandler;
+            PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged += environmentGrabbingHandler;
+
             lockedObjectGrabbingHandler = (sender, args) =>
             {
             };
-            PluginConfig.EnableLockedObjectGrabbing.SettingChanged += lockedObjectGrabbingHandler;
+            PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged += lockedObjectGrabbingHandler;
+        }
+
+        private void SetupPersistenceHandlers()
+        {
             persistenceHandler = (sender, args) =>
             {
                 PersistenceManager.UpdateCachedConfig();
             };
-            PluginConfig.EnableObjectPersistence.SettingChanged += persistenceHandler;
+            PluginConfig.Instance.EnableObjectPersistence.SettingChanged += persistenceHandler;
+
             autoGrabHandler = (sender, args) =>
             {
                 PersistenceManager.UpdateCachedConfig();
             };
-            PluginConfig.EnableAutoGrab.SettingChanged += autoGrabHandler;
-            PersistenceManager.UpdateCachedConfig();
+            PluginConfig.Instance.EnableAutoGrab.SettingChanged += autoGrabHandler;
         }
-        #endregion
-        #region Harmony Patching
-        private void ApplyHarmonyPatches()
-        {
-            Harmony harmony = new Harmony("pwdcat.DrifterBossGrab");
-            harmony.PatchAll();
-        }
+
         #endregion
         #region Game Event Management
         private void RegisterGameEvents()
@@ -182,7 +265,7 @@ namespace DrifterBossGrabMod
         {
             DrifterBossGrabPlugin.IsDrifterPresent = false; // Reset flag on scene change
             Patches.OtherPatches.ResetZoneInversionDetection();
-            PersistenceManager.OnSceneChanged(oldScene, newScene);
+            PersistenceSceneHandler.Instance.OnSceneChanged(oldScene, newScene);
             Instance!.StartCoroutine(DelayedUpdateDrifterPresence());
             Instance!.StartCoroutine(DelayedEnsureSpecialObjectAttributes());
             Instance!.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
@@ -199,7 +282,7 @@ namespace DrifterBossGrabMod
         private static System.Collections.IEnumerator DelayedBatchSpecialObjectAttributesInitialization()
         {
             yield return new UnityEngine.WaitForSeconds(0.2f);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] IsDrifterPresent: {DrifterBossGrabPlugin.IsDrifterPresent}");
             }
@@ -222,7 +305,7 @@ namespace DrifterBossGrabMod
                     yield return null;
                 }
             }
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] Completed batched SpecialObjectAttributes initialization for {allObjects.Length} objects");
             }
@@ -263,36 +346,37 @@ namespace DrifterBossGrabMod
         private void AddConfigurationOptions()
         {
             if (!RooInstalled) return;
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableBossGrabbing));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableNPCGrabbing));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableEnvironmentGrabbing));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableLockedObjectGrabbing));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableProjectileGrabbing));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.ProjectileGrabbingSurvivorOnly));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableObjectPersistence));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableAutoGrab));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedBosses));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedNPCs));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.PersistBaggedEnvironmentObjects));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.PersistenceBlacklist));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.SearchRangeMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.ForwardVelocityMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.UpwardVelocityMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.BreakoutTimeMultiplier));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.MaxSmacks));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.MassMultiplier));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.BodyBlacklist));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableComponentTypes));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.GrabbableKeywordBlacklist));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.RecoveryObjectBlacklist));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableDebugLogs));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableComponentAnalysisLogs));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.BottomlessBagEnabled));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.BottomlessBagBaseCapacity));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.EnableMouseWheelScrolling));
-            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.ScrollUpKeybind));
-            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.ScrollDownKeybind));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBossGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableNPCGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableEnvironmentGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableLockedObjectGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableProjectileGrabbing));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ProjectileGrabbingSurvivorOnly));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableObjectPersistence));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableAutoGrab));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedBosses));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedNPCs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedEnvironmentObjects));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.PersistenceBlacklist));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRangeMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.ForwardVelocityMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.UpwardVelocityMultiplier));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassMultiplier));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableComponentAnalysisLogs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.BottomlessBagBaseCapacity));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
+            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
+            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollDownKeybind));
         }
         #endregion
     }
 }
+

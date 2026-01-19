@@ -28,7 +28,7 @@ namespace DrifterBossGrabMod
                     }
                 }
                 _currentlyBaggedObjects.Add(obj);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Tracking bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");
                 }
@@ -44,7 +44,7 @@ namespace DrifterBossGrabMod
                 {
                     // Remove from persistence when thrown
                     PersistenceManager.RemovePersistedObject(obj);
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Untracked bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");
                     }
@@ -76,7 +76,7 @@ namespace DrifterBossGrabMod
             lock (_lock)
             {
                 _currentlyBaggedObjects.Clear();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Cleared all tracked bagged objects");
                 }
@@ -90,7 +90,7 @@ namespace DrifterBossGrabMod
                 int beforeCount = _currentlyBaggedObjects.Count;
                 _currentlyBaggedObjects.RemoveWhere(obj => obj == null);
                 int removed = beforeCount - _currentlyBaggedObjects.Count;
-                if (removed > 0 && PluginConfig.EnableDebugLogs.Value)
+                if (removed > 0 && PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Cleaned up {removed} null references from bagged objects tracker");
                 }

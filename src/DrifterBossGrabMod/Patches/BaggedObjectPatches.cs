@@ -59,7 +59,7 @@ namespace DrifterBossGrabMod.Patches
             if (!isNowMainSeatOccupant && BagPatches.mainSeatDict.TryGetValue(actualBagController, out var trackedMainSeatOccupant))
             {
                 isNowMainSeatOccupant = ReferenceEquals(targetObject, trackedMainSeatOccupant);
-                if (PluginConfig.EnableDebugLogs.Value && isNowMainSeatOccupant)
+                if (PluginConfig.Instance.EnableDebugLogs.Value && isNowMainSeatOccupant)
                 {
                     Log.Info(" [RefreshUIOverlayForMainSeat] Using tracked main seat state");
                 }
@@ -479,7 +479,7 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
             DumpBaggedObjectFields(baggedObject, "RefreshUIOverlayForMainSeat (scroll switch)");
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 var debugSeat = actualBagController.vehicleSeat;
                 var debugCurrentPassengerBodyObject = debugSeat?.NetworkpassengerBodyObject;
@@ -492,7 +492,7 @@ namespace DrifterBossGrabMod.Patches
             if (existingController != null)
             {
                 // This ensures clean state when cycling between different objects
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info(" [DEBUG] RefreshUIOverlayForMainSeat: destroying existing overlay and creating fresh one for " + targetObject!.name);
                 }
@@ -520,7 +520,7 @@ namespace DrifterBossGrabMod.Patches
                     var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
                     newOverlayController.onInstanceAdded += (OverlayController controller, GameObject instance) =>
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" [DEBUG] onInstanceAdded callback called for {targetObject?.name}");
                         }
@@ -603,7 +603,7 @@ namespace DrifterBossGrabMod.Patches
                     var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
                     uiOverlayController.onInstanceAdded += (OverlayController controller, GameObject instance) =>
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" [DEBUG] onInstanceAdded callback called for {targetObject?.name}");
                         }
@@ -611,7 +611,7 @@ namespace DrifterBossGrabMod.Patches
                     };
                     uiOverlayController.onInstanceRemove += (OverlayController controller, GameObject instance) =>
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" [DEBUG] onInstanceRemove callback called for {targetObject?.name}");
                         }
@@ -741,7 +741,7 @@ namespace DrifterBossGrabMod.Patches
         // Helper method to dump all BaggedObject fields for debugging
         public static void DumpBaggedObjectFields(BaggedObject baggedObject, string context)
         {
-            if (baggedObject == null || !PluginConfig.EnableDebugLogs.Value) return;
+            if (baggedObject == null || !PluginConfig.Instance.EnableDebugLogs.Value) return;
 
             Log.Info($" [DUMP] {context} - Dumping all BaggedObject fields:");
             try
@@ -930,7 +930,7 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (isMainSeatOccupant)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [TryOverrideUtility] allowing skill override for {targetObject?.name} (main seat)");
                     }
@@ -963,7 +963,7 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (isMainSeatOccupant)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [TryOverridePrimary] allowing skill override for {targetObject?.name} (main seat)");
                     }
@@ -988,7 +988,7 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [BaggedObject_OnEnter] No DrifterBagController found, proceeding normally");
                     }
@@ -1002,7 +1002,7 @@ namespace DrifterBossGrabMod.Patches
                 // Check if targetObject is in additional seat
                 if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict) && seatDict.TryGetValue(targetObject, out var additionalSeat))
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [BaggedObject_OnEnter] targetObject is in additional seat, assigning to additional seat instead");
                     }
@@ -1054,7 +1054,7 @@ namespace DrifterBossGrabMod.Patches
                 if (!isMainSeatOccupant && BagPatches.mainSeatDict.TryGetValue(bagController, out var trackedMainSeatOccupant))
                 {
                     isMainSeatOccupant = ReferenceEquals(targetObject, trackedMainSeatOccupant);
-                    if (PluginConfig.EnableDebugLogs.Value && isMainSeatOccupant)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value && isMainSeatOccupant)
                     {
                         Log.Info($" [OnUIOverlayInstanceAdded] Using tracked main seat state: {trackedMainSeatOccupant?.name}");
                     }
@@ -1132,7 +1132,7 @@ namespace DrifterBossGrabMod.Patches
         }
         public static void LogUIOverlayState(string context, DrifterBagController bagController, GameObject targetObject)
         {
-            if (!PluginConfig.EnableDebugLogs.Value) return;
+            if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
             Log.Info(" [DEBUG] " + context + " UI Overlay State Analysis");
             Log.Info(" [DEBUG]   context: " + context);
             Log.Info(" [DEBUG]   bagController: " + bagController);

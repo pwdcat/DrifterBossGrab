@@ -11,7 +11,7 @@ namespace DrifterBossGrabMod.Patches
     {
         private static void DumpGrabbingComponents(GameObject obj, string context)
         {
-            if (!PluginConfig.EnableDebugLogs.Value || obj == null) return;
+            if (!PluginConfig.Instance.EnableDebugLogs.Value || obj == null) return;
             Log.Info($" === DUMPING COMPONENTS FOR {obj.name} ({context}) ===");
             // EntityStateMachine
             var esm = obj.GetComponent<EntityStateMachine>();
@@ -124,7 +124,7 @@ namespace DrifterBossGrabMod.Patches
                     var traverse = Traverse.Create(__instance);
                     GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
                     if (targetObject == null) return;
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var targetName = targetObject.name;
                         Log.Info($" BaggedObject.OnEnter: targetObject = {targetName} ({targetObject})");
@@ -154,7 +154,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         rb.isKinematic = false;
                         rb.detectCollisions = true;
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Restored Rigidbody on {targetObject.name} (bag exit)");
                         }
@@ -175,7 +175,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 var traverse = Traverse.Create(__instance);
                 originalChosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" RepossessExit Prefix: originalChosenTarget = {originalChosenTarget}");
                 }
@@ -184,18 +184,18 @@ namespace DrifterBossGrabMod.Patches
             public static void Postfix(RepossessExit __instance)
             {
                 // Only apply grabbing logic if any grabbing type is enabled
-                if (!PluginConfig.EnableBossGrabbing.Value && !PluginConfig.EnableNPCGrabbing.Value)
+                if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                     return;
                 var traverse = Traverse.Create(__instance);
                 var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}");
                 }
                 // If chosenTarget was rejected but it's grabbable, allow it
                 if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Allowing grab for grabbable object: {originalChosenTarget.name}");
                         DumpGrabbingComponents(originalChosenTarget, "grabbable object override");
@@ -206,7 +206,7 @@ namespace DrifterBossGrabMod.Patches
                 else if (chosenTarget == null && originalChosenTarget != null)
                 {
                     var component2 = originalChosenTarget.GetComponent<CharacterBody>();
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Checking body: {component2}, ungrabbable: {component2 && component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}");
                     }
@@ -215,16 +215,16 @@ namespace DrifterBossGrabMod.Patches
                         bool isBoss = component2.master && component2.master.isBoss;
                         bool isElite = component2.isElite;
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
-                        bool canGrab = (PluginConfig.EnableBossGrabbing.Value && isBoss) ||
-                                        (PluginConfig.EnableNPCGrabbing.Value && isUngrabbable);
+                        bool canGrab = (PluginConfig.Instance.EnableBossGrabbing.Value && isBoss) ||
+                                        (PluginConfig.Instance.EnableNPCGrabbing.Value && isUngrabbable);
                         bool isBlacklisted = PluginConfig.IsBlacklisted(component2.name);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
                         }
                         if (canGrab && !isBlacklisted)
                         {
-                            if (PluginConfig.EnableDebugLogs.Value)
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
                                 var bodyName = component2.name;
                                 Log.Info($" Allowing grab for {bodyName}");

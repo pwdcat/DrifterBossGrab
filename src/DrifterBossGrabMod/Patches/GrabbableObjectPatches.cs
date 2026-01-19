@@ -121,7 +121,7 @@ namespace DrifterBossGrabMod.Patches
                     // Check if this parent has SceneReduction component using cached type
                     if (lodParent.gameObject.GetComponent(SceneReductionType) != null)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Found SceneReduction parent {lodParent.name} for LOD object {obj.name}");
                         }
@@ -129,7 +129,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     lodParent = lodParent.parent;
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" No SceneReduction parent found for LOD object {obj.name}, using object itself");
                 }
@@ -172,7 +172,7 @@ namespace DrifterBossGrabMod.Patches
                 if (podEsm != null && podEsm.state is EntityStates.SurvivorPod.Descent)
                 {
                     // Pod is still landing, set up a callback to handle it when it lands
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" SurvivorPod {objName} is still landing, delaying grab setup until landed");
                     }
@@ -190,7 +190,7 @@ namespace DrifterBossGrabMod.Patches
             }
             // Find the appropriate target object for EntityStateMachine management
             var targetObj = FindEntityStateMachineTarget(obj);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Using target object {targetObj.name} for EntityStateMachine management (original: {objName})");
             }
@@ -209,14 +209,14 @@ namespace DrifterBossGrabMod.Patches
                 {
                     esm.SetState(EntityStateCatalog.InstantiateState(ref esm.initialStateType));
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Added EntityStateMachine to target {targetObj.name} for grabbing {objName}, state now: {esm.state}");
                 }
             }
             else
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Target {targetObj.name} already has EntityStateMachine for grabbing {objName}: state = {esm.state}");
                 }
@@ -225,7 +225,7 @@ namespace DrifterBossGrabMod.Patches
             var networkIdentity = targetObj.GetComponent(NetworkIdentityType) as NetworkIdentity;
             if (networkIdentity != null)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Target {targetObj.name} already has NetworkIdentity for grabbing {objName}: netId = {networkIdentity.netId}");
                 }
@@ -242,14 +242,14 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active)
                     {
                         NetworkServer.Spawn(targetObj);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Successfully spawned {targetObj.name} on network with netId = {networkIdentity.netId}");
                         }
                     }
                     else
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" NetworkServer not active, cannot spawn {targetObj.name}");
                         }
@@ -257,12 +257,12 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception ex)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Failed to spawn {targetObj.name} on network: {ex.Message}");
                     }
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Added NetworkIdentity to target {targetObj.name} for grabbing {objName}: netId = {networkIdentity.netId}");
                 }
@@ -281,7 +281,7 @@ namespace DrifterBossGrabMod.Patches
                         existingSoa.grabbable = true;
                         existingSoa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
                         existingSoa.orientToFloor = true; // Like chests
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Updated existing SpecialObjectAttributes on {targetObj.name} for grabbing {objName}");
                         }
@@ -290,7 +290,7 @@ namespace DrifterBossGrabMod.Patches
                     if (!existingSoa.isVoid && objName.ToLower().Contains("void"))
                     {
                         existingSoa.isVoid = true;
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Marked existing SpecialObjectAttributes on {targetObj.name} for {objName} as void object");
                         }
@@ -304,7 +304,7 @@ namespace DrifterBossGrabMod.Patches
                             existingSoa.lightsToDisable.Add(light);
                         }
                     }
-                    if (PluginConfig.EnableDebugLogs.Value && existingLights.Length > 0)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value && existingLights.Length > 0)
                     {
                         Log.Info($" Added {existingLights.Length} lights to existing SpecialObjectAttributes for {targetObj.name} from {objName}");
                     }
@@ -317,7 +317,7 @@ namespace DrifterBossGrabMod.Patches
                             existingSoa.pickupDisplaysToDisable.Add(pickupDisplay);
                         }
                     }
-                    if (PluginConfig.EnableDebugLogs.Value && existingPickupDisplays.Length > 0)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value && existingPickupDisplays.Length > 0)
                     {
                         Log.Info($" Added {existingPickupDisplays.Length} PickupDisplays to existing SpecialObjectAttributes for {targetObj.name} from {objName}");
                     }
@@ -326,7 +326,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     // Object should not be grabbable, disable it
                     existingSoa.grabbable = false;
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Disabled SpecialObjectAttributes on {targetObj.name} - {objName} not allowed by GrabbableComponentTypes");
                     }
@@ -353,7 +353,7 @@ namespace DrifterBossGrabMod.Patches
             soa.bestName = displayName;
             // Use pre-cached lowercase name for void check
             soa.isVoid = lowerObjName.Contains("void");
-            if (PluginConfig.EnableDebugLogs.Value && soa.isVoid)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && soa.isVoid)
             {
                 Log.Info($" Marked {objName} as void object");
             }
@@ -391,7 +391,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 soa.lightsToDisable.Add(light);
             }
-            if (PluginConfig.EnableDebugLogs.Value && lights.Count > 0)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && lights.Count > 0)
             {
                 Log.Info($" Added {lights.Count} lights to disable for {objName}");
             }
@@ -402,11 +402,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 soa.pickupDisplaysToDisable.Add(pickupDisplay);
             }
-            if (PluginConfig.EnableDebugLogs.Value && pickupDisplays.Length > 0)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && pickupDisplays.Length > 0)
             {
                 Log.Info($" Added {pickupDisplays.Length} PickupDisplays to disable for {objName}");
             }
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Added SpecialObjectAttributes to target object: {targetObj.name} for grabbable object: {objName}");
             }
@@ -427,7 +427,7 @@ namespace DrifterBossGrabMod.Patches
                         esm.state is EntityStates.SurvivorPod.Release ||
                         esm.state is EntityStates.SurvivorPod.ReleaseFinished)
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" SurvivorPod {survivorPod.name} has landed (state: {esm.state}), setting up for grabbing");
                         }
@@ -436,7 +436,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" SurvivorPod {survivorPod.name} still not landed (state: {esm.state}), skipping grab setup");
                         }
@@ -460,7 +460,7 @@ namespace DrifterBossGrabMod.Patches
             }
             // For projectiles, use the object itself as the target (projectiles are usually simple objects)
             var targetObj = obj;
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Using projectile object {targetObj.name} for SpecialObjectAttributes (original: {objName})");
             }
@@ -468,7 +468,7 @@ namespace DrifterBossGrabMod.Patches
             var networkIdentity = targetObj.GetComponent(NetworkIdentityType) as NetworkIdentity;
             if (networkIdentity != null)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Target {targetObj.name} already has NetworkIdentity: netId = {networkIdentity.netId}");
                 }
@@ -485,14 +485,14 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active)
                     {
                         NetworkServer.Spawn(targetObj);
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Successfully spawned projectile {targetObj.name} on network with netId = {networkIdentity.netId}");
                         }
                     }
                     else
                     {
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" NetworkServer not active, cannot spawn projectile {targetObj.name}");
                         }
@@ -500,12 +500,12 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception ex)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Failed to spawn projectile {targetObj.name} on network: {ex.Message}");
                     }
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Added NetworkIdentity to projectile {targetObj.name}: netId = {networkIdentity.netId}");
                 }
@@ -520,7 +520,7 @@ namespace DrifterBossGrabMod.Patches
                     existingSoa.grabbable = true;
                     existingSoa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
                     existingSoa.orientToFloor = true; // Like chests
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Updated existing SpecialObjectAttributes on projectile {targetObj.name}");
                     }
@@ -547,7 +547,7 @@ namespace DrifterBossGrabMod.Patches
             soa.bestName = displayName;
             // Use pre-cached lowercase name for void check
             soa.isVoid = lowerObjName.Contains("void");
-            if (PluginConfig.EnableDebugLogs.Value && soa.isVoid)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && soa.isVoid)
             {
                 Log.Info($" Marked projectile {objName} as void object");
             }
@@ -585,7 +585,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 soa.lightsToDisable.Add(light);
             }
-            if (PluginConfig.EnableDebugLogs.Value && lights.Count > 0)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && lights.Count > 0)
             {
                 Log.Info($" Added {lights.Count} lights to disable for projectile {objName}");
             }
@@ -596,7 +596,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 soa.pickupDisplaysToDisable.Add(pickupDisplay);
             }
-            if (PluginConfig.EnableDebugLogs.Value && pickupDisplays.Length > 0)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && pickupDisplays.Length > 0)
             {
                 Log.Info($" Added {pickupDisplays.Length} PickupDisplays to disable for projectile {objName}");
             }
@@ -605,7 +605,7 @@ namespace DrifterBossGrabMod.Patches
             foreach (var stickComponent in stickOnImpactComponents)
             {
                 soa.behavioursToDisable.Add(stickComponent);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Added ProjectileStickOnImpact to disable for projectile {objName}");
                 }
@@ -615,12 +615,12 @@ namespace DrifterBossGrabMod.Patches
             foreach (var fuseComponent in fuseComponents)
             {
                 soa.behavioursToDisable.Add(fuseComponent);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Added ProjectileFuse to disable for projectile {objName}");
                 }
             }
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Added SpecialObjectAttributes to projectile: {targetObj.name}");
             }
@@ -696,7 +696,7 @@ namespace DrifterBossGrabMod.Patches
             // Ensure minimum values
             scaledMass = Mathf.Max(scaledMass, 25f);
             scaledDurability = Mathf.Max(scaledDurability, 3);
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Size scaling for {objName}: sizeMetric={sizeMetric:F2}, scaleFactor={scaleFactor:F2}, mass={scaledMass:F0}, durability={scaledDurability}");
             }
@@ -718,7 +718,7 @@ namespace DrifterBossGrabMod.Patches
                     if (!string.IsNullOrEmpty(iconPath))
                     {
                         __instance.portraitIcon = Addressables.LoadAssetAsync<Texture>(iconPath).WaitForCompletion();
-                        if (PluginConfig.EnableDebugLogs.Value)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Set default icon {iconPath} for {__instance.gameObject.name}");
                         }

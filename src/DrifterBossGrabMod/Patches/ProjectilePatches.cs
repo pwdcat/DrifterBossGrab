@@ -11,7 +11,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (projectileController == null || projectileController.owner == null)
             {
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" IsSurvivorProjectile: projectileController or owner is null");
                 }
@@ -20,7 +20,7 @@ namespace DrifterBossGrabMod.Patches
             // Check CharacterBody directly on the owner GameObject
             var characterBody = projectileController.owner.GetComponent<CharacterBody>();
             bool isPlayerControlled = characterBody != null && characterBody.isPlayerControlled;
-            if (PluginConfig.EnableDebugLogs.Value)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" IsSurvivorProjectile: owner={projectileController.owner.name}, hasCharacterBody={characterBody != null}, isPlayerControlled={isPlayerControlled}");
             }
@@ -34,20 +34,20 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (__instance == null || __instance.gameObject == null)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" ProjectileController_Start: __instance or gameObject is null");
                     }
                     return;
                 }
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" ProjectileController_Start: Processing projectile {__instance.gameObject.name}");
                 }
                 // Check if projectile grabbing is enabled
-                if (!PluginConfig.EnableProjectileGrabbing.Value)
+                if (!PluginConfig.Instance.EnableProjectileGrabbing.Value)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" ProjectileController_Start: Projectile grabbing is disabled");
                     }
@@ -55,13 +55,13 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if we should only grab survivor projectiles
                 bool isSurvivorProjectile = IsSurvivorProjectile(__instance);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" ProjectileController_Start: Is survivor projectile: {isSurvivorProjectile}");
                 }
-                if (PluginConfig.ProjectileGrabbingSurvivorOnly.Value && !isSurvivorProjectile)
+                if (PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value && !isSurvivorProjectile)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" ProjectileController_Start: Skipping non-survivor projectile (survivor-only mode enabled)");
                     }
@@ -69,13 +69,13 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if projectile is blacklisted
                 bool isBlacklisted = PluginConfig.IsBlacklisted(__instance.gameObject.name);
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" ProjectileController_Start: Is blacklisted: {isBlacklisted}");
                 }
                 if (isBlacklisted)
                 {
-                    if (PluginConfig.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" ProjectileController_Start: Skipping blacklisted projectile");
                     }
@@ -83,7 +83,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if already has SpecialObjectAttributes
                 var existingSoa = __instance.gameObject.GetComponent<SpecialObjectAttributes>();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" ProjectileController_Start: Already has SpecialObjectAttributes: {existingSoa != null}");
                     if (existingSoa != null)
@@ -92,16 +92,16 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
                 // Add SpecialObjectAttributes to make the projectile grabbable
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" ProjectileController_Start: Calling AddSpecialObjectAttributesToProjectile");
                 }
                 Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToProjectile(__instance.gameObject);
                 // Check if it worked
                 var newSoa = __instance.gameObject.GetComponent<SpecialObjectAttributes>();
-                if (PluginConfig.EnableDebugLogs.Value)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    string projectileType = PluginConfig.ProjectileGrabbingSurvivorOnly.Value ? "survivor" : "any";
+                    string projectileType = PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value ? "survivor" : "any";
                     Log.Info($" Added SpecialObjectAttributes to {projectileType} projectile: {__instance.gameObject.name}, success: {newSoa != null}");
                     if (newSoa != null)
                     {
