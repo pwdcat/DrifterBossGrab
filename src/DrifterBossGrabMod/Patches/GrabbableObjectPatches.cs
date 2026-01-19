@@ -178,7 +178,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     // Use a simple approach: check again in a few seconds
                     // This is simpler than hooking into state changes
-                    DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedSurvivorPodSetup(obj));
+                    DrifterBossGrabPlugin.Instance?.StartCoroutine(DelayedSurvivorPodSetup(obj));
                     return;
                 }
             }

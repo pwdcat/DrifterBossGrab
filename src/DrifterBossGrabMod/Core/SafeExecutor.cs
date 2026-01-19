@@ -18,7 +18,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        public static T Execute<T>(Func<T> func, string operationName, T defaultValue = default)
+        public static T Execute<T>(Func<T> func, string operationName, T defaultValue = default!)
         {
             try
             {

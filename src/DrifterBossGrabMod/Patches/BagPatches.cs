@@ -172,20 +172,6 @@ namespace DrifterBossGrabMod.Patches
             }
             return false;
         }
-        [HarmonyPatch(typeof(DrifterBagController), "bagFull", MethodType.Getter)]
-        public class DrifterBagController_get_bagFull
-        {
-            [HarmonyPostfix]
-            public static void Postfix(DrifterBagController __instance, ref bool __result)
-            {
-                // Simplified: bag is full if there's an object in the main seat (using mod's tracking).
-                // This works because TryOverrideUtility controls what can be in the seat.
-                // When bagFull is true and you try to grab something new:
-                // 1. The old object's TryOverrideUtility is skipped (already in seat)
-                // 2. The new object's TryOverrideUtility is called (replaces old)
-                __result = GetMainSeatObject(__instance) != null;
-            }
-        }
         [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
         public class DrifterBagController_AssignPassenger
         {
@@ -579,7 +565,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     string objName = obj != null ? obj.name : "null";
                     Debug.Log($"[CleanupEmptyAdditionalSeats] Removing {objName} from seatDict");
-                    System.Collections.Generic.CollectionExtensions.Remove(seatDict, obj, out _);
+                    seatDict.TryRemove(obj, out _);
                 }
                 // If the seatDict is now empty, remove it from additionalSeatsDict
                 if (seatDict.Count == 0)

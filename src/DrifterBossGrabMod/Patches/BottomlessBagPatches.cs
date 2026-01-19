@@ -264,7 +264,7 @@ namespace DrifterBossGrabMod.Patches
                     mainPassenger = null;
                 }
             }
-            GameObject actualMainPassenger = null;
+            GameObject? actualMainPassenger = null;
             int actualMainPassengerInstanceId = mainPassenger?.GetInstanceID() ?? 0;
             foreach (var obj in validObjects)
             {
@@ -367,7 +367,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 for (int i = 0; i < validObjects.Count; i++)
                 {
-                    if (validObjects[i] != null && validObjects[i].GetInstanceID() == actualMainPassenger.GetInstanceID())
+                    if (validObjects[i] != null && actualMainPassenger != null && validObjects[i].GetInstanceID() == actualMainPassenger.GetInstanceID())
                     {
                         currentIndex = i;
                         break;
@@ -408,8 +408,8 @@ namespace DrifterBossGrabMod.Patches
                     if (actualMainPassenger != null)
                     {
                         System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
+                        BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
                     }
-                    BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
                     BagPatches.SetMainSeatObject(bagController, null);
                     if (seatForCurrent != null)
                     {
@@ -467,8 +467,8 @@ namespace DrifterBossGrabMod.Patches
                 if (currentObject != null)
                 {
                     System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
+                    BaggedObjectPatches.RemoveUIOverlay(currentObject);
                 }
-                BaggedObjectPatches.RemoveUIOverlay(currentObject);
                 if (targetAdditionalSeat != null)
                 {
                     targetAdditionalSeat.EjectPassenger(targetObject);
@@ -571,7 +571,7 @@ namespace DrifterBossGrabMod.Patches
             if (mainSeat.hasPassenger)
             {
                 var actualMainPassenger = mainSeat.NetworkpassengerBodyObject;
-                isActuallyInMainSeat = actualMainPassenger.GetInstanceID() == currentObject!.GetInstanceID();
+                isActuallyInMainSeat = actualMainPassenger != null && actualMainPassenger.GetInstanceID() == currentObject!.GetInstanceID();
             }
             if (!isActuallyInMainSeat)
             {
@@ -583,7 +583,7 @@ namespace DrifterBossGrabMod.Patches
                 if (targetAdditionalSeat.hasPassenger)
                 {
                     var actualTargetPassenger = targetAdditionalSeat.NetworkpassengerBodyObject;
-                    if (actualTargetPassenger.GetInstanceID() == targetObject.GetInstanceID())
+                    if (actualTargetPassenger != null && actualTargetPassenger.GetInstanceID() == targetObject.GetInstanceID())
                     {
                     }
                 }
@@ -600,11 +600,11 @@ namespace DrifterBossGrabMod.Patches
                     if (seat != null && seat.hasPassenger)
                     {
                         var seatPassenger = seat.NetworkpassengerBodyObject;
-                        if (seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
+                        if (seatPassenger != null && seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
                         {
                             return false;
                         }
-                        if (seatPassenger.GetInstanceID() == targetObject.GetInstanceID() && seat == mainSeat)
+                        if (seatPassenger != null && seatPassenger.GetInstanceID() == targetObject.GetInstanceID() && seat == mainSeat)
                         {
                             return false;
                         }
@@ -660,7 +660,7 @@ namespace DrifterBossGrabMod.Patches
             newSeat.handleExitTeleport = vehicleSeat.handleExitTeleport;
             newSeat.setCharacterMotorPositionToCurrentPosition = vehicleSeat.setCharacterMotorPositionToCurrentPosition;
             newSeat.passengerState = vehicleSeat.passengerState;
-            seatDict[null] = newSeat;
+            seatDict[null!] = newSeat;
             return newSeat;
         }
         private static RoR2.VehicleSeat FindOrCreateEmptySeat(DrifterBagController bagController)
@@ -715,18 +715,18 @@ namespace DrifterBossGrabMod.Patches
             newSeat.passengerState = vehicleSeat.passengerState;
             return newSeat;
         }
-        private static RoR2.VehicleSeat GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
+        private static RoR2.VehicleSeat? GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
-            if (obj == null) return null;
+            if (obj == null) return null!;
             if (seatDict.TryGetValue(obj, out var seat))
             {
                 return seat;
             }
-            return null;
+            return null!;
         }
-        private static RoR2.VehicleSeat GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj)
+        private static RoR2.VehicleSeat? GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj)
         {
-            if (obj == null) return null;
+            if (obj == null) return null!;
             if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict))
             {
                 if (seatDict.TryGetValue(obj, out var seat))
@@ -734,7 +734,7 @@ namespace DrifterBossGrabMod.Patches
                     return seat;
                 }
             }
-            return null;
+            return null!;
         }
         private static RoR2.VehicleSeat GetOrCreateAdditionalSeat(DrifterBagController bagController, int seatIndex)
         {
@@ -839,7 +839,7 @@ namespace DrifterBossGrabMod.Patches
             if (mainSeat.hasPassenger)
             {
                 var actualMainPassenger = mainSeat.NetworkpassengerBodyObject;
-                isActuallyInMainSeat = actualMainPassenger.GetInstanceID() == currentObject.GetInstanceID();
+                isActuallyInMainSeat = actualMainPassenger != null && actualMainPassenger.GetInstanceID() == currentObject.GetInstanceID();
             }
             if (!isActuallyInMainSeat)
             {
