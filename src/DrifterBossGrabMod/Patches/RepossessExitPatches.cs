@@ -212,7 +212,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (component2)
                     {
-                        bool isBoss = component2.master && component2.master.isBoss;
+                        bool isBoss = component2.isBoss || component2.isChampion;
                         bool isElite = component2.isElite;
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
                         bool canGrab = (PluginConfig.Instance.EnableBossGrabbing.Value && isBoss) ||
