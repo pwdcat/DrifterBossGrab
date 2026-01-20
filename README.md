@@ -19,6 +19,7 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/pw
 - **ProjectileGrabbingSurvivorOnly** (true/false): Restrict projectile grabbing to only those fired by survivor players.
 - **Bottomless Bag** (true/false): Bagged objects are now stored in a "bottomless" bag scaled off of how many repossesses you have. Use your scroll wheel or keybinds to switch between objects.
 - **BaseCapacity** (0-100): Base capacity for bottomless bag, added to utility max stocks.
+- **EnableStockRefreshClamping** (true/false): When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items.
 - **EnableMouseWheelScrolling** (true/false): Enable mouse wheel scrolling for cycling passengers.
 - **ScrollUpKeybind**: Keybind to scroll up through passengers.
 - **ScrollDownKeybind**: Keybind to scroll down through passengers.
