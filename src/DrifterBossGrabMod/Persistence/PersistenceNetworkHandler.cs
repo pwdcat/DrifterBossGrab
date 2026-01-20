@@ -67,11 +67,35 @@ namespace DrifterBossGrabMod
                         Log.Info($"[HandleBaggedObjectsPersistenceMessage] Added object {obj.name} (netId: {netId}) to persistence from network message");
                     }
                 }
-                else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                else
                 {
-                    Log.Info($"[HandleBaggedObjectsPersistenceMessage] Object with netId {netId} not found or invalid for persistence");
+                    // Start retry coroutine for unfound objects
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindObject(netId));
                 }
             }
+        }
+
+        private static System.Collections.IEnumerator RetryFindObject(NetworkInstanceId netId)
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                // Wait 10 frames
+                for (int frame = 0; frame < 10; frame++)
+                {
+                    yield return null;
+                }
+                GameObject obj = ClientScene.FindLocalObject(netId);
+                if (obj != null && PersistenceObjectManager.IsValidForPersistence(obj))
+                {
+                    PersistenceObjectManager.AddPersistedObject(obj);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[RetryFindObject] Added object {obj.name} (netId: {netId}) to persistence after retry");
+                    }
+                    yield break;
+                }
+            }
+            Log.Error($"[RetryFindObject] Failed to find object with netId {netId} after 5 retries");
         }
 
         // Send bagged objects persistence message to all clients

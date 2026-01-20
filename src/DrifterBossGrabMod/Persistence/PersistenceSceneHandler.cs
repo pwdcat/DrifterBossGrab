@@ -52,27 +52,29 @@ namespace DrifterBossGrabMod
                 runner = UnityEngine.Object.FindFirstObjectByType<PersistenceCoroutineRunner>();
                 // Wait one frame for initial scene setup
                 yield return null;
-                // Wait additional frames until player body is available
-                // TODO, revisit. Works for right now
-                int maxWaitFrames = 30;
+                // Wait additional frames until local player body is available
+                int maxWaitFrames = 300;
                 int framesWaited = 0;
                 while (framesWaited < maxWaitFrames)
                 {
-                    var players = PlayerCharacterMasterController.instances;
-                    if (players.Count > 0)
+                    var localPlayerBody = NetworkUser.readOnlyLocalPlayersList.Count > 0 ? NetworkUser.readOnlyLocalPlayersList[0]?.master?.GetBody() : null;
+                    if (localPlayerBody != null)
                     {
-                        var playerBody = players[0].master.GetBody();
-                        if (playerBody != null)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Player body found after {framesWaited} frames, proceeding with restoration");
-                            }
-                            break;
+                            Log.Info($" Local player body found after {framesWaited} frames, proceeding with restoration");
                         }
+                        break;
                     }
                     framesWaited++;
                     yield return null;
+                }
+                if (framesWaited >= maxWaitFrames)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Timeout waiting for local player body after {maxWaitFrames} frames, proceeding with restoration anyway");
+                    }
                 }
                 // Restore persisted objects to new scene
                 RestorePersistedObjects();
@@ -234,60 +236,45 @@ namespace DrifterBossGrabMod
         // Position object near player
         private static void PositionNearPlayer(GameObject obj)
         {
-            var players = PlayerCharacterMasterController.instances;
-            if (players.Count > 0)
+            var localPlayerBody = NetworkUser.readOnlyLocalPlayersList.Count > 0 ? NetworkUser.readOnlyLocalPlayersList[0]?.master?.GetBody() : null;
+            if (localPlayerBody != null)
             {
-                var playerMaster = players[0].master;
-                var playerBody = playerMaster.GetBody();
-                if (playerBody != null)
+                // Position very close to player (0.5 units in front)
+                var playerPos = localPlayerBody.transform.position;
+                var playerForward = localPlayerBody.transform.forward;
+                var targetPos = playerPos + playerForward * 0.5f + Vector3.up * 0.5f;
+                obj.transform.position = targetPos;
+                obj.transform.rotation = Quaternion.identity; // Reset rotation
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    // Position very close to player (0.5 units in front)
-                    var playerPos = playerBody.transform.position;
-                    var playerForward = playerBody.transform.forward;
-                    var targetPos = playerPos + playerForward * 0.5f + Vector3.up * 0.5f;
-                    obj.transform.position = targetPos;
-                    obj.transform.rotation = Quaternion.identity; // Reset rotation
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Positioned {obj.name} near player");
-                    }
-                }
-                else
-                {
-                    // Fallback: position at scene center or camera position
-                    var camera = Camera.main;
-                    if (camera != null)
-                    {
-                        var cameraPos = camera.transform.position;
-                        var cameraForward = camera.transform.forward;
-                        var fallbackPos = cameraPos + cameraForward * 2f;
-                        obj.transform.position = fallbackPos;
-                        obj.transform.rotation = Quaternion.identity;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Used camera fallback positioning for {obj.name}");
-                        }
-                    }
-                    else
-                    {
-                        // Last resort: position at origin with offset
-                        obj.transform.position = new Vector3(0, 1, 0);
-                        obj.transform.rotation = Quaternion.identity;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Used origin fallback positioning for {obj.name}");
-                        }
-                    }
+                    Log.Info($" Positioned {obj.name} near local player");
                 }
             }
             else
             {
-                // No players found - this shouldn't happen in normal gameplay
-                obj.transform.position = new Vector3(0, 1, 0);
-                obj.transform.rotation = Quaternion.identity;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                // Fallback: position at scene center or camera position
+                var camera = Camera.main;
+                if (camera != null)
                 {
-                    Log.Info($" No players found, positioned {obj.name} at origin");
+                    var cameraPos = camera.transform.position;
+                    var cameraForward = camera.transform.forward;
+                    var fallbackPos = cameraPos + cameraForward * 2f;
+                    obj.transform.position = fallbackPos;
+                    obj.transform.rotation = Quaternion.identity;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Used camera fallback positioning for {obj.name}");
+                    }
+                }
+                else
+                {
+                    // Last resort: position at origin with offset
+                    obj.transform.position = new Vector3(0, 1, 0);
+                    obj.transform.rotation = Quaternion.identity;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Used origin fallback positioning for {obj.name}");
+                    }
                 }
             }
         }

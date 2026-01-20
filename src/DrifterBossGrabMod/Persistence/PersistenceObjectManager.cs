@@ -272,15 +272,6 @@ namespace DrifterBossGrabMod
                     AddPersistedObject(obj);
                 }
             }
-            // Synchronize persistence across clients in multiplayer
-            if (UnityEngine.Networking.NetworkServer.active)
-            {
-                PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(baggedObjects);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[CaptureCurrentlyBaggedObjects] Sent bagged objects persistence message for {baggedObjects.Count} objects");
-                }
-            }
         }
 
         // Get all objects currently in Drifter bags

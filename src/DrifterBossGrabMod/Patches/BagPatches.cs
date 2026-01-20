@@ -347,6 +347,11 @@ namespace DrifterBossGrabMod.Patches
                     if (!_usingAdditionalSeat)
                     {
                         SetMainSeatObject(__instance, passengerObject);
+                        // Remove from additional seats if it was there (e.g., when cycling to main)
+                        if (additionalSeatsDict.TryGetValue(__instance, out var seatDict))
+                        {
+                            System.Collections.Generic.CollectionExtensions.Remove(seatDict, passengerObject, out _);
+                        }
                     }
                     else
                     {

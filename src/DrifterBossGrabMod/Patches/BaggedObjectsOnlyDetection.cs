@@ -18,9 +18,9 @@ namespace DrifterBossGrabMod.Patches
             {
                 _drifterBodyIndex = BodyCatalog.FindBodyIndex("DrifterBody");
             }
-            // Find all Drifter players and check their bags directly
+            // Find all local Drifter players and check their bags directly
             var drifterPlayers = PlayerCharacterMasterController.instances
-                .Where(pcm => pcm.master.GetBody()?.bodyIndex == _drifterBodyIndex).ToList();
+                .Where(pcm => pcm.master.GetBody()?.bodyIndex == _drifterBodyIndex && pcm.isLocalPlayer).ToList();
             foreach (var drifter in drifterPlayers)
             {
                 // Try to find bag controller on the master first

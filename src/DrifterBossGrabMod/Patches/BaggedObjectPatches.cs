@@ -94,6 +94,16 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info(" [RefreshUIOverlayForMainSeat] Assuming main seat because client has authority");
                 }
             }
+            // Check if the target object is in an additional seat - if so, don't create UI
+            bool isInAdditionalSeat = BagPatches.GetAdditionalSeat(actualBagController, targetObject) != null;
+            if (isInAdditionalSeat)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RefreshUIOverlayForMainSeat] Target is in additional seat, not creating UI");
+                }
+                return;
+            }
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [RefreshUIOverlayForMainSeat] Final isNowMainSeatOccupant: {isNowMainSeatOccupant}");
@@ -984,6 +994,16 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info(" [IsInMainSeat] Assuming main seat because client has authority");
+                }
+            }
+            // But if it's in an additional seat, don't consider it main seat
+            bool isInAdditional = BagPatches.GetAdditionalSeat(bagController, targetObject) != null;
+            if (isInAdditional)
+            {
+                result = false;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info(" [IsInMainSeat] But target is in additional seat, so not main seat");
                 }
             }
             return result;
