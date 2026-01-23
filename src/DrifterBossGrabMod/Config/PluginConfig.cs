@@ -84,6 +84,23 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; private set; } = null!;
+        public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
+        public ConfigEntry<float> CarouselCenterOffsetX { get; private set; } = null!;
+        public ConfigEntry<float> CarouselCenterOffsetY { get; private set; } = null!;
+        public ConfigEntry<float> CarouselSideOffsetX { get; private set; } = null!;
+        public ConfigEntry<float> CarouselSideOffsetY { get; private set; } = null!;
+        public ConfigEntry<float> CarouselSideScale { get; private set; } = null!;
+        public ConfigEntry<float> CarouselSideOpacity { get; private set; } = null!;
+        public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
+        public ConfigEntry<float> BagUIScale { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowPortrait { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowIcon { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowWeight { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowName { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowHealthBar { get; private set; } = null!;
+        public ConfigEntry<bool> UseNewWeightIcon { get; private set; } = null!;
+        public ConfigEntry<bool> ShowWeightText { get; private set; } = null!;
+        public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
@@ -215,11 +232,38 @@ namespace DrifterBossGrabMod
             Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
                 "Allows the scroll wheel to cycle through stored passengers. Bag capacity scales with the number of repossesses.");
-            Instance.BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, new ConfigDescription("Base capacity for bottomless bag, added to utility max stocks", new AcceptableValueRange<int>(0, 100)));
+            Instance.BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, "Base capacity for bottomless bag, added to utility max stocks");
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items");
             Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers");
             Instance.ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
             Instance.ScrollDownKeybind = cfg.Bind("Bottomless Bag", "ScrollDownKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll down through passengers");
+            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 120.0f, "Vertical spacing for carousel items");
+            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 0.0f, "Horizontal offset for the center carousel item");
+            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 0.0f, "Vertical offset for the center carousel item");
+            Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 0.0f, "Horizontal offset for the side carousel items");
+            Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 0.0f, "Vertical offset for the side carousel items");
+            Instance.CarouselSideScale = cfg.Bind("Hud", "CarouselSideScale", 0.8f, "Scale for side carousel items");
+            Instance.CarouselSideOpacity = cfg.Bind("Hud", "CarouselSideOpacity", 0.6f, "Opacity for side carousel items");
+            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.5f, "Duration of carousel animation in seconds");
+            Instance.BagUIScale = cfg.Bind("Hud", "BagUIScale", 0.8f, "Overall scale for carousel slots");
+            Instance.BagUIShowPortrait = cfg.Bind("Hud", "BagUIShowPortrait", true, "Show portrait in additional Bag UI elements");
+            Instance.BagUIShowIcon = cfg.Bind("Hud", "BagUIShowIcon", true, "Show icon in additional Bag UI elements");
+            Instance.BagUIShowWeight = cfg.Bind("Hud", "BagUIShowWeight", true, "Show weight indicator in additional Bag UI elements");
+            Instance.BagUIShowName = cfg.Bind("Hud", "BagUIShowName", true, "Show name in additional Bag UI elements");
+            Instance.BagUIShowHealthBar = cfg.Bind("Hud", "BagUIShowHealthBar", true, "Show health bar in additional Bag UI elements");
+            Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the new custom weight icon instead of the original");
+            Instance.ShowWeightText = cfg.Bind("Hud", "ShowWeightText", false, "Show weight multiplier text on the weight icon");
+            Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale the weight icon color based on mass");
+
+            // Add event handlers for live updates
+            Instance.BagUIShowPortrait.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.BagUIShowWeight.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.BagUIShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.BagUIShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.UseNewWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.ShowWeightText.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.ScaleWeightColor.SettingChanged += (sender, args) => UpdateBagUIToggles();
 
             // Initialize lazy caches
             Instance._blacklistCache = new LazyCachedValue<HashSet<string>>(() =>
@@ -324,6 +368,43 @@ namespace DrifterBossGrabMod
         public static void ClearGrabbableKeywordBlacklistCache()
         {
             Instance._grabbableKeywordBlacklistCache.Invalidate();
+        }
+
+        private static void UpdateBagUIScale()
+        {
+            var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
+            foreach (var carousel in carousels)
+            {
+                carousel.UpdateScales();
+            }
+        }
+
+
+        private static void UpdateBagUIToggles()
+        {
+            var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
+            foreach (var carousel in carousels)
+            {
+                carousel.UpdateToggles();
+            }
+        }
+
+
+        private static UnityEngine.Transform FindDeepChild(UnityEngine.Transform parent, string name)
+        {
+            foreach (UnityEngine.Transform child in parent)
+            {
+                if (child.name == name)
+                {
+                    return child;
+                }
+                var result = FindDeepChild(child, name);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+            return null;
         }
     }
 }

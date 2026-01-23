@@ -376,6 +376,23 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollDownKeybind));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselCenterOffsetX));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselCenterOffsetY));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOffsetX));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOffsetY));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideScale));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOpacity));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BagUIScale));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowPortrait));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowIcon));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowWeight));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowName));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowHealthBar));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UseNewWeightIcon));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowWeightText));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ScaleWeightColor));
         }
         #endregion
     }

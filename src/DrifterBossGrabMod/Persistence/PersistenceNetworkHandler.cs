@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2.Networking;
+using RoR2;
 
 namespace DrifterBossGrabMod
 {
@@ -9,12 +10,18 @@ namespace DrifterBossGrabMod
     public class BaggedObjectsPersistenceMessage : MessageBase
     {
         public List<NetworkInstanceId> baggedObjectNetIds = new List<NetworkInstanceId>();
+        public List<string> ownerPlayerIds = new List<string>();
         public override void Serialize(NetworkWriter writer)
         {
             writer.Write((int)baggedObjectNetIds.Count);
             foreach (var netId in baggedObjectNetIds)
             {
                 writer.Write(netId);
+            }
+            writer.Write((int)ownerPlayerIds.Count);
+            foreach (var playerId in ownerPlayerIds)
+            {
+                writer.Write(playerId);
             }
         }
         public override void Deserialize(NetworkReader reader)
@@ -24,6 +31,12 @@ namespace DrifterBossGrabMod
             for (int i = 0; i < count; i++)
             {
                 baggedObjectNetIds.Add(reader.ReadNetworkId());
+            }
+            count = reader.ReadInt32();
+            ownerPlayerIds.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                ownerPlayerIds.Add(reader.ReadString());
             }
         }
     }
@@ -56,12 +69,18 @@ namespace DrifterBossGrabMod
                 Log.Info($"[HandleBaggedObjectsPersistenceMessage] Received bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
             }
             // Add the received objects to persistence
-            foreach (var netId in message.baggedObjectNetIds)
+            for (int i = 0; i < message.baggedObjectNetIds.Count; i++)
             {
+                var netId = message.baggedObjectNetIds[i];
+                string? ownerPlayerId = null;
+                if (i < message.ownerPlayerIds.Count)
+                {
+                    ownerPlayerId = message.ownerPlayerIds[i];
+                }
                 GameObject obj = ClientScene.FindLocalObject(netId);
                 if (obj != null && PersistenceObjectManager.IsValidForPersistence(obj))
                 {
-                    PersistenceObjectManager.AddPersistedObject(obj);
+                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($"[HandleBaggedObjectsPersistenceMessage] Added object {obj.name} (netId: {netId}) to persistence from network message");
@@ -70,12 +89,12 @@ namespace DrifterBossGrabMod
                 else
                 {
                     // Start retry coroutine for unfound objects
-                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindObject(netId));
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindObject(netId, ownerPlayerId));
                 }
             }
         }
 
-        private static System.Collections.IEnumerator RetryFindObject(NetworkInstanceId netId)
+        private static System.Collections.IEnumerator RetryFindObject(NetworkInstanceId netId, string? ownerPlayerId = null)
         {
             for (int attempt = 0; attempt < 5; attempt++)
             {
@@ -87,7 +106,7 @@ namespace DrifterBossGrabMod
                 GameObject obj = ClientScene.FindLocalObject(netId);
                 if (obj != null && PersistenceObjectManager.IsValidForPersistence(obj))
                 {
-                    PersistenceObjectManager.AddPersistedObject(obj);
+                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($"[RetryFindObject] Added object {obj.name} (netId: {netId}) to persistence after retry");
@@ -99,7 +118,7 @@ namespace DrifterBossGrabMod
         }
 
         // Send bagged objects persistence message to all clients
-        public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects)
+        public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
@@ -111,6 +130,23 @@ namespace DrifterBossGrabMod
                     if (identity != null)
                     {
                         message.baggedObjectNetIds.Add(identity.netId);
+                        // Add owner player id if available
+                        if (owner != null)
+                        {
+                            var ownerBody = owner.GetComponent<CharacterBody>();
+                            if (ownerBody != null && ownerBody.master != null && ownerBody.master.playerCharacterMasterController != null)
+                            {
+                                message.ownerPlayerIds.Add(ownerBody.master.playerCharacterMasterController.networkUser.id.ToString());
+                            }
+                            else
+                            {
+                                message.ownerPlayerIds.Add(string.Empty);
+                            }
+                        }
+                        else
+                        {
+                            message.ownerPlayerIds.Add(string.Empty);
+                        }
                     }
                 }
             }

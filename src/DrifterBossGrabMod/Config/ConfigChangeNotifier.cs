@@ -65,6 +65,9 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ScrollUpKeybind.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ScrollDownKeybind.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselSideScale.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselSideOpacity.SettingChanged += configChangedHandler;
         }
 
         public static void Cleanup()
@@ -99,6 +102,9 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ScrollUpKeybind.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ScrollDownKeybind.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselSideScale.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselSideOpacity.SettingChanged -= configChangedHandler;
         }
     }
 }

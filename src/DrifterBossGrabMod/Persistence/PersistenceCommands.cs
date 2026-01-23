@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using RoR2;
 
 namespace DrifterBossGrabMod
 {
@@ -14,15 +15,17 @@ namespace DrifterBossGrabMod
     public class AddPersistedObjectCommand : IPersistenceCommand
     {
         private readonly GameObject _obj;
+        private readonly string? _ownerPlayerId;
 
-        public AddPersistedObjectCommand(GameObject obj)
+        public AddPersistedObjectCommand(GameObject obj, string? ownerPlayerId = null)
         {
             _obj = obj;
+            _ownerPlayerId = ownerPlayerId;
         }
 
         public void Execute()
         {
-            PersistenceObjectManager.AddPersistedObjectInternal(_obj);
+            PersistenceObjectManager.AddPersistedObjectInternal(_obj, _ownerPlayerId);
         }
 
         public void Undo()

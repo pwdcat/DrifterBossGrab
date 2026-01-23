@@ -12,6 +12,7 @@ namespace DrifterBossGrabMod
         // Singleton instance
         private static GameObject? _persistenceContainer;
         private static readonly HashSet<GameObject> _persistedObjects = new HashSet<GameObject>();
+        private static readonly Dictionary<GameObject, string> _persistedObjectOwnerPlayerIds = new Dictionary<GameObject, string>();
         private static readonly object _lock = new object();
         private static readonly PersistenceCommandInvoker _commandInvoker = new PersistenceCommandInvoker();
         // Cached config values for performance
@@ -51,14 +52,14 @@ namespace DrifterBossGrabMod
         }
 
         // Add object to persistence
-        public static void AddPersistedObject(GameObject obj)
+        public static void AddPersistedObject(GameObject obj, string? ownerPlayerId = null)
         {
-            var command = new AddPersistedObjectCommand(obj);
+            var command = new AddPersistedObjectCommand(obj, ownerPlayerId);
             _commandInvoker.ExecuteCommand(command);
         }
 
         // Internal method for adding object to persistence (used by commands)
-        internal static void AddPersistedObjectInternal(GameObject obj)
+        internal static void AddPersistedObjectInternal(GameObject obj, string? ownerPlayerId = null)
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
@@ -76,6 +77,11 @@ namespace DrifterBossGrabMod
             {
                 if (_persistedObjects.Add(obj))
                 {
+                    // Store the owner player id if provided
+                    if (!string.IsNullOrEmpty(ownerPlayerId))
+                    {
+                        _persistedObjectOwnerPlayerIds[obj] = ownerPlayerId;
+                    }
                     // Move to persistence container
                     obj.transform.SetParent(_persistenceContainer!.transform, true);
                     // Also persist the model if it exists and ModelLocator is enabled
@@ -96,7 +102,7 @@ namespace DrifterBossGrabMod
                     var characterBody = obj.GetComponent<CharacterBody>();
                     if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null && IsValidForPersistence(characterBody.master.gameObject))
                     {
-                        AddPersistedObjectInternal(characterBody.master.gameObject);
+                        AddPersistedObjectInternal(characterBody.master.gameObject, ownerPlayerId);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($"[AddPersistedObject] Also persisted master {characterBody.master.name} for {obj.name}");
@@ -132,6 +138,8 @@ namespace DrifterBossGrabMod
             {
                 if (_persistedObjects.Remove(obj))
                 {
+                    // Remove from owners dictionary
+                    _persistedObjectOwnerPlayerIds.Remove(obj);
                     // Remove from persistence container
                     obj.transform.SetParent(null, true);
                     SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
@@ -204,6 +212,7 @@ namespace DrifterBossGrabMod
                     }
                 }
                 _persistedObjects.Clear();
+                _persistedObjectOwnerPlayerIds.Clear();
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[ClearPersistedObjects] Cleared all persisted objects");
@@ -348,6 +357,15 @@ namespace DrifterBossGrabMod
         internal static bool GetCachedEnablePersistence()
         {
             return _cachedEnablePersistence;
+        }
+
+        // Get the owner player id of a persisted object
+        internal static string? GetPersistedObjectOwnerPlayerId(GameObject obj)
+        {
+            lock (_lock)
+            {
+                return _persistedObjectOwnerPlayerIds.TryGetValue(obj, out var playerId) ? playerId : null;
+            }
         }
 
     }

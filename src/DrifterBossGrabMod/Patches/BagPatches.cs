@@ -381,11 +381,22 @@ namespace DrifterBossGrabMod.Patches
                     // Send persistence message for all bagged objects
                     if (UnityEngine.Networking.NetworkServer.active)
                     {
-                        PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list);
+                        PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
                     }
+                    // Update carousel
+                    UpdateCarousel(__instance);
                 }
             }
         }
+        public static void UpdateCarousel(DrifterBagController controller)
+        {
+            var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
+            foreach (var carousel in carousels)
+            {
+                carousel.PopulateCarousel();
+            }
+        }
+
         public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj)
         {
             if (obj == null) return;
@@ -426,6 +437,13 @@ namespace DrifterBossGrabMod.Patches
             {
                 CleanupEmptyAdditionalSeats(controller);
             }
+            // Send updated persistence message after removal
+            if (UnityEngine.Networking.NetworkServer.active)
+            {
+                PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, controller);
+            }
+            // Update carousel
+            UpdateCarousel(controller);
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {

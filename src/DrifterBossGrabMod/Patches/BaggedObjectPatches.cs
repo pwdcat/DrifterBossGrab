@@ -25,25 +25,64 @@ namespace DrifterBossGrabMod.Patches
         }
         public static void RefreshUIOverlayForMainSeat(DrifterBagController bagController, GameObject targetObject)
         {
-            if (targetObject == null) return;
+            // Allow targetObject == null to clear the state
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [RefreshUIOverlayForMainSeat] Called for targetObject: {targetObject?.name ?? "null"}, bagController: {bagController?.name ?? "null"}");
+                Log.Info($" [RefreshUIOverlayForMainSeat] Cache states - mainSeatDict count: {BagPatches.mainSeatDict.Count}, additionalSeatsDict count: {BagPatches.additionalSeatsDict.Count}");
+                foreach (var kvp in BagPatches.mainSeatDict)
+                {
+                    try
+                    {
+                        string keyName = (kvp.Key != null && kvp.Key.gameObject != null) ? kvp.Key.name : "destroyed/null";
+                        string valueName = (kvp.Value != null && kvp.Value.gameObject != null) ? kvp.Value.name : "destroyed/null";
+                        Log.Info($" [RefreshUIOverlayForMainSeat] mainSeatDict: {keyName} -> {valueName}");
+                    }
+                    catch
+                    {
+                        Log.Info($" [RefreshUIOverlayForMainSeat] mainSeatDict: <error accessing names>");
+                    }
+                }
+            }
+            // Clean up destroyed objects from mainSeatDict
+            var keysToRemove = new List<DrifterBagController>();
+            foreach (var kvp in BagPatches.mainSeatDict)
+            {
+                if (kvp.Value == null || (kvp.Value.gameObject == null))
+                {
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+            foreach (var key in keysToRemove)
+            {
+                BagPatches.mainSeatDict.TryRemove(key, out _);
             }
             DrifterBagController actualBagController = bagController!;
             if (actualBagController == null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RefreshUIOverlayForMainSeat] bagController is null, searching in mainSeatDict for targetObject");
+                }
                 foreach (var kvp in BagPatches.mainSeatDict)
                 {
                     if (kvp.Value != null && kvp.Value.GetInstanceID() == targetObject!.GetInstanceID())
                     {
                         actualBagController = kvp.Key;
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [RefreshUIOverlayForMainSeat] Found actualBagController: {actualBagController?.name ?? "null"}");
+                        }
                         break;
                     }
                 }
             }
             if (actualBagController == null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RefreshUIOverlayForMainSeat] EARLY RETURN: actualBagController is null, cannot proceed");
+                }
                 return;
             }
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -100,7 +139,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [RefreshUIOverlayForMainSeat] Target is in additional seat, not creating UI");
+                    Log.Info($" [RefreshUIOverlayForMainSeat] EARLY RETURN: Target is in additional seat, not creating UI");
                 }
                 return;
             }
@@ -108,599 +147,87 @@ namespace DrifterBossGrabMod.Patches
             {
                 Log.Info($" [RefreshUIOverlayForMainSeat] Final isNowMainSeatOccupant: {isNowMainSeatOccupant}");
             }
-            if (!isNowMainSeatOccupant)
+            // Update BaggedObject state even though we skip overlay creation since carousel handles UI now
+            BaggedObject? baggedObject = FindOrCreateBaggedObjectState(actualBagController, targetObject);
+            if (baggedObject != null)
             {
-                return;
-            }
-            // Ensures clean state before updating the new main seat
-            if (BagPatches.mainSeatDict.TryGetValue(actualBagController, out var currentMainSeat) &&
-                currentMainSeat != null && currentMainSeat != targetObject)
-            {
-                RemoveUIOverlay(currentMainSeat);
-            }
-            BaggedObject? baggedObject = null;
-            // Ensures BaggedObject state exists when cycling from null back to main seat
-            if (baggedObject == null)
-            {
-                baggedObject = FindOrCreateBaggedObjectState(actualBagController, targetObject);
-            }
-            var stateMachines = actualBagController.GetComponentsInChildren<EntityStateMachine>(true);
-            if (_baggedObjectCache.TryGetValue(actualBagController, out var cachedBaggedObject))
-            {
-                if (cachedBaggedObject != null && cachedBaggedObject.outer != null)
+                // Check if targetObject has changed
+                var currentTargetObject = baggedObject.targetObject;
+                bool targetObjectChanged = !ReferenceEquals(currentTargetObject, targetObject);
+                if (PluginConfig.Instance.EnableDebugLogs.Value && targetObjectChanged)
                 {
-                    bool isStillActive = false;
-                    foreach (var sm in stateMachines)
+                    Log.Info($" [RefreshUIOverlayForMainSeat] targetObject changed from {currentTargetObject?.name ?? "null"} to {targetObject?.name ?? "null"}");
+                }
+                // Update the targetObject field of BaggedObject to point to the new target
+                baggedObject.targetObject = targetObject;
+                // Update targetBody and vehiclePassengerAttributes for the new target first
+                var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
+                var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
+                var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
+                var baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
+                HealthComponent healthComponent;
+                if (targetObject.TryGetComponent<HealthComponent>(out healthComponent))
+                {
+                    targetBodyField.SetValue(baggedObject, healthComponent.body);
+                    isBodyField.SetValue(baggedObject, true);
+                    vehiclePassengerAttributesField.SetValue(baggedObject, targetObject.GetComponent<SpecialObjectAttributes>());
+                }
+                else
+                {
+                    targetBodyField.SetValue(baggedObject, null);
+                    isBodyField.SetValue(baggedObject, false);
+                }
+                var specialObjectAttributes = targetObject.GetComponent<SpecialObjectAttributes>();
+                if (specialObjectAttributes != null)
+                {
+                    vehiclePassengerAttributesField.SetValue(baggedObject, specialObjectAttributes);
+                }
+                // Recalculate bagged mass for the new target
+                if (bagController != null)
+                {
+                    float newMass;
+                    if (bagController == targetObject)
                     {
-                        if (sm.state == cachedBaggedObject)
-                        {
-                            isStillActive = true;
-                            break;
-                        }
-                    }
-                    if (isStillActive)
-                    {
-                        baggedObject = cachedBaggedObject;
-                        Log.Info(" [FALLBACK] Using cached BaggedObject state");
+                        newMass = bagController.baggedMass;
                     }
                     else
                     {
-                        _baggedObjectCache.Remove(actualBagController);
+                        newMass = bagController.CalculateBaggedObjectMass(targetObject);
                     }
+                    baggedMassField.SetValue(baggedObject, newMass);
                 }
-                else
+                // Force a skill override check by calling TryOverrideUtility and TryOverridePrimary with the respective skills
+                var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
+                if (skillLocator != null)
                 {
-                    _baggedObjectCache.Remove(actualBagController);
-                }
-            }
-            if (baggedObject == null)
-            {
-                foreach (var sm in stateMachines)
-                {
-                    if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
+                    if (skillLocator.utility != null)
                     {
-                        baggedObject = (BaggedObject)sm.state;
-                        _baggedObjectCache[actualBagController] = baggedObject;
-                        Log.Info(" [FALLBACK] Found BaggedObject state in state machines");
-                        break;
-                    }
-                }
-            }
-            if (baggedObject == null)
-            {
-                var bagStateMachine = EntityStateMachine.FindByCustomName(actualBagController.gameObject, "Bag");
-                if (bagStateMachine != null && bagStateMachine.state != null && bagStateMachine.state.GetType() == typeof(BaggedObject))
-                {
-                    baggedObject = (BaggedObject)bagStateMachine.state;
-                    _baggedObjectCache[actualBagController] = baggedObject;
-                    Log.Info(" [FALLBACK] Found BaggedObject state via FindByCustomName");
-                }
-            }
-            if (baggedObject == null)
-            {
-                foreach (var sm in stateMachines)
-                {
-                    if (sm.GetType().Name.Contains("Bag") || sm.customName.Contains("Bag"))
-                    {
-                        try
+                        var tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
+                        if (tryOverrideUtilityMethod != null)
                         {
-                            var stateField = typeof(EntityStateMachine).GetField("state", BindingFlags.NonPublic | BindingFlags.Instance);
-                            if (stateField != null)
-                            {
-                                var currentState = stateField.GetValue(sm);
-                                if (currentState != null && currentState.GetType() == typeof(BaggedObject))
-                                {
-                                    baggedObject = (BaggedObject)currentState;
-                                    _baggedObjectCache[actualBagController] = baggedObject;
-                                    Log.Info(" [FALLBACK] Found BaggedObject via reflection on state machine: " + sm.gameObject.name);
-                                    break;
-                                }
-                            }
+                            tryOverrideUtilityMethod.Invoke(baggedObject, new object[] { skillLocator.utility });
                         }
-                        catch (Exception)
+                    }
+                    if (skillLocator.primary != null)
+                    {
+                        var tryOverridePrimaryMethod = AccessTools.Method(typeof(BaggedObject), "TryOverridePrimary");
+                        if (tryOverridePrimaryMethod != null)
                         {
+                            tryOverridePrimaryMethod.Invoke(baggedObject, new object[] { skillLocator.primary });
                         }
                     }
                 }
-            }
-            if (baggedObject == null)
-            {
-                foreach (var sm in stateMachines)
+                // Refresh UI overlay if targetObject changed
+                if (targetObjectChanged)
                 {
-                    if (sm.state != null)
+                    RefreshUIOverlay(baggedObject);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        var nextStateField = sm.state.GetType().GetField("nextState", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                        if (nextStateField != null)
-                        {
-                            var nextState = nextStateField.GetValue(sm.state);
-                            if (nextState != null && nextState.GetType() == typeof(BaggedObject))
-                            {
-                                baggedObject = (BaggedObject)nextState;
-                                Log.Info(" [FALLBACK] Found BaggedObject as nextState");
-                                break;
-                            }
-                        }
-                        var previousStateField = sm.state.GetType().GetField("previousState", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                        if (previousStateField != null)
-                        {
-                            var previousState = previousStateField.GetValue(sm.state);
-                            if (previousState != null && previousState.GetType() == typeof(BaggedObject))
-                            {
-                                baggedObject = (BaggedObject)previousState;
-                                Log.Info(" [FALLBACK] Found BaggedObject as previousState");
-                                break;
-                            }
-                        }
+                        Log.Info($" [RefreshUIOverlayForMainSeat] Refreshed UI overlay due to targetObject change");
                     }
                 }
             }
-            if (baggedObject == null)
-            {
-                try
-                {
-                    var baggedObjectField = typeof(DrifterBagController).GetField("baggedObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (baggedObjectField != null)
-                    {
-                        var baggedObjectFromController = baggedObjectField.GetValue(actualBagController) as BaggedObject;
-                        if (baggedObjectFromController != null)
-                        {
-                            baggedObject = baggedObjectFromController;
-                            Log.Info(" [FALLBACK] Found BaggedObject via DrifterBagController reflection");
-                        }
-                        else
-                        {
-                            var tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-                            if (tryOverrideUtilityMethod != null)
-                            {
-                                Log.Info(" [FALLBACK] Calling TryOverrideUtility on BaggedObject to force UI overlay creation");
-                                BaggedObject? baggedObjectInstance = null;
-                                if (_baggedObjectCache.TryGetValue(bagController!, out var cachedBaggedObjectInstance))
-                                {
-                                    baggedObjectInstance = cachedBaggedObjectInstance;
-                                }
-                                if (baggedObjectInstance == null)
-                                {
-                                    var stateMachinesForFallback = actualBagController.GetComponentsInChildren<EntityStateMachine>(true);
-                                    foreach (var sm in stateMachinesForFallback)
-                                    {
-                                        if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
-                                        {
-                                            baggedObjectInstance = (BaggedObject)sm.state;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (baggedObjectInstance == null)
-                                {
-                                    var stateMachinesForFallback = actualBagController.GetComponentsInChildren<EntityStateMachine>(true);
-                                    foreach (var sm in stateMachinesForFallback)
-                                    {
-                                        if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
-                                        {
-                                            baggedObjectInstance = (BaggedObject)sm.state;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (baggedObjectInstance != null)
-                                {
-                                    tryOverrideUtilityMethod.Invoke(baggedObjectInstance, new object[] { null! });
-                                }
-                                else
-                                {
-                                    try
-                                    {
-                                        var bagStateMachine = EntityStateMachine.FindByCustomName(actualBagController.gameObject, "Bag");
-                                        if (bagStateMachine != null)
-                                        {
-                                            var baggedObjectConstructor = typeof(BaggedObject).GetConstructor(Type.EmptyTypes);
-                                            if (baggedObjectConstructor != null)
-                                            {
-                                                var newBaggedObject = (BaggedObject)baggedObjectConstructor.Invoke(null);
-                                                if (newBaggedObject != null)
-                                                {
-                                                    var outerField = typeof(BaggedObject).GetField("outer", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                    if (outerField != null)
-                                                    {
-                                                        outerField.SetValue(newBaggedObject, actualBagController.gameObject);
-                                                    }
-                                                    var targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                    if (targetObjectField != null)
-                                                    {
-                                                        targetObjectField.SetValue(newBaggedObject, targetObject);
-                                                    }
-                                                    bagStateMachine.SetState(newBaggedObject);
-                                                    baggedObject = newBaggedObject;
-                                                    _baggedObjectCache[actualBagController] = baggedObject;
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            var stateMachinesForCreation = actualBagController.GetComponentsInChildren<EntityStateMachine>(true);
-                                            foreach (var sm in stateMachinesForCreation)
-                                            {
-                                                if (sm.customName.Contains("Bag") || sm.gameObject.name.Contains("Bag"))
-                                                {
-                                                    var baggedObjectConstructor = typeof(BaggedObject).GetConstructor(Type.EmptyTypes);
-                                                    if (baggedObjectConstructor != null)
-                                                    {
-                                                        var newBaggedObject = (BaggedObject)baggedObjectConstructor.Invoke(null);
-                                                        if (newBaggedObject != null)
-                                                        {
-                                                            var outerField = typeof(BaggedObject).GetField("outer", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                            if (outerField != null)
-                                                            {
-                                                                outerField.SetValue(newBaggedObject, actualBagController.gameObject);
-                                                            }
-                                                            var targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                            if (targetObjectField != null)
-                                                            {
-                                                                targetObjectField.SetValue(newBaggedObject, targetObject);
-                                                            }
-                                                            sm.SetState(newBaggedObject);
-                                                            baggedObject = newBaggedObject;
-                                                            _baggedObjectCache[actualBagController] = baggedObject;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (baggedObject == null)
-                                        {
-                                            Log.Info(" [FALLBACK] No BaggedObject state found, attempting to create new state machine");
-                                            var stateMachineComponent = actualBagController.gameObject.AddComponent<EntityStateMachine>();
-                                            if (stateMachineComponent != null)
-                                            {
-                                                stateMachineComponent.customName = "Bag";
-                                                var baggedObjectConstructor = typeof(BaggedObject).GetConstructor(Type.EmptyTypes);
-                                                if (baggedObjectConstructor != null)
-                                                {
-                                                    var newBaggedObject = (BaggedObject)baggedObjectConstructor.Invoke(null);
-                                                    if (newBaggedObject != null)
-                                                    {
-                                                        var outerField = typeof(BaggedObject).GetField("outer", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                        if (outerField != null)
-                                                        {
-                                                            outerField.SetValue(newBaggedObject, actualBagController.gameObject);
-                                                        }
-                                                        var targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                                                        if (targetObjectField != null)
-                                                        {
-                                                            targetObjectField.SetValue(newBaggedObject, targetObject);
-                                                        }
-                                                        stateMachineComponent.SetState(newBaggedObject);
-                                                        baggedObject = newBaggedObject;
-                                                        _baggedObjectCache[actualBagController] = baggedObject;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Info(" [FALLBACK] Exception creating new BaggedObject state: " + ex.Message);
-                                    }
-                                    if (baggedObjectInstance == null && baggedObject == null)
-                                    {
-                                        Log.Info(" [FALLBACK] No BaggedObject instance found for TryOverrideUtility fallback");
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                Log.Info(" [FALLBACK] TryOverrideUtility method not found on BaggedObject");
-                            }
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                }
-            }
-            // This is the final fallback when all other methods fail
-            if (baggedObject == null)
-            {
-                // Try to find an existing BaggedObject instance in the state machines
-                var stateMachinesForFallback = bagController.GetComponentsInChildren<EntityStateMachine>(true);
-                foreach (var sm in stateMachinesForFallback)
-                {
-                    if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
-                    {
-                        baggedObject = (BaggedObject)sm.state;
-                        Log.Info(" [FALLBACK] Found BaggedObject state in final fallback state machines search");
-                        break;
-                    }
-                }
-            }
-            // This is the final fallback when the state machine has changed but we still need UI functionality
-            if (baggedObject == null)
-            {
-                try
-                {
-                    var tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-                    if (tryOverrideUtilityMethod != null)
-                    {
-                        BaggedObject? baggedObjectInstance = null;
-                        // Try to get from cache first
-                        if (_baggedObjectCache.TryGetValue(bagController!, out var cachedBaggedObjectInstance))
-                        {
-                            baggedObjectInstance = cachedBaggedObjectInstance;
-                        }
-                        // If not in cache, try to find one in the state machines
-                        if (baggedObjectInstance == null)
-                        {
-                            var stateMachinesForFallback = bagController!.GetComponentsInChildren<EntityStateMachine>(true);
-                            foreach (var sm in stateMachinesForFallback)
-                            {
-                                if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
-                                {
-                                    baggedObjectInstance = (BaggedObject)sm.state;
-                                    break;
-                                }
-                            }
-                        }
-                        // If we found an instance, call the method on it
-                        if (baggedObjectInstance != null)
-                        {
-                            tryOverrideUtilityMethod.Invoke(baggedObjectInstance, new object[] { null! });
-                        }
-                        else
-                        {
-                            // Last resort: skip this fallback
-                        }
-                    }
-                    else
-                    {
-                    }
-                }
-                catch (Exception)
-                {
-                }
-                try
-                {
-                    var bagSkillLocator = bagController!.GetComponent<SkillLocator>();
-                    if (bagSkillLocator != null && bagSkillLocator.utility != null)
-                    {
-                        var tryOverrideMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-                        if (tryOverrideMethod != null)
-                        {
-                            Log.Info(" [FALLBACK] Calling TryOverrideUtility via skill locator to force UI overlay creation");
-                            // Try to find an existing BaggedObject instance to call the method on
-                            BaggedObject baggedObjectInstance = null;
-                            // Try to get from cache first
-                            if (_baggedObjectCache.TryGetValue(actualBagController!, out var cachedBaggedObjectInstance))
-                            {
-                                baggedObjectInstance = cachedBaggedObjectInstance;
-                            }
-                            // If not in cache, try to find one in the state machines
-                            if (baggedObjectInstance == null)
-                            {
-                                var stateMachinesForFallback = actualBagController.GetComponentsInChildren<EntityStateMachine>(true);
-                                foreach (var sm in stateMachinesForFallback)
-                                {
-                                    if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
-                                    {
-                                        baggedObjectInstance = (BaggedObject)sm.state;
-                                        break;
-                                    }
-                                }
-                            }
-                            // If we found an instance, call the method on it
-                            if (baggedObjectInstance != null)
-                            {
-                                tryOverrideMethod.Invoke(baggedObjectInstance, new object[] { bagSkillLocator.utility });
-                            }
-                            else
-                            {
-                                // No BaggedObject instance found - skip this fallback
-                            }
-                        }
-                    }
-                    // If that doesn't work, try to manually create an overlay using the bag controller
-                    // This is a last resort fallback
-                    var uiOverlayPrefab = Resources.Load<GameObject>("Prefabs/HudOverlays/DrifterBaggedObjectOverlay");
-                    if (uiOverlayPrefab != null)
-                    {
-                        OverlayCreationParams overlayCreationParams = new OverlayCreationParams
-                        {
-                            prefab = uiOverlayPrefab,
-                            childLocatorEntry = "BaggedObjectOverlay"
-                        };
-                        var fallbackOverlayController = HudOverlayManager.AddOverlay(bagController.gameObject, overlayCreationParams);
-                        return; // Success - we've created the fallback overlay
-                    }
-                }
-                catch (Exception)
-                {
-                }
-                // If all fallbacks fail, skip the overlay refresh for this cycle
-                return;
-            }
-            if (baggedObject == null)
-            {
-                return;
-            }
-            DumpBaggedObjectFields(baggedObject, "RefreshUIOverlayForMainSeat (scroll switch)");
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                var debugSeat = actualBagController.vehicleSeat;
-                var debugCurrentPassengerBodyObject = debugSeat?.NetworkpassengerBodyObject;
-                Log.Info(" [DEBUG] RefreshUIOverlayForMainSeat: currentPassengerBodyObject=" + (debugCurrentPassengerBodyObject?.name ?? "null") + ", targetObject=" + (targetObject?.name ?? "null"));
-            }
-            var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-            var overlayPrefabField = AccessTools.Field(typeof(BaggedObject), "uiOverlayPrefab");
-            var overlayChildLocatorEntryField = AccessTools.Field(typeof(BaggedObject), "uiOverlayChildLocatorEntry");
-            var existingController = (OverlayController)uiOverlayField.GetValue(baggedObject);
-            if (existingController != null)
-            {
-                // This ensures clean state when cycling between different objects
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info(" [DEBUG] RefreshUIOverlayForMainSeat: destroying existing overlay and creating fresh one for " + targetObject!.name);
-                }
-                // Remove the existing overlay controller
-                HudOverlayManager.RemoveOverlay(existingController);
-                uiOverlayField.SetValue(baggedObject, null);
-                // Clear the target fields first
-                UpdateTargetFields(baggedObject!, targetObject!, actualBagController!);
-                // Now create a fresh overlay
-                // Get the overlay parameters
-                GameObject overlayPrefab = (GameObject)overlayPrefabField.GetValue(baggedObject);
-                string overlayChildLocatorEntry = (string)overlayChildLocatorEntryField.GetValue(baggedObject);
-                if (overlayPrefab != null)
-                {
-                    // Create new overlay
-                    OverlayCreationParams overlayCreationParams = new OverlayCreationParams
-                    {
-                        prefab = overlayPrefab,
-                        childLocatorEntry = overlayChildLocatorEntry
-                    };
-                    var newOverlayController = HudOverlayManager.AddOverlay(baggedObject.outer.gameObject, overlayCreationParams);
-                    uiOverlayField.SetValue(baggedObject, newOverlayController);
-                    // Register event handlers
-                    var onUIOverlayInstanceAddedMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceAdded");
-                    var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
-                    newOverlayController.onInstanceAdded += (OverlayController controller, GameObject instance) =>
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [DEBUG] onInstanceAdded callback called for {targetObject?.name}");
-                        }
-                        onUIOverlayInstanceAddedMethod.Invoke(baggedObject, new object[] { controller, instance });
-                    };
-                    newOverlayController.onInstanceRemove += (OverlayController controller, GameObject instance) =>
-                    {
-                        onUIOverlayInstanceRemoveMethod.Invoke(baggedObject, new object[] { controller, instance });
-                    };
-                }
-                else
-                {
-                    Log.Info(" [DEBUG] uiOverlayPrefab is null, cannot create overlay");
-                }
-            }
-            // Update the targetObject field of BaggedObject to point to the new target
-            baggedObject!.targetObject = targetObject!;
-            // Update targetBody and vehiclePassengerAttributes for the new target first
-            // This must be done BEFORE calling RefreshUIOverlay
-            var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
-            var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
-            var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
-            var baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
-            var drifterBagControllerField = AccessTools.Field(typeof(BaggedObject), "drifterBagController");
-            HealthComponent healthComponent;
-            if (targetObject.TryGetComponent<HealthComponent>(out healthComponent))
-            {
-                targetBodyField.SetValue(baggedObject, healthComponent.body);
-                isBodyField.SetValue(baggedObject, true);
-                vehiclePassengerAttributesField.SetValue(baggedObject, targetObject.GetComponent<SpecialObjectAttributes>());
-            }
-            else
-            {
-                targetBodyField.SetValue(baggedObject, null);
-                isBodyField.SetValue(baggedObject, false);
-            }
-            var specialObjectAttributes = targetObject.GetComponent<SpecialObjectAttributes>();
-            if (specialObjectAttributes != null)
-            {
-                vehiclePassengerAttributesField.SetValue(baggedObject, specialObjectAttributes);
-            }
-            else
-            {
-            }
-            // Recalculate bagged mass for the new target
-            if (bagController != null)
-            {
-                float newMass;
-                if (bagController == targetObject)
-                {
-                    newMass = bagController.baggedMass;
-                }
-                else
-                {
-                    newMass = bagController.CalculateBaggedObjectMass(targetObject);
-                }
-                baggedMassField.SetValue(baggedObject, newMass);
-            }
-            // Check if we need to recreate the overlay
-            // This happens when uiOverlayController is null or when target has changed
-            var uiOverlayController = (OverlayController)uiOverlayField.GetValue(baggedObject);
-            if (uiOverlayController == null)
-            {
-                // Need to create a new overlay controller
-                // Get the overlay parameters
-                GameObject overlayPrefab = (GameObject)overlayPrefabField.GetValue(baggedObject);
-                string overlayChildLocatorEntry = (string)overlayChildLocatorEntryField.GetValue(baggedObject);
-                if (overlayPrefab != null)
-                {
-                    // Create new overlay
-                    OverlayCreationParams overlayCreationParams = new OverlayCreationParams
-                    {
-                        prefab = overlayPrefab,
-                        childLocatorEntry = overlayChildLocatorEntry
-                    };
-                    uiOverlayController = HudOverlayManager.AddOverlay(baggedObject.outer.gameObject, overlayCreationParams);
-                    uiOverlayField.SetValue(baggedObject, uiOverlayController);
-                    // Register event handlers
-                    var onUIOverlayInstanceAddedMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceAdded");
-                    var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
-                    uiOverlayController.onInstanceAdded += (OverlayController controller, GameObject instance) =>
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [DEBUG] onInstanceAdded callback called for {targetObject?.name}");
-                        }
-                        onUIOverlayInstanceAddedMethod.Invoke(baggedObject, new object[] { controller, instance });
-                    };
-                    uiOverlayController.onInstanceRemove += (OverlayController controller, GameObject instance) =>
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [DEBUG] onInstanceRemove callback called for {targetObject?.name}");
-                        }
-                        onUIOverlayInstanceRemoveMethod.Invoke(baggedObject, new object[] { controller, instance });
-                    };
-                }
-                else
-                {
-                }
-            }
-            // Refresh existing overlay instances with new target info
-            var correctBaggedObject = FindOrCreateBaggedObjectState(actualBagController, targetObject);
-            if (correctBaggedObject != null)
-            {
-                RefreshUIOverlay(correctBaggedObject);
-            }
-            else
-            {
-                RefreshUIOverlay(baggedObject);
-            }
-            // Force a skill override check by calling TryOverrideUtility and TryOverridePrimary with the respective skills
-            var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
-            if (skillLocator != null)
-            {
-                if (skillLocator.utility != null)
-                {
-                    // Force the utility skill to be reconsidered for override
-                    var tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-                    if (tryOverrideUtilityMethod != null)
-                    {
-                        // Call with skip prefix to avoid the main seat check (since we know it's in main seat now)
-                        tryOverrideUtilityMethod.Invoke(baggedObject, new object[] { skillLocator.utility });
-                    }
-                }
-                if (skillLocator.primary != null)
-                {
-                    // Force the primary skill to be reconsidered for override
-                    var tryOverridePrimaryMethod = AccessTools.Method(typeof(BaggedObject), "TryOverridePrimary");
-                    if (tryOverridePrimaryMethod != null)
-                    {
-                        // Call with skip prefix to avoid the main seat check (since we know it's in main seat now)
-                        tryOverridePrimaryMethod.Invoke(baggedObject, new object[] { skillLocator.primary });
-                    }
-                }
-            }
+            return;
         }
         private static void UpdateTargetFields(BaggedObject? baggedObject, GameObject targetObject, DrifterBagController bagController)
         {
@@ -746,9 +273,27 @@ namespace DrifterBossGrabMod.Patches
         // Remove the UI overlay for an object that has left the main seat.
         public static void RemoveUIOverlay(GameObject targetObject)
         {
-            if (targetObject == null) return;
+            if (targetObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] EXIT: targetObject is null");
+                }
+                return;
+            }
             var baggedObject = targetObject.GetComponent<BaggedObject>();
-            if (baggedObject == null) return;
+            if (baggedObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] EXIT: no BaggedObject component on {targetObject.name}");
+                }
+                return;
+            }
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" [RemoveUIOverlay] Called for {targetObject.name}");
+            }
             // This prevents premature removal during cycling transitions
             var bagController = baggedObject!.outer.GetComponent<DrifterBagController>();
             if (bagController != null)
@@ -766,11 +311,26 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if object is tracked as main seat
                 bool isTrackedAsMainSeat = BagPatches.mainSeatDict.TryGetValue(bagController, out var currentlyTracked) &&
-                                         ReferenceEquals(targetObject, currentlyTracked);
+                                          ReferenceEquals(targetObject, currentlyTracked);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] isActuallyInMainSeat: {isActuallyInMainSeat}, isTrackedAsMainSeat: {isTrackedAsMainSeat}");
+                }
                 // Only remove overlay if object is neither actually in main seat nor tracked as main seat
                 if (isActuallyInMainSeat || isTrackedAsMainSeat)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [RemoveUIOverlay] NOT removing overlay - object still in main seat or tracked");
+                    }
                     return; // Don't remove overlay if still in main seat
+                }
+            }
+            else
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] No bagController found");
                 }
             }
             // Remove any existing overlay controller
@@ -778,8 +338,19 @@ namespace DrifterBossGrabMod.Patches
             var existingController = (OverlayController)uiOverlayField.GetValue(baggedObject);
             if (existingController != null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] Removing existing overlay controller");
+                }
                 HudOverlayManager.RemoveOverlay(existingController);
                 uiOverlayField.SetValue(baggedObject, null);
+            }
+            else
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [RemoveUIOverlay] No existing overlay controller to remove");
+                }
             }
         }
         // Helper method to dump all BaggedObject fields for debugging
@@ -944,6 +515,11 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
                 }
             }
+            // Set targetObject to null for null state
+            baggedObject.targetObject = null;
+            targetBodyField.SetValue(baggedObject, null);
+            vehiclePassengerAttributesField.SetValue(baggedObject, null);
+            baggedMassField.SetValue(baggedObject, 0f);
             // This ensures that when we cycle back, we'll properly detect and create the BaggedObject state
             _baggedObjectCache.Remove(bagController);
         }
@@ -1006,6 +582,10 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info(" [IsInMainSeat] But target is in additional seat, so not main seat");
                 }
             }
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" [IsInMainSeat] Final result: {result}");
+            }
             return result;
         }
         // Patch TryOverrideUtility to only allow skill overrides for main vehicle seat objects
@@ -1019,21 +599,49 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance!.outer.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [TryOverrideUtility] No bagController found, allowing normal execution");
+                    }
                     return true; // Allow normal execution
                 }
                 var targetObject = __instance.targetObject;
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [TryOverrideUtility] Attempting override for {targetObject?.name ?? "null"}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {skill?.skillName ?? "null"}");
+                }
                 // Only allow if the object is in the main seat
                 if (isMainSeatOccupant)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverrideUtility] allowing skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
+                        Log.Info($" [TryOverrideUtility] ALLOWING skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
                     }
                     return true; // Allow normal execution
                 }
                 else
                 {
+                    // If not in main seat, unset the override
+                    var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
+                    var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
+                    var overriddenUtility = (GenericSkill)overriddenUtilityField.GetValue(__instance);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [TryOverrideUtility] BLOCKING override - unsetting existing override for {targetObject?.name} (not in main seat), overriddenUtility: {overriddenUtility?.skillName ?? "null"}");
+                        // Log current state details
+                        Log.Info($" [TryOverrideUtility] Current state - tracked main seat: {BagPatches.GetMainSeatObject(bagController)?.name ?? "null"}, vehicle passenger: {bagController?.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}, hasAuthority: {bagController?.hasAuthority ?? false}");
+                    }
+                    if (overriddenUtility != null)
+                    {
+                        var utilityOverride = (SkillDef)utilityOverrideField.GetValue(__instance);
+                        overriddenUtility.UnsetSkillOverride(__instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                        overriddenUtilityField.SetValue(__instance, null);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [TryOverrideUtility] Unset skill override for {targetObject?.name} (not in main seat)");
+                        }
+                    }
                     return false; // Skip the original method - no skill override
                 }
             }
@@ -1053,21 +661,49 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [TryOverridePrimary] No bagController found, allowing normal execution");
+                    }
                     return true; // Allow normal execution
                 }
                 var targetObject = __instance.targetObject;
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [TryOverridePrimary] Attempting override for {targetObject?.name ?? "null"}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {skill?.skillName ?? "null"}");
+                }
                 // Only allow if the object is in the main seat
                 if (isMainSeatOccupant)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverridePrimary] allowing skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
+                        Log.Info($" [TryOverridePrimary] ALLOWING skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
                     }
                     return true; // Allow normal execution
                 }
                 else
                 {
+                    // If not in main seat, unset the override
+                    var overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
+                    var primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+                    var overriddenPrimary = (GenericSkill)overriddenPrimaryField.GetValue(__instance);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [TryOverridePrimary] BLOCKING override - unsetting existing override for {targetObject?.name} (not in main seat), overriddenPrimary: {overriddenPrimary?.skillName ?? "null"}");
+                        // Log current state details
+                        Log.Info($" [TryOverridePrimary] Current state - tracked main seat: {BagPatches.GetMainSeatObject(bagController)?.name ?? "null"}, vehicle passenger: {bagController?.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}, hasAuthority: {bagController?.hasAuthority ?? false}");
+                    }
+                    if (overriddenPrimary != null)
+                    {
+                        var primaryOverride = (SkillDef)primaryOverrideField.GetValue(__instance);
+                        overriddenPrimary.UnsetSkillOverride(__instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                        overriddenPrimaryField.SetValue(__instance, null);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [TryOverridePrimary] Unset skill override for {targetObject?.name} (not in main seat)");
+                        }
+                    }
                     return false; // Skip the original method - no skill override
                 }
             }
@@ -1082,7 +718,11 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(BaggedObject __instance)
             {
-                var bagController = __instance.outer.GetComponent<DrifterBagController>();
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [BaggedObject_OnEnter] Called for targetObject: {__instance?.targetObject?.name ?? "null"}");
+                }
+                var bagController = __instance?.outer?.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -1094,6 +734,10 @@ namespace DrifterBossGrabMod.Patches
                 var targetObject = __instance.targetObject;
                 if (targetObject == null)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnEnter] targetObject is null, proceeding normally");
+                    }
                     return true;
                 }
                 // Check if targetObject is in additional seat
@@ -1112,6 +756,10 @@ namespace DrifterBossGrabMod.Patches
                 var outerMainSeat = bagController.vehicleSeat;
                 if (outerMainSeat != null && outerMainSeat.hasPassenger && ReferenceEquals(outerMainSeat.NetworkpassengerBodyObject, targetObject))
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnEnter] targetObject already in main seat, skipping original OnEnter");
+                    }
                     // Don't call the original OnEnter logic to avoid double assignment
                     return false;
                 }
@@ -1184,6 +832,14 @@ namespace DrifterBossGrabMod.Patches
                     // Ensure UI is created/refreshed for main seat objects
                     RefreshUIOverlayForMainSeat(bagController, targetObject);
                 }
+                // Always remove the overlay to use carousel instead
+                var uiOverlayField2 = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
+                var uiOverlayController2 = (OverlayController)uiOverlayField2.GetValue(__instance);
+                if (uiOverlayController2 != null)
+                {
+                    HudOverlayManager.RemoveOverlay(uiOverlayController2);
+                    uiOverlayField2.SetValue(__instance, null);
+                }
             }
         }
         [HarmonyPatch(typeof(BaggedObject), "OnUIOverlayInstanceAdded")]
@@ -1225,13 +881,25 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Allow if the client has authority over the bag controller (for grabbing)
                 bool hasAuthority = bagController.hasAuthority;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [OnUIOverlayInstanceAdded] isMainSeatOccupant: {isMainSeatOccupant}, hasAuthority: {hasAuthority}");
+                }
                 if (!isMainSeatOccupant && !hasAuthority)
                 {
                     bool isCurrentlyTracked = BagPatches.mainSeatDict.TryGetValue(bagController, out var currentlyTracked) &&
                                             ReferenceEquals(targetObject, currentlyTracked);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [OnUIOverlayInstanceAdded] isCurrentlyTracked: {isCurrentlyTracked}, currentlyTracked: {currentlyTracked?.name ?? "null"}");
+                    }
                     if (!isCurrentlyTracked)
                     {
                         // Only remove overlay if this object is not currently tracked as main seat and client doesn't have authority
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [OnUIOverlayInstanceAdded] REMOVING overlay for {targetObject?.name ?? "null"} - not main seat and no authority");
+                        }
                         if (controller != null)
                         {
                             HudOverlayManager.RemoveOverlay(controller);
@@ -1240,7 +908,127 @@ namespace DrifterBossGrabMod.Patches
                             uiOverlayField.SetValue(__instance, null);
                         }
                     }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [OnUIOverlayInstanceAdded] NOT removing overlay - object is currently tracked as main seat");
+                        }
+                    }
                 }
+                else
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [OnUIOverlayInstanceAdded] NOT removing overlay - isMainSeatOccupant or hasAuthority");
+                    }
+                }
+            // If using bottomless bag (has additional seats), remove the overlay to prevent overlapping with carousel
+            if (bagController != null && BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict) && seatDict.Count > 0)
+            {
+                HudOverlayManager.RemoveOverlay(controller);
+                var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
+                uiOverlayField.SetValue(__instance, null);
+            }
+            }
+        }
+        [HarmonyPatch(typeof(BaggedObject), "OnExit")]
+        public class BaggedObject_OnExit
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(BaggedObject __instance)
+            {
+                if (__instance == null || __instance.targetObject == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnExit] Skipping original OnExit - __instance or targetObject is null");
+                    }
+                    return false; // Skip original OnExit to prevent NRE
+                }
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [BaggedObject_OnExit] Called for targetObject: {__instance.targetObject.name}");
+                    var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+                    if (bagController != null)
+                    {
+                        Log.Info($" [BaggedObject_OnExit] bagController: {bagController.name}, hasAuthority: {bagController.hasAuthority}");
+                        Log.Info($" [BaggedObject_OnExit] vehicleSeat hasPassenger: {bagController.vehicleSeat?.hasPassenger ?? false}");
+                        Log.Info($" [BaggedObject_OnExit] vehicleSeat passenger: {bagController.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}");
+                        bool isTracked = BagPatches.mainSeatDict.TryGetValue(bagController, out var tracked) && ReferenceEquals(__instance.targetObject, tracked);
+                        Log.Info($" [BaggedObject_OnExit] isTracked as main seat: {isTracked}, tracked: {tracked?.name ?? "null"}");
+                        // Check if object is being destroyed
+                        bool isBeingDestroyed = __instance.targetObject.GetComponent<HealthComponent>()?.alive == false;
+                        Log.Info($" [BaggedObject_OnExit] targetObject dead: {isBeingDestroyed}");
+                        // Check if it's in additional seats
+                        bool inAdditionalSeat = BagPatches.GetAdditionalSeat(bagController, __instance.targetObject) != null;
+                        Log.Info($" [BaggedObject_OnExit] inAdditionalSeat: {inAdditionalSeat}");
+                    }
+                }
+                return true;
+            }
+            [HarmonyPostfix]
+            public static void Postfix(BaggedObject __instance)
+            {
+                var bagController = __instance?.outer?.GetComponent<DrifterBagController>();
+                if (bagController == null || __instance.targetObject == null) return;
+
+                // Check if this object was the main seat occupant and is not in an additional seat
+                bool isTrackedAsMain = BagPatches.mainSeatDict.TryGetValue(bagController, out var tracked) && ReferenceEquals(__instance.targetObject, tracked);
+                bool inAdditionalSeat = BagPatches.GetAdditionalSeat(bagController, __instance.targetObject) != null;
+
+                // Check if the object is still actually in a seat (main or additional)
+                bool stillInMainSeat = bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger &&
+                                       ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, __instance.targetObject);
+                bool stillInAnySeat = stillInMainSeat || inAdditionalSeat;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [BaggedObject_OnExit_Postfix] isTrackedAsMain: {isTrackedAsMain}, inAdditionalSeat: {inAdditionalSeat}, stillInMainSeat: {stillInMainSeat}, stillInAnySeat: {stillInAnySeat}");
+                }
+
+                // Only remove from bag if it was the main seat occupant, not moved to additional seat, and not still in any seat
+                if (isTrackedAsMain && !inAdditionalSeat && !stillInAnySeat)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnExit_Postfix] Removing {__instance.targetObject.name} from bag due to exit from main seat");
+                    }
+                    BagPatches.RemoveBaggedObject(bagController, __instance.targetObject);
+                }
+                else if (stillInAnySeat)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnExit_Postfix] Object {__instance.targetObject.name} is still in a seat, not removing from bag");
+                    }
+                    // Update carousel since the object is still bagged
+                    BagPatches.UpdateCarousel(bagController);
+                }
+            }
+        }
+        [HarmonyPatch(typeof(BaggedObject), "FixedUpdate")]
+        public class BaggedObject_FixedUpdate
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(BaggedObject __instance)
+            {
+                if (__instance == null || __instance.targetObject == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_FixedUpdate] Skipping original FixedUpdate - __instance or targetObject is null");
+                    }
+                    return false; // Skip original FixedUpdate to prevent NRE
+                }
+                var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
+                var isBody = (bool?)isBodyField?.GetValue(__instance);
+                if (isBody == false)
+                {
+                    return false;
+                }
+
+                return true;
             }
         }
         public static GameObject? GetMainSeatOccupant(DrifterBagController controller)
@@ -1251,17 +1039,34 @@ namespace DrifterBossGrabMod.Patches
         }
         public static void RefreshUIOverlay(BaggedObject baggedObject)
         {
-            if (baggedObject == null) return;
+            if (baggedObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info(" [RefreshUIOverlay] EXIT: baggedObject is null");
+                }
+                return;
+            }
             var targetObject = baggedObject.targetObject;
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" [RefreshUIOverlay] Called for targetObject: {targetObject?.name ?? "null"}");
+            }
             // Get the uiOverlayController field using reflection
             var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
             var uiOverlayController = (OverlayController)uiOverlayField.GetValue(baggedObject);
             if (uiOverlayController == null)
             {
-                Log.Info(" [DEBUG] RefreshUIOverlay EXIT: uiOverlayController is null");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info(" [RefreshUIOverlay] EXIT: uiOverlayController is null, cannot instantiate new UI");
+                }
                 return;
             }
-            Log.Info(" [DEBUG] RefreshUIOverlay: uiOverlayController found, updating instances");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info(" [RefreshUIOverlay] uiOverlayController found, updating instances");
+            }
             // Update targetBody and vehiclePassengerAttributes for the new target
             var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
             var vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
@@ -1349,13 +1154,74 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        [HarmonyPatch(typeof(RoR2.EntityStateMachine), "SetNextStateToMain")]
+        public class EntityStateMachine_SetNextStateToMain
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(RoR2.EntityStateMachine __instance)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    string customName = __instance?.customName ?? "null";
+                    string gameObjectName = __instance?.gameObject?.name ?? "null";
+                    string stateTypeName = __instance?.mainStateType.stateType?.Name ?? "null";
+                    Log.Info($" [SetNextStateToMain] Called on {customName}, gameObject: {gameObjectName}, mainStateType: {stateTypeName}");
+                    if (__instance != null && __instance.mainStateType.stateType == null)
+                    {
+                        Log.Info($" [SetNextStateToMain] mainStateType.stateType is null!");
+                    }
+                }
+                return true;
+            }
+            [HarmonyPostfix]
+            public static void Postfix(RoR2.EntityStateMachine __instance)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    string customName = __instance?.customName ?? "null";
+                    Log.Info($" [SetNextStateToMain] Completed on {customName}");
+                }
+            }
+        }
         // This provides reliable state detection and creation with proper caching
         private static BaggedObject FindOrCreateBaggedObjectState(DrifterBagController bagController, GameObject targetObject)
         {
-            if (bagController == null || targetObject == null) return null;
+            if (bagController == null || targetObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [FindOrCreateBaggedObjectState] EXIT: bagController or targetObject is null");
+                }
+                return null;
+            }
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" [FindOrCreateBaggedObjectState] Called for bagController: {bagController?.name ?? "null"}, targetObject: {targetObject?.name ?? "null"}");
+                // Log current cached targetObject if exists
+                if (_baggedObjectCache.TryGetValue(bagController, out var existingCached))
+                {
+                    var cachedTarget = existingCached.targetObject;
+                    Log.Info($" [FindOrCreateBaggedObjectState] Cached BaggedObject targetObject: {cachedTarget?.name ?? "null"}");
+                }
+            }
             // 1. Check cache first
             if (_baggedObjectCache.TryGetValue(bagController, out var cachedBaggedObject))
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [FindOrCreateBaggedObjectState] Cache hit: cachedBaggedObject exists");
+                }
+                // Check if cached BaggedObject's targetObject matches the requested targetObject
+                var cachedTarget = cachedBaggedObject.targetObject;
+                if (cachedTarget != null && !ReferenceEquals(cachedTarget, targetObject))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] Cached targetObject {cachedTarget?.name ?? "null"} does not match requested {targetObject?.name ?? "null"}, removing from cache");
+                    }
+                    _baggedObjectCache.Remove(bagController);
+                    cachedBaggedObject = null;
+                }
                 // Validate cached object is still valid and active
                 if (cachedBaggedObject != null && cachedBaggedObject.outer != null)
                 {
@@ -1372,30 +1238,37 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (isActive)
                     {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [FindOrCreateBaggedObjectState] Returning cached active BaggedObject");
+                        }
                         return cachedBaggedObject;
                     }
                     else
                     {
                         // Cached object is no longer active, remove from cache
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [FindOrCreateBaggedObjectState] Cached object no longer active, removing from cache");
+                        }
                         _baggedObjectCache.Remove(bagController);
                     }
                 }
-                else
+                else if (cachedBaggedObject != null)
                 {
                     // Cached object is destroyed, remove from cache
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] Cached object is null or destroyed, removing from cache");
+                    }
                     _baggedObjectCache.Remove(bagController);
                 }
             }
-            // 2. Search for active BaggedObject state in all state machines
-            var stateMachinesForSearch = bagController.GetComponentsInChildren<EntityStateMachine>(true);
-            foreach (var sm in stateMachinesForSearch)
+            else
             {
-                if (sm.state != null && sm.state.GetType() == typeof(BaggedObject))
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    var foundBaggedObject = (BaggedObject)sm.state;
-                    // Cache the found object for future use
-                    _baggedObjectCache[bagController] = foundBaggedObject;
-                    return foundBaggedObject;
+                    Log.Info($" [FindOrCreateBaggedObjectState] Cache miss: no cached BaggedObject");
                 }
             }
             // 3. Try to find via Bag state machine specifically
@@ -1403,54 +1276,75 @@ namespace DrifterBossGrabMod.Patches
             if (bagStateMachine != null && bagStateMachine.state != null && bagStateMachine.state.GetType() == typeof(BaggedObject))
             {
                 var foundBaggedObject = (BaggedObject)bagStateMachine.state;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [FindOrCreateBaggedObjectState] Found BaggedObject in Bag state machine, caching and returning");
+                }
                 // Cache the found object
                 _baggedObjectCache[bagController] = foundBaggedObject;
                 return foundBaggedObject;
             }
-            // 4. Try reflection on DrifterBagController
-            try
+            // 5. Create new BaggedObject state
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                var baggedObjectField = typeof(DrifterBagController).GetField("baggedObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (baggedObjectField != null)
+                Log.Info($" [FindOrCreateBaggedObjectState] Attempting to create new BaggedObject state");
+                // Log VehicleSeat determination
+                var vehicleSeat = bagController.vehicleSeat;
+                Log.Info($" [FindOrCreateBaggedObjectState] VehicleSeat determination: bagController.vehicleSeat = {vehicleSeat?.name ?? "null"}");
+                if (vehicleSeat != null)
                 {
-                    var baggedObjectFromController = baggedObjectField.GetValue(bagController) as BaggedObject;
-                    if (baggedObjectFromController != null)
-                    {
-                        // Validate this object is still active
-                        bool isActive = false;
-                        foreach (var sm in stateMachinesForSearch)
-                        {
-                            if (sm.state == baggedObjectFromController)
-                            {
-                                isActive = true;
-                                break;
-                            }
-                        }
-                        if (isActive)
-                        {
-                            // Cache it
-                            _baggedObjectCache[bagController] = baggedObjectFromController;
-                            return baggedObjectFromController;
-                        }
-                    }
+                    Log.Info($" [FindOrCreateBaggedObjectState] VehicleSeat hasPassenger: {vehicleSeat.hasPassenger}, NetworkpassengerBodyObject: {vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
                 }
             }
-            catch (Exception)
-            {
-            }
-            // 5. Create new BaggedObject state
             try
             {
+                // Comprehensive null checks before creation
+                if (bagController == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] bagController is null, cannot create BaggedObject");
+                    }
+                    return null;
+                }
+                if (targetObject == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] targetObject is null, cannot create BaggedObject");
+                    }
+                    return null;
+                }
+                if (bagController.gameObject == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] bagController.gameObject is null, cannot create BaggedObject");
+                    }
+                    return null;
+                }
                 // Find or create Bag state machine
                 var targetStateMachine = bagStateMachine;
                 if (targetStateMachine == null)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] Bag state machine not found, creating new one");
+                    }
                     // Create new state machine
                     var stateMachineComponent = bagController.gameObject.AddComponent<EntityStateMachine>();
                     if (stateMachineComponent != null)
                     {
                         stateMachineComponent.customName = "Bag";
                         targetStateMachine = stateMachineComponent;
+                    }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [FindOrCreateBaggedObjectState] Failed to create EntityStateMachine component");
+                        }
+                        return null;
                     }
                 }
                 if (targetStateMachine != null)
@@ -1462,35 +1356,96 @@ namespace DrifterBossGrabMod.Patches
                         var newBaggedObject = (BaggedObject)baggedObjectConstructor.Invoke(null);
                         if (newBaggedObject != null)
                         {
-                            // Set required fields
-                            var outerField = typeof(BaggedObject).GetField("outer", BindingFlags.NonPublic | BindingFlags.Instance);
-                            if (outerField != null)
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                outerField.SetValue(newBaggedObject, bagController.gameObject);
+                                Log.Info($" [FindOrCreateBaggedObjectState] Created new BaggedObject, setting fields and state");
                             }
-                            var targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                            if (targetObjectField != null)
-                            {
-                                targetObjectField.SetValue(newBaggedObject, targetObject);
-                            }
+                            // Set required fields with null checks
+                            newBaggedObject.targetObject = targetObject;
                             // Set the state machine to use this instance
                             targetStateMachine.SetState(newBaggedObject);
                             // Cache the new object
                             _baggedObjectCache[bagController] = newBaggedObject;
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [FindOrCreateBaggedObjectState] Successfully created and cached new BaggedObject");
+                            }
                             return newBaggedObject;
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [FindOrCreateBaggedObjectState] Failed to invoke BaggedObject constructor");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [FindOrCreateBaggedObjectState] BaggedObject constructor not found");
                         }
                     }
                 }
+                else
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [FindOrCreateBaggedObjectState] Failed to find or create target state machine");
+                    }
+                }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [FindOrCreateBaggedObjectState] Exception creating BaggedObject: {ex.Message}");
+                }
+            }
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" [FindOrCreateBaggedObjectState] Returning null - failed to find or create BaggedObject");
             }
             return null;
         }
         // This is used as a last resort when cycling from null state back to main seat
         private static BaggedObject ForceCreateBaggedObjectState(DrifterBagController bagController, GameObject targetObject)
         {
-            if (bagController == null || targetObject == null) return null;
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                // Log VehicleSeat determination
+                var vehicleSeat = bagController.vehicleSeat;
+                Log.Info($" [ForceCreateBaggedObjectState] VehicleSeat determination: bagController.vehicleSeat = {vehicleSeat?.name ?? "null"}");
+                if (vehicleSeat != null)
+                {
+                    Log.Info($" [ForceCreateBaggedObjectState] VehicleSeat hasPassenger: {vehicleSeat.hasPassenger}, NetworkpassengerBodyObject: {vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
+                }
+            }
+            if (bagController == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [ForceCreateBaggedObjectState] bagController is null");
+                }
+                return null;
+            }
+            if (targetObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [ForceCreateBaggedObjectState] targetObject is null");
+                }
+                return null;
+            }
+            if (bagController.gameObject == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [ForceCreateBaggedObjectState] bagController.gameObject is null");
+                }
+                return null;
+            }
             try
             {
                 // Try to find any existing state machine that could host BaggedObject
@@ -1519,6 +1474,14 @@ namespace DrifterBossGrabMod.Patches
                         stateMachineComponent.customName = "Bag";
                         targetStateMachine = stateMachineComponent;
                     }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [ForceCreateBaggedObjectState] Failed to create EntityStateMachine component");
+                        }
+                        return null;
+                    }
                 }
                 if (targetStateMachine != null)
                 {
@@ -1529,28 +1492,52 @@ namespace DrifterBossGrabMod.Patches
                         var newBaggedObject = (BaggedObject)baggedObjectConstructor.Invoke(null);
                         if (newBaggedObject != null)
                         {
-                            // Set required fields
-                            var outerField = typeof(BaggedObject).GetField("outer", BindingFlags.NonPublic | BindingFlags.Instance);
-                            if (outerField != null)
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                outerField.SetValue(newBaggedObject, bagController.gameObject);
+                                Log.Info($" [ForceCreateBaggedObjectState] Created new BaggedObject, setting fields");
                             }
-                            var targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                            if (targetObjectField != null)
-                            {
-                                targetObjectField.SetValue(newBaggedObject, targetObject);
-                            }
+                            // Set required fields with null checks
+                            newBaggedObject.targetObject = targetObject;
                             // Set the state machine to use this instance
                             targetStateMachine.SetState(newBaggedObject);
                             // Cache the new object
                             _baggedObjectCache[bagController] = newBaggedObject;
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [ForceCreateBaggedObjectState] Successfully created and cached new BaggedObject");
+                            }
                             return newBaggedObject;
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [ForceCreateBaggedObjectState] Failed to invoke BaggedObject constructor");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [ForceCreateBaggedObjectState] BaggedObject constructor not found");
                         }
                     }
                 }
+                else
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [ForceCreateBaggedObjectState] Failed to find or create target state machine");
+                    }
+                }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [ForceCreateBaggedObjectState] Exception: {ex.Message}");
+                }
             }
             return null;
         }
