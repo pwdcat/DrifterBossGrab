@@ -17,7 +17,20 @@ namespace DrifterBossGrabMod.UI
             Debug.Log($"[BaggedObjectUIController] Start: slotPrefab={slotPrefab}");
             if (slotPrefab)
             {
-                var hud = RoR2.UI.HUD.readOnlyInstanceList.Count > 0 ? RoR2.UI.HUD.readOnlyInstanceList[0] : null;
+                // Check if this body is Drifter
+                var body = GetComponent<CharacterBody>();
+                if (body == null || !body.name.StartsWith("DrifterBody") || !body.hasAuthority)
+                {
+                    Debug.Log($"[BaggedObjectUIController] Not attached to DrifterBody or no authority");
+                    return;
+                }
+                var localUser = RoR2.LocalUserManager.GetFirstLocalUser();
+                if (localUser == null)
+                {
+                    Debug.Log($"[BaggedObjectUIController] No local user found");
+                    return;
+                }
+                var hud = localUser.cameraRigController?.hud;
                 Debug.Log($"[BaggedObjectUIController] HUD instance: {hud}");
                 if (hud && hud.mainContainer)
                 {
@@ -51,9 +64,9 @@ namespace DrifterBossGrabMod.UI
                         belowInstance.SetActive(false);
 
                         // Set weight icon positions
-                        SetWeightIconPosition(aboveInstance);
-                        SetWeightIconPosition(centerInstance);
-                        SetWeightIconPosition(belowInstance);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(aboveInstance);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance);
 
                         Debug.Log($"[BaggedObjectUIController] Created carousel in HUD");
                     }
@@ -77,7 +90,7 @@ namespace DrifterBossGrabMod.UI
                 // Toggle portrait (assuming portraitIconImage is the portrait)
                 if (baggedCardController.portraitIconImage)
                 {
-                    baggedCardController.portraitIconImage.gameObject.SetActive(PluginConfig.Instance.BagUIShowPortrait.Value);
+                    baggedCardController.portraitIconImage.gameObject.SetActive(true);
                 }
 
                 // Toggle icon (LayoutElement on portrait?)
@@ -127,28 +140,6 @@ namespace DrifterBossGrabMod.UI
                 }
             }
             return null;
-        }
-
-        private void SetWeightIconPosition(GameObject slot)
-        {
-            var childLocator = slot.GetComponent<ChildLocator>();
-            if (childLocator)
-            {
-                var weightIconTransform = childLocator.FindChild("WeightIcon");
-                if (weightIconTransform)
-                {
-                    if (PluginConfig.Instance.UseNewWeightIcon.Value)
-                    {
-                        weightIconTransform.localPosition = new Vector3(-23f, 1.5f, 0f);
-                        weightIconTransform.localRotation = Quaternion.identity;
-                    }
-                    else
-                    {
-                        weightIconTransform.localPosition = new Vector3(-15.4757f, 0.1f, 0f);
-                        weightIconTransform.localRotation = Quaternion.Euler(0f, 0f, 270f);
-                    }
-                }
-            }
         }
     }
 }

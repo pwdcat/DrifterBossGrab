@@ -51,27 +51,5 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-
-        [HarmonyPatch(typeof(BaggedCardController), "set_sourceBody")]
-        public class BaggedCardController_set_sourceBody
-        {
-            [HarmonyPostfix]
-            public static void Postfix(BaggedCardController __instance, CharacterBody value)
-            {
-                Debug.Log($"[BaggedCardController] set_sourceBody: {value}, transform={__instance.transform}");
-            }
-        }
-
-        [HarmonyPatch(typeof(BaggedCardController), "set_sourcePassengerAttributes")]
-        public class BaggedCardController_set_sourcePassengerAttributes
-        {
-            [HarmonyPostfix]
-            public static void Postfix(BaggedCardController __instance, SpecialObjectAttributes value)
-            {
-                Debug.Log($"[BaggedCardController] set_sourcePassengerAttributes: {value}, transform={__instance.transform}");
-            }
-        }
-
-
     }
 }

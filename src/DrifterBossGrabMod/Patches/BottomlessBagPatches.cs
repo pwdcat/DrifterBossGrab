@@ -204,7 +204,7 @@ namespace DrifterBossGrabMod.Patches
                             list.Add(seatPassenger);
                         }
                         BagPatches.SetMainSeatObject(bagController, seatPassenger);
-                        BagPatches.UpdateCarousel(bagController);
+                        BagPatches.UpdateCarousel(bagController, 0);
                         mainPassenger = seatPassenger;
                     }
                 }
@@ -224,7 +224,7 @@ namespace DrifterBossGrabMod.Patches
                 if (shouldTrack)
                 {
                     BagPatches.SetMainSeatObject(bagController, seatPassenger);
-                    BagPatches.UpdateCarousel(bagController);
+                    BagPatches.UpdateCarousel(bagController, 0);
                     mainPassenger = seatPassenger;
                 }
             }
@@ -278,7 +278,7 @@ namespace DrifterBossGrabMod.Patches
                 if (!mainPassengerStillValid)
                 {
                     BagPatches.SetMainSeatObject(bagController, null);
-                    BagPatches.UpdateCarousel(bagController);
+                    BagPatches.UpdateCarousel(bagController, 0);
                     mainPassenger = null;
                 }
             }
@@ -370,7 +370,7 @@ namespace DrifterBossGrabMod.Patches
                             list.Add(seatPassenger);
                         }
                         BagPatches.SetMainSeatObject(bagController, seatPassenger);
-                        BagPatches.UpdateCarousel(bagController);
+                        BagPatches.UpdateCarousel(bagController, 0);
                         actualMainPassenger = seatPassenger;
                     }
                 }
@@ -430,7 +430,7 @@ namespace DrifterBossGrabMod.Patches
                         BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
                     }
                     BagPatches.SetMainSeatObject(bagController, null);
-                    BagPatches.UpdateCarousel(bagController);
+                    BagPatches.UpdateCarousel(bagController, direction);
                     if (seatForCurrent != null)
                     {
                         seatForCurrent.AssignPassenger(actualMainPassenger);
@@ -465,7 +465,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 bagController.AssignPassenger(targetObject);
                 BagPatches.SetMainSeatObject(bagController, targetObject);
-                BagPatches.UpdateCarousel(bagController);
+                BagPatches.UpdateCarousel(bagController, direction);
                 BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
@@ -496,7 +496,7 @@ namespace DrifterBossGrabMod.Patches
                     System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                     targetAdditionalSeat.AssignPassenger(currentObject);
                     BagPatches.SetMainSeatObject(bagController, null);
-                    BagPatches.UpdateCarousel(bagController);
+                    BagPatches.UpdateCarousel(bagController, direction);
                     BaggedObjectPatches.RemoveUIOverlay(currentObject);
                     localSeatDict[currentObject] = targetAdditionalSeat;
                 }
@@ -510,7 +510,7 @@ namespace DrifterBossGrabMod.Patches
                     if (validObjects.Count == 1 && localSeatDict.Count == 0)
                     {
                         BagPatches.SetMainSeatObject(bagController, null);
-                        BagPatches.UpdateCarousel(bagController);
+                        BagPatches.UpdateCarousel(bagController, direction);
                         DrifterBossGrabPlugin._isSwappingPassengers = false;
                         BagPatches.RemoveBaggedObject(bagController, currentObject);
                         return;
@@ -520,7 +520,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         seatForCurrent.AssignPassenger(currentObject);
                         BagPatches.SetMainSeatObject(bagController, null);
-                        BagPatches.UpdateCarousel(bagController);
+                        BagPatches.UpdateCarousel(bagController, direction);
                         BaggedObjectPatches.RemoveUIOverlay(currentObject);
                         localSeatDict[currentObject] = seatForCurrent;
                     }
@@ -535,7 +535,7 @@ namespace DrifterBossGrabMod.Patches
                     System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                 }
                 BagPatches.SetMainSeatObject(bagController, targetObject);
-                BagPatches.UpdateCarousel(bagController);
+                BagPatches.UpdateCarousel(bagController, direction);
                 BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }

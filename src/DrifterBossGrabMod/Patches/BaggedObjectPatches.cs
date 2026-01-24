@@ -807,21 +807,51 @@ namespace DrifterBossGrabMod.Patches
                 if (!seatHasTarget && !trackedHasTarget)
                 {
                     // Neither seat nor tracked has targetObject, remove the UI
-                    var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-                    var uiOverlayController = (OverlayController)uiOverlayField.GetValue(__instance);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    // But if the client has authority over the bag controller, keep the UI
+                    bool hasAuthority = bagController != null && bagController.hasAuthority;
+                    if (!hasAuthority)
                     {
-                        Log.Info($" [BaggedObject_OnEnter_Postfix] uiOverlayController exists: {uiOverlayController != null}");
-                    }
-                    if (uiOverlayController != null)
-                    {
-                        HudOverlayManager.RemoveOverlay(uiOverlayController);
-                        uiOverlayField.SetValue(__instance, null);
+                        var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
+                        var uiOverlayController = (OverlayController)uiOverlayField.GetValue(__instance);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" [BaggedObject_OnEnter_Postfix] Removed UI overlay because neither seat nor tracked has targetObject");
+                            Log.Info($" [BaggedObject_OnEnter_Postfix] uiOverlayController exists: {uiOverlayController != null}");
+                        }
+                        if (uiOverlayController != null)
+                        {
+                            HudOverlayManager.RemoveOverlay(uiOverlayController);
+                            uiOverlayField.SetValue(__instance, null);
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [BaggedObject_OnEnter_Postfix] Removed UI overlay because neither seat nor tracked has targetObject");
+                            }
                         }
                     }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [BaggedObject_OnEnter_Postfix] Keeping UI overlay because client has authority over bag controller");
+                        }
+                    }
+                }
+                // Add to baggedObjectsDict for skill grabs
+                if (bagController != null && targetObject != null)
+                {
+                    if (!BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list))
+                    {
+                        list = new List<GameObject>();
+                        BagPatches.baggedObjectsDict[bagController] = list;
+                    }
+                    if (!list.Contains(targetObject))
+                    {
+                        list.Add(targetObject);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [BaggedObject_OnEnter_Postfix] Added {targetObject.name} to baggedObjectsDict");
+                        }
+                    }
+                    BagPatches.UpdateCarousel(bagController);
                 }
                 else
                 {
@@ -988,13 +1018,22 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Only remove from bag if it was the main seat occupant, not moved to additional seat, and not still in any seat
-                if (isTrackedAsMain && !inAdditionalSeat && !stillInAnySeat)
+                // But if the client has authority over the bag controller, don't remove
+                bool hasAuthority = bagController != null && bagController.hasAuthority;
+                if (isTrackedAsMain && !inAdditionalSeat && !stillInAnySeat && !hasAuthority)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [BaggedObject_OnExit_Postfix] Removing {__instance.targetObject.name} from bag due to exit from main seat");
                     }
                     BagPatches.RemoveBaggedObject(bagController, __instance.targetObject);
+                }
+                else if (hasAuthority)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnExit_Postfix] Not removing {__instance.targetObject.name} from bag because client has authority");
+                    }
                 }
                 else if (stillInAnySeat)
                 {
@@ -1015,10 +1054,6 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (__instance == null || __instance.targetObject == null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" [BaggedObject_FixedUpdate] Skipping original FixedUpdate - __instance or targetObject is null");
-                    }
                     return false; // Skip original FixedUpdate to prevent NRE
                 }
                 var isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
@@ -1196,12 +1231,18 @@ namespace DrifterBossGrabMod.Patches
             }
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" [FindOrCreateBaggedObjectState] Called for bagController: {bagController?.name ?? "null"}, targetObject: {targetObject?.name ?? "null"}");
+                string bagControllerName = "null";
+                try { bagControllerName = bagController?.name ?? "null"; } catch { bagControllerName = "destroyed"; }
+                string targetObjectName = "null";
+                try { targetObjectName = targetObject?.name ?? "null"; } catch { targetObjectName = "destroyed"; }
+                Log.Info($" [FindOrCreateBaggedObjectState] Called for bagController: {bagControllerName}, targetObject: {targetObjectName}");
                 // Log current cached targetObject if exists
                 if (_baggedObjectCache.TryGetValue(bagController, out var existingCached))
                 {
                     var cachedTarget = existingCached.targetObject;
-                    Log.Info($" [FindOrCreateBaggedObjectState] Cached BaggedObject targetObject: {cachedTarget?.name ?? "null"}");
+                    string cachedTargetName = "null";
+                    try { cachedTargetName = cachedTarget?.name ?? "null"; } catch { cachedTargetName = "destroyed"; }
+                    Log.Info($" [FindOrCreateBaggedObjectState] Cached BaggedObject targetObject: {cachedTargetName}");
                 }
             }
             // 1. Check cache first
@@ -1213,11 +1254,28 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if cached BaggedObject's targetObject matches the requested targetObject
                 var cachedTarget = cachedBaggedObject.targetObject;
-                if (cachedTarget != null && !ReferenceEquals(cachedTarget, targetObject))
+                bool isCachedTargetValid = false;
+                string cachedTargetName = "null";
+                try
+                {
+                    if (cachedTarget != null)
+                    {
+                        cachedTargetName = cachedTarget.name;
+                        isCachedTargetValid = true;
+                    }
+                }
+                catch
+                {
+                    cachedTargetName = "destroyed";
+                    isCachedTargetValid = false;
+                }
+                string targetObjectName = "null";
+                try { targetObjectName = targetObject?.name ?? "null"; } catch { targetObjectName = "destroyed"; }
+                if (!isCachedTargetValid || !ReferenceEquals(cachedTarget, targetObject))
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [FindOrCreateBaggedObjectState] Cached targetObject {cachedTarget?.name ?? "null"} does not match requested {targetObject?.name ?? "null"}, removing from cache");
+                        Log.Info($" [FindOrCreateBaggedObjectState] Cached targetObject {cachedTargetName} does not match requested {targetObjectName}, removing from cache");
                     }
                     _baggedObjectCache.Remove(bagController);
                     cachedBaggedObject = null;

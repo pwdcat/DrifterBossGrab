@@ -385,7 +385,6 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOpacity));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BagUIScale));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowPortrait));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowIcon));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowWeight));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowName));

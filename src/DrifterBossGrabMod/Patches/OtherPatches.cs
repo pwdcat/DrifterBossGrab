@@ -134,61 +134,26 @@ namespace DrifterBossGrabMod.Patches
                 projectileStateObjects.Remove(obj);
             }
         }
-        [HarmonyPatch(typeof(ThrownObjectProjectileController), "Awake")]
-        public class ThrownObjectProjectileController_Awake_Patch
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "OnSyncPassenger")]
+        public class ThrownObjectProjectileController_OnSyncPassenger_Patch
         {
             [HarmonyPostfix]
-            public static void Postfix(ThrownObjectProjectileController __instance)
+            public static void Postfix(ThrownObjectProjectileController __instance, GameObject passengerObject)
             {
-                // Try to get the passenger from the projectile
-                GameObject? passenger = GetPassenger(__instance);
-                if (passenger != null)
-                {
-                    ProcessThrownObject(__instance, passenger);
-                }
-                else
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" [ThrownObjectProjectileController.Awake] Projectile has no passenger (will try in Start)");
-                    }
-                }
-            }
-        }
-        [HarmonyPatch(typeof(ThrownObjectProjectileController), "Start")]
-        public class ThrownObjectProjectileController_Start_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(ThrownObjectProjectileController __instance)
-            {
-                // Try to get the passenger from the projectile
-                GameObject? passenger = GetPassenger(__instance);
-                if (passenger != null)
+                if (passengerObject != null)
                 {
                     // Check if we've already processed this passenger (avoid double-processing)
-                    if (projectileStateObjects.Contains(passenger))
+                    if (projectileStateObjects.Contains(passengerObject))
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" [ThrownObjectProjectileController.Start] Passenger {passenger.name} already processed, skipping");
+                            Log.Info($" [ThrownObjectProjectileController.OnSyncPassenger] Passenger {passengerObject.name} already processed, skipping");
                         }
                         return;
                     }
-                    ProcessThrownObject(__instance, passenger);
+                    ProcessThrownObject(__instance, passengerObject);
                 }
             }
-        }
-        private static GameObject? GetPassenger(ThrownObjectProjectileController controller)
-        {
-            // First try Networkpassenger (synced field)
-            GameObject? passenger = controller.Networkpassenger;
-            if (passenger == null)
-            {
-                // Try to get passenger from the private field via reflection
-                var passengerField = typeof(ThrownObjectProjectileController).GetField("passenger", BindingFlags.NonPublic | BindingFlags.Instance);
-                passenger = passengerField?.GetValue(controller) as GameObject;
-            }
-            return passenger;
         }
         private static void ProcessThrownObject(ThrownObjectProjectileController __instance, GameObject passenger)
         {

@@ -388,12 +388,16 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-        public static void UpdateCarousel(DrifterBagController controller)
+        public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[UpdateCarousel] Called for controller: {controller?.name ?? "null"} with direction {direction}");
+            }
             var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
             foreach (var carousel in carousels)
             {
-                carousel.PopulateCarousel();
+                carousel.PopulateCarousel(direction);
             }
         }
 
@@ -406,13 +410,14 @@ namespace DrifterBossGrabMod.Patches
             {
                 return;
             }
+
+            // Check if the object being removed is the currently selected one
+            GameObject? mainPassengerBefore = GetMainSeatObject(controller);
+            bool wasMainPassenger = (mainPassengerBefore != null && mainPassengerBefore == obj);
+
             // Check if object is being thrown (in projectile state)
             bool isThrowing = OtherPatches.IsInProjectileState(obj);
-            // Remove from projectile state tracking if present
-            if (isThrowing)
-            {
-                OtherPatches.RemoveFromProjectileState(obj);
-            }
+
             // Remove from baggedObjectsDict - remove ALL entries matching this instance ID
             if (baggedObjectsDict.TryGetValue(controller, out var list))
             {
@@ -442,8 +447,10 @@ namespace DrifterBossGrabMod.Patches
             {
                 PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, controller);
             }
+            
             // Update carousel
-            UpdateCarousel(controller);
+            // If we threw the selected item, animate to the next item (or empty slot)
+            UpdateCarousel(controller, wasMainPassenger ? 1 : 0);
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
@@ -531,18 +538,9 @@ namespace DrifterBossGrabMod.Patches
         {
             if (controller == null)
             {
-                Debug.Log("[CleanupEmptyAdditionalSeats] Controller is null, skipping");
                 return;
             }
             var seatDict = additionalSeatsDict.TryGetValue(controller, out var tempSeatDict) ? tempSeatDict : null;
-            if (seatDict == null)
-            {
-                Debug.Log($"[CleanupEmptyAdditionalSeats] No additional seats found for controller {controller.gameObject.name}");
-            }
-            else
-            {
-                Debug.Log($"[CleanupEmptyAdditionalSeats] Checking {seatDict.Count} additional seats for controller {controller.gameObject.name}");
-            }
             var seatsToRemove = new List<GameObject>();
             if (seatDict != null)
             {
@@ -550,17 +548,13 @@ namespace DrifterBossGrabMod.Patches
                 {
                     var seat = kvp.Value;
                     var obj = kvp.Key;
-                    string objName = obj != null ? obj.name : "null";
                     if (seat != null)
                     {
                         bool hasPassenger = seat.hasPassenger;
                         GameObject passenger = seat.NetworkpassengerBodyObject;
-                        string passengerName = passenger != null ? passenger.name : "null";
-                        Debug.Log($"[CleanupEmptyAdditionalSeats] Seat for {objName}: hasPassenger={hasPassenger}, passenger={passengerName}");
                         if (!hasPassenger)
                         {
                             // Seat is empty or passenger is thrown, destroy it
-                            Debug.Log($"[CleanupEmptyAdditionalSeats] Destroying empty/thrown seat for {objName}");
                             if (NetworkServer.active)
                             {
                                 NetworkServer.UnSpawn(seat.gameObject);
@@ -571,34 +565,21 @@ namespace DrifterBossGrabMod.Patches
                             }
                             seatsToRemove.Add(kvp.Key);
                         }
-                        else
-                        {
-                            Debug.Log($"[CleanupEmptyAdditionalSeats] Seat for {objName} is occupied, keeping it");
-                        }
                     }
                     else
                     {
-                        Debug.Log($"[CleanupEmptyAdditionalSeats] Seat is null for {objName}, removing from dict");
                         seatsToRemove.Add(kvp.Key);
                     }
                 }
                 // Remove from dictionary
-                Debug.Log($"[CleanupEmptyAdditionalSeats] Removing {seatsToRemove.Count} seats from dictionary");
                 foreach (var obj in seatsToRemove)
                 {
-                    string objName = obj != null ? obj.name : "null";
-                    Debug.Log($"[CleanupEmptyAdditionalSeats] Removing {objName} from seatDict");
                     seatDict.TryRemove(obj, out _);
                 }
                 // If the seatDict is now empty, remove it from additionalSeatsDict
                 if (seatDict.Count == 0)
                 {
-                    Debug.Log($"[CleanupEmptyAdditionalSeats] seatDict is empty, removing controller {controller.gameObject.name} from additionalSeatsDict");
                     System.Collections.Generic.CollectionExtensions.Remove(additionalSeatsDict, controller, out _);
-                }
-                else
-                {
-                    Debug.Log($"[CleanupEmptyAdditionalSeats] {seatDict.Count} seats remaining for controller {controller.gameObject.name}");
                 }
             }
             // Also destroy untracked empty seats
@@ -609,7 +590,6 @@ namespace DrifterBossGrabMod.Patches
                 bool isTracked = seatDict != null && seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
-                    Debug.Log($"[CleanupEmptyAdditionalSeats] Destroying untracked empty seat for {controller.gameObject.name}");
                     if (NetworkServer.active)
                     {
                         NetworkServer.UnSpawn(childSeat.gameObject);

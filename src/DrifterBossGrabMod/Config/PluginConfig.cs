@@ -93,7 +93,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> CarouselSideOpacity { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
         public ConfigEntry<float> BagUIScale { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowPortrait { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowIcon { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowWeight { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowName { get; private set; } = null!;
@@ -246,7 +245,6 @@ namespace DrifterBossGrabMod
             Instance.CarouselSideOpacity = cfg.Bind("Hud", "CarouselSideOpacity", 0.6f, "Opacity for side carousel items");
             Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.5f, "Duration of carousel animation in seconds");
             Instance.BagUIScale = cfg.Bind("Hud", "BagUIScale", 0.8f, "Overall scale for carousel slots");
-            Instance.BagUIShowPortrait = cfg.Bind("Hud", "BagUIShowPortrait", true, "Show portrait in additional Bag UI elements");
             Instance.BagUIShowIcon = cfg.Bind("Hud", "BagUIShowIcon", true, "Show icon in additional Bag UI elements");
             Instance.BagUIShowWeight = cfg.Bind("Hud", "BagUIShowWeight", true, "Show weight indicator in additional Bag UI elements");
             Instance.BagUIShowName = cfg.Bind("Hud", "BagUIShowName", true, "Show name in additional Bag UI elements");
@@ -256,7 +254,6 @@ namespace DrifterBossGrabMod
             Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale the weight icon color based on mass");
 
             // Add event handlers for live updates
-            Instance.BagUIShowPortrait.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowWeight.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
