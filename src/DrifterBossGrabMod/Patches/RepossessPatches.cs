@@ -52,6 +52,18 @@ namespace DrifterBossGrabMod.Patches
             public static void Postfix(DrifterBagController __instance)
             {
                 __instance.maxSmacks = PluginConfig.Instance.MaxSmacks.Value;
+                BagPatches.ScanAllSceneComponents();
+                
+                // Ensure BottomlessBagNetworkController exists on this instance
+                // This handles cases where the prefab wasnt modified before instantiation
+                if (__instance.GetComponent<Networking.BottomlessBagNetworkController>() == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[DrifterBagController_Awake] Adding BottomlessBagNetworkController to {__instance.name}");
+                    }
+                    __instance.gameObject.AddComponent<Networking.BottomlessBagNetworkController>();
+                }
             }
         }
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]

@@ -5,12 +5,12 @@ namespace DrifterBossGrabMod.UI
 {
     public class BaggedObjectUIController : MonoBehaviour
     {
-        public GameObject carouselPrefab;
-        public GameObject slotPrefab; // The Bag UI prefab
-        private GameObject carouselInstance;
-        private GameObject aboveInstance;
-        private GameObject centerInstance;
-        private GameObject belowInstance;
+        public GameObject? carouselPrefab;
+        public GameObject? slotPrefab; // The Bag UI prefab
+        private GameObject? carouselInstance;
+        private GameObject? aboveInstance;
+        private GameObject? centerInstance;
+        private GameObject? belowInstance;
 
         private void Start()
         {
@@ -125,7 +125,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        private Transform FindDeepChild(Transform parent, string name)
+        private Transform? FindDeepChild(Transform parent, string name)
         {
             foreach (Transform child in parent)
             {

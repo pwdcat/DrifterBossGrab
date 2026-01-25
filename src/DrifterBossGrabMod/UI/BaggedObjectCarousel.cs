@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Networking;
 using RoR2;
 using System.Collections.Generic;
 using DrifterBossGrabMod.Patches;
@@ -13,19 +14,19 @@ namespace DrifterBossGrabMod.UI
 {
     public class BaggedObjectCarousel : MonoBehaviour
     {
-        public GameObject slotPrefab; // The Bag UI prefab for each slot
+        public GameObject? slotPrefab; // The Bag UI prefab for each slot
         public float sideScale = 0.8f;
 
         private static Texture2D? _weightIconTexture;
-        private static Texture2D WeightIconTexture => _weightIconTexture ??= LoadWeightIconTexture();
+        private static Texture2D? WeightIconTexture => _weightIconTexture ??= LoadWeightIconTexture();
 
         private static Sprite? _newWeightIconSprite;
-        private static Sprite NewWeightIconSprite => _newWeightIconSprite ??= Sprite.Create(WeightIconTexture, new Rect(0, 0, WeightIconTexture.width, WeightIconTexture.height), new Vector2(0.5f, 0.5f));
+        private static Sprite? NewWeightIconSprite => _newWeightIconSprite ??= (WeightIconTexture != null ? Sprite.Create(WeightIconTexture, new Rect(0, 0, WeightIconTexture.width, WeightIconTexture.height), new Vector2(0.5f, 0.5f)) : null);
 
         private static Sprite? _oldWeightIconSprite;
         private static Sprite OldWeightIconSprite => _oldWeightIconSprite ??= Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/texMovespeedBuffIcon.tif").WaitForCompletion();
 
-        private static Texture2D LoadWeightIconTexture()
+        private static Texture2D? LoadWeightIconTexture()
         {
             var assembly = Assembly.GetExecutingAssembly();
             using (var stream = assembly.GetManifestResourceStream("DrifterBossGrabMod.weighticon.png"))
@@ -106,7 +107,8 @@ namespace DrifterBossGrabMod.UI
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             foreach (var bc in bagControllers)
             {
-                if (BagPatches.baggedObjectsDict.ContainsKey(bc) && BagPatches.baggedObjectsDict[bc].Count > 0)
+                // Prioritize controller with authority (local player)
+                if (bc.hasAuthority)
                 {
                     bagController = bc;
                     break;
@@ -120,8 +122,39 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            var passengerList = BagPatches.baggedObjectsDict[bagController];
-            var mainPassenger = BagPatches.GetMainSeatObject(bagController);
+            List<GameObject> passengerList = new List<GameObject>();
+            GameObject? mainPassenger = null;
+
+            var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
+            // Prioritize local knowledge if we have authority (local player)
+            if (bagController.hasAuthority && BagPatches.baggedObjectsDict.TryGetValue(bagController, out var localList))
+            {
+                passengerList = localList;
+                mainPassenger = BagPatches.GetMainSeatObject(bagController);
+            }
+            else if (netController != null && (!NetworkServer.active || !BagPatches.baggedObjectsDict.ContainsKey(bagController)))
+            {
+                // Use networked state for other players or as fallback
+                passengerList = netController.GetBaggedObjects();
+                int selectedIdx = netController.selectedIndex;
+                if (selectedIdx >= 0 && selectedIdx < passengerList.Count)
+                {
+                    mainPassenger = passengerList[selectedIdx];
+                }
+            }
+            else if (BagPatches.baggedObjectsDict.TryGetValue(bagController, out var fallbackList))
+            {
+                // Use local state on host/server for NPCs or if somehow we missed authority
+                passengerList = fallbackList;
+                mainPassenger = BagPatches.GetMainSeatObject(bagController);
+            }
+
+            if (passengerList.Count == 0 && mainPassenger == null)
+            {
+                foreach (var s in _slots) s.SetActive(false);
+                _slotToPassenger.Clear();
+                return;
+            }
 
             // If the main passenger isn't in our tracking list, treat it as null (empty slot)
             if (mainPassenger != null && !passengerList.Contains(mainPassenger))

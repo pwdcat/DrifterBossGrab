@@ -44,14 +44,25 @@ namespace DrifterBossGrabMod.Patches
 
         public VehicleSeat Build()
         {
-            var seatObject = new GameObject(_name);
+            GameObject seatObject;
+            if (Networking.BagStateSync.AdditionalSeatPrefab != null)
+            {
+                seatObject = UnityEngine.Object.Instantiate(Networking.BagStateSync.AdditionalSeatPrefab);
+                seatObject.SetActive(true);
+            }
+            else
+            {
+                seatObject = new GameObject(_name);
+            }
+            
+            seatObject.name = _name;
             seatObject.transform.SetParent(_parent);
             seatObject.transform.localPosition = Vector3.zero;
             seatObject.transform.localRotation = Quaternion.identity;
-            var networkIdentity = seatObject.AddComponent<NetworkIdentity>();
-            networkIdentity.localPlayerAuthority = false;
-            networkIdentity.serverOnly = false;
-            var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
+            
+            var newSeat = seatObject.GetComponent<RoR2.VehicleSeat>();
+            if (newSeat == null) newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
+            
             if (_sourceSeat != null)
             {
                 newSeat.seatPosition = _sourceSeat.seatPosition;
@@ -97,6 +108,26 @@ namespace DrifterBossGrabMod.Patches
         Configuration,
         NullStateTransition
     }
+    public class BaggedObjectTracker : MonoBehaviour
+    {
+        public DrifterBagController? controller;
+        public GameObject? obj;
+        public bool isRemovingManual = false;
+
+        private void OnDestroy()
+        {
+            if (isRemovingManual) return;
+            if (controller != null && obj != null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[BaggedObjectTracker] Object {obj.name} is being destroyed. Removing from bag of {controller.name}");
+                }
+                BagPatches.RemoveBaggedObject(controller, obj);
+            }
+        }
+    }
+
     public static class BagPatches
     {
         private static readonly ConcurrentDictionary<DrifterBagController, List<GameObject>> _baggedObjectsDict = new ConcurrentDictionary<DrifterBagController, List<GameObject>>();
@@ -126,6 +157,26 @@ namespace DrifterBossGrabMod.Patches
                 Log.Info($"[ScanAllSceneComponents] {type}");
             }
             Log.Info($"[ScanAllSceneComponents] === END SCENE COMPONENT SCAN ===");
+        }
+        public static void ClearCaches()
+        {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info("[BagPatches] Clearing all bag caches");
+            }
+            baggedObjectsDict.Clear();
+            additionalSeatsDict.Clear();
+            mainSeatDict.Clear();
+        }
+
+        [HarmonyPatch(typeof(Run), "Start")]
+        public class Run_Start_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix()
+            {
+                ClearCaches();
+            }
         }
         private static void ScanObjectComponents(GameObject obj, HashSet<string> componentTypes)
         {
@@ -274,8 +325,29 @@ namespace DrifterBossGrabMod.Patches
                 {
                     return false;
                 }
+
+
+                // Use main seat for single capacity, additional seats for capacity > 1
                 // Use main seat for single capacity, additional seats for capacity > 1
                 // Skip this check if object is already tracked (reassignment/cycling)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AssignPassenger] Config Valid: {PluginConfig.Instance != null}");
+                    if (PluginConfig.Instance != null)
+                    {
+                        Log.Info($"[AssignPassenger] BottomlessBagEnabled: {PluginConfig.Instance.BottomlessBagEnabled.Value}");
+                    }
+                    Log.Info($"[AssignPassenger] isAlreadyTracked: {isAlreadyTrackedByThisController}, effectiveCapacity: {effectiveCapacity}, objectsInBag: {objectsInBag}");
+                    if (__instance.vehicleSeat != null)
+                    {
+                        Log.Info($"[AssignPassenger] MainSeat hasPassenger: {__instance.vehicleSeat.hasPassenger}");
+                        if (__instance.vehicleSeat.hasPassenger)
+                        {
+                            Log.Info($"[AssignPassenger] MainSeat Occupant: {__instance.vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
+                        }
+                    }
+                }
+
                 if (!isAlreadyTrackedByThisController && effectiveCapacity > 1)
                 {
                     // Count how many objects are currently in additional seats
@@ -284,6 +356,12 @@ namespace DrifterBossGrabMod.Patches
                     {
                         additionalSeatsCount = existingSeatDict.Count;
                     }
+                    
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                         Log.Info($"[AssignPassenger] additionalSeatsCount: {additionalSeatsCount}, effectiveCapacity - 1: {effectiveCapacity - 1}");
+                    }
+
                     // If we have room in additional seats (total capacity - 1 for main seat), use additional seat
                     if (additionalSeatsCount < effectiveCapacity - 1)
                     {
@@ -295,33 +373,73 @@ namespace DrifterBossGrabMod.Patches
                             seatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
                             additionalSeatsDict[__instance] = seatDict;
                         }
-                        var newSeat = new AdditionalSeatBuilder()
-                            .SetName($"AdditionalSeat_{additionalSeatsCount}")
-                            .SetParent(__instance.transform)
-                            .CopyFrom(__instance.vehicleSeat)
-                            .Build();
-                        if (NetworkServer.active)
+
+                        var newSeat = BottomlessBagPatches.FindOrCreateEmptySeat(__instance, ref seatDict);
+                        if (newSeat != null)
                         {
-                            NetworkServer.Spawn(newSeat.gameObject);
-                        }
-                        newSeat.AssignPassenger(passengerObject);
-                        seatDict[passengerObject] = newSeat;
-                        // Add to list if not already present (check by instance ID)
-                        bool alreadyInList = false;
-                        foreach (var existingObj in list)
-                        {
-                            if (existingObj != null && existingObj.GetInstanceID() == passengerInstanceId)
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                alreadyInList = true;
-                                break;
+                                Log.Info($"[AssignPassenger] Found/Created additional seat. Assigning {passengerObject.name}");
                             }
+                            
+                            // Add tracker
+                            AddTracker(__instance, passengerObject);
+
+                            // Ensure it's not tracked as main seat if we're putting it in an additional seat.
+                            // This prevents stale state from causing UpdateNetworkBagState to report it's the selected item.
+                            if (GetMainSeatObject(__instance) == passengerObject)
+                            {
+                                SetMainSeatObject(__instance, null);
+                            }
+
+                            newSeat.AssignPassenger(passengerObject);
+                            seatDict[passengerObject] = newSeat;
+                            
+                            // Add to list if not already present (check by instance ID)
+                            bool alreadyInList = false;
+                            foreach (var existingObj in list)
+                            {
+                                if (existingObj != null && existingObj.GetInstanceID() == passengerInstanceId)
+                                {
+                                    alreadyInList = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyInList)
+                            {
+                                list.Add(passengerObject);
+                            }
+                            // Sync network state and send persistence message since postfix won't run
+                            if (UnityEngine.Networking.NetworkServer.active)
+                            {
+                                PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
+                            }
+                            UpdateCarousel(__instance);
+                            UpdateNetworkBagState(__instance);
+                            return false; // Prevent original method (which puts it in main seat)
                         }
-                        if (!alreadyInList)
+                        else
                         {
-                            list.Add(passengerObject);
+                             if (PluginConfig.Instance.EnableDebugLogs.Value)
+                             {
+                                 Log.Warning($"[AssignPassenger] FindOrCreateEmptySeat returned NULL! Fallback to Main Seat.");
+                             }
                         }
-                        return false; // Prevent original method
                     }
+                    else
+                    {
+                         if (PluginConfig.Instance.EnableDebugLogs.Value)
+                         {
+                             Log.Info($"[AssignPassenger] No room in additional seats. Fallback to Main Seat (Overwrite).");
+                         }
+                    }
+                }
+                else
+                {
+                     if (PluginConfig.Instance.EnableDebugLogs.Value)
+                     {
+                         Log.Info($"[AssignPassenger] Capacity Check Failed or Already Tracked. Fallback to Main Seat.");
+                     }
                 }
                 // If no additional seats available or capacity is 1, use main seat
                 // Otherwise, allow original method to assign to main seat
@@ -338,7 +456,11 @@ namespace DrifterBossGrabMod.Patches
                     {
                         return;
                     }
-                    if (!_usingAdditionalSeat && __instance.vehicleSeat != null)
+
+                    // Add tracker
+                    AddTracker(__instance, passengerObject);
+
+                    if (!_usingAdditionalSeat && __instance.vehicleSeat != null && NetworkServer.active)
                     {
                         __instance.vehicleSeat.AssignPassenger(passengerObject);
                     }
@@ -353,10 +475,7 @@ namespace DrifterBossGrabMod.Patches
                             System.Collections.Generic.CollectionExtensions.Remove(seatDict, passengerObject, out _);
                         }
                     }
-                    else
-                    {
-                        SetMainSeatObject(__instance, null);
-                    }
+
                     // Add to list if not already added (for main seat assignment)
                     if (!baggedObjectsDict.TryGetValue(__instance, out var list))
                     {
@@ -385,6 +504,24 @@ namespace DrifterBossGrabMod.Patches
                     }
                     // Update carousel
                     UpdateCarousel(__instance);
+                    // Sync network state after grab
+                    UpdateNetworkBagState(__instance);
+                }
+            }
+        }
+
+        public static void AddTracker(DrifterBagController controller, GameObject obj)
+        {
+            if (obj == null || controller == null) return;
+            var tracker = obj.GetComponent<BaggedObjectTracker>();
+            if (tracker == null)
+            {
+                tracker = obj.AddComponent<BaggedObjectTracker>();
+                tracker.controller = controller;
+                tracker.obj = obj;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AddTracker] Added BaggedObjectTracker to {obj.name} for {controller.name}");
                 }
             }
         }
@@ -398,6 +535,51 @@ namespace DrifterBossGrabMod.Patches
             foreach (var carousel in carousels)
             {
                 carousel.PopulateCarousel(direction);
+            }
+            
+            // NOTE: Do NOT call UpdateNetworkBagState here! It causes an infinite loop.
+            // Network state is synced explicitly in AssignPassenger, CycleToNextObject, and RemoveBaggedObject.
+        }
+
+        public static void UpdateNetworkBagState(DrifterBagController? controller)
+        {
+            if (controller == null || (!NetworkServer.active && !controller.hasAuthority)) return;
+
+            var netController = controller.GetComponent<Networking.BottomlessBagNetworkController>();
+            if (netController != null)
+            {
+                if (!baggedObjectsDict.TryGetValue(controller, out var baggedObjects))
+                {
+                    baggedObjects = new List<GameObject>();
+                }
+                
+                var additionalSeats = new List<GameObject>();
+                if (additionalSeatsDict.TryGetValue(controller, out var seatDict))
+                {
+                    // Send the VehicleSeat GameObjects (values), not the grabbed objects (keys)
+                    foreach (var seat in seatDict.Values)
+                    {
+                        if (seat != null) additionalSeats.Add(seat.gameObject);
+                    }
+                }
+
+                // Calculate selected index
+                int selectedIndex = -1;
+                var mainPassenger = GetMainSeatObject(controller);
+                
+                if (mainPassenger != null)
+                {
+                    for (int i = 0; i < baggedObjects.Count; i++)
+                    {
+                        if (baggedObjects[i] != null && baggedObjects[i].GetInstanceID() == mainPassenger.GetInstanceID())
+                        {
+                            selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                netController.SetBagState(selectedIndex, baggedObjects, additionalSeats);
             }
         }
 
@@ -421,6 +603,14 @@ namespace DrifterBossGrabMod.Patches
             // Remove from baggedObjectsDict - remove ALL entries matching this instance ID
             if (baggedObjectsDict.TryGetValue(controller, out var list))
             {
+                // Prevent recursion if this was called by the tracker or if we're doing it manually
+                var tracker = obj.GetComponent<BaggedObjectTracker>();
+                if (tracker != null)
+                {
+                    tracker.isRemovingManual = true;
+                    UnityEngine.Object.Destroy(tracker);
+                }
+
                 int targetInstanceId = obj.GetInstanceID();
                 var objectsToRemove = new List<GameObject>();
                 // First pass: find all objects with matching instance ID
@@ -435,6 +625,12 @@ namespace DrifterBossGrabMod.Patches
                 foreach (var objToRemove in objectsToRemove)
                 {
                     list.Remove(objToRemove);
+                }
+
+                // If the object being removed was tracked as the main passenger, clear that tracking.
+                if (wasMainPassenger)
+                {
+                    SetMainSeatObject(controller, null);
                 }
             }
             // Cleanup empty additional seats only when throwing
@@ -451,6 +647,9 @@ namespace DrifterBossGrabMod.Patches
             // Update carousel
             // If we threw the selected item, animate to the next item (or empty slot)
             UpdateCarousel(controller, wasMainPassenger ? 1 : 0);
+            
+            // Sync network state after removal
+            UpdateNetworkBagState(controller);
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
@@ -501,6 +700,11 @@ namespace DrifterBossGrabMod.Patches
             if (mainSeatDict.TryGetValue(controller, out var obj))
             {
                 return obj;
+            }
+            // Fallback: Check vehicle seat directly (useful for clients when sync happened but dict not updated)
+            if (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger)
+            {
+                return controller.vehicleSeat.NetworkpassengerBodyObject;
             }
             return null;
         }
@@ -606,7 +810,7 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPostfix]
         public static void Postfix(RoR2.VehicleSeat __instance, GameObject bodyObject)
         {
-            if (bodyObject == null) return;
+            if (bodyObject == null || !NetworkServer.active) return;
             // Check if this is an additional seat (not the main seat)
             var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
             if (drifterBagController == null) return;
@@ -632,7 +836,33 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             seatDict[bodyObject] = __instance;
-            BagPatches.SetMainSeatObject(drifterBagController, null);
+        }
+    }
+
+    [HarmonyPatch(typeof(GlobalEventManager), nameof(GlobalEventManager.OnCharacterDeath))]
+    public static class GlobalEventManager_OnCharacterDeath
+    {
+        [HarmonyPostfix]
+        public static void Postfix(DamageReport damageReport)
+        {
+            if (damageReport == null || damageReport.victimBody == null) return;
+            GameObject victim = damageReport.victimBody.gameObject;
+
+            // Search all bags for this victim
+            foreach (var kvp in BagPatches.baggedObjectsDict)
+            {
+                var controller = kvp.Key;
+                var list = kvp.Value;
+
+                if (list != null && list.Contains(victim))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[GlobalEventManager_OnCharacterDeath] Bagged object {victim.name} died. Removing from bag of {controller.name}");
+                    }
+                    BagPatches.RemoveBaggedObject(controller, victim);
+                }
+            }
         }
     }
 }

@@ -76,6 +76,9 @@ namespace DrifterBossGrabMod
             ConfigChangeNotifier.AddObserver(this);
             SetupConfigurationEventHandlers();
             RegisterGameEvents();
+            
+            // Initialize networking
+            Networking.BagStateSync.Init(new Harmony(Constants.PluginGuid + ".networking"));
         }
         private void RemoveConfigurationEventHandlers()
         {
