@@ -43,12 +43,16 @@ namespace DrifterBossGrabMod.Patches
                     float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
                     if (scrollDelta > 0f) 
                     {
-                        scrollUp = true;
+                        if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) scrollDown = true;
+                        else scrollUp = true;
+                        
                         if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[HandleInput] Scroll Up detected from Mouse Wheel");
                     }
                     else if (scrollDelta < 0f) 
                     {
-                        scrollDown = true;
+                        if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) scrollUp = true;
+                        else scrollDown = true;
+                        
                         if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[HandleInput] Scroll Down detected from Mouse Wheel");
                     }
                 }
@@ -505,7 +509,6 @@ namespace DrifterBossGrabMod.Patches
                         BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
                     }
                     BagPatches.SetMainSeatObject(bagController, null);
-                    BagPatches.UpdateCarousel(bagController, direction);
                     if (seatForCurrent != null)
                     {
                         seatForCurrent.AssignPassenger(actualMainPassenger);
@@ -541,8 +544,6 @@ namespace DrifterBossGrabMod.Patches
                 }
                 bagController.AssignPassenger(targetObject);
                 BagPatches.SetMainSeatObject(bagController, targetObject);
-                BagPatches.UpdateCarousel(bagController, direction);
-                BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
             else
@@ -573,7 +574,6 @@ namespace DrifterBossGrabMod.Patches
                     System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                     targetAdditionalSeat.AssignPassenger(currentObject);
                     BagPatches.SetMainSeatObject(bagController, null);
-                    BagPatches.UpdateCarousel(bagController, direction);
                     BaggedObjectPatches.RemoveUIOverlay(currentObject);
                     localSeatDict[currentObject] = targetAdditionalSeat;
                 }
@@ -597,7 +597,6 @@ namespace DrifterBossGrabMod.Patches
                     {
                         seatForCurrent.AssignPassenger(currentObject);
                         BagPatches.SetMainSeatObject(bagController, null);
-                        BagPatches.UpdateCarousel(bagController, direction);
                         BaggedObjectPatches.RemoveUIOverlay(currentObject);
                         localSeatDict[currentObject] = seatForCurrent;
                     }
@@ -612,8 +611,6 @@ namespace DrifterBossGrabMod.Patches
                     System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
                 }
                 BagPatches.SetMainSeatObject(bagController, targetObject);
-                BagPatches.UpdateCarousel(bagController, direction);
-                BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
             // Update the global dict
@@ -625,9 +622,18 @@ namespace DrifterBossGrabMod.Patches
             {
                 BagPatches.additionalSeatsDict[bagController] = localSeatDict;
             }
+
+            // Consolidate updates to the end of state changes to avoid animation restarts
+            BagPatches.UpdateCarousel(bagController, direction);
+            if (!nextIsNull)
+            {
+                var targetObject = nextIndex < validObjects.Count ? validObjects[nextIndex] : null;
+                if (targetObject != null)
+                    BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
+            }
             
             // Sync network state after cycle operation
-            BagPatches.UpdateNetworkBagState(bagController);
+            BagPatches.UpdateNetworkBagState(bagController, direction);
         }
         private static bool ValidateSeatConfiguration(DrifterBagController bagController, List<GameObject> validObjects, GameObject? actualMainPassenger, bool isInNullState, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {

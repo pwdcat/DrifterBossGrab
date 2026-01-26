@@ -79,11 +79,11 @@ namespace DrifterBossGrabMod.UI
             if (c) _slots.Add(c.gameObject);
             if (b) _slots.Add(b.gameObject);
 
-            // Add 2 extra slots for exit transitions if we have a template
+            // Add extra slots for exit transitions if we have a template
             GameObject? template = (c != null) ? c.gameObject : slotPrefab;
             if (template)
             {
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     GameObject extra = Instantiate(template, transform);
                     extra.name = $"extraSlot_{i}";
@@ -303,7 +303,8 @@ namespace DrifterBossGrabMod.UI
                 targetOpacity = 0f;
             }
             
-            AnimateSlot(slot, p.pos.x, p.pos.y, p.scale, targetOpacity, hideAfter);
+            bool useFading = capacity > 1;
+            AnimateSlot(slot, p.pos.x, p.pos.y, p.scale, targetOpacity, hideAfter, useFading);
         }
 
         private (Vector2 pos, float scale, float opacity) GetStateParams(int state, int capacity)
@@ -339,19 +340,43 @@ namespace DrifterBossGrabMod.UI
 
         private Dictionary<GameObject, Coroutine> _activeCoroutines = new();
 
-        private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity, bool hideAfter = false)
+        private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity, bool hideAfter, bool useFading)
         {
             if (_activeCoroutines.TryGetValue(slot, out var existing) && existing != null) 
             {
                 StopCoroutine(existing);
+                // Don't remove from dict here, it will be overwritten
             }
-            _activeCoroutines[slot] = StartCoroutine(AnimateSlotPosition(slot, x, y, scale, opacity, hideAfter));
+
+            // If duration is effectively zero OR capacity = 1 (useFading = false), apply everything immediately for snappy UI
+            if (PluginConfig.Instance.CarouselAnimationDuration.Value <= 0.001f || !useFading)
+            {
+                ApplySlotStateImmediate(slot, x, y, scale, opacity);
+                if (hideAfter)
+                {
+                    slot.SetActive(false);
+                    _slotToPassenger.Remove(slot);
+                }
+                if (_activeCoroutines.ContainsKey(slot)) _activeCoroutines.Remove(slot);
+                return;
+            }
+
+            _activeCoroutines[slot] = StartCoroutine(AnimateSlotPosition(slot, x, y, scale, opacity, hideAfter, useFading));
+        }
+
+        private void ApplySlotStateImmediate(GameObject slot, float x, float y, float scale, float opacity)
+        {
+            var rectTransform = slot.GetComponent<RectTransform>();
+            if (rectTransform) rectTransform.anchoredPosition = new Vector2(x, y);
+            slot.transform.localScale = Vector3.one * scale;
+            var canvasGroup = slot.GetComponent<CanvasGroup>() ?? slot.AddComponent<CanvasGroup>();
+            canvasGroup.alpha = opacity;
         }
 
         private void SetSlotInitialState(GameObject slot, float x, float y, float scale, float opacity)
         {
-            var rect = slot.GetComponent<RectTransform>();
-            if (rect) rect.anchoredPosition = new Vector2(x, y);
+            var rectTransform = slot.GetComponent<RectTransform>();
+            if (rectTransform) rectTransform.anchoredPosition = new Vector2(x, y);
             slot.transform.localScale = Vector3.one * scale;
             var group = slot.GetComponent<CanvasGroup>() ?? slot.AddComponent<CanvasGroup>();
             group.alpha = opacity;
@@ -359,14 +384,10 @@ namespace DrifterBossGrabMod.UI
 
         private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity)
         {
-            if (_activeCoroutines.TryGetValue(slot, out var existing) && existing != null)
-            {
-                StopCoroutine(existing);
-            }
-            _activeCoroutines[slot] = StartCoroutine(AnimateSlotPosition(slot, x, y, scale, opacity));
+            AnimateSlot(slot, x, y, scale, opacity, false, true);
         }
 
-        private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter = false)
+        private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter, bool useFading)
         {
             var rectTransform = slot.GetComponent<RectTransform>();
             var canvasGroup = slot.GetComponent<CanvasGroup>() ?? slot.AddComponent<CanvasGroup>();
@@ -383,13 +404,15 @@ namespace DrifterBossGrabMod.UI
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-
                 // Ease In Out Cubic
                 float easeT = t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
 
                 if (rectTransform) rectTransform.anchoredPosition = Vector2.Lerp(startPosition, targetPosition, easeT);
                 slot.transform.localScale = Vector3.one * Mathf.Lerp(startScale, targetScale, easeT);
-                canvasGroup.alpha = Mathf.Lerp(startOpacity, targetOpacity, easeT);
+                if (useFading)
+                {
+                    canvasGroup.alpha = Mathf.Lerp(startOpacity, targetOpacity, easeT);
+                }
 
                 yield return null;
             }

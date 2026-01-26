@@ -158,7 +158,7 @@ namespace DrifterBossGrabMod
             }
 
             // Manually trigger the update on the component
-            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds, msg.seatIds);
+            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds, msg.seatIds, msg.scrollDirection);
         }
 
         private static void OnServerStageComplete(Stage stage)
@@ -169,7 +169,7 @@ namespace DrifterBossGrabMod
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             foreach (var controller in bagControllers)
             {
-                Patches.BagPatches.UpdateNetworkBagState(controller);
+                Patches.BagPatches.UpdateNetworkBagState(controller, 0);
                 
                 // Also send persistence messages
                 if (Patches.BagPatches.baggedObjectsDict.TryGetValue(controller, out var list))

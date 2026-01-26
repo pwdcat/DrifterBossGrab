@@ -63,11 +63,13 @@ namespace DrifterBossGrabMod.Networking
         public int selectedIndex;
         public uint[] baggedIds = System.Array.Empty<uint>();
         public uint[] seatIds = System.Array.Empty<uint>();
+        public int scrollDirection;
 
         public override void Serialize(NetworkWriter writer)
         {
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
+            writer.Write(scrollDirection);
             
             writer.Write(baggedIds.Length);
             foreach (var id in baggedIds) writer.Write(id);
@@ -80,14 +82,15 @@ namespace DrifterBossGrabMod.Networking
         {
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
+            scrollDirection = reader.ReadInt32();
             
             int count = reader.ReadInt32();
             baggedIds = new uint[count];
             for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
             
-            count = reader.ReadInt32();
-            seatIds = new uint[count];
-            for (int i = 0; i < count; i++) seatIds[i] = reader.ReadUInt32();
+            int count2 = reader.ReadInt32();
+            seatIds = new uint[count2];
+            for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
         }
     }
     // Network message for requesting a cycle (Client -> Server)

@@ -415,7 +415,10 @@ namespace DrifterBossGrabMod.Patches
                                 PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
                             }
                             UpdateCarousel(__instance);
-                            UpdateNetworkBagState(__instance);
+                            if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                            {
+                                UpdateNetworkBagState(__instance, 0);
+                            }
                             return false; // Prevent original method (which puts it in main seat)
                         }
                         else
@@ -505,7 +508,10 @@ namespace DrifterBossGrabMod.Patches
                     // Update carousel
                     UpdateCarousel(__instance);
                     // Sync network state after grab
-                    UpdateNetworkBagState(__instance);
+                    if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                    {
+                        UpdateNetworkBagState(__instance, 0);
+                    }
                 }
             }
         }
@@ -541,7 +547,7 @@ namespace DrifterBossGrabMod.Patches
             // Network state is synced explicitly in AssignPassenger, CycleToNextObject, and RemoveBaggedObject.
         }
 
-        public static void UpdateNetworkBagState(DrifterBagController? controller)
+        public static void UpdateNetworkBagState(DrifterBagController? controller, int direction = 0)
         {
             if (controller == null || (!NetworkServer.active && !controller.hasAuthority)) return;
 
@@ -579,7 +585,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
                 
-                netController.SetBagState(selectedIndex, baggedObjects, additionalSeats);
+                netController.SetBagState(selectedIndex, baggedObjects, additionalSeats, direction);
             }
         }
 
@@ -646,10 +652,11 @@ namespace DrifterBossGrabMod.Patches
             
             // Update carousel
             // If we threw the selected item, animate to the next item (or empty slot)
-            UpdateCarousel(controller, wasMainPassenger ? 1 : 0);
+            int direction = wasMainPassenger ? 1 : 0;
+            UpdateCarousel(controller, direction);
             
             // Sync network state after removal
-            UpdateNetworkBagState(controller);
+            UpdateNetworkBagState(controller, direction);
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
@@ -682,32 +689,66 @@ namespace DrifterBossGrabMod.Patches
         public static void SetMainSeatObject(DrifterBagController controller, GameObject? obj)
         {
             if (controller == null) return;
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[SetMainSeatObject] Called for {controller.name} (ID:{controller.GetInstanceID()}) with obj: {obj?.name ?? "null"}");
+                Log.Info($"[SetMainSeatObject] Before - mainSeatDict contains key: {mainSeatDict.ContainsKey(controller)}, count: {mainSeatDict.Count}");
+                foreach (var kvp in mainSeatDict)
+                {
+                    string keyName = "destroyed";
+                    try { keyName = kvp.Key?.name ?? "null"; } catch { }
+                    string valueName = "destroyed";
+                    try { valueName = kvp.Value?.name ?? "null"; } catch { }
+                    Log.Info($"[SetMainSeatObject] Dict entry: {keyName} (ID:{kvp.Key?.GetInstanceID() ?? 0}) -> {valueName}");
+                }
+            }
             if (obj != null)
             {
                 mainSeatDict[controller] = obj;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[SetMainSeatObject] Set mainSeatDict[{controller.name} (ID:{controller.GetInstanceID()})] = {obj.name}");
+                }
             }
             else
             {
                 if (mainSeatDict.ContainsKey(controller))
                 {
                     System.Collections.Generic.CollectionExtensions.Remove(mainSeatDict, controller, out _);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[SetMainSeatObject] Removed {controller.name} (ID:{controller.GetInstanceID()}) from mainSeatDict");
+                    }
+                }
+                else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[SetMainSeatObject] Key {controller.name} (ID:{controller.GetInstanceID()}) not found, nothing to remove");
                 }
             }
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[SetMainSeatObject] After - mainSeatDict contains key: {mainSeatDict.ContainsKey(controller)}, count: {mainSeatDict.Count}");
+            }
         }
+
         public static GameObject? GetMainSeatObject(DrifterBagController controller)
         {
             if (controller == null) return null;
             if (mainSeatDict.TryGetValue(controller, out var obj))
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[GetMainSeatObject] Returning from mainSeatDict: {obj?.name ?? "null"} for {controller.name} (ID:{controller.GetInstanceID()})");
+                }
                 return obj;
             }
-            // Fallback: Check vehicle seat directly (useful for clients when sync happened but dict not updated)
-            if (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                return controller.vehicleSeat.NetworkpassengerBodyObject;
+                Log.Info($"[GetMainSeatObject] Returning null for {controller.name} (ID:{controller.GetInstanceID()}), dict count: {mainSeatDict.Count}");
             }
             return null;
         }
+
         public static int GetCurrentBaggedCount(DrifterBagController controller)
         {
             if (controller == null) return 0;

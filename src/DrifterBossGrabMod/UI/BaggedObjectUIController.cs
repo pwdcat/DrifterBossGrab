@@ -45,7 +45,7 @@ namespace DrifterBossGrabMod.UI
                         carouselInstance.AddComponent<UnityEngine.RectTransform>();
                         var carousel = carouselInstance.AddComponent<BaggedObjectCarousel>();
                         carousel.slotPrefab = slotPrefab;
-                        carousel.sideScale = PluginConfig.Instance.BagUIScale.Value;
+
 
                         // Instantiate the slot instances directly
                         aboveInstance = Instantiate(slotPrefab, carouselInstance.transform);

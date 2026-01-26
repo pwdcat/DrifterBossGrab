@@ -82,6 +82,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
+        public ConfigEntry<bool> InverseMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; private set; } = null!;
         public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
@@ -92,7 +93,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> CarouselSideScale { get; private set; } = null!;
         public ConfigEntry<float> CarouselSideOpacity { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
-        public ConfigEntry<float> BagUIScale { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowIcon { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowWeight { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowName { get; private set; } = null!;
@@ -234,17 +234,17 @@ namespace DrifterBossGrabMod
             Instance.BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, "Base capacity for bottomless bag, added to utility max stocks");
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items");
             Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers");
+            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert the mouse wheel scrolling direction");
             Instance.ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
             Instance.ScrollDownKeybind = cfg.Bind("Bottomless Bag", "ScrollDownKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll down through passengers");
-            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 120.0f, "Vertical spacing for carousel items");
-            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 0.0f, "Horizontal offset for the center carousel item");
-            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 0.0f, "Vertical offset for the center carousel item");
-            Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 0.0f, "Horizontal offset for the side carousel items");
-            Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 0.0f, "Vertical offset for the side carousel items");
+            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items");
+            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 20.0f, "Horizontal offset for the center carousel item");
+            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 40.0f, "Vertical offset for the center carousel item");
+            Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 20.0f, "Horizontal offset for the side carousel items");
+            Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 5.0f, "Vertical offset for the side carousel items");
             Instance.CarouselSideScale = cfg.Bind("Hud", "CarouselSideScale", 0.8f, "Scale for side carousel items");
-            Instance.CarouselSideOpacity = cfg.Bind("Hud", "CarouselSideOpacity", 0.6f, "Opacity for side carousel items");
-            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.5f, "Duration of carousel animation in seconds");
-            Instance.BagUIScale = cfg.Bind("Hud", "BagUIScale", 0.8f, "Overall scale for carousel slots");
+            Instance.CarouselSideOpacity = cfg.Bind("Hud", "CarouselSideOpacity", 0.3f, "Opacity for side carousel items");
+            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation in seconds");
             Instance.BagUIShowIcon = cfg.Bind("Hud", "BagUIShowIcon", true, "Show icon in additional Bag UI elements");
             Instance.BagUIShowWeight = cfg.Bind("Hud", "BagUIShowWeight", true, "Show weight indicator in additional Bag UI elements");
             Instance.BagUIShowName = cfg.Bind("Hud", "BagUIShowName", true, "Show name in additional Bag UI elements");
@@ -367,14 +367,7 @@ namespace DrifterBossGrabMod
             Instance._grabbableKeywordBlacklistCache.Invalidate();
         }
 
-        private static void UpdateBagUIScale()
-        {
-            var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
-            foreach (var carousel in carousels)
-            {
-                carousel.UpdateScales();
-            }
-        }
+
 
 
         private static void UpdateBagUIToggles()

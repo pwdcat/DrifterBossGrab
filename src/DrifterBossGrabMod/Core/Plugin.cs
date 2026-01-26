@@ -377,6 +377,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.BottomlessBagBaseCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.InverseMouseWheelScrolling));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollDownKeybind));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing));
@@ -387,7 +388,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideScale));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOpacity));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BagUIScale));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowIcon));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowWeight));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowName));

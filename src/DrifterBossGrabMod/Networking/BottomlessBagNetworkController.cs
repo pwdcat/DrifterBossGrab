@@ -3,18 +3,20 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
+using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod.Networking
 {
     public class BottomlessBagNetworkController : NetworkBehaviour
     {
-        [SyncVar(hook = nameof(OnSelectedIndexChanged))]
+        [SyncVar]
         public int selectedIndex = -1;
 
         // Use local lists instead of SyncLists to avoid HLAPI initialization issues on runtime-added components
         private List<uint> _baggedObjectNetIds = new List<uint>();
         private List<uint> _additionalSeatNetIds = new List<uint>();
+        private int _lastScrollDirection = 0;
 
         public override void OnStartClient()
         {
@@ -31,7 +33,7 @@ namespace DrifterBossGrabMod.Networking
             // Initialization is now handled by local lists
         }
 
-        public void SetBagState(int index, List<GameObject> baggedObjects, List<GameObject> additionalSeats)
+        public void SetBagState(int index, List<GameObject> baggedObjects, List<GameObject> additionalSeats, int direction = 0)
         {
             // Prepare IDs
             List<uint> baggedIds = new List<uint>();
@@ -65,7 +67,8 @@ namespace DrifterBossGrabMod.Networking
                     controllerNetId = GetComponent<NetworkIdentity>().netId,
                     selectedIndex = index,
                     baggedIds = baggedIds.ToArray(),
-                    seatIds = seatIds.ToArray()
+                    seatIds = seatIds.ToArray(),
+                    scrollDirection = direction
                 };
                 
                 NetworkServer.SendToAll(206, msg); // MSG_UPDATE_BAG_STATE = 206
@@ -84,10 +87,11 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        public void ApplyStateFromMessage(int index, uint[] baggedIds, uint[] seatIds)
+        public void ApplyStateFromMessage(int index, uint[] baggedIds, uint[] seatIds, int direction = 0)
         {
              // NetworkServer.active check logic moved to handler or irrelevant here for clients
-             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[BottomlessBagNetworkController] Applying State From Message. index={index}, objects={baggedIds.Length}");
+             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[BottomlessBagNetworkController] Applying State From Message. index={index}, objects={baggedIds.Length}, direction={direction}");
+             _lastScrollDirection = direction;
              UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
 
@@ -113,15 +117,50 @@ namespace DrifterBossGrabMod.Networking
             // Server updates its local state from the client's data
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
             
+            // Fix race condition where state transition happened before target sync
+            var controller = GetComponent<DrifterBagController>();
+            if (controller != null)
+            {
+                TryFixNullTargetState(controller, new List<uint>(baggedIds));
+            }
+            
             // Then tell all OTHER clients about it via Custom Message
             var msg = new UpdateBagStateMessage
             {
                 controllerNetId = GetComponent<NetworkIdentity>().netId,
                 selectedIndex = index,
                 baggedIds = baggedIds,
-                seatIds = seatIds
+                seatIds = seatIds,
+                scrollDirection = 0 // Clients updating server don't need to specify direction
             };
             NetworkServer.SendToAll(206, msg);
+        }
+        // Called when we receive bag state from client. If we're in BaggedObject state
+        // with null target, attempt to fix it using the newly received object IDs.
+        private void TryFixNullTargetState(DrifterBagController controller, List<uint> baggedIds)
+        {
+            if (!NetworkServer.active || baggedIds.Count == 0) return;
+            
+            // Find the BaggedObject state
+            var stateMachines = controller.GetComponentsInChildren<EntityStateMachine>(true);
+            foreach (var sm in stateMachines)
+            {
+                if (sm.state is BaggedObject baggedState && baggedState.targetObject == null)
+                {
+                    // Get the first bagged object as the target
+                    var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(baggedIds[0]));
+                    if (obj != null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[TryFixNullTargetState] Late-fixing null target to {obj.name}");
+                        }
+                        baggedState.targetObject = obj;
+                        BagPatches.SetMainSeatObject(controller, obj);
+                    }
+                    break;
+                }
+            }
         }
 
         private void UpdateLocalState(int index, List<uint> baggedIds, List<uint> seatIds)
@@ -148,12 +187,6 @@ namespace DrifterBossGrabMod.Networking
         private List<uint> _baggedObjectNetIdsTarget = new List<uint>();
         private List<uint> _additionalSeatNetIdsTarget = new List<uint>();
 
-        private void OnSelectedIndexChanged(int newIndex)
-        {
-            selectedIndex = newIndex;
-            // Only trigger sync on client for SyncVar changes
-            if (!NetworkServer.active) OnBagStateChanged();
-        }
 
         private Coroutine? _syncCoroutine;
         private void OnBagStateChanged()
@@ -290,7 +323,8 @@ namespace DrifterBossGrabMod.Networking
 
             if (triggerUIUpdate) 
             {
-                BagPatches.UpdateCarousel(controller);
+                BagPatches.UpdateCarousel(controller, _lastScrollDirection);
+                _lastScrollDirection = 0; // Reset after use
                 // Also update the UI Overlay
                 if (mainSeatObject != null)
                 {
