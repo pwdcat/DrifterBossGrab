@@ -788,6 +788,7 @@ namespace DrifterBossGrabMod.Patches
             
             // Sync network state after cycle operation
             BagPatches.UpdateNetworkBagState(bagController, direction);
+            BagPatches.ForceRecalculateMass(bagController);
             
             // Debugging: Inspect BaggedObject state and active skills
              if (PluginConfig.Instance.EnableDebugLogs.Value && (UnityEngine.Networking.NetworkServer.active || (bagController && bagController.hasAuthority)))

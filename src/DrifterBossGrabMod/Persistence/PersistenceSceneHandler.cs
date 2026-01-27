@@ -580,6 +580,15 @@ namespace DrifterBossGrabMod
                 return;
             }
 
+            if (Patches.BagPatches.GetUtilityMaxStock(bagController) <= 1)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Skipping auto-grab for {obj.name} - bag capacity is 1 (Temporary Fix)");
+                }
+                return;
+            }
+
             if (Patches.BagPatches.HasRoomForGrab(bagController))
             {
                 try
@@ -673,6 +682,15 @@ namespace DrifterBossGrabMod
                 }
                 return;
             }
+            if (Patches.BagPatches.GetUtilityMaxStock(bagController) <= 1)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Skipping auto-grab - bag capacity is 1 (Temporary Fix)");
+                }
+                return;
+            }
+
             // Find all persisted objects in the current scene
             var persistedObjectsInScene = new List<GameObject>();
             var _lock = PersistenceObjectManager.GetLock();

@@ -327,9 +327,6 @@ namespace DrifterBossGrabMod.Patches
                 {
                     return false;
                 }
-
-
-                // Use main seat for single capacity, additional seats for capacity > 1
                 // Use main seat for single capacity, additional seats for capacity > 1
                 // Skip this check if object is already tracked (reassignment/cycling)
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -408,6 +405,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             UpdateNetworkBagState(__instance, 0);
                         }
+                        ForceRecalculateMass(__instance);
                         return false; // Skip original (keeps Main Seat empty)
                     }
                     else
@@ -486,6 +484,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         UpdateNetworkBagState(__instance, 0);
                     }
+                    ForceRecalculateMass(__instance);
                 }
             }
         }
@@ -805,6 +804,46 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
+            ForceRecalculateMass(controller);
+        }
+        
+        public static void ForceRecalculateMass(DrifterBagController controller)
+        {
+             if (controller == null) return;
+             
+             // Replicate the logic from RepossessPatches.DrifterBagController_RecalculateBaggedObjectMass_Patch
+             // We want to force the mass to be correct based on the *current* main seat object.
+             
+             var mainSeatObj = GetMainSeatObject(controller);
+             float totalMass = 0f;
+             
+             if (mainSeatObj != null)
+             {
+                 // call CalculateBaggedObjectMass public method
+                 totalMass = controller.CalculateBaggedObjectMass(mainSeatObj);
+                 
+                 // Apply multiplier if RepossessPatches applies
+                 float multiplier = 1.0f;
+                 if (float.TryParse(PluginConfig.Instance.MassMultiplier.Value, out float parsed))
+                 {
+                     multiplier = parsed;
+                 }
+                 totalMass *= multiplier;
+             }
+
+             // Clamp like original
+             totalMass = Mathf.Clamp(totalMass, 0f, 700f); // 700f is default maxMass, safer to hardcode or read static field if accessible
+             
+             // Set private field 'baggedMass'
+             var field = AccessTools.Field(typeof(DrifterBagController), "baggedMass");
+             if (field != null)
+             {
+                 field.SetValue(controller, totalMass);
+                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                 {
+                     Log.Info($"[ForceRecalculateMass] Manually set baggedMass to {totalMass} for {controller.name} (MainObj: {mainSeatObj?.name ?? "null"})");
+                 }
+             }
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
