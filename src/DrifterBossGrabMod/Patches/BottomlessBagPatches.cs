@@ -114,6 +114,9 @@ namespace DrifterBossGrabMod.Patches
         public static void CyclePassengers(DrifterBagController bagController, int amount)
         {
             if (bagController == null || amount == 0) return;
+
+            // Prevent scrolling if capacity is 1 or less
+            if (BagPatches.GetUtilityMaxStock(bagController) <= 1) return;
     
             // If we are on client and have authority, send a message to server
             if (!NetworkServer.active && bagController.hasAuthority)

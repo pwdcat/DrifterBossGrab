@@ -3,6 +3,28 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4]
+
+### Added
+- UI for Bottomless Bag
+- UI animations for bag transitions
+- Risk of Options setting for `EnableStockRefreshClamping`
+
+### Fixed
+- General multiplayer synchronization and setup
+- UI fixes for death and state transitions
+- UI fixes for bag capacity greater than 5
+- Removed UI fade-in when capacity is set to 1
+
+### Note
+- Autograb is still currently broken, but Bottomless Bag features are semi functional
+- Persistence should be fine, it'll spawn on the host but should be synced
+
+## [1.6.3]
+
+### Fixed
+- Boss grabbing now works independently of NPC grabbing (needed to turn on both for it to work)
+
 ## [1.6.2]
 
 ### Added
