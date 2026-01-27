@@ -123,7 +123,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[BaggedObjectTracker] Object {obj.name} is being destroyed. Removing from bag of {controller.name}");
+                    Log.Info($"[BaggedObjectTracker] Object {(obj ? obj.name : "null")} is being destroyed. Removing from bag of {(controller ? controller.name : "null")}");
                 }
                 BagPatches.RemoveBaggedObject(controller, obj, true);
             }
@@ -342,7 +342,7 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"[AssignPassenger] MainSeat hasPassenger: {__instance.vehicleSeat.hasPassenger}");
                         if (__instance.vehicleSeat.hasPassenger)
                         {
-                            Log.Info($"[AssignPassenger] MainSeat Occupant: {__instance.vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
+                            Log.Info($"[AssignPassenger] MainSeat Occupant: {(__instance.vehicleSeat.NetworkpassengerBodyObject ? __instance.vehicleSeat.NetworkpassengerBodyObject.name : "null")}");
                         }
                     }
                 }
@@ -644,7 +644,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[RemoveBaggedObject] Force ejecting {obj.name} from Main Seat to clear it (isThrowing: {isThrowing}, isDestroying: {isDestroying})");
+                            Log.Info($"[RemoveBaggedObject] Force ejecting {(obj ? obj.name : "null")} from Main Seat to clear it (isThrowing: {isThrowing}, isDestroying: {isDestroying})");
                         }
                         
                         if (isDestroying)
@@ -679,7 +679,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                Log.Info($"[RemoveBaggedObject] Auto-promoting {newMain.name} to Main Seat after removal of previous main.");
+                                Log.Info($"[RemoveBaggedObject] Auto-promoting {(newMain ? newMain.name : "null")} to Main Seat after removal of previous main.");
                             }
                             
                             // If it's in an additional seat, we should eject it first so it can move to main
@@ -693,7 +693,7 @@ namespace DrifterBossGrabMod.Patches
                                         if (kvp.Key == newMain && kvp.Value != null)
                                         {
                                             if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                                Log.Info($"[RemoveBaggedObject] Ejecting {newMain.name} from additional seat before promoting.");
+                                                Log.Info($"[RemoveBaggedObject] Ejecting {(newMain ? newMain.name : "null")} from additional seat before promoting.");
                                             
                                             if (NetworkServer.active)
                                             {
@@ -718,7 +718,7 @@ namespace DrifterBossGrabMod.Patches
                                     {
                                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                                         {
-                                            Log.Info($"[RemoveBaggedObject] WARNING: AssignPassenger failed to seat {newMain.name}. Seat occupant: {controller.vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
+                                            Log.Info($"[RemoveBaggedObject] WARNING: AssignPassenger failed to seat {(newMain ? newMain.name : "null")}. Seat occupant: {(controller.vehicleSeat.NetworkpassengerBodyObject ? controller.vehicleSeat.NetworkpassengerBodyObject.name : "null")}");
                                             Log.Info($"[RemoveBaggedObject] Forcing direct VehicleSeat.AssignPassenger...");
                                         }
                                         controller.vehicleSeat.AssignPassenger(newMain);
@@ -730,7 +730,7 @@ namespace DrifterBossGrabMod.Patches
                                     }
                                     else if (PluginConfig.Instance.EnableDebugLogs.Value)
                                     {
-                                        Log.Info($"[RemoveBaggedObject] Successfully seated {newMain.name} in Main Seat.");
+                                        Log.Info($"[RemoveBaggedObject] Successfully seated {(newMain ? newMain.name : "null")} in Main Seat.");
                                     }
                                 }
                             }
@@ -740,7 +740,7 @@ namespace DrifterBossGrabMod.Patches
                                 SetMainSeatObject(controller, newMain);
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 {
-                                    Log.Info($"[RemoveBaggedObject] Client-side auto-promotion of {newMain.name} complete.");
+                                    Log.Info($"[RemoveBaggedObject] Client-side auto-promotion of {(newMain ? newMain.name : "null")} complete.");
                                 }
                             }
                         }
@@ -776,7 +776,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[RemoveBaggedObject] Updating Bag state machine for {controller.name}");
+                            Log.Info($"[RemoveBaggedObject] Updating Bag state machine for {(controller ? controller.name : "null")}");
                         }
                         
                         // Check if we have a new main passenger that needs a state
@@ -785,7 +785,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                              if (PluginConfig.Instance.EnableDebugLogs.Value)
                              {
-                                 Log.Info($"[RemoveBaggedObject] Transitioning Bag state machine to BaggedObject for {currentMain.name}");
+                                 Log.Info($"[RemoveBaggedObject] Transitioning Bag state machine to BaggedObject for {(currentMain ? currentMain.name : "null")}");
                              }
                              var newState = new BaggedObject();
                              newState.targetObject = currentMain;
@@ -843,6 +843,9 @@ namespace DrifterBossGrabMod.Patches
                  {
                      Log.Info($"[ForceRecalculateMass] Manually set baggedMass to {totalMass} for {controller.name} (MainObj: {mainSeatObj?.name ?? "null"})");
                  }
+                 
+                 // Trigger stat recalculation to reflect mass changes if possible
+                 controller.GetComponent<CharacterBody>()?.RecalculateStats();
              }
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)

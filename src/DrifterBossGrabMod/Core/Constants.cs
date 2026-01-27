@@ -8,6 +8,6 @@ namespace DrifterBossGrabMod
         // Version info
         public const string PluginGuid = "pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.6.4";
+        public const string PluginVersion = "1.6.6";
     }
 }

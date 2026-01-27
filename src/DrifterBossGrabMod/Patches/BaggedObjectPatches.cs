@@ -686,14 +686,15 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [TryOverrideUtility] Attempting override for {targetObject?.name ?? "null"}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {skill?.skillName ?? "null"}");
+                    string targetName = (targetObject ? targetObject.name : "null");
+                    Log.Info($" [TryOverrideUtility] Attempting override for {targetName}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {(skill ? skill.skillName : "null")}");
                 }
                 // Only allow if the object is in the main seat
                 if (isMainSeatOccupant)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverrideUtility] ALLOWING skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
+                        Log.Info($" [TryOverrideUtility] ALLOWING skill override for {(targetObject ? targetObject.name : "null")} (main seat: {isMainSeatOccupant})");
                     }
                     return true; // Allow normal execution
                 }
@@ -705,9 +706,13 @@ namespace DrifterBossGrabMod.Patches
                     var overriddenUtility = (GenericSkill)overriddenUtilityField.GetValue(__instance);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverrideUtility] BLOCKING override - unsetting existing override for {targetObject?.name} (not in main seat), overriddenUtility: {overriddenUtility?.skillName ?? "null"}");
+                        string targetName = (targetObject ? targetObject.name : "null");
+                        string trackedName = (BagPatches.GetMainSeatObject(bagController) ? BagPatches.GetMainSeatObject(bagController).name : "null");
+                        string passengerName = (bagController?.vehicleSeat?.NetworkpassengerBodyObject ? bagController.vehicleSeat.NetworkpassengerBodyObject.name : "null");
+                        
+                        Log.Info($" [TryOverrideUtility] BLOCKING override - unsetting existing override for {targetName} (not in main seat), overriddenUtility: {(overriddenUtility ? overriddenUtility.skillName : "null")}");
                         // Log current state details
-                        Log.Info($" [TryOverrideUtility] Current state - tracked main seat: {BagPatches.GetMainSeatObject(bagController)?.name ?? "null"}, vehicle passenger: {bagController?.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}, hasAuthority: {bagController?.hasAuthority ?? false}");
+                        Log.Info($" [TryOverrideUtility] Current state - tracked main seat: {trackedName}, vehicle passenger: {passengerName}, hasAuthority: {bagController?.hasAuthority ?? false}");
                     }
                     if (overriddenUtility != null)
                     {
@@ -716,7 +721,7 @@ namespace DrifterBossGrabMod.Patches
                         overriddenUtilityField.SetValue(__instance, null);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" [TryOverrideUtility] Unset skill override for {targetObject?.name} (not in main seat)");
+                            Log.Info($" [TryOverrideUtility] Unset skill override for {(targetObject ? targetObject.name : "null")} (not in main seat)");
                         }
                     }
                     return false; // Skip the original method - no skill override
@@ -748,14 +753,15 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [TryOverridePrimary] Attempting override for {targetObject?.name ?? "null"}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {skill?.skillName ?? "null"}");
+                    string targetName = (targetObject ? targetObject.name : "null");
+                    Log.Info($" [TryOverridePrimary] Attempting override for {targetName}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {(skill ? skill.skillName : "null")}");
                 }
                 // Only allow if the object is in the main seat
                 if (isMainSeatOccupant)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverridePrimary] ALLOWING skill override for {targetObject?.name} (main seat: {isMainSeatOccupant})");
+                        Log.Info($" [TryOverridePrimary] ALLOWING skill override for {(targetObject ? targetObject.name : "null")} (main seat: {isMainSeatOccupant})");
                     }
                     return true; // Allow normal execution
                 }
@@ -767,9 +773,13 @@ namespace DrifterBossGrabMod.Patches
                     var overriddenPrimary = (GenericSkill)overriddenPrimaryField.GetValue(__instance);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TryOverridePrimary] BLOCKING override - unsetting existing override for {targetObject?.name} (not in main seat), overriddenPrimary: {overriddenPrimary?.skillName ?? "null"}");
+                        string targetName = (targetObject ? targetObject.name : "null");
+                        string trackedName = (BagPatches.GetMainSeatObject(bagController) ? BagPatches.GetMainSeatObject(bagController).name : "null");
+                        string passengerName = (bagController?.vehicleSeat?.NetworkpassengerBodyObject ? bagController.vehicleSeat.NetworkpassengerBodyObject.name : "null");
+
+                        Log.Info($" [TryOverridePrimary] BLOCKING override - unsetting existing override for {targetName} (not in main seat), overriddenPrimary: {(overriddenPrimary ? overriddenPrimary.skillName : "null")}");
                         // Log current state details
-                        Log.Info($" [TryOverridePrimary] Current state - tracked main seat: {BagPatches.GetMainSeatObject(bagController)?.name ?? "null"}, vehicle passenger: {bagController?.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}, hasAuthority: {bagController?.hasAuthority ?? false}");
+                        Log.Info($" [TryOverridePrimary] Current state - tracked main seat: {trackedName}, vehicle passenger: {passengerName}, hasAuthority: {bagController?.hasAuthority ?? false}");
                     }
                     if (overriddenPrimary != null)
                     {
@@ -778,7 +788,7 @@ namespace DrifterBossGrabMod.Patches
                         overriddenPrimaryField.SetValue(__instance, null);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" [TryOverridePrimary] Unset skill override for {targetObject?.name} (not in main seat)");
+                            Log.Info($" [TryOverridePrimary] Unset skill override for {(targetObject ? targetObject.name : "null")} (not in main seat)");
                         }
                     }
                     return false; // Skip the original method - no skill override
@@ -1104,8 +1114,21 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(BaggedObject __instance)
             {
+                if (__instance == null) return true;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    // Use Unity's implicit bool check to avoid NRE when accessing .name on a destroyed object
+                    string targetName = (__instance.targetObject ? __instance.targetObject.name : "null");
+                    Log.Info($" [BaggedObject_OnExit] Prefix start for targetObject: {targetName}");
+                }
+
+                // ALWAYS attempt cleanup first. 
+                // This ensures that even if we skip the original OnExit or it fails, the overrides are gone.
+                UnsetAllOverrides(__instance);
+
                 bool isSuppressed = false;
-                if (__instance?.targetObject != null)
+                if (__instance.targetObject)
                 {
                     lock (_suppressedExitObjects)
                     {
@@ -1121,18 +1144,19 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [BaggedObject_OnExit] Suppressed OnExit for {__instance?.targetObject?.name ?? "null"} (Persistence Auto-Grab Prevention)");
+                        Log.Info($" [BaggedObject_OnExit] Suppressed OnExit (Persistence Auto-Grab Prevention)");
                     }
                     return false;
                 }
 
-                if (__instance == null || __instance.targetObject == null)
+                if (!__instance.targetObject)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [BaggedObject_OnExit] Skipping original OnExit - __instance or targetObject is null");
+                        Log.Info($" [BaggedObject_OnExit] targetObject is null/destroyed, skipping original OnExit to prevent NRE (cleanup already attempted).");
                     }
-                    return false; // Skip original OnExit to prevent NRE
+                    RemoveWalkSpeedPenalty(__instance);
+                    return false; 
                 }
 
                 bool isDead = false;
@@ -1150,30 +1174,156 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [BaggedObject_OnExit] Skipping original OnExit - targetObject is dead/dying ({__instance.targetObject.name})");
+                        Log.Info($" [BaggedObject_OnExit] targetObject is dead/dying ({__instance.targetObject.name}), skipping original OnExit to avoid crashes (cleanup already attempted).");
                     }
-                    return false; // Skip original OnExit for dead objects to avoid crashes
+                    RemoveWalkSpeedPenalty(__instance);
+                    return false; 
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [BaggedObject_OnExit] Called for targetObject: {__instance.targetObject.name}");
                     var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
                         Log.Info($" [BaggedObject_OnExit] bagController: {bagController.name}, hasAuthority: {bagController.hasAuthority}");
                         Log.Info($" [BaggedObject_OnExit] vehicleSeat hasPassenger: {bagController.vehicleSeat?.hasPassenger ?? false}");
-                        Log.Info($" [BaggedObject_OnExit] vehicleSeat passenger: {bagController.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}");
+                        Log.Info($" [BaggedObject_OnExit] vehicleSeat passenger: {(bagController.vehicleSeat?.NetworkpassengerBodyObject ? bagController.vehicleSeat.NetworkpassengerBodyObject.name : "null")}");
                         bool isTracked = BagPatches.mainSeatDict.TryGetValue(bagController, out var tracked) && ReferenceEquals(__instance.targetObject, tracked);
-                        Log.Info($" [BaggedObject_OnExit] isTracked as main seat: {isTracked}, tracked: {tracked?.name ?? "null"}");
-                        // Check if object is being destroyed
-                        Log.Info($" [BaggedObject_OnExit] targetObject dead: {isDead}");
-                        // Check if it's in additional seats
+                        Log.Info($" [BaggedObject_OnExit] isTracked as main seat: {isTracked}, tracked: {(tracked ? tracked.name : "null")}");
                         bool inAdditionalSeat = BagPatches.GetAdditionalSeat(bagController, __instance.targetObject) != null;
                         Log.Info($" [BaggedObject_OnExit] inAdditionalSeat: {inAdditionalSeat}");
                     }
                 }
                 return true;
+            }
+
+            private static void UnsetAllOverrides(BaggedObject instance)
+            {
+                try
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($" [UnsetAllOverrides] Starting cleanup for instance {instance.GetHashCode()}");
+
+                    // Method 1: Field-based cleanup (the standard way)
+                    // Unset Utility
+                    var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
+                    var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
+                    
+                    if (overriddenUtilityField != null && utilityOverrideField != null)
+                    {
+                        var overriddenUtility = (GenericSkill)overriddenUtilityField.GetValue(instance);
+                        var utilityOverride = (SkillDef)utilityOverrideField.GetValue(instance);
+                        
+                        if (overriddenUtility != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
+                                Log.Info($" [UnsetAllOverrides] Unsetting Utility override: {(utilityOverride ? utilityOverride.skillName : "null")} on skill: {(overriddenUtility ? overriddenUtility.skillName : "null")}");
+                            
+                            overriddenUtility.UnsetSkillOverride(instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            overriddenUtilityField.SetValue(instance, null);
+                        }
+                    }
+
+                    // Unset Primary
+                    var overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
+                    var primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+                    
+                    if (overriddenPrimaryField != null && primaryOverrideField != null)
+                    {
+                        var overriddenPrimary = (GenericSkill)overriddenPrimaryField.GetValue(instance);
+                        var primaryOverride = (SkillDef)primaryOverrideField.GetValue(instance);
+                        
+                        if (overriddenPrimary != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
+                                Log.Info($" [UnsetAllOverrides] Unsetting Primary override: {(primaryOverride ? primaryOverride.skillName : "null")} on skill: {(overriddenPrimary ? overriddenPrimary.skillName : "null")}");
+                            
+                            overriddenPrimary.UnsetSkillOverride(instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            overriddenPrimaryField.SetValue(instance, null);
+                        }
+                    }
+
+                    // Method 2: Nuclear Option - Scan the character's skills directly for any override sourced by this instance
+                    var body = instance.outer?.GetComponent<CharacterBody>();
+                    if (body && body.skillLocator)
+                    {
+                        CleanupSkillFromLocator(instance, body.skillLocator.primary);
+                        CleanupSkillFromLocator(instance, body.skillLocator.secondary);
+                        CleanupSkillFromLocator(instance, body.skillLocator.utility);
+                        CleanupSkillFromLocator(instance, body.skillLocator.special);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Error in UnsetAllOverrides: {ex.Message}\n{ex.StackTrace}");
+                }
+            }
+
+            private static void RemoveWalkSpeedPenalty(BaggedObject instance)
+            {
+                if (instance == null || instance.outer == null) return;
+                try
+                {
+                    var motor = instance.outer.gameObject.GetComponent<CharacterMotor>();
+                    if (motor == null) return;
+
+                    var modifierField = AccessTools.Field(typeof(BaggedObject), "walkSpeedModifier");
+                    if (modifierField != null)
+                    {
+                        var modifier = modifierField.GetValue(instance) as CharacterMotor.WalkSpeedPenaltyModifier;
+                        if (modifier != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [RemoveWalkSpeedPenalty] Manually removing walk speed penalty from {instance.outer.name}");
+                            }
+                            motor.RemoveWalkSpeedPenalty(modifier);
+                            modifierField.SetValue(instance, null);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Error in RemoveWalkSpeedPenalty: {ex.Message}");
+                }
+            }
+
+            private static void CleanupSkillFromLocator(BaggedObject instance, GenericSkill skill)
+            {
+                if (!skill) return;
+                try
+                {
+                    // skill.skillOverrides is private List<GenericSkill.SkillOverride>
+                    var overridesField = AccessTools.Field(typeof(GenericSkill), "skillOverrides");
+                    var overridesList = (System.Collections.IList)overridesField.GetValue(skill);
+                    if (overridesList == null) return;
+
+                    // Iterate backwards to safely remove
+                    for (int i = overridesList.Count - 1; i >= 0; i--)
+                    {
+                        var skillOverride = overridesList[i];
+                        // skillOverride is a private struct GenericSkill.SkillOverride
+                        var sourceField = skillOverride.GetType().GetField("source", BindingFlags.Public | BindingFlags.Instance);
+                        var source = sourceField?.GetValue(skillOverride);
+                        
+                        if (ReferenceEquals(source, instance))
+                        {
+                            var skillDefField = skillOverride.GetType().GetField("skillDef", BindingFlags.Public | BindingFlags.Instance);
+                            var skillDef = (SkillDef)skillDefField?.GetValue(skillOverride);
+                            var priorityField = skillOverride.GetType().GetField("priority", BindingFlags.Public | BindingFlags.Instance);
+                            var priority = (GenericSkill.SkillOverridePriority)(priorityField?.GetValue(skillOverride) ?? GenericSkill.SkillOverridePriority.Contextual);
+                            
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
+                                Log.Info($" [UnsetAllOverrides] NUCLEAR: Force removing override {(skillDef ? skillDef.skillName : "null")} from {skill.skillName} (sourced from {instance.GetHashCode()})");
+                            
+                            skill.UnsetSkillOverride(instance, skillDef, priority);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($" [UnsetAllOverrides] Nuclear cleanup failed for {skill.skillName}: {ex.Message}");
+                }
             }
             [HarmonyPostfix]
             public static void Postfix(BaggedObject __instance)
@@ -1826,7 +1976,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     var vpa = _vehiclePassengerAttributesField?.GetValue(__instance) as SpecialObjectAttributes;
                     
-                    Log.Info($" [BaggedObject_FixedUpdate] targetObject: {__instance.targetObject?.name ?? "null"}, vehiclePassengerAttributes: {vpa?.name ?? "null"}");
+                    Log.Info($" [BaggedObject_FixedUpdate] targetObject: {(__instance.targetObject ? __instance.targetObject.name : "null")}, vehiclePassengerAttributes: {(vpa ? vpa.name : "null")}");
                     
                     var bagController = __instance.outer.GetComponent<DrifterBagController>();
                     if (bagController != null && bagController.vehicleSeat != null)
@@ -1860,7 +2010,7 @@ namespace DrifterBossGrabMod.Patches
                         if (controller)
                         {
                             var currentPassenger = controller.vehicleSeat?.NetworkpassengerBodyObject;
-                             Log.Info($"    [State Context] Controller found. Current Seat Passenger: {currentPassenger?.name ?? "null"}");
+                             Log.Info($"    [State Context] Controller found. Current Seat Passenger: {(currentPassenger ? currentPassenger.name : "null")}");
                         }
                     }
                 }
@@ -1877,7 +2027,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (__instance.characterBody && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
                 {
-                     Log.Info($" [GenericSkill_ExecuteIfReady] Skill: {__instance.skillDef?.skillName ?? "null"} (Stock: {__instance.stock})");
+                     Log.Info($" [GenericSkill_ExecuteIfReady] Skill: {(__instance.skillDef ? __instance.skillDef.skillName : "null")} (Stock: {__instance.stock})");
                 }
             }
         }
