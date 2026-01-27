@@ -81,6 +81,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
+        public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
         public ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<bool> InverseMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
@@ -100,6 +101,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> UseNewWeightIcon { get; private set; } = null!;
         public ConfigEntry<bool> ShowWeightText { get; private set; } = null!;
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
+        public ConfigEntry<bool> AutoPromoteMainSeat { get; private set; } = null!;
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
@@ -233,6 +235,7 @@ namespace DrifterBossGrabMod
                 "Allows the scroll wheel to cycle through stored passengers. Bag capacity scales with the number of repossesses.");
             Instance.BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, "Base capacity for bottomless bag, added to utility max stocks");
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items");
+            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.1f, "Cooldown between passenger cycles (seconds)");
             Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers");
             Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert the mouse wheel scrolling direction");
             Instance.ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
@@ -252,6 +255,7 @@ namespace DrifterBossGrabMod
             Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the new custom weight icon instead of the original");
             Instance.ShowWeightText = cfg.Bind("Hud", "ShowWeightText", false, "Show weight multiplier text on the weight icon");
             Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale the weight icon color based on mass");
+            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", true, "Automatically promote the next object in the bag to the main seat when the current main object is removed.");
 
             // Add event handlers for live updates
             Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();

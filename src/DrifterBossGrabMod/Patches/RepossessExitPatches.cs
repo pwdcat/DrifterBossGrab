@@ -113,73 +113,25 @@ namespace DrifterBossGrabMod.Patches
             }
             Log.Info($" === END COMPONENT DUMP ===");
         }
-        [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnEnter")]
-        public class BaggedObject_OnEnter_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
-            {
-                try
-                {
-                    var traverse = Traverse.Create(__instance);
-                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
-                    if (targetObject == null) return;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        var targetName = targetObject.name;
-                        Log.Info($" BaggedObject.OnEnter: targetObject = {targetName} ({targetObject})");
-                        DumpGrabbingComponents(targetObject, "BaggedObject.OnEnter");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($" Error in BaggedObject.OnEnter debug logging: {ex.Message}");
-                }
-            }
-        }
-        [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnExit")]
-        public class BaggedObject_OnExit_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
-            {
-                try
-                {
-                    var traverse = Traverse.Create(__instance);
-                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
-                    if (targetObject == null) return;
-                    // Re-enable Rigidbody for released objects
-                    var rb = targetObject.GetComponent<Rigidbody>();
-                    if (rb)
-                    {
-                        rb.isKinematic = false;
-                        rb.detectCollisions = true;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Restored Rigidbody on {targetObject.name} (bag exit)");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($" Error in BaggedObject.OnExit restoration: {ex.Message}");
-                }
-            }
-        }
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
             private static GameObject? originalChosenTarget;
+            
             [HarmonyPrefix]
-            public static void Prefix(RepossessExit __instance)
+            public static bool Prefix(RepossessExit __instance)
             {
                 var traverse = Traverse.Create(__instance);
-                originalChosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                originalChosenTarget = chosenTarget;
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" RepossessExit Prefix: originalChosenTarget = {originalChosenTarget}");
                 }
+                return true;
             }
+
             [HarmonyPostfix]
             public static void Postfix(RepossessExit __instance)
             {
@@ -237,5 +189,59 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnEnter")]
+        public class BaggedObject_OnEnter_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
+            {
+                try
+                {
+                    var traverse = Traverse.Create(__instance);
+                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
+                    if (targetObject == null) return;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        var targetName = targetObject.name;
+                        Log.Info($" BaggedObject.OnEnter: targetObject = {targetName} ({targetObject})");
+                        DumpGrabbingComponents(targetObject, "BaggedObject.OnEnter");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($" Error in BaggedObject.OnEnter debug logging: {ex.Message}");
+                }
+            }
+        }
+        [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnExit")]
+        public class BaggedObject_OnExit_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
+            {
+                try
+                {
+                    var traverse = Traverse.Create(__instance);
+                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
+                    if (targetObject == null) return;
+                    // Re-enable Rigidbody for released objects
+                    var rb = targetObject.GetComponent<Rigidbody>();
+                    if (rb)
+                    {
+                        rb.isKinematic = false;
+                        rb.detectCollisions = true;
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Restored Rigidbody on {targetObject.name} (bag exit)");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($" Error in BaggedObject.OnExit restoration: {ex.Message}");
+                }
+            }
+        }
     }
 }
+

@@ -8,6 +8,8 @@ using UnityEngine.Networking;
 using System.Linq;
 using System.Reflection;
 using DrifterBossGrabMod;
+using EntityStates;
+using EntityStates.Drifter.Bag;
 namespace DrifterBossGrabMod.Patches
 {
     public interface ISeatBuilder
@@ -123,7 +125,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($"[BaggedObjectTracker] Object {obj.name} is being destroyed. Removing from bag of {controller.name}");
                 }
-                BagPatches.RemoveBaggedObject(controller, obj);
+                BagPatches.RemoveBaggedObject(controller, obj, true);
             }
         }
     }
@@ -348,104 +350,76 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AssignPassenger] isAlreadyTracked={isAlreadyTrackedByThisController}, effectiveCapacity={effectiveCapacity}, objectsInBag={objectsInBag}");
+                }
+
+                // If capacity is > 1, try to stash (use Additional Seat) first
+                // This keeps the Main Seat empty, allowing the "Grab" skill to persist for chaining
                 if (!isAlreadyTrackedByThisController && effectiveCapacity > 1)
                 {
-                    // Count how many objects are currently in additional seats
-                    int additionalSeatsCount = 0;
-                    if (additionalSeatsDict.TryGetValue(__instance, out var existingSeatDict))
+                    // Check if we have an empty additional seat
+                    if (!additionalSeatsDict.TryGetValue(__instance, out var seatDict))
                     {
-                        additionalSeatsCount = existingSeatDict.Count;
+                        seatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
+                        additionalSeatsDict[__instance] = seatDict;
                     }
+
+                    var newSeat = BottomlessBagPatches.FindOrCreateEmptySeat(__instance, ref seatDict);
                     
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    // If no empty seat found, but we are below total capacity, check if Main Seat is empty
+                    // If Main Seat is empty, we should fill it last according to prioritize rule
+                    // But if Additional Seats are full, we use Main Seat
+                    
+                    if (newSeat != null)
                     {
-                         Log.Info($"[AssignPassenger] additionalSeatsCount: {additionalSeatsCount}, effectiveCapacity - 1: {effectiveCapacity - 1}");
-                    }
-
-                    // If we have room in additional seats (total capacity - 1 for main seat), use additional seat
-                    if (additionalSeatsCount < effectiveCapacity - 1)
-                    {
-                        // Mark that we're using an additional seat so the postfix knows not to set main seat
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[AssignPassenger] Found empty additional seat. Stashing {passengerObject.name}");
+                        }
+                        
                         _usingAdditionalSeat = true;
-                        // Create additional seat if needed
-                        if (!additionalSeatsDict.TryGetValue(__instance, out var seatDict))
+                        AddTracker(__instance, passengerObject);
+                        
+                        // Ensure it's not tracked as main seat
+                        if (GetMainSeatObject(__instance) == passengerObject)
                         {
-                            seatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>();
-                            additionalSeatsDict[__instance] = seatDict;
+                            SetMainSeatObject(__instance, null);
                         }
 
-                        var newSeat = BottomlessBagPatches.FindOrCreateEmptySeat(__instance, ref seatDict);
-                        if (newSeat != null)
+                        if (NetworkServer.active)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[AssignPassenger] Found/Created additional seat. Assigning {passengerObject.name}");
-                            }
-                            
-                            // Add tracker
-                            AddTracker(__instance, passengerObject);
-
-                            // Ensure it's not tracked as main seat if we're putting it in an additional seat.
-                            // This prevents stale state from causing UpdateNetworkBagState to report it's the selected item.
-                            if (GetMainSeatObject(__instance) == passengerObject)
-                            {
-                                SetMainSeatObject(__instance, null);
-                            }
-
                             newSeat.AssignPassenger(passengerObject);
-                            seatDict[passengerObject] = newSeat;
-                            
-                            // Add to list if not already present (check by instance ID)
-                            bool alreadyInList = false;
-                            foreach (var existingObj in list)
-                            {
-                                if (existingObj != null && existingObj.GetInstanceID() == passengerInstanceId)
-                                {
-                                    alreadyInList = true;
-                                    break;
-                                }
-                            }
-                            if (!alreadyInList)
-                            {
-                                list.Add(passengerObject);
-                            }
-                            // Sync network state and send persistence message since postfix won't run
-                            if (UnityEngine.Networking.NetworkServer.active)
-                            {
-                                PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
-                            }
-                            UpdateCarousel(__instance);
-                            if (!DrifterBossGrabPlugin.IsSwappingPassengers)
-                            {
-                                UpdateNetworkBagState(__instance, 0);
-                            }
-                            return false; // Prevent original method (which puts it in main seat)
                         }
-                        else
+                        seatDict[passengerObject] = newSeat;
+                        
+                        if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
                         {
-                             if (PluginConfig.Instance.EnableDebugLogs.Value)
-                             {
-                                 Log.Warning($"[AssignPassenger] FindOrCreateEmptySeat returned NULL! Fallback to Main Seat.");
-                             }
+                            list.Add(passengerObject);
                         }
+
+                        if (NetworkServer.active)
+                        {
+                            PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
+                        }
+                        UpdateCarousel(__instance);
+                        if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                        {
+                            UpdateNetworkBagState(__instance, 0);
+                        }
+                        return false; // Skip original (keeps Main Seat empty)
                     }
                     else
                     {
-                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                         {
-                             Log.Info($"[AssignPassenger] No room in additional seats. Fallback to Main Seat (Overwrite).");
-                         }
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[AssignPassenger] Additional seats full ({seatDict.Count}). Falling back to Main Seat.");
+                        }
                     }
                 }
-                else
-                {
-                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                     {
-                         Log.Info($"[AssignPassenger] Capacity Check Failed or Already Tracked. Fallback to Main Seat.");
-                     }
-                }
-                // If no additional seats available or capacity is 1, use main seat
-                // Otherwise, allow original method to assign to main seat
+                
+                // Fallback to Main Seat (original method) if additional seats are full or capacity is 1.
                 return true;
             }
             [HarmonyPostfix]
@@ -589,7 +563,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj)
+        public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false)
         {
             if (obj == null) return;
             // Check if we're in the middle of a swap operation - if so, skip removal
@@ -602,6 +576,36 @@ namespace DrifterBossGrabMod.Patches
             // Check if the object being removed is the currently selected one
             GameObject? mainPassengerBefore = GetMainSeatObject(controller);
             bool wasMainPassenger = (mainPassengerBefore != null && mainPassengerBefore == obj);
+
+            // Force cleanup from mainSeatDict if it matches, regardless of wasMainPassenger check
+            if (mainPassengerBefore != null && mainPassengerBefore.GetInstanceID() == obj.GetInstanceID())
+            {
+               SetMainSeatObject(controller, null);
+               wasMainPassenger = true;
+            }
+
+            // Cleanup from additional seats
+            if (additionalSeatsDict.TryGetValue(controller, out var seatDict))
+            {
+                 // Remove by GameObject key
+                 if (seatDict.ContainsKey(obj))
+                 {
+                     System.Collections.Generic.CollectionExtensions.Remove(seatDict, obj, out _);
+                 }
+                 // Double check values (seats) just in case
+                 var toRemove = new List<GameObject>();
+                 foreach(var kvp in seatDict) 
+                 {
+                     if(kvp.Value != null && kvp.Value.NetworkpassengerBodyObject == obj)
+                     {
+                         toRemove.Add(kvp.Key);
+                     }
+                 }
+                 foreach(var key in toRemove)
+                 {
+                     System.Collections.Generic.CollectionExtensions.Remove(seatDict, key, out _);
+                 }
+            }
 
             // Check if object is being thrown (in projectile state)
             bool isThrowing = OtherPatches.IsInProjectileState(obj);
@@ -636,7 +640,112 @@ namespace DrifterBossGrabMod.Patches
                 // If the object being removed was tracked as the main passenger, clear that tracking.
                 if (wasMainPassenger)
                 {
+                    // Force eject the object from the vehicle seat if it's still there
+                    if (NetworkServer.active && controller.vehicleSeat != null && controller.vehicleSeat.NetworkpassengerBodyObject == obj)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RemoveBaggedObject] Force ejecting {obj.name} from Main Seat to clear it (isThrowing: {isThrowing}, isDestroying: {isDestroying})");
+                        }
+                        
+                        if (isDestroying)
+                        {
+                            // Should catch NRE in VehicleSeat.OnPassengerExit because the object is partially destroyed
+                            try
+                            {
+                                controller.vehicleSeat.EjectPassenger(obj);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[RemoveBaggedObject] Suppressed expected exception during ejection of destroying object: {ex.GetType().Name} - {ex.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            controller.vehicleSeat.EjectPassenger(obj);
+                        }
+                    }
+
                     SetMainSeatObject(controller, null);
+
+                    // Auto-promote next object to main seat if available
+                    // Only do this on authority/server to ensure physical seat state is managed correctly
+                    if (PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller.hasAuthority)))
+                    {
+                        var newMain = list[0];
+                        if (newMain != null && !OtherPatches.IsInProjectileState(newMain))
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[RemoveBaggedObject] Auto-promoting {newMain.name} to Main Seat after removal of previous main.");
+                            }
+                            
+                            // If it's in an additional seat, we should eject it first so it can move to main
+                            if (additionalSeatsDict.TryGetValue(controller, out var promotionSeatDict))
+                            {
+                                if (promotionSeatDict.ContainsKey(newMain))
+                                {
+                                    // Find the seat using value check to be sure
+                                    foreach (var kvp in promotionSeatDict)
+                                    {
+                                        if (kvp.Key == newMain && kvp.Value != null)
+                                        {
+                                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                                Log.Info($"[RemoveBaggedObject] Ejecting {newMain.name} from additional seat before promoting.");
+                                            
+                                            if (NetworkServer.active)
+                                            {
+                                                kvp.Value.EjectPassenger(newMain);
+                                            }
+                                            promotionSeatDict.TryRemove(newMain, out _);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Assign to Main Seat
+                            if (NetworkServer.active)
+                            {
+                                controller.AssignPassenger(newMain);
+                                
+                                // Verify assignment
+                                if (controller.vehicleSeat != null)
+                                {
+                                    if (controller.vehicleSeat.NetworkpassengerBodyObject != newMain)
+                                    {
+                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        {
+                                            Log.Info($"[RemoveBaggedObject] WARNING: AssignPassenger failed to seat {newMain.name}. Seat occupant: {controller.vehicleSeat.NetworkpassengerBodyObject?.name ?? "null"}");
+                                            Log.Info($"[RemoveBaggedObject] Forcing direct VehicleSeat.AssignPassenger...");
+                                        }
+                                        controller.vehicleSeat.AssignPassenger(newMain);
+                                        
+                                        if (controller.vehicleSeat.NetworkpassengerBodyObject != newMain && PluginConfig.Instance.EnableDebugLogs.Value)
+                                        {
+                                            Log.Info($"[RemoveBaggedObject] CRITICAL: Forced assignment also failed!");
+                                        }
+                                    }
+                                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    {
+                                        Log.Info($"[RemoveBaggedObject] Successfully seated {newMain.name} in Main Seat.");
+                                    }
+                                }
+                            }
+                            else if (controller.hasAuthority)
+                            {
+                                // Client-side prediction for auto-promotion
+                                SetMainSeatObject(controller, newMain);
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[RemoveBaggedObject] Client-side auto-promotion of {newMain.name} complete.");
+                                }
+                            }
+                        }
+                    }
                 }
             }
             // Cleanup empty additional seats only when throwing
@@ -657,6 +766,45 @@ namespace DrifterBossGrabMod.Patches
             
             // Sync network state after removal
             UpdateNetworkBagState(controller, direction);
+
+            // This ensures BaggedObject.OnExit runs and clears overrides
+            if (controller != null)
+            {
+                var stateMachines = controller.GetComponents<EntityStateMachine>();
+                foreach (var esm in stateMachines)
+                {
+                    if (esm.customName == "Bag")
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RemoveBaggedObject] Updating Bag state machine for {controller.name}");
+                        }
+                        
+                        // Check if we have a new main passenger that needs a state
+                        var currentMain = GetMainSeatObject(controller);
+                        if (currentMain != null)
+                        {
+                             if (PluginConfig.Instance.EnableDebugLogs.Value)
+                             {
+                                 Log.Info($"[RemoveBaggedObject] Transitioning Bag state machine to BaggedObject for {currentMain.name}");
+                             }
+                             var newState = new BaggedObject();
+                             newState.targetObject = currentMain;
+                             esm.SetNextState(newState);
+                        }
+                        else
+                        {
+                             if (PluginConfig.Instance.EnableDebugLogs.Value)
+                             {
+                                 Log.Info($"[RemoveBaggedObject] Resetting Bag state machine to Main (Idle)");
+                             }
+                             // This will trigger SetNextStateToMain (which we patched to allow reset if untracked)
+                             esm.SetNextStateToMain();
+                        }
+                        break;
+                    }
+                }
+            }
         }
         public static bool IsBaggedObject(DrifterBagController controller, GameObject obj)
         {
@@ -689,45 +837,21 @@ namespace DrifterBossGrabMod.Patches
         public static void SetMainSeatObject(DrifterBagController controller, GameObject? obj)
         {
             if (controller == null) return;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            
+            // Periodically clean up destroyed entries to prevent pollution
+            if (mainSeatDict.Count > 10)
             {
-                Log.Info($"[SetMainSeatObject] Called for {controller.name} (ID:{controller.GetInstanceID()}) with obj: {obj?.name ?? "null"}");
-                Log.Info($"[SetMainSeatObject] Before - mainSeatDict contains key: {mainSeatDict.ContainsKey(controller)}, count: {mainSeatDict.Count}");
-                foreach (var kvp in mainSeatDict)
-                {
-                    string keyName = "destroyed";
-                    try { keyName = kvp.Key?.name ?? "null"; } catch { }
-                    string valueName = "destroyed";
-                    try { valueName = kvp.Value?.name ?? "null"; } catch { }
-                    Log.Info($"[SetMainSeatObject] Dict entry: {keyName} (ID:{kvp.Key?.GetInstanceID() ?? 0}) -> {valueName}");
-                }
+                var keysToRemove = mainSeatDict.Keys.Where(k => k == null || (k is UnityEngine.Object uo && !uo)).ToList();
+                foreach (var k in keysToRemove) mainSeatDict.TryRemove(k, out _);
             }
+
             if (obj != null)
             {
                 mainSeatDict[controller] = obj;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SetMainSeatObject] Set mainSeatDict[{controller.name} (ID:{controller.GetInstanceID()})] = {obj.name}");
-                }
             }
             else
             {
-                if (mainSeatDict.ContainsKey(controller))
-                {
-                    System.Collections.Generic.CollectionExtensions.Remove(mainSeatDict, controller, out _);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[SetMainSeatObject] Removed {controller.name} (ID:{controller.GetInstanceID()}) from mainSeatDict");
-                    }
-                }
-                else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SetMainSeatObject] Key {controller.name} (ID:{controller.GetInstanceID()}) not found, nothing to remove");
-                }
-            }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[SetMainSeatObject] After - mainSeatDict contains key: {mainSeatDict.ContainsKey(controller)}, count: {mainSeatDict.Count}");
+                mainSeatDict.TryRemove(controller, out _);
             }
         }
 
@@ -736,15 +860,12 @@ namespace DrifterBossGrabMod.Patches
             if (controller == null) return null;
             if (mainSeatDict.TryGetValue(controller, out var obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                if (obj == null || (obj is UnityEngine.Object uo && !uo))
                 {
-                    Log.Info($"[GetMainSeatObject] Returning from mainSeatDict: {obj?.name ?? "null"} for {controller.name} (ID:{controller.GetInstanceID()})");
+                    mainSeatDict.TryRemove(controller, out _);
+                    return null;
                 }
                 return obj;
-            }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GetMainSeatObject] Returning null for {controller.name} (ID:{controller.GetInstanceID()}), dict count: {mainSeatDict.Count}");
             }
             return null;
         }

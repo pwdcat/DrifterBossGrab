@@ -12,7 +12,8 @@ namespace DrifterBossGrabMod.Patches
     public static class BottomlessBagPatches
     {
         private static float _lastCycleTime = 0f;
-        private const float CYCLE_COOLDOWN = 0.1f; // 100ms cooldown to prevent spamming
+        private static float _scrollAccumulator = 0f;
+        private const float SCROLL_THRESHOLD = 0.1f; // Cumulative delta required to trigger one scroll event
         public static void HandleInput()
         {
             if (PluginConfig.Instance.BottomlessBagEnabled.Value)
@@ -36,85 +37,105 @@ namespace DrifterBossGrabMod.Patches
 
                     if (isBlockingState) return;
                 }
-                bool scrollUp = false;
-                bool scrollDown = false;
+                int cycleAmount = 0;
+                
+                // 1. Handle Mouse Wheel with Thresholding
                 if (PluginConfig.Instance.EnableMouseWheelScrolling.Value)
                 {
                     float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
-                    if (scrollDelta > 0f) 
+                    if (scrollDelta != 0f)
                     {
-                        if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) scrollDown = true;
-                        else scrollUp = true;
-                        
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[HandleInput] Scroll Up detected from Mouse Wheel");
-                    }
-                    else if (scrollDelta < 0f) 
-                    {
-                        if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) scrollUp = true;
-                        else scrollDown = true;
-                        
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[HandleInput] Scroll Down detected from Mouse Wheel");
-                    }
-                }
-                if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
-                {
-                    bool modifiersPressed = true;
-                    foreach (var modifier in PluginConfig.Instance.ScrollUpKeybind.Value.Modifiers)
-                    {
-                        if (!Input.GetKey(modifier))
+                        if (_scrollAccumulator != 0f && Mathf.Sign(scrollDelta) != Mathf.Sign(_scrollAccumulator))
                         {
-                            modifiersPressed = false;
-                            break;
+                            _scrollAccumulator = 0f;
                         }
+                        _scrollAccumulator += scrollDelta;
                     }
-                    if (modifiersPressed) scrollUp = true;
-                }
-                if (PluginConfig.Instance.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollDownKeybind.Value.MainKey))
-                {
-                    bool modifiersPressed = true;
-                    foreach (var modifier in PluginConfig.Instance.ScrollDownKeybind.Value.Modifiers)
+                    else
                     {
-                        if (!Input.GetKey(modifier))
-                        {
-                            modifiersPressed = false;
-                            break;
-                        }
+                        _scrollAccumulator = Mathf.MoveTowards(_scrollAccumulator, 0f, Time.deltaTime * 0.5f);
                     }
-                    if (modifiersPressed) scrollDown = true;
+
+                    if (Mathf.Abs(_scrollAccumulator) >= SCROLL_THRESHOLD && Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
+                    {
+                        // Trigger only one cycle per cooldown period to prevent skipping items
+                        bool isMovingForward = _scrollAccumulator > 0f;
+                        bool up;
+                        if (isMovingForward)
+                        {
+                            if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) up = true; // scrollUp (inverted from new default)
+                            else up = false; // scrollDown (new default)
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.InverseMouseWheelScrolling.Value) up = false; // scrollDown (inverted from new default)
+                            else up = true; // scrollUp (new default)
+                        }
+                        
+                        cycleAmount = up ? 1 : -1;
+                        _scrollAccumulator -= Mathf.Sign(_scrollAccumulator) * SCROLL_THRESHOLD;
+                        _lastCycleTime = Time.time;
+                    }
                 }
-                if ((scrollUp || scrollDown) && Time.time >= _lastCycleTime + CYCLE_COOLDOWN)
+
+                // 2. Handle Keybinds (Always overrides/adds to threshold if pressed)
+                if (Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[HandleInput] Triggering CyclePassengers. scrollUp: {scrollUp}, scrollDown: {scrollDown}");
-                    _lastCycleTime = Time.time;
-                    CyclePassengers(scrollUp);
+                    if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
+                    {
+                        bool modifiersPressed = true;
+                        foreach (var modifier in PluginConfig.Instance.ScrollUpKeybind.Value.Modifiers)
+                        {
+                            if (!Input.GetKey(modifier)) { modifiersPressed = false; break; }
+                        }
+                        if (modifiersPressed) { cycleAmount++; _lastCycleTime = Time.time; }
+                    }
+                    if (PluginConfig.Instance.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollDownKeybind.Value.MainKey))
+                    {
+                        bool modifiersPressed = true;
+                        foreach (var modifier in PluginConfig.Instance.ScrollDownKeybind.Value.Modifiers)
+                        {
+                            if (!Input.GetKey(modifier)) { modifiersPressed = false; break; }
+                        }
+                        if (modifiersPressed) { cycleAmount--; _lastCycleTime = Time.time; }
+                    }
+                }
+
+                // 3. Execute Cycle
+                if (cycleAmount != 0)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value) 
+                        Log.Info($"[HandleInput] Triggering CyclePassengers. amount: {cycleAmount}");
+                    
+                    CyclePassengers(cycleAmount);
                 }
             }
         }
-        public static void CyclePassengers(DrifterBagController bagController, bool scrollUp)
+        public static void CyclePassengers(DrifterBagController bagController, int amount)
         {
-            if (bagController == null) return;
+            if (bagController == null || amount == 0) return;
     
             // If we are on client and have authority, send a message to server
             if (!NetworkServer.active && bagController.hasAuthority)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                    Log.Info($"[CyclePassengers] Client has authority, sending cycle request via network message. scrollUp: {scrollUp}");
+                    Log.Info($"[CyclePassengers] Client has authority, sending cycle request via network message. amount: {amount}");
                 
-                Networking.CycleNetworkHandler.SendCycleRequest(bagController, scrollUp);
+                Networking.CycleNetworkHandler.SendCycleRequest(bagController, amount);
                 return;
             }
     
             // If we are the server, perform the cycle directly
             if (NetworkServer.active)
             {
-                ServerCyclePassengers(bagController, scrollUp);
+                ServerCyclePassengers(bagController, amount);
             }
         }
 
         // Server-side implementation of cycling - called from CycleNetworkHandler or directly on host
-        public static void ServerCyclePassengers(DrifterBagController bagController, bool scrollUp)
+        public static void ServerCyclePassengers(DrifterBagController bagController, int amount)
         {
-            if (!NetworkServer.active) return; // Safety guard
+            if (!NetworkServer.active || amount == 0) return; // Safety guard
             
             if (bagController.vehicleSeat == null)
             {
@@ -183,6 +204,7 @@ namespace DrifterBossGrabMod.Patches
                 bool isInProjectileState = OtherPatches.IsInProjectileState(obj);
                 if (isInProjectileState)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[ServerCyclePassengers] Excluding {obj.name} (Projectile State)");
                     continue;
                 }
                 int instanceId = obj.GetInstanceID();
@@ -190,6 +212,10 @@ namespace DrifterBossGrabMod.Patches
                 {
                     seenInstanceIds.Add(instanceId);
                     validObjects.Add(obj);
+                }
+                else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                     Log.Info($"[ServerCyclePassengers] Excluding {obj.name} (Duplicate InstanceID)");
                 }
             }
             foreach (var regrabObj in potentialRegrabObjects)
@@ -203,13 +229,23 @@ namespace DrifterBossGrabMod.Patches
             }
             if (validObjects.Count == 0)
             {
+                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[ServerCyclePassengers] validObjects count is 0 after filtering!");
                 return;
             }
-            CycleToNextObject(bagController, validObjects, scrollUp);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ServerCyclePassengers] Valid objects count: {validObjects.Count}. Total bagged: {baggedObjects.Count}");
+                foreach(var obj in validObjects)
+                {
+                     Log.Info($"  - Valid: {obj.name} (ID: {obj.GetInstanceID()})");
+                }
+            }
+            CycleToNextObject(bagController, validObjects, amount);
         }
 
-        private static void CyclePassengers(bool scrollUp)
+        private static void CyclePassengers(int amount)
         {
+            if (amount == 0) return;
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CyclePassengers] Found {bagControllers.Length} bag controllers in scene.");
             foreach (var bagController in bagControllers)
@@ -224,11 +260,11 @@ namespace DrifterBossGrabMod.Patches
                 }
                 
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CyclePassengers] Authority found for {bagController.name}, calling overload.");
-                CyclePassengers(bagController, scrollUp);
+                CyclePassengers(bagController, amount);
                 break;
             }
         }
-        private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, bool scrollUp)
+        private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, int amount)
         {
             // Use a local copy of the seatDict for atomic updates
             ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict;
@@ -381,9 +417,33 @@ namespace DrifterBossGrabMod.Patches
                         actualMainPassenger = mainPassenger;
                     }
                 }
+                // For client-grabbed objects, the server may not see them in the vehicle seat
+                // Trust the mainSeatDict tracking if the object is in validObjects
                 if (actualMainPassenger == null)
                 {
-                    return;
+                    // Check if mainPassenger is in validObjects
+                    bool isInValidObjects = false;
+                    int mpInstanceId = mainPassenger.GetInstanceID();
+                    foreach (var obj in validObjects)
+                    {
+                        if (obj != null && obj.GetInstanceID() == mpInstanceId)
+                        {
+                            isInValidObjects = true;
+                            actualMainPassenger = obj;
+                            break;
+                        }
+                    }
+                    
+                    if (!isInValidObjects)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[CycleToNextObject] mainPassenger {mainPassenger.name} not in validObjects and not in seat, returning early");
+                        return;
+                    }
+                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CycleToNextObject] Trusting mainSeatDict for {mainPassenger.name} (client-grabbed object)");
+                    }
                 }
             }
             int emptySeatsCount = 0;
@@ -404,7 +464,51 @@ namespace DrifterBossGrabMod.Patches
                     emptySeatsCount++;
                 }
             }
-            bool isInNullState = actualMainPassenger == null && validObjects.Count > 0;
+            // Determine the logical selection state using the network controller
+            // This is the source of truth for "where are we in the cycle" regardless of physical seat state
+            var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
+            bool isInNullState = false;
+            
+            if (netController != null)
+            {
+                if (netController.selectedIndex == -1)
+                {
+                    actualMainPassenger = null;
+                    isInNullState = true;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[CycleToNextObject] Logical state: Null (Empty Hands)");
+                }
+                else
+                {
+                    var logicalObjects = netController.GetBaggedObjects();
+                    if (netController.selectedIndex >= 0 && netController.selectedIndex < logicalObjects.Count)
+                    {
+                        var logicalMain = logicalObjects[netController.selectedIndex];
+                        if (logicalMain != null)
+                        {
+                            // Find this object in our current validObjects list to handle different instances/filtering
+                            foreach (var obj in validObjects)
+                            {
+                                if (obj != null && obj.GetInstanceID() == logicalMain.GetInstanceID())
+                                {
+                                    if (actualMainPassenger != obj && PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[CycleToNextObject] Overriding physical passenger ({actualMainPassenger?.name ?? "null"}) with logical selection ({obj.name})");
+                                    
+                                    actualMainPassenger = obj;
+                                    isInNullState = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Fallback to physical state if no net controller
+                isInNullState = actualMainPassenger == null && validObjects.Count > 0;
+            }
+
             int totalPositions = validObjects.Count + 1;
             if (actualMainPassenger == null)
             {
@@ -413,7 +517,10 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
             }
-            if (actualMainPassenger == null && vehicleSeat.hasPassenger)
+            
+            // Only fall back to seat passenger if the logical state is also null AND we REALLY have someone in the seat
+            // This usually happens during the very first grab of a run or after a scene transition
+            if (actualMainPassenger == null && !isInNullState && vehicleSeat.hasPassenger)
             {
                 GameObject? seatPassenger = vehicleSeat.NetworkpassengerBodyObject;
                 if (seatPassenger != null)
@@ -477,154 +584,198 @@ namespace DrifterBossGrabMod.Patches
                 currentIndex = validObjects.Count;
                 currentIsNull = true;
             }
-            int direction = scrollUp ? 1 : -1;
-            int nextIndex = currentIndex + direction;
-            if (nextIndex >= totalPositions) nextIndex = 0;
-            if (nextIndex < 0) nextIndex = totalPositions - 1;
-            bool nextIsNull = nextIndex == validObjects.Count;
+            int nextIndex = (currentIndex + amount) % totalPositions;
+            if (nextIndex < 0) nextIndex += totalPositions;
+            bool nextIsNull = (nextIndex == validObjects.Count);
+            
+            int direction = Math.Sign(amount);
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}");
+            }
+
             bool hasValidSeatConfiguration = ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);
             if (!hasValidSeatConfiguration)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleToNextObject] Invalid Seat Conf, Aborting.");
                 return;
             }
-            if (nextIsNull)
+            DrifterBossGrabPlugin._isSwappingPassengers = true;
+            try
             {
-                if (!currentIsNull && actualMainPassenger != null)
+                if (nextIsNull)
                 {
-                    if (!HasSpaceForNullStateTransition(bagController, validObjects.Count, localSeatDict))
+                    if (!currentIsNull && actualMainPassenger != null)
                     {
-                        return;
-                    }
-                    DrifterBossGrabPlugin._isSwappingPassengers = true;
-                    if (!ValidateNullStateTransition(bagController, actualMainPassenger, localSeatDict))
-                    {
-                        DrifterBossGrabPlugin._isSwappingPassengers = false;
-                        return;
-                    }
-                    var seatForCurrent = FindOrCreateEmptySeat(bagController, ref localSeatDict);
-                    vehicleSeat.EjectPassenger(actualMainPassenger);
-                    if (actualMainPassenger != null)
-                    {
-                        System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
-                        BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
-                    }
-                    BagPatches.SetMainSeatObject(bagController, null);
-                    if (seatForCurrent != null)
-                    {
-                        seatForCurrent.AssignPassenger(actualMainPassenger);
-                        localSeatDict[actualMainPassenger] = seatForCurrent;
-                    }
-                    if (actualMainPassenger != null)
-                    {
-                        System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
-                    }
-                    BaggedObjectPatches.RemoveUIOverlayForNullState(bagController);
-                    DrifterBossGrabPlugin._isSwappingPassengers = false;
-                }
-                else
-                {
-                    nextIsNull = false;
-                    nextIndex = 0;
-                }
-            }
-            else if (!nextIsNull && currentIsNull)
-            {
-                var targetObject = validObjects[nextIndex];
-                if (targetObject == null)
-                {
-                    return;
-                }
-                
-                DrifterBossGrabPlugin._isSwappingPassengers = true;
-                var sourceAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject, localSeatDict);
-                if (sourceAdditionalSeat != null)
-                {
-                    sourceAdditionalSeat.EjectPassenger(targetObject);
-                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
-                }
-                bagController.AssignPassenger(targetObject);
-                BagPatches.SetMainSeatObject(bagController, targetObject);
-                DrifterBossGrabPlugin._isSwappingPassengers = false;
-            }
-            else
-            {
-                var currentObject = validObjects[currentIndex];
-                var targetObject = validObjects[nextIndex];
-                if (targetObject == null)
-                {
-                    return;
-                }
-
-                if (!ValidateSeatStateForSwap(bagController, currentObject, targetObject, localSeatDict))
-                {
-                    DrifterBossGrabPlugin._isSwappingPassengers = false;
-                    return;
-                }
-                DrifterBossGrabPlugin._isSwappingPassengers = true;
-                var targetAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject);
-                vehicleSeat.EjectPassenger(currentObject);
-                if (currentObject != null)
-                {
-                    System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
-                    BaggedObjectPatches.RemoveUIOverlay(currentObject);
-                }
-                if (targetAdditionalSeat != null)
-                {
-                    targetAdditionalSeat.EjectPassenger(targetObject);
-                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
-                    targetAdditionalSeat.AssignPassenger(currentObject);
-                    BagPatches.SetMainSeatObject(bagController, null);
-                    BaggedObjectPatches.RemoveUIOverlay(currentObject);
-                    localSeatDict[currentObject] = targetAdditionalSeat;
-                }
-                if (targetAdditionalSeat == null)
-                {
-                    int totalSeatsCount = 0;
-                    if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDictForCheck))
-                    {
-                        totalSeatsCount = seatDictForCheck.Count;
-                    }
-                    if (validObjects.Count == 1 && localSeatDict.Count == 0)
-                    {
+                        if (!HasSpaceForNullStateTransition(bagController, validObjects.Count, localSeatDict))
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleToNextObject] No space for null transition, aborting.");
+                            return;
+                        }
+                        
+                        if (!ValidateNullStateTransition(bagController, actualMainPassenger, localSeatDict))
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleToNextObject] ValidateNullStateTransition failed, aborting.");
+                            return;
+                        }
+                        var seatForCurrent = FindOrCreateEmptySeat(bagController, ref localSeatDict);
+                        vehicleSeat.EjectPassenger(actualMainPassenger);
+                        if (actualMainPassenger != null)
+                        {
+                            System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
+                            BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger);
+                        }
                         BagPatches.SetMainSeatObject(bagController, null);
-                        BagPatches.UpdateCarousel(bagController, direction);
-                        DrifterBossGrabPlugin._isSwappingPassengers = false;
-                        BagPatches.RemoveBaggedObject(bagController, currentObject);
-                        return;
-                    }
-                    var seatForCurrent = FindOrCreateEmptySeat(bagController, ref localSeatDict);
-                    if (seatForCurrent != null)
-                    {
-                        seatForCurrent.AssignPassenger(currentObject);
-                        BagPatches.SetMainSeatObject(bagController, null);
-                        BaggedObjectPatches.RemoveUIOverlay(currentObject);
-                        localSeatDict[currentObject] = seatForCurrent;
+                        if (seatForCurrent != null && actualMainPassenger != null)
+                        {
+                            seatForCurrent.AssignPassenger(actualMainPassenger);
+                            localSeatDict[actualMainPassenger] = seatForCurrent;
+                        }
+                        if (actualMainPassenger != null)
+                        {
+                            System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
+                        }
+                        BaggedObjectPatches.RemoveUIOverlayForNullState(bagController);
                     }
                     else
                     {
-                        Log.Warning($" [BottomlessBag] WARNING: No seat available for {currentObject.name}!");
+                        nextIsNull = false;
+                        nextIndex = 0;
                     }
                 }
-                bagController.AssignPassenger(targetObject);
-                if (targetAdditionalSeat != null)
+                else if (!nextIsNull && currentIsNull)
                 {
-                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                    var targetObject = validObjects[nextIndex];
+                    if (targetObject == null)
+                    {
+                        return;
+                    }
+                    
+                    var sourceAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject, localSeatDict);
+                    if (sourceAdditionalSeat != null)
+                    {
+                        sourceAdditionalSeat.EjectPassenger(targetObject);
+                        System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                    }
+                    bagController.AssignPassenger(targetObject);
+                    BagPatches.SetMainSeatObject(bagController, targetObject);
                 }
-                BagPatches.SetMainSeatObject(bagController, targetObject);
+                else
+                {
+                    var currentObject = validObjects[currentIndex];
+                    var targetObject = validObjects[nextIndex];
+                    if (targetObject == null)
+                    {
+                        return;
+                    }
+    
+                    if (!ValidateSeatStateForSwap(bagController, currentObject, targetObject, localSeatDict))
+                    {
+                        return;
+                    }
+                    
+                    // Check if currentObject is actually in the vehicleSeat (server-side grab)
+                    // or if it's only tracked (client-grabbed, not physically in seat on server)
+                    bool currentIsPhysicallyInSeat = vehicleSeat.hasPassenger && 
+                        vehicleSeat.NetworkpassengerBodyObject != null &&
+                        vehicleSeat.NetworkpassengerBodyObject.GetInstanceID() == currentObject.GetInstanceID();
+                    
+                    var targetAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject);
+                    
+                    if (currentIsPhysicallyInSeat)
+                    {
+                        // Regular server-side swap - manipulate physical seats
+                        vehicleSeat.EjectPassenger(currentObject);
+                        if (currentObject != null)
+                        {
+                            System.Collections.Generic.CollectionExtensions.Remove(BagPatches.mainSeatDict, bagController, out _);
+                            BaggedObjectPatches.RemoveUIOverlay(currentObject, bagController);
+                        }
+                        if (targetAdditionalSeat != null)
+                        {
+                            targetAdditionalSeat.EjectPassenger(targetObject);
+                            System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                            targetAdditionalSeat.AssignPassenger(currentObject);
+                            BagPatches.SetMainSeatObject(bagController, null);
+                            BaggedObjectPatches.RemoveUIOverlay(currentObject, bagController);
+                            localSeatDict[currentObject] = targetAdditionalSeat;
+                        }
+                        if (targetAdditionalSeat == null)
+                        {
+                            int totalSeatsCount = 0;
+                            if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDictForCheck))
+                            {
+                                totalSeatsCount = seatDictForCheck.Count;
+                            }
+                            // Create a new seat if we have room
+                            if (totalSeatsCount + 1 <= BagPatches.GetUtilityMaxStock(bagController))
+                            {
+                                var newSeat = FindOrCreateEmptySeat(bagController, ref localSeatDict);
+                                if (newSeat != null)
+                                {
+                                    newSeat.AssignPassenger(currentObject);
+                                    localSeatDict[currentObject] = newSeat;
+                                }
+                            }
+                            else
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[CycleToNextObject] No room for new additional seat when swapping. Capacity: {BagPatches.GetUtilityMaxStock(bagController)}, Current: {totalSeatsCount}");
+                                return; // Cannot create a new seat, so abort swap
+                            }
+                        }
+                        vehicleSeat.AssignPassenger(targetObject);
+                        BagPatches.SetMainSeatObject(bagController, targetObject);
+                        BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
+                        BaggedObjectPatches.SynchronizeBaggedObjectState(bagController, targetObject);
+                        BagPatches.UpdateCarousel(bagController, direction);
+                    }
+                    else
+                    {
+                        // Client-authority swap or handled by messages
+                        if (targetAdditionalSeat != null)
+                        {
+                            targetAdditionalSeat.EjectPassenger(targetObject);
+                            System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                            if (currentObject != null)
+                            {
+                                targetAdditionalSeat.AssignPassenger(currentObject);
+                                localSeatDict[currentObject] = targetAdditionalSeat;
+                            }
+                        }
+                        BagPatches.SetMainSeatObject(bagController, targetObject);
+                        if (targetObject != null)
+                        {
+                            vehicleSeat.AssignPassenger(targetObject);
+                            BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
+                            BaggedObjectPatches.SynchronizeBaggedObjectState(bagController, targetObject);
+                        }
+                        BagPatches.UpdateCarousel(bagController, direction);
+                    }
+                }
+    
+                if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var finalDict))
+                {
+                    foreach (var kvp in localSeatDict)
+                    {
+                        finalDict[kvp.Key] = kvp.Value;
+                    }
+                    var keysToRemove = finalDict.Keys.Where(k => !localSeatDict.ContainsKey(k)).ToList();
+                    foreach (var k in keysToRemove) finalDict.TryRemove(k, out _);
+                }
+                else
+                {
+                    BagPatches.additionalSeatsDict[bagController] = localSeatDict;
+                }
+                
+                BagPatches.UpdateCarousel(bagController, direction);
+                BagPatches.UpdateNetworkBagState(bagController, direction);
+            }
+            finally
+            {
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
-            // Update the global dict
-            if (localSeatDict.Count == 0)
-            {
-                System.Collections.Generic.CollectionExtensions.Remove(BagPatches.additionalSeatsDict, bagController, out _);
-            }
-            else
-            {
-                BagPatches.additionalSeatsDict[bagController] = localSeatDict;
-            }
-
-            // Consolidate updates to the end of state changes to avoid animation restarts
-            BagPatches.UpdateCarousel(bagController, direction);
             if (!nextIsNull)
             {
                 var targetObject = nextIndex < validObjects.Count ? validObjects[nextIndex] : null;
@@ -634,6 +785,52 @@ namespace DrifterBossGrabMod.Patches
             
             // Sync network state after cycle operation
             BagPatches.UpdateNetworkBagState(bagController, direction);
+            
+            // Debugging: Inspect BaggedObject state and active skills
+             if (PluginConfig.Instance.EnableDebugLogs.Value && (UnityEngine.Networking.NetworkServer.active || (bagController && bagController.hasAuthority)))
+            {
+                var stateMachines = bagController.GetComponents<EntityStateMachine>();
+                foreach (var esm in stateMachines)
+                {
+                    if (esm.customName == "Bag" && esm.state is BaggedObject bo)
+                    {
+                        Log.Info($" [CycleToNextObject] Inspecting BaggedObject state for {bagController.name}...");
+                        
+                        var fields = typeof(BaggedObject).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        foreach (var field in fields)
+                        {
+                            var val = field.GetValue(bo);
+                            var valStr = val != null ? val.ToString() : "null";
+                            if (val is UnityEngine.Object obj && obj) valStr = $"{obj.name} ({obj.GetType().Name})";
+                            Log.Info($"    Field {field.Name}: {valStr}");
+                        }
+
+                        // Inspect Active Skills
+                        var skillLocator = bagController.GetComponent<SkillLocator>();
+                        if (skillLocator)
+                        {
+                            if (skillLocator.utility && skillLocator.utility.skillDef)
+                            {
+                                Log.Info($"    Utility SkillDef: {skillLocator.utility.skillDef.skillName} ({skillLocator.utility.skillDef.GetType().Name})");
+                                // If the SkillDef has a 'target' field (common in some implementations), log it
+                                var defFields = skillLocator.utility.skillDef.GetType().GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                                foreach (var df in defFields)
+                                {
+                                    if (df.FieldType == typeof(GameObject) || df.FieldType == typeof(NetworkInstanceId))
+                                    {
+                                         var dVal = df.GetValue(skillLocator.utility.skillDef);
+                                         Log.Info($"       DefField {df.Name}: {dVal}");
+                                    }
+                                }
+                            }
+                            if (skillLocator.primary && skillLocator.primary.skillDef)
+                            {
+                                Log.Info($"    Primary SkillDef: {skillLocator.primary.skillDef.skillName} ({skillLocator.primary.skillDef.GetType().Name})");
+                            }
+                        }
+                    }
+                }
+            }
         }
         private static bool ValidateSeatConfiguration(DrifterBagController bagController, List<GameObject> validObjects, GameObject? actualMainPassenger, bool isInNullState, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
@@ -673,6 +870,7 @@ namespace DrifterBossGrabMod.Patches
         }
         private static bool ValidateSeatStateForSwap(DrifterBagController bagController, GameObject? currentObject, GameObject? targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
+            if (targetObject == null) return false;
             var mainSeat = bagController.vehicleSeat;
             if (mainSeat == null)
             {
@@ -684,8 +882,24 @@ namespace DrifterBossGrabMod.Patches
                 var actualMainPassenger = mainSeat.NetworkpassengerBodyObject;
                 isActuallyInMainSeat = actualMainPassenger != null && actualMainPassenger.GetInstanceID() == currentObject!.GetInstanceID();
             }
+            
+            // For client-grabbed objects, the server's vehicleSeat may not be populated
+            // Trust the mainSeatDict tracking as authoritative for these cases
+            if (!isActuallyInMainSeat && currentObject != null)
+            {
+                var trackedMain = BagPatches.GetMainSeatObject(bagController);
+                if (trackedMain != null && trackedMain.GetInstanceID() == currentObject.GetInstanceID())
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[ValidateSeatStateForSwap] Trusting mainSeatDict tracking for {currentObject.name} (not physically in vehicleSeat)");
+                    isActuallyInMainSeat = true;
+                }
+            }
+            
             if (!isActuallyInMainSeat)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[ValidateSeatStateForSwap] Failed: currentObject {currentObject?.name ?? "null"} not in main seat");
                 return false;
             }
             var targetAdditionalSeat = GetAdditionalSeatForObject(bagController, targetObject, seatDict);
@@ -701,7 +915,9 @@ namespace DrifterBossGrabMod.Patches
             }
             else
             {
-                return false;
+                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[ValidateSeatStateForSwap] targetAdditionalSeat is null for {targetObject?.name}. Allowing swap via fallback (virtual/create new).");
+                return true; // Use fallback logic (e.g. FindOrCreateEmptySeat) in CycleToNextObject
             }
             if (seatDict.Count > 0)
             {
@@ -731,6 +947,8 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (kvp.Value != null && !kvp.Value.hasPassenger)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[FindOrCreateEmptySeat] Found existing empty tracked seat for {bagController.name}");
                     return kvp.Value;
                 }
             }
@@ -741,10 +959,26 @@ namespace DrifterBossGrabMod.Patches
                 bool isTracked = seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[FindOrCreateEmptySeat] Found existing empty untracked seat for {bagController.name}");
                     return childSeat;
                 }
             }
-            if (!NetworkServer.active) return null!;
+            
+            int currentCapacity = BagPatches.GetUtilityMaxStock(bagController);
+            int totalAdditionalSeats = seatDict.Count;
+
+            if (totalAdditionalSeats + 1 > currentCapacity)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[FindOrCreateEmptySeat] Cannot create additional seat. Capacity reached ({totalAdditionalSeats}/{currentCapacity})");
+                return null!;
+            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[FindOrCreateEmptySeat] Creating new additional seat (Current additional: {totalAdditionalSeats}, Capacity: {currentCapacity})");
+            // Allow creating local seats on client for immediate response
+            // if (!NetworkServer.active) return null!;
             var seatObject = (Networking.BagStateSync.AdditionalSeatPrefab != null) 
                 ? UnityEngine.Object.Instantiate(Networking.BagStateSync.AdditionalSeatPrefab)
                 : new GameObject($"AdditionalSeat_Empty_{DateTime.Now.Ticks}");
@@ -810,7 +1044,8 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             
-            if (!NetworkServer.active) return null!;
+            // Allow creating local seats on client for immediate response
+            // if (!NetworkServer.active) return null!;
             var seatObject = (Networking.BagStateSync.AdditionalSeatPrefab != null) 
                 ? UnityEngine.Object.Instantiate(Networking.BagStateSync.AdditionalSeatPrefab)
                 : new GameObject($"AdditionalSeat_Empty_{DateTime.Now.Ticks}");
@@ -930,54 +1165,63 @@ namespace DrifterBossGrabMod.Patches
         }
         private static void PerformPassengerCycle(DrifterBagController bagController, GameObject currentMain, GameObject newMain)
         {
-            var vehicleSeat = bagController.vehicleSeat;
-            var additionalSeats = BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict) ? seatDict : null;
-            RoR2.VehicleSeat? currentAdditionalSeat = null;
-            if (additionalSeats != null && additionalSeats.TryGetValue(currentMain, out var seat))
+            DrifterBossGrabPlugin._isSwappingPassengers = true;
+            try
             {
-                currentAdditionalSeat = seat;
+                var vehicleSeat = bagController.vehicleSeat;
+                var additionalSeats = BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict) ? seatDict : null;
+                RoR2.VehicleSeat? currentAdditionalSeat = null;
+                if (additionalSeats != null && additionalSeats.TryGetValue(currentMain, out var seat))
+                {
+                    currentAdditionalSeat = seat;
+                }
+                vehicleSeat.EjectPassenger(currentMain);
+                vehicleSeat.AssignPassenger(newMain);
+                if (currentAdditionalSeat != null)
+                {
+                    currentAdditionalSeat.AssignPassenger(currentMain);
+                }
+                else if (additionalSeats != null)
+                {
+                    var seatObject = new GameObject($"AdditionalSeat_Cycled_{DateTime.Now.Ticks}");
+                    seatObject.transform.SetParent(bagController.transform);
+                    seatObject.transform.localPosition = Vector3.zero;
+                    seatObject.transform.localRotation = Quaternion.identity;
+                    var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
+                    newSeat.seatPosition = vehicleSeat.seatPosition;
+                    newSeat.exitPosition = vehicleSeat.exitPosition;
+                    newSeat.ejectOnCollision = vehicleSeat.ejectOnCollision;
+                    newSeat.hidePassenger = vehicleSeat.hidePassenger;
+                    newSeat.exitVelocityFraction = vehicleSeat.exitVelocityFraction;
+                    newSeat.disablePassengerMotor = vehicleSeat.disablePassengerMotor;
+                    newSeat.isEquipmentActivationAllowed = vehicleSeat.isEquipmentActivationAllowed;
+                    newSeat.shouldProximityHighlight = vehicleSeat.shouldProximityHighlight;
+                    newSeat.disableInteraction = vehicleSeat.disableInteraction;
+                    newSeat.shouldSetIdle = vehicleSeat.shouldSetIdle;
+                    newSeat.additionalExitVelocity = vehicleSeat.additionalExitVelocity;
+                    newSeat.disableAllCollidersAndHurtboxes = vehicleSeat.disableAllCollidersAndHurtboxes;
+                    newSeat.disableColliders = vehicleSeat.disableColliders;
+                    newSeat.disableCharacterNetworkTransform = vehicleSeat.disableCharacterNetworkTransform;
+                    newSeat.ejectFromSeatOnMapEvent = vehicleSeat.ejectFromSeatOnMapEvent;
+                    newSeat.inheritRotation = vehicleSeat.inheritRotation;
+                    newSeat.holdPassengerAfterDeath = vehicleSeat.holdPassengerAfterDeath;
+                    newSeat.ejectPassengerToGround = vehicleSeat.ejectPassengerToGround;
+                    newSeat.ejectRayDistance = vehicleSeat.ejectRayDistance;
+                    newSeat.handleExitTeleport = vehicleSeat.handleExitTeleport;
+                    newSeat.setCharacterMotorPositionToCurrentPosition = vehicleSeat.setCharacterMotorPositionToCurrentPosition;
+                    newSeat.passengerState = vehicleSeat.passengerState;
+                    newSeat.AssignPassenger(currentMain);
+                    additionalSeats[currentMain] = newSeat;
+                }
             }
-            vehicleSeat.EjectPassenger(currentMain);
-            vehicleSeat.AssignPassenger(newMain);
-            if (currentAdditionalSeat != null)
+            finally
             {
-                currentAdditionalSeat.AssignPassenger(currentMain);
-            }
-            else if (additionalSeats != null)
-            {
-                var seatObject = new GameObject($"AdditionalSeat_Cycled_{DateTime.Now.Ticks}");
-                seatObject.transform.SetParent(bagController.transform);
-                seatObject.transform.localPosition = Vector3.zero;
-                seatObject.transform.localRotation = Quaternion.identity;
-                var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
-                newSeat.seatPosition = vehicleSeat.seatPosition;
-                newSeat.exitPosition = vehicleSeat.exitPosition;
-                newSeat.ejectOnCollision = vehicleSeat.ejectOnCollision;
-                newSeat.hidePassenger = vehicleSeat.hidePassenger;
-                newSeat.exitVelocityFraction = vehicleSeat.exitVelocityFraction;
-                newSeat.disablePassengerMotor = vehicleSeat.disablePassengerMotor;
-                newSeat.isEquipmentActivationAllowed = vehicleSeat.isEquipmentActivationAllowed;
-                newSeat.shouldProximityHighlight = vehicleSeat.shouldProximityHighlight;
-                newSeat.disableInteraction = vehicleSeat.disableInteraction;
-                newSeat.shouldSetIdle = vehicleSeat.shouldSetIdle;
-                newSeat.additionalExitVelocity = vehicleSeat.additionalExitVelocity;
-                newSeat.disableAllCollidersAndHurtboxes = vehicleSeat.disableAllCollidersAndHurtboxes;
-                newSeat.disableColliders = vehicleSeat.disableColliders;
-                newSeat.disableCharacterNetworkTransform = vehicleSeat.disableCharacterNetworkTransform;
-                newSeat.ejectFromSeatOnMapEvent = vehicleSeat.ejectFromSeatOnMapEvent;
-                newSeat.inheritRotation = vehicleSeat.inheritRotation;
-                newSeat.holdPassengerAfterDeath = vehicleSeat.holdPassengerAfterDeath;
-                newSeat.ejectPassengerToGround = vehicleSeat.ejectPassengerToGround;
-                newSeat.ejectRayDistance = vehicleSeat.ejectRayDistance;
-                newSeat.handleExitTeleport = vehicleSeat.handleExitTeleport;
-                newSeat.setCharacterMotorPositionToCurrentPosition = vehicleSeat.setCharacterMotorPositionToCurrentPosition;
-                newSeat.passengerState = vehicleSeat.passengerState;
-                newSeat.AssignPassenger(currentMain);
-                additionalSeats[currentMain] = newSeat;
+                DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
         }
         private static bool ValidateNullStateTransition(DrifterBagController bagController, GameObject? currentObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
+            if (currentObject == null) return false;
             var mainSeat = bagController.vehicleSeat;
             if (mainSeat == null)
             {
@@ -1018,32 +1262,21 @@ namespace DrifterBossGrabMod.Patches
         private static bool HasSpaceForNullStateTransition(DrifterBagController bagController, int currentObjectCount, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             int effectiveCapacity = BagPatches.GetUtilityMaxStock(bagController);
-            if (currentObjectCount >= effectiveCapacity)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
+                Log.Info($"[HasSpaceForNullStateTransition] currentObjectCount: {currentObjectCount}, effectiveCapacity: {effectiveCapacity}");
+            }
+
+            if (currentObjectCount > effectiveCapacity)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[HasSpaceForNullStateTransition] Capacity exceeded ({currentObjectCount}/{effectiveCapacity}), blocking null transition");
                 return false;
             }
-            int emptySeatsCount = 0;
-            foreach (var kvp in seatDict)
-            {
-                if (kvp.Value != null && !kvp.Value.hasPassenger)
-                {
-                    emptySeatsCount++;
-                }
-            }
-            var childSeats = bagController.GetComponentsInChildren<RoR2.VehicleSeat>(true);
-            foreach (var childSeat in childSeats)
-            {
-                if (childSeat == bagController.vehicleSeat) continue;
-                bool isTracked = seatDict.Values.Contains(childSeat);
-                if (!isTracked && !childSeat.hasPassenger)
-                {
-                    emptySeatsCount++;
-                }
-            }
-            if (emptySeatsCount == 0)
-            {
-                return false;
-            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[HasSpaceForNullStateTransition] Space available for null transition");
+            
             return true;
         }
     }

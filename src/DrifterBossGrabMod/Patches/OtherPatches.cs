@@ -343,8 +343,24 @@ namespace DrifterBossGrabMod.Patches
                             {
                                 if (modelLocator.modelTransform != null)
                                 {
+                                    // If the model was left in the bag (parented elsewhere), re-parent it here to ensure it shows up at the impact site.
+                                    if (!modelLocator.modelTransform.IsChildOf(passenger.transform))
+                                    {
+                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        {
+                                            Log.Info($" [FIX] Re-parenting detached model {modelLocator.modelTransform.name} to {passenger.name}");
+                                        }
+                                        modelLocator.modelTransform.SetParent(passenger.transform, false); 
+                                        modelLocator.modelTransform.localPosition = Vector3.zero;
+                                        modelLocator.modelTransform.localRotation = Quaternion.identity;
+                                    }
+
                                     var modelColliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
                                     Log.Info($" Model has {modelColliders.Length} colliders");
+                                    foreach (var mc in modelColliders)
+                                    {
+                                        mc.enabled = true;
+                                    }
                                 }
                             }
                             else
@@ -366,7 +382,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" Restored {allColliders.Length} colliders for {passengerName}");
+                            Log.Info($" Restored {allColliders.Length} colliders for {passengerName} (plus model colliders)");
                         }
                     }
                     // Special handling for ProjectileStickOnImpact components (fixes EngiBubbleShield and Engie mines position reset)

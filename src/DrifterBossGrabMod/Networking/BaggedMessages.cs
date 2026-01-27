@@ -97,18 +97,54 @@ namespace DrifterBossGrabMod.Networking
     public class CyclePassengersMessage : MessageBase
     {
         public NetworkInstanceId bagControllerNetId = NetworkInstanceId.Invalid;
-        public bool scrollUp;
+        public int amount;
 
         public override void Serialize(NetworkWriter writer)
         {
             writer.Write(bagControllerNetId);
-            writer.Write(scrollUp);
+            writer.Write(amount);
         }
 
         public override void Deserialize(NetworkReader reader)
         {
             bagControllerNetId = reader.ReadNetworkId();
-            scrollUp = reader.ReadBoolean();
+            amount = reader.ReadInt32();
+        }
+    }
+
+    // Network message for client to send bag state to server (Client -> Server)
+    // Using custom message because [Command] isn't reliably reaching server
+    public class ClientUpdateBagStateMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public int selectedIndex;
+        public uint[] baggedIds = System.Array.Empty<uint>();
+        public uint[] seatIds = System.Array.Empty<uint>();
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            writer.Write(selectedIndex);
+            
+            writer.Write(baggedIds.Length);
+            foreach (var id in baggedIds) writer.Write(id);
+            
+            writer.Write(seatIds.Length);
+            foreach (var id in seatIds) writer.Write(id);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            selectedIndex = reader.ReadInt32();
+            
+            int count = reader.ReadInt32();
+            baggedIds = new uint[count];
+            for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
+            
+            int count2 = reader.ReadInt32();
+            seatIds = new uint[count2];
+            for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
         }
     }
 }
