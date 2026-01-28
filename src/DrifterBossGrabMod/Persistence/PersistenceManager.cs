@@ -36,9 +36,9 @@ namespace DrifterBossGrabMod
         }
 
         // Remove object from persistence - delegate to object manager
-        public static void RemovePersistedObject(GameObject obj)
+        public static void RemovePersistedObject(GameObject obj, bool isDestroying = false)
         {
-            PersistenceObjectManager.RemovePersistedObject(obj);
+            PersistenceObjectManager.RemovePersistedObject(obj, isDestroying);
         }
 
         // Clear all persisted objects - delegate to object manager

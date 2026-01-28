@@ -63,6 +63,19 @@ namespace DrifterBossGrabMod.Patches
             GameObject? owner = projectileController?.owner;
             if (owner != null)
             {
+                // Find the bag controller and properly remove/eject the object
+                var ownerBody = owner.GetComponent<CharacterBody>();
+                if (ownerBody != null)
+                {
+                    var bagController = ownerBody.GetComponent<DrifterBagController>();
+                    if (bagController != null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($" [RecoverObject] Removing {passenger.name} from bag before recovery");
+                        BagPatches.RemoveBaggedObject(bagController, passenger);
+                    }
+                }
+
                 Vector3 playerPos = owner.transform.position;
                 string passengerName = "unknown";
                 try
@@ -81,6 +94,21 @@ namespace DrifterBossGrabMod.Patches
                 // Teleport passenger to a position in front of the player
                 Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
                 passenger.transform.position = teleportPos;
+
+                // Clear projectile state tracking so the object can be cycled if re-grabbed
+                RemoveFromProjectileState(passenger);
+
+                // Restore original state if ModelStatePreserver exists (renderers, colliders)
+                var modelStatePreserver = passenger.GetComponent<ModelStatePreserver>();
+                if (modelStatePreserver != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($" [RecoverObject] Restoring model state for recovered object {passenger.name}");
+                    // Use restoreParent=true for recovery to put the object back exactly as it was
+                    modelStatePreserver.RestoreOriginalState(true);
+                    UnityEngine.Object.Destroy(modelStatePreserver);
+                }
+
                 // Destroy the projectile
                 UnityEngine.Object.Destroy(thrownController.gameObject);
             }
@@ -244,36 +272,72 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($" Projectile passenger: {passengerName}");
                     }
                     // For objects with SpecialObjectAttributes (like that wing guy), eject from VehicleSeat and manually restore
-                    var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
-                    if (specialAttrs != null)
+                    // Eject the passenger from VehicleSeat to restore VehicleSeat-managed colliders/behaviors
+                    var vehicleSeatField = typeof(ThrownObjectProjectileController).GetField("vehicleSeat", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
+                    if (vehicleSeat != null && vehicleSeat.hasPassenger)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" Processing SpecialObjectAttributes collision restoration for {passengerName}");
+                            Log.Info($" Ejecting passenger {passengerName} from VehicleSeat");
                         }
-                        // Eject the passenger from VehicleSeat to restore VehicleSeat-managed colliders/behaviors
-                        var vehicleSeatField = typeof(ThrownObjectProjectileController).GetField("vehicleSeat", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
-                        if (vehicleSeat != null && vehicleSeat.hasPassenger)
+                        // Calculate final position for ejection
+                        var calculateMethod = typeof(ThrownObjectProjectileController).GetMethod("CalculatePassengerFinalPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (calculateMethod != null)
                         {
+                            var parameters = new object?[] { null, null };
+                            calculateMethod.Invoke(__instance, parameters);
+                            Vector3 finalPosition = (Vector3)parameters[0]!;
+                            Quaternion finalRotation = (Quaternion)parameters[1]!;
+                            // Eject the passenger - Server only to prevent desync validation warnings and position fighting
+                            if (UnityEngine.Networking.NetworkServer.active)
+                            {
+                                vehicleSeat.EjectPassenger(finalPosition, finalRotation);
+                            }
+                            else
+                            {
+                                // Manually detach and position to prevent destruction with projectile
+                                if (passenger != null)
+                                {
+                                    passenger.transform.SetParent(null);
+                                    passenger.transform.position = finalPosition;
+                                    passenger.transform.rotation = finalRotation;
+                                }
+                            }
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                Log.Info($" Ejecting passenger {passengerName} from VehicleSeat");
+                                Log.Info($" Successfully ejected passenger {passengerName} to position {finalPosition}");
                             }
-                            // Calculate final position for ejection
-                            var calculateMethod = typeof(ThrownObjectProjectileController).GetMethod("CalculatePassengerFinalPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                            if (calculateMethod != null)
+                            // Get the DrifterBagController to clean up tracking
+                            var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
+                            GameObject? owner = projController?.owner;
+                            if (owner != null)
                             {
-                                var parameters = new object?[] { null, null };
-                                calculateMethod.Invoke(__instance, parameters);
-                                Vector3 finalPosition = (Vector3)parameters[0]!;
-                                Quaternion finalRotation = (Quaternion)parameters[1]!;
-                                // Eject the passenger
-                                vehicleSeat.EjectPassenger(finalPosition, finalRotation);
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                var bagController = owner.GetComponent<DrifterBagController>();
+                                if (bagController != null)
                                 {
-                                    Log.Info($" Successfully ejected passenger {passengerName} to position {finalPosition}");
+                                    // Only remove from bag tracking if it's still tracked
+                                    // (it may have already been removed in ThrownObjectProjectileController.Awake)
+                                    if (BagPatches.IsBaggedObject(bagController, passenger))
+                                    {
+                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        {
+                                            Log.Info($" Calling RemoveBaggedObject for ejected passenger {passengerName}");
+                                        }
+                                        Patches.BagPatches.RemoveBaggedObject(bagController, passenger);
+                                    }
+                                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    {
+                                        Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
+                                    }
                                 }
+                            }
+                        }
+                        else
+                        {
+                            if (UnityEngine.Networking.NetworkServer.active)
+                            {
+                                vehicleSeat.EjectPassenger();
                                 // Get the DrifterBagController to clean up tracking
                                 var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
                                 GameObject? owner = projController?.owner;
@@ -283,7 +347,6 @@ namespace DrifterBossGrabMod.Patches
                                     if (bagController != null)
                                     {
                                         // Only remove from bag tracking if it's still tracked
-                                        // (it may have already been removed in ThrownObjectProjectileController.Awake)
                                         if (BagPatches.IsBaggedObject(bagController, passenger))
                                         {
                                             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -299,93 +362,40 @@ namespace DrifterBossGrabMod.Patches
                                     }
                                 }
                             }
-                            else
-                            {
-                                if (UnityEngine.Networking.NetworkServer.active)
-                                {
-                                    vehicleSeat.EjectPassenger();
-                                    // Get the DrifterBagController to clean up tracking
-                                    var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-                                    GameObject? owner = projController?.owner;
-                                    if (owner != null)
-                                    {
-                                        var bagController = owner.GetComponent<DrifterBagController>();
-                                        if (bagController != null)
-                                        {
-                                            // Only remove from bag tracking if it's still tracked
-                                            // (it may have already been removed in ThrownObjectProjectileController.Awake)
-                                            if (BagPatches.IsBaggedObject(bagController, passenger))
-                                            {
-                                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                                {
-                                                    Log.Info($" Calling RemoveBaggedObject for ejected passenger {passengerName}");
-                                                }
-                                                Patches.BagPatches.RemoveBaggedObject(bagController, passenger);
-                                            }
-                                            else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                            {
-                                                Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // Additionally, manually restore all colliders for SpecialObjectAttributes objects
-                        // This handles colliders disabled by the grabbing code that VehicleSeat ejection doesn't restore
-                        // Behaviors are restored by VehicleSeat ejection
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Manually restoring all colliders for {passengerName}");
-                            // Debug ModelLocator state
-                            var modelLocator = passenger.GetComponent<ModelLocator>();
-                            if (modelLocator != null)
-                            {
-                                if (modelLocator.modelTransform != null)
-                                {
-                                    // If the model was left in the bag (parented elsewhere), re-parent it here to ensure it shows up at the impact site.
-                                    if (!modelLocator.modelTransform.IsChildOf(passenger.transform))
-                                    {
-                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        {
-                                            Log.Info($" [FIX] Re-parenting detached model {modelLocator.modelTransform.name} to {passenger.name}");
-                                        }
-                                        modelLocator.modelTransform.SetParent(passenger.transform, false); 
-                                        modelLocator.modelTransform.localPosition = Vector3.zero;
-                                        modelLocator.modelTransform.localRotation = Quaternion.identity;
-                                    }
-
-                                    var modelColliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
-                                    Log.Info($" Model has {modelColliders.Length} colliders");
-                                    foreach (var mc in modelColliders)
-                                    {
-                                        mc.enabled = true;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                Log.Info($" No ModelLocator found on {passengerName}");
-                            }
-                        }
-                        var allColliders = passenger.GetComponentsInChildren<Collider>(true);
-                        foreach (var collider in allColliders)
-                        {
-                            collider.enabled = true;
-                        }
-                        // Ensure Rigidbody is not kinematic
-                        var rb = passenger.GetComponent<Rigidbody>();
-                        if (rb != null)
-                        {
-                            rb.isKinematic = false;
-                            rb.detectCollisions = true;
-                        }
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Restored {allColliders.Length} colliders for {passengerName} (plus model colliders)");
                         }
                     }
-                    // Special handling for ProjectileStickOnImpact components (fixes EngiBubbleShield and Engie mines position reset)
+                    
+                    // Ensure model is parented to passenger
+                    var modelLocator = passenger.GetComponent<ModelLocator>();
+                    if (modelLocator != null && modelLocator.modelTransform != null)
+                    {
+                        if (!modelLocator.modelTransform.IsChildOf(passenger.transform))
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($" [FIX] Re-parenting detached model {modelLocator.modelTransform.name} to {passenger.name}");
+                            modelLocator.modelTransform.SetParent(passenger.transform, false);
+                            modelLocator.modelTransform.localPosition = Vector3.zero;
+                            modelLocator.modelTransform.localRotation = Quaternion.identity;
+                        }
+                    }
+
+                    // Ensure Rigidbody is not kinematic
+                    var rb = passenger.GetComponent<Rigidbody>();
+                    if (rb != null)
+                    {
+                        rb.isKinematic = false;
+                        rb.detectCollisions = true;
+                    }
+
+                    var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
+                    if (specialAttrs != null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Processing SpecialObjectAttributes collision restoration for {passengerName}");
+                        }
+                    }
+                    // Special handling for ProjectileStickOnImpact components
                     var stickOnImpactComponents = passenger.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
                     foreach (var stickComponent in stickOnImpactComponents)
                     {
@@ -418,7 +428,9 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.Info($" Restoring ModelLocator state for {passengerName}");
                         }
-                        modelStatePreserver.RestoreOriginalState();
+                        // Restore state but SKIP parent restoration - OtherPatches already handles parenting correctly for thrown objects
+                        // and restoring parent to the bag (Drifter) would be incorrect on impact
+                        modelStatePreserver.RestoreOriginalState(false);
                         UnityEngine.Object.Destroy(modelStatePreserver);
                     }
                     // Also check if projectile impacted while out of bounds (fallback recovery)
@@ -715,6 +727,14 @@ namespace DrifterBossGrabMod.Patches
                 var targetObject = targetObjectField?.GetValue(__instance) as GameObject;
                 if (targetObject != null)
                 {
+                    // Ensure ModelStatePreserver is attached before the object is stashed and hidden
+                    if (targetObject.GetComponent<ModelStatePreserver>() == null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($" [BaggedObject.OnEnter] Attaching ModelStatePreserver to {targetObject.name} to capture original state");
+                        targetObject.AddComponent<ModelStatePreserver>();
+                    }
+
                     var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();
                     if (specialAttrs != null)
                     {

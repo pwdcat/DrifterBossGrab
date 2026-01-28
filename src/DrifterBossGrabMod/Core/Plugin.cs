@@ -79,6 +79,7 @@ namespace DrifterBossGrabMod
             
             // Initialize networking
             Networking.BagStateSync.Init(new Harmony(Constants.PluginGuid + ".networking"));
+            Networking.ConfigSyncHandler.Init();
         }
         private void RemoveConfigurationEventHandlers()
         {
@@ -110,9 +111,10 @@ namespace DrifterBossGrabMod
 
         private void StopCoroutines()
         {
-            if (Instance != null)
+            if (_grabbableComponentTypesUpdateCoroutine != null)
             {
-                Instance.StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
+                StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
+                _grabbableComponentTypesUpdateCoroutine = null;
             }
         }
 
@@ -191,9 +193,9 @@ namespace DrifterBossGrabMod
             {
                 if (_grabbableComponentTypesUpdateCoroutine != null)
                 {
-                    Instance!.StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
+                    StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
                 }
-                _grabbableComponentTypesUpdateCoroutine = Instance!.StartCoroutine(DelayedGrabbableComponentTypesUpdate());
+                _grabbableComponentTypesUpdateCoroutine = StartCoroutine(DelayedGrabbableComponentTypesUpdate());
             };
             PluginConfig.Instance.GrabbableComponentTypes.SettingChanged += grabbableComponentTypesHandler;
 
@@ -260,18 +262,42 @@ namespace DrifterBossGrabMod
         {
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnSceneChanged;
+            CharacterBody.onBodyStartGlobal += OnBodyStart;
         }
+
+        private void OnBodyStart(CharacterBody body)
+        {
+            if (body && body.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
+            {
+                // Check if it's the Drifter Survivor
+                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[Plugin] Drifter body spawned: {body.name}. Triggering object scan.");
+                }
+                
+                IsDrifterPresent = true;
+                Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+            }
+        }
+
         private static void OnPlayerFirstCreated(Run run, PlayerCharacterMasterController pcm)
         {
+            if (pcm != null && pcm.networkUser != null && pcm.networkUser.connectionToClient != null)
+            {
+                Networking.ConfigSyncHandler.SendConfigToClient(pcm.networkUser.connectionToClient);
+            }
         }
         private static void OnSceneChanged(UnityEngine.SceneManagement.Scene oldScene, UnityEngine.SceneManagement.Scene newScene)
         {
             DrifterBossGrabPlugin.IsDrifterPresent = false; // Reset flag on scene change
             Patches.OtherPatches.ResetZoneInversionDetection();
             PersistenceSceneHandler.Instance.OnSceneChanged(oldScene, newScene);
-            Instance!.StartCoroutine(DelayedUpdateDrifterPresence());
-            Instance!.StartCoroutine(DelayedEnsureSpecialObjectAttributes());
-            Instance!.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
+            if (Instance != null)
+            {
+                Instance.StartCoroutine(DelayedUpdateDrifterPresence());
+                Instance.StartCoroutine(DelayedEnsureSpecialObjectAttributes());
+                Instance.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
+            }
             Patches.BagPatches.ScanAllSceneComponents();
         }
         private static System.Collections.IEnumerator DelayedEnsureSpecialObjectAttributes()
@@ -361,12 +387,14 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedNPCs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedEnvironmentObjects));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.PersistenceBlacklist));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.AutoGrabDelay, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 10f, increment = 0.1f }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRangeMultiplier));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.ForwardVelocityMultiplier));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.UpwardVelocityMultiplier));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassMultiplier));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapBagScale));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist));

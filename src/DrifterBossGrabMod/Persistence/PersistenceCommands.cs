@@ -38,15 +38,17 @@ namespace DrifterBossGrabMod
     public class RemovePersistedObjectCommand : IPersistenceCommand
     {
         private readonly GameObject _obj;
+        private readonly bool _isDestroying;
 
-        public RemovePersistedObjectCommand(GameObject obj)
+        public RemovePersistedObjectCommand(GameObject obj, bool isDestroying = false)
         {
             _obj = obj;
+            _isDestroying = isDestroying;
         }
 
         public void Execute()
         {
-            PersistenceObjectManager.RemovePersistedObjectInternal(_obj);
+            PersistenceObjectManager.RemovePersistedObjectInternal(_obj, _isDestroying);
         }
 
         public void Undo()

@@ -4,6 +4,7 @@ using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using EntityStates.Drifter;
+using EntityStates.Drifter.Bag;
 namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessPatches
@@ -48,16 +49,51 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
-            [HarmonyPostfix]
-            public static void Postfix(ref float __result)
+            [HarmonyPrefix]
+            public static bool Prefix(GameObject targetObject, ref float __result)
             {
+                if (!targetObject)
+                {
+                    __result = 0f;
+                    return false;
+                }
+                
+                float mass = 1f;
+                // Try to get mass from IPhysMotor or SpecialObjectAttributes
+                if (targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
+                {
+                    mass = physMotor.mass;
+                }
+                else if (targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
+                {
+                    mass = specialObjectAttributes.massOverride;
+                }
+
+                // Apply mass multiplier
                 float multiplier = 1.0f;
                 if (float.TryParse(PluginConfig.Instance.MassMultiplier.Value, out float parsed))
                 {
                     multiplier = parsed;
                 }
-                __result *= multiplier;
-                __result = Mathf.Clamp(__result, 0f, DrifterBagController.maxMass);
+                float rawMass = mass;
+                mass *= multiplier;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" [CalculateBaggedObjectMass] Object: {targetObject.name}, RawMass: {rawMass}, Multiplier: {multiplier}, FinalMass: {mass}, Uncapped: {PluginConfig.Instance.UncapBagScale.Value}");
+                }
+
+                // Clamp like original, unless uncapping is enabled
+                if (!PluginConfig.Instance.UncapBagScale.Value)
+                {
+                    __result = Mathf.Clamp(mass, 0f, DrifterBagController.maxMass);
+                }
+                else
+                {
+                    __result = Mathf.Max(mass, 0f);
+                }
+
+                return false; // Skip original method
             }
         }
 
@@ -67,23 +103,59 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(DrifterBagController __instance)
             {
-                var mainSeatObj = BagPatches.GetMainSeatObject(__instance);
                 float totalMass = 0f;
-                
-                if (mainSeatObj != null)
+                if (BagPatches.baggedObjectsDict.TryGetValue(__instance, out var list))
                 {
-                    totalMass = __instance.CalculateBaggedObjectMass(mainSeatObj);
+                    foreach (var obj in list)
+                    {
+                        if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                        {
+                            totalMass += __instance.CalculateBaggedObjectMass(obj);
+                        }
+                    }
+                }
+
+                // Clamp like original, unless uncapping is enabled
+                if (!PluginConfig.Instance.UncapBagScale.Value)
+                {
+                    totalMass = Mathf.Clamp(totalMass, 0f, 700f);
+                }
+                else
+                {
+                    totalMass = Mathf.Max(totalMass, 0f);
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [RecalculateBaggedObjectMass] Setting total baggedMass to {totalMass} (Main object: {mainSeatObj?.name ?? "none"})");
+                    Log.Info($" [RecalculateBaggedObjectMass] Setting total baggedMass to {totalMass} (Objects: {(list?.Count ?? 0)})");
                 }
 
                 Traverse.Create(__instance).Field("baggedMass").SetValue(totalMass);
 
+                // Update visual bag scale if we are in BaggedObject state
+                var stateMachines = __instance.GetComponents<EntityStateMachine>();
+                foreach (var esm in stateMachines)
+                {
+                    if (esm.customName == "Bag" && esm.state is BaggedObject baggedObject)
+                    {
+                        BaggedObjectPatches.UpdateBagScale(baggedObject, totalMass);
+                        break;
+                    }
+                }
+
                 // Skip original summation logic
                 return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(DrifterBagController), "OnSyncBaggedObject")]
+        public class DrifterBagController_OnSyncBaggedObject_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(DrifterBagController __instance)
+            {
+                // Ensure total mass is recalculated on client when the main object changes
+                BagPatches.ForceRecalculateMass(__instance);
             }
         }
         [HarmonyPatch(typeof(DrifterBagController), "Awake")]
@@ -165,6 +237,15 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController != null && targetObject != null)
                 {
+                    // Proactively track as main seat occupant if not already tracked or if bag is empty
+                    // This fixes the client-side race condition where IsInMainSeat returns false initially
+                    if (BagPatches.GetMainSeatObject(bagController) == null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($" [BaggedObject_OnEnter] Proactively setting {targetObject.name} as main seat occupant for {bagController.name}");
+                        BagPatches.SetMainSeatObject(bagController, targetObject);
+                    }
+
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -173,6 +254,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
         [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
         public class SpecialObjectAttributes_get_isTargetable
         {
@@ -292,45 +374,6 @@ namespace DrifterBossGrabMod.Patches
                 upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.Instance.UpwardVelocityMultiplier.Value);
             }
         }
-        [HarmonyPatch(typeof(EntityStates.Drifter.Repossess), "OnEnter")]
-        public class Repossess_OnEnter_Patch
-        {
-            [HarmonyPrefix]
-            public static void Prefix(EntityStates.Drifter.Repossess __instance)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" [Repossess.OnEnter] Entered Repossess state");
-                }
-            }
-
-            [HarmonyTranspiler]
-            public static System.Collections.Generic.IEnumerable<CodeInstruction> Transpiler(System.Collections.Generic.IEnumerable<CodeInstruction> instructions)
-            {
-                var instructionsList = new System.Collections.Generic.List<CodeInstruction>(instructions);
-                var getHasPassengerMethod = AccessTools.PropertyGetter(typeof(VehicleSeat), "hasPassenger");
-                var hasPassengerOverrideMethod = AccessTools.Method(typeof(RepossessPatches), nameof(HasPassengerOverride));
-
-                bool found = false;
-                for (int i = 0; i < instructionsList.Count; i++)
-                {
-                    if (instructionsList[i].Calls(getHasPassengerMethod))
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info(" [Repossess.OnEnter Transpiler] Replaces get_hasPassenger with HasPassengerOverride");
-                        
-                        instructionsList[i].opcode = System.Reflection.Emit.OpCodes.Call;
-                        instructionsList[i].operand = hasPassengerOverrideMethod;
-                        found = true;
-                    }
-                }
-                
-                if (!found && PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info(" [Repossess.OnEnter Transpiler] Failed to find get_hasPassenger call");
-
-                return instructionsList;
-            }
-        }
 
         [HarmonyPatch(typeof(EntityStates.Drifter.Repossess), "OnExit")]
         public class Repossess_OnExit_Patch
@@ -349,37 +392,36 @@ namespace DrifterBossGrabMod.Patches
         {
             if (seat == null) return false;
             
-            bool hasPassenger = seat.hasPassenger;
+            // If mod disabled, return original behavior
+            if (!PluginConfig.Instance.BottomlessBagEnabled.Value) return seat.hasPassenger;
             
-            // If mod disabled or basic check fails, return original
-            if (!PluginConfig.Instance.BottomlessBagEnabled.Value) return hasPassenger;
-            
-            // If physically empty, definitely false
-            if (!hasPassenger) return false;
-
-            // If we have capacity, lie and say we are empty so we can grab!
             var bagController = seat.GetComponentInParent<DrifterBagController>();
             if (bagController)
             {
                 // We need to count how many objects we really have
-                int count = 0;
-                if (BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list))
-                {
-                    count = list.Count;
-                }
+                int count = BagPatches.GetBaggedObjectCount(bagController);
                 
                 int maxCapacity = BagPatches.GetUtilityMaxStock(bagController);
                 
-                // If capacity allows, return false to trick the state into thinking we can grab
-                if (count < maxCapacity)
+                // If we are at or above capacity
+                // This prevents the Repossess skill from starting a grab even if the seat is empty
+                if (count >= maxCapacity)
                 {
-                     if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($" [HasPassengerOverride] Bag is FULL ({count}/{maxCapacity}). Blocking grab.");
+                    return true;
+                }
+
+                // If we have capacity AND there's a passenger, return false (Tricked to allow grab)
+                if (seat.hasPassenger)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Info($" [HasPassengerOverride] Bag has {count}/{maxCapacity} objects. Tricking Repossess state to allow grab.");
                     return false;
                 }
             }
 
-            return hasPassenger;
+            return seat.hasPassenger;
         }
     }
 }

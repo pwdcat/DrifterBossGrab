@@ -293,7 +293,7 @@ namespace DrifterBossGrabMod
                                // This prevents "Bag State" arriving before "Object Spawn", which causes Client lookup failure.
                                var coroutineRunner = new GameObject("ServerAutoGrabRunner_" + obj.name);
                                var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
-                               runner.StartCoroutine(DelayedAutoGrab(obj, runner, 1.0f));
+                               runner.StartCoroutine(DelayedAutoGrab(obj, runner, PluginConfig.Instance.AutoGrabDelay.Value));
                           }
                           else
                           {
@@ -641,6 +641,7 @@ namespace DrifterBossGrabMod
         // Schedule auto-grab for Drifter
         public void ScheduleAutoGrab(CharacterMaster master)
         {
+            if (!NetworkServer.active) return;
             if (!PersistenceObjectManager.GetCachedEnableAutoGrab()) return;
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {

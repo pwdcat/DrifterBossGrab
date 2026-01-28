@@ -124,16 +124,16 @@ namespace DrifterBossGrabMod
         }
 
         // Remove object from persistence
-        public static void RemovePersistedObject(GameObject obj)
+        public static void RemovePersistedObject(GameObject obj, bool isDestroying = false)
         {
-            var command = new RemovePersistedObjectCommand(obj);
+            var command = new RemovePersistedObjectCommand(obj, isDestroying);
             _commandInvoker.ExecuteCommand(command);
         }
 
         // Internal method for removing object from persistence (used by commands)
-        internal static void RemovePersistedObjectInternal(GameObject obj)
+        internal static void RemovePersistedObjectInternal(GameObject obj, bool isDestroying = false)
         {
-            if (obj == null) return;
+            if (ReferenceEquals(obj, null)) return;
             lock (_lock)
             {
                 if (_persistedObjects.Remove(obj))
@@ -141,8 +141,11 @@ namespace DrifterBossGrabMod
                     // Remove from owners dictionary
                     _persistedObjectOwnerPlayerIds.Remove(obj);
                     // Remove from persistence container
+                if (!isDestroying)
+                {
                     obj.transform.SetParent(null, true);
                     SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
+                }
                     // Also remove model from persistence if it exists
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null)

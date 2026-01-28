@@ -147,4 +147,121 @@ namespace DrifterBossGrabMod.Networking
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
         }
     }
+
+    // Network message for syncing config from Host to Client
+    public class SyncConfigMessage : MessageBase
+    {
+        // General Grabbing
+        public bool EnableBossGrabbing;
+        public bool EnableNPCGrabbing;
+        public bool EnableEnvironmentGrabbing;
+        public bool EnableLockedObjectGrabbing;
+        public bool EnableProjectileGrabbing;
+        public bool ProjectileGrabbingSurvivorOnly;
+
+        // Skill Scalars
+        public float SearchRangeMultiplier;
+        public float BreakoutTimeMultiplier;
+        public float ForwardVelocityMultiplier;
+        public float UpwardVelocityMultiplier;
+        public int MaxSmacks;
+        public string MassMultiplier;
+
+        // Blacklists & Component Types
+        public string BodyBlacklist;
+        public string RecoveryObjectBlacklist;
+        public string GrabbableComponentTypes; // IMPORTANT: This significantly affects client scanning
+        public string GrabbableKeywordBlacklist;
+
+        // Persistence
+        public bool EnableObjectPersistence; // Important sync
+        public bool EnableAutoGrab;
+        public bool PersistBaggedBosses;
+        public bool PersistBaggedNPCs;
+        public bool PersistBaggedEnvironmentObjects;
+        public string PersistenceBlacklist;
+        public float AutoGrabDelay;
+
+        // Bottomless Bag
+        public bool BottomlessBagEnabled;
+        public int BottomlessBagBaseCapacity;
+        public bool EnableStockRefreshClamping;
+        public float CycleCooldown;
+        public bool AutoPromoteMainSeat;
+        public bool UncapBagScale; // Balance
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(EnableBossGrabbing);
+            writer.Write(EnableNPCGrabbing);
+            writer.Write(EnableEnvironmentGrabbing);
+            writer.Write(EnableLockedObjectGrabbing);
+            writer.Write(EnableProjectileGrabbing);
+            writer.Write(ProjectileGrabbingSurvivorOnly);
+            
+            writer.Write(SearchRangeMultiplier);
+            writer.Write(BreakoutTimeMultiplier);
+            writer.Write(ForwardVelocityMultiplier);
+            writer.Write(UpwardVelocityMultiplier);
+            writer.Write(MaxSmacks);
+            writer.Write(MassMultiplier);
+            
+            writer.Write(BodyBlacklist);
+            writer.Write(RecoveryObjectBlacklist);
+            writer.Write(GrabbableComponentTypes);
+            writer.Write(GrabbableKeywordBlacklist);
+            
+            writer.Write(EnableObjectPersistence);
+            writer.Write(EnableAutoGrab);
+            writer.Write(PersistBaggedBosses);
+            writer.Write(PersistBaggedNPCs);
+            writer.Write(PersistBaggedEnvironmentObjects);
+            writer.Write(PersistenceBlacklist);
+            writer.Write(AutoGrabDelay);
+            
+            writer.Write(BottomlessBagEnabled);
+            writer.Write(BottomlessBagBaseCapacity);
+            writer.Write(EnableStockRefreshClamping);
+            writer.Write(CycleCooldown);
+            writer.Write(AutoPromoteMainSeat);
+            writer.Write(UncapBagScale);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            EnableBossGrabbing = reader.ReadBoolean();
+            EnableNPCGrabbing = reader.ReadBoolean();
+            EnableEnvironmentGrabbing = reader.ReadBoolean();
+            EnableLockedObjectGrabbing = reader.ReadBoolean();
+            EnableProjectileGrabbing = reader.ReadBoolean();
+            ProjectileGrabbingSurvivorOnly = reader.ReadBoolean();
+            
+            SearchRangeMultiplier = reader.ReadSingle();
+            BreakoutTimeMultiplier = reader.ReadSingle();
+            ForwardVelocityMultiplier = reader.ReadSingle();
+            UpwardVelocityMultiplier = reader.ReadSingle();
+            MaxSmacks = reader.ReadInt32();
+            MassMultiplier = reader.ReadString();
+            
+            BodyBlacklist = reader.ReadString();
+            RecoveryObjectBlacklist = reader.ReadString();
+            GrabbableComponentTypes = reader.ReadString();
+            GrabbableKeywordBlacklist = reader.ReadString();
+            
+            EnableObjectPersistence = reader.ReadBoolean();
+            EnableAutoGrab = reader.ReadBoolean();
+            PersistBaggedBosses = reader.ReadBoolean();
+            PersistBaggedNPCs = reader.ReadBoolean();
+            PersistBaggedEnvironmentObjects = reader.ReadBoolean();
+            PersistenceBlacklist = reader.ReadString();
+            AutoGrabDelay = reader.ReadSingle();
+            
+            BottomlessBagEnabled = reader.ReadBoolean();
+            BottomlessBagBaseCapacity = reader.ReadInt32();
+            EnableStockRefreshClamping = reader.ReadBoolean();
+            CycleCooldown = reader.ReadSingle();
+            AutoPromoteMainSeat = reader.ReadBoolean();
+            UncapBagScale = reader.ReadBoolean();
+        }
+    }
 }

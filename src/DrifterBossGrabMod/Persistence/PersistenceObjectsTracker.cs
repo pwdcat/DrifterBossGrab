@@ -35,15 +35,15 @@ namespace DrifterBossGrabMod
             }
         }
         // Stop tracking object when removed from bag or thrown
-        public static void UntrackBaggedObject(GameObject obj)
+        public static void UntrackBaggedObject(GameObject obj, bool isDestroying = false)
         {
-            if (obj == null) return;
+            if (ReferenceEquals(obj, null)) return;
             lock (_lock)
             {
                 if (_currentlyBaggedObjects.Remove(obj))
                 {
                     // Remove from persistence when thrown
-                    PersistenceManager.RemovePersistedObject(obj);
+                    PersistenceManager.RemovePersistedObject(obj, isDestroying);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Untracked bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");

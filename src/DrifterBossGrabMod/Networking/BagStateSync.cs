@@ -58,6 +58,15 @@ namespace DrifterBossGrabMod.Networking
             // Default settings, will be copied from actual seat during spawn
             seat.passengerState = new EntityStates.SerializableEntityStateType(typeof(EntityStates.Idle));
             
+            // Apply settings to match Drifter's main seat
+            // Since VehicleSeat doesn't sync these flags, we must set them on the prefab
+            seat.hidePassenger = true;
+            seat.disablePassengerMotor = true;
+            seat.disableAllCollidersAndHurtboxes = true;
+            seat.isEquipmentActivationAllowed = true;
+            
+            seat.shouldSetIdle = true; // Set to true to match default expectation for vehicles
+            
             // Register it so it can be spawned
             // Use a stable hash for the assetId
             var assetId = new Guid("d62f2e5a-7b3c-4e8a-9d1f-8c5e2a3b4d5e");

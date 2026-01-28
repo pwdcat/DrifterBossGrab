@@ -19,6 +19,19 @@ namespace DrifterBossGrabMod
         {
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
             message.Deserialize(netMsg.reader);
+
+            // Only allow Host (Server+Client) to handle THIS specific persistence message.
+            // Remote clients should NOT persist these objects locally, because the Server will spawn them 
+            // in the new scene, and standard networking will create them on the client.
+            // If we persist them locally on the client, we end up with duplicates (one restored from local, one spawned by server).
+            if (!NetworkServer.active)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[HandleBaggedObjectsPersistenceMessage] Remote Client received persistence msg - IGNORING to prevent duplication (Server will spawn object)");
+                }
+                return;
+            }
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[HandleBaggedObjectsPersistenceMessage] Received bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
@@ -35,16 +48,21 @@ namespace DrifterBossGrabMod
                 GameObject? obj = FindObjectByNetId(netId);
                 if (obj != null && PersistenceObjectManager.IsValidForPersistence(obj))
                 {
-                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
-                    
-                    // Also ensure ModelStatePreserver is attached for client-side model state restoration
+                    // Ensure ModelStatePreserver is attached BEFORE moving to persistence container
+                    // This captures the original model state (parent, pos, rot, scale) correctly
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null && obj.GetComponent<ModelStatePreserver>() == null)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[HandleBaggedObjectsPersistenceMessage] Adding ModelStatePreserver to persisted object {obj.name}");
                         obj.AddComponent<ModelStatePreserver>();
-                        if (!modelLocator.autoUpdateModelTransform) modelLocator.autoUpdateModelTransform = true;
+                    }
+
+                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
+
+                    if (modelLocator != null && !modelLocator.autoUpdateModelTransform) 
+                    {
+                        modelLocator.autoUpdateModelTransform = true;
                     }
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -230,20 +248,7 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // 2. Fallback: Iterate the actual Persistence Container children (brute force, failsafe)
-            // This catches cases where the HashSet might be out of sync or the object was restored but not fully re-registered in the set yet?
-            // (Unlikely given the code, but the user insists on using the container)
-            var container = GameObject.Find("DBG_PersistenceContainer");
-            if (container != null)
-            {
-                 var identities = container.GetComponentsInChildren<NetworkIdentity>(true);
-                 foreach(var id in identities)
-                 {
-                     if (id.netId == netId) return id.gameObject;
-                 }
-            }
-
-            // 3. Check currently bagged objects (in case it's in a bag but not yet persisted)
+            // 3. Check currently bagged objects
             var baggedObjects = Patches.BagPatches.baggedObjectsDict;
             foreach (var kvp in baggedObjects)
             {
@@ -263,10 +268,10 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // 4. Standard Network Client Lookup
+            // 3. Standard Network Client Lookup
             GameObject? foundObj = ClientScene.FindLocalObject(netId);
             
-            // 5. Standard Network Server Lookup (Host/Server fallback)
+            // 4. Standard Network Server Lookup (Host/Server fallback)
             if (foundObj == null && NetworkServer.active)
             {
                 try

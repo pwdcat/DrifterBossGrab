@@ -511,24 +511,23 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             // Check if already has SpecialObjectAttributes using cached type
-            var existingSoa = targetObj.GetComponent(SpecialObjectAttributesType) as SpecialObjectAttributes;
-            if (existingSoa != null)
+            var soa = targetObj.GetComponent(SpecialObjectAttributesType) as SpecialObjectAttributes;
+            if (soa == null)
             {
-                // Ensure it's configured for grabbing
-                if (!existingSoa.grabbable || string.IsNullOrEmpty(existingSoa.breakoutStateMachineName))
+                // Add SpecialObjectAttributes to make the projectile grabbable
+                soa = targetObj.AddComponent<SpecialObjectAttributes>();
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    existingSoa.grabbable = true;
-                    existingSoa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
-                    existingSoa.orientToFloor = true; // Like chests
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Updated existing SpecialObjectAttributes on projectile {targetObj.name}");
-                    }
+                    Log.Info($" Added SpecialObjectAttributes to {targetObj.name}");
                 }
-                return;
             }
-            // Add SpecialObjectAttributes to make the projectile grabbable
-            var soa = targetObj.AddComponent<SpecialObjectAttributes>();
+            else
+            {
+                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Updating existing SpecialObjectAttributes on {targetObj.name}");
+                }
+            }
             // Calculate scaled attributes based on object size
             var (scaledMass, scaledDurability) = CalculateScaledAttributes(obj, objName);
             // Configure for grabbing (similar to chests)
@@ -627,9 +626,58 @@ namespace DrifterBossGrabMod.Patches
         }
         public static void EnsureAllGrabbableObjectsHaveSpecialObjectAttributes()
         {
-            foreach (GameObject go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            if (DrifterBossGrabPlugin.Instance)
             {
-                AddSpecialObjectAttributesToGrabbableObject(go);
+                DrifterBossGrabPlugin.Instance.StartCoroutine(EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync());
+            }
+            else
+            {
+                // Fallback if plugin instance isn't available (unlikely)
+                foreach (GameObject go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+                {
+                    AddSpecialObjectAttributesToGrabbableObject(go);
+                }
+            }
+        }
+
+        public static IEnumerator EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync()
+        {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info("[GrabbableObjectPatches] Starting async scan for grabbable objects...");
+            }
+
+            var allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+            int count = 0;
+            int total = allObjects.Length;
+            int batchSize = 100; // Process 100 objects per frame
+
+            foreach (GameObject go in allObjects)
+            {
+                if (go == null) continue;
+                
+                try
+                {
+                    AddSpecialObjectAttributesToGrabbableObject(go);
+                }
+                catch (Exception ex)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Warning($"Error processing object {go.name} during async scan: {ex}");
+                    }
+                }
+
+                count++;
+                if (count % batchSize == 0)
+                {
+                    yield return null; // Wait for next frame
+                }
+            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[GrabbableObjectPatches] Async scan complete. Processed {total} objects.");
             }
         }
         #region Harmony Patches

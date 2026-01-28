@@ -71,6 +71,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> RecoveryObjectBlacklist { get; private set; } = null!;
         public ConfigEntry<string> GrabbableComponentTypes { get; private set; } = null!;
         public ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; } = null!;
+        public ConfigEntry<bool> EnableConfigSync { get; private set; } = null!;
         public ConfigEntry<bool> EnableComponentAnalysisLogs { get; private set; } = null!;
         public ConfigEntry<bool> EnableObjectPersistence { get; private set; } = null!;
         public ConfigEntry<bool> EnableAutoGrab { get; private set; } = null!;
@@ -78,6 +79,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> PersistBaggedNPCs { get; private set; } = null!;
         public ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; private set; } = null!;
         public ConfigEntry<string> PersistenceBlacklist { get; private set; } = null!;
+        public ConfigEntry<float> AutoGrabDelay { get; private set; } = null!;
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
@@ -102,6 +104,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> ShowWeightText { get; private set; } = null!;
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         public ConfigEntry<bool> AutoPromoteMainSeat { get; private set; } = null!;
+        public ConfigEntry<bool> UncapBagScale { get; private set; } = null!;
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
@@ -205,7 +208,10 @@ namespace DrifterBossGrabMod
                 "Example: Master\n" +
                 "Objects with these keywords in their name will be excluded from grabbing.\n" +
                 "Case-insensitive matching, partial matches allowed.\n" +
+                "Case-insensitive matching, partial matches allowed.\n" +
                 "'Master' prevents grabbing enemy masters");
+            Instance.EnableConfigSync = cfg.Bind("General", "EnableConfigSync", true, 
+                "Enable synchronization of configuration settings (like environment grabbing) from host to new clients.");
             Instance.EnableComponentAnalysisLogs = cfg.Bind("General", "EnableComponentAnalysisLogs", false,
                 "Enable scanning of all objects in the current scene to log component types.\n" +
                 "This can be performance-intensive and should only be enabled for debugging.\n" +
@@ -230,6 +236,7 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
+            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Delay before auto-grabbing persisted objects on stage start (seconds)");
             Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
                 "Allows the scroll wheel to cycle through stored passengers. Bag capacity scales with the number of repossesses.");
@@ -241,7 +248,7 @@ namespace DrifterBossGrabMod
             Instance.ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
             Instance.ScrollDownKeybind = cfg.Bind("Bottomless Bag", "ScrollDownKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll down through passengers");
             Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items");
-            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 20.0f, "Horizontal offset for the center carousel item");
+            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 25.0f, "Horizontal offset for the center carousel item");
             Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 40.0f, "Vertical offset for the center carousel item");
             Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 20.0f, "Horizontal offset for the side carousel items");
             Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 5.0f, "Vertical offset for the side carousel items");
@@ -256,6 +263,7 @@ namespace DrifterBossGrabMod
             Instance.ShowWeightText = cfg.Bind("Hud", "ShowWeightText", false, "Show weight multiplier text on the weight icon");
             Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale the weight icon color based on mass");
             Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", true, "Automatically promote the next object in the bag to the main seat when the current main object is removed.");
+            Instance.UncapBagScale = cfg.Bind("Balance", "UncapBagScale", false, "When enabled, the bag size will not be capped and will continue to grow based on the mass of the stored object(s).");
 
             // Add event handlers for live updates
             Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();

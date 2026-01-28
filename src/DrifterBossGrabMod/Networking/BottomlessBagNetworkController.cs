@@ -35,7 +35,7 @@ namespace DrifterBossGrabMod.Networking
 
         public void SetBagState(int index, List<GameObject> baggedObjects, List<GameObject> additionalSeats, int direction = 0)
         {
-            // Prepare IDs
+
             List<uint> baggedIds = new List<uint>();
             foreach (var obj in baggedObjects)
             {
@@ -81,13 +81,12 @@ namespace DrifterBossGrabMod.Networking
                 
                 NetworkServer.SendToAll(206, msg); // MSG_UPDATE_BAG_STATE = 206
                 
-                // Also update server side local state immediately
+
                 UpdateLocalState(index, baggedIds, seatIds);
             }
             else if (hasAuthority)
             {
-                // Client with authority (player) sends their local bag state to the server via custom message
-                // Using custom message instead of [Command] because Commands weren't reaching the server properly
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[BottomlessBagNetworkController] Client sending bag state via message for {gameObject.name}");
                 var controller = GetComponent<DrifterBagController>();
                 if (controller != null)
@@ -127,8 +126,8 @@ namespace DrifterBossGrabMod.Networking
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[BottomlessBagNetworkController] Server received CmdUpdateBagState for {gameObject.name}. Objects: {baggedIds.Length}");
             
-            // CRITICAL: Actually grab objects on server that client grabbed
-            // Must do this BEFORE UpdateLocalState, since that populates baggedObjectsDict from network IDs
+            // Actually grab objects on server that client grabbed
+
             var controller = GetComponent<DrifterBagController>();
             if (controller != null)
             {
@@ -158,7 +157,7 @@ namespace DrifterBossGrabMod.Networking
             // NOW update local state from the client's data
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
             
-            // Fix race condition where state transition happened before target sync
+
             if (controller != null)
             {
                 TryFixNullTargetState(controller, new List<uint>(baggedIds));
@@ -264,8 +263,7 @@ namespace DrifterBossGrabMod.Networking
             };
             NetworkServer.SendToAll(206, msg);
         }
-        // Called when we receive bag state from client. If we're in BaggedObject state
-        // with null target, attempt to fix it using the newly received object IDs.
+
         private void TryFixNullTargetState(DrifterBagController controller, List<uint> baggedIds)
         {
             if (!NetworkServer.active || baggedIds.Count == 0) return;
@@ -300,7 +298,7 @@ namespace DrifterBossGrabMod.Networking
             
             if (NetworkServer.active)
             {
-                // On server, we can sync immediately as objects already exist
+
                 _baggedObjectNetIds = new List<uint>(_baggedObjectNetIdsTarget);
                 _additionalSeatNetIds = new List<uint>(_additionalSeatNetIdsTarget);
                 
@@ -413,8 +411,7 @@ namespace DrifterBossGrabMod.Networking
             var seats = GetAdditionalSeats();
             var additionalSeatDict = new System.Collections.Concurrent.ConcurrentDictionary<GameObject, VehicleSeat>();
             
-            // Cleanup: Destroy local temporary seats that are NOT in the synced list
-            // This prevents duplicate/orphaned seats on the client
+
             if (!NetworkServer.active) 
             {
                 var allChildSeats = controller.GetComponentsInChildren<VehicleSeat>(true);
@@ -480,6 +477,41 @@ namespace DrifterBossGrabMod.Networking
                 }
             }
             
+
+            if (NetworkServer.active)
+            {
+                var allChildSeats = controller.GetComponentsInChildren<VehicleSeat>(true);
+                foreach (var childSeat in allChildSeats)
+                {
+                    if (childSeat == controller.vehicleSeat) continue;
+                    
+                    if (childSeat.hasPassenger)
+                    {
+                        var passenger = childSeat.NetworkpassengerBodyObject;
+                        if (passenger != null && !additionalSeatDict.ContainsKey(passenger))
+                        {
+
+                            bool isInSyncedList = false;
+                            foreach(var syncedObj in syncedObjects)
+                            {
+                                if (syncedObj != null && syncedObj.GetInstanceID() == passenger.GetInstanceID())
+                                {
+                                    isInSyncedList = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (isInSyncedList)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[DoSync] Server-side recovery: Found missing seat for {passenger.name} in additional seats.");
+                                additionalSeatDict[passenger] = childSeat;
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Use the synchronized selectedIndex to determine main seat object
             // selectedIndex is set by the server and synced to clients
             if (syncedObjects != null && selectedIndex >= 0 && selectedIndex < syncedObjects.Count)
@@ -506,11 +538,13 @@ namespace DrifterBossGrabMod.Networking
             // Always set main seat object, even if null, to clear stale state
             BagPatches.SetMainSeatObject(controller, mainSeatObject);
             
-            // Store the synced list for capacity checks and UI
             if (syncedObjects != null)
             {
                 BagPatches.baggedObjectsDict[controller] = syncedObjects;
             }
+
+            // Recalculate total mass (including additional stashed objects)
+            BagPatches.ForceRecalculateMass(controller);
 
             if (triggerUIUpdate) 
             {

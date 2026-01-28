@@ -18,7 +18,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
-                // Check if local player is in Repossess or AimRepossess state - prevent cycling while grabbing or aiming
+
                 var localUser = LocalUserManager.GetFirstLocalUser();
                 if (localUser != null && localUser.cachedBody != null)
                 {
@@ -78,7 +78,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // 2. Handle Keybinds (Always overrides/adds to threshold if pressed)
+
                 if (Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
                 {
                     if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
@@ -135,7 +135,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Server-side implementation of cycling - called from CycleNetworkHandler or directly on host
+
         public static void ServerCyclePassengers(DrifterBagController bagController, int amount)
         {
             if (!NetworkServer.active || amount == 0) return; // Safety guard
@@ -162,7 +162,7 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[ServerCyclePassengers] No bagged objects found for {bagController.name}. Correcting client state (Empty).");
                 
-                // Force sync empty state to correct "phantom object" issues on client
+
                 var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
                 if (netController != null)
                 {
@@ -420,8 +420,7 @@ namespace DrifterBossGrabMod.Patches
                         actualMainPassenger = mainPassenger;
                     }
                 }
-                // For client-grabbed objects, the server may not see them in the vehicle seat
-                // Trust the mainSeatDict tracking if the object is in validObjects
+
                 if (actualMainPassenger == null)
                 {
                     // Check if mainPassenger is in validObjects
@@ -443,10 +442,7 @@ namespace DrifterBossGrabMod.Patches
                             Log.Info($"[CycleToNextObject] mainPassenger {mainPassenger.name} not in validObjects and not in seat, returning early");
                         return;
                     }
-                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[CycleToNextObject] Trusting mainSeatDict for {mainPassenger.name} (client-grabbed object)");
-                    }
+
                 }
             }
             int emptySeatsCount = 0;
@@ -467,8 +463,7 @@ namespace DrifterBossGrabMod.Patches
                     emptySeatsCount++;
                 }
             }
-            // Determine the logical selection state using the network controller
-            // This is the source of truth for "where are we in the cycle" regardless of physical seat state
+
             var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
             bool isInNullState = false;
             
@@ -521,8 +516,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             
-            // Only fall back to seat passenger if the logical state is also null AND we REALLY have someone in the seat
-            // This usually happens during the very first grab of a run or after a scene transition
+
             if (actualMainPassenger == null && !isInNullState && vehicleSeat.hasPassenger)
             {
                 GameObject? seatPassenger = vehicleSeat.NetworkpassengerBodyObject;
@@ -678,8 +672,7 @@ namespace DrifterBossGrabMod.Patches
                         return;
                     }
                     
-                    // Check if currentObject is actually in the vehicleSeat (server-side grab)
-                    // or if it's only tracked (client-grabbed, not physically in seat on server)
+
                     bool currentIsPhysicallyInSeat = vehicleSeat.hasPassenger && 
                         vehicleSeat.NetworkpassengerBodyObject != null &&
                         vehicleSeat.NetworkpassengerBodyObject.GetInstanceID() == currentObject.GetInstanceID();
@@ -972,17 +965,19 @@ namespace DrifterBossGrabMod.Patches
             int currentCapacity = BagPatches.GetUtilityMaxStock(bagController);
             int totalAdditionalSeats = seatDict.Count;
 
-            if (totalAdditionalSeats + 1 > currentCapacity)
+            if (totalAdditionalSeats >= currentCapacity - 1)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[FindOrCreateEmptySeat] Cannot create additional seat. Capacity reached ({totalAdditionalSeats}/{currentCapacity})");
+                    Log.Info($"[FindOrCreateEmptySeat] Cannot create additional seat. Capacity reached ({totalAdditionalSeats + 1}/{currentCapacity})");
                 return null!;
             }
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Info($"[FindOrCreateEmptySeat] Creating new additional seat (Current additional: {totalAdditionalSeats}, Capacity: {currentCapacity})");
-            // Allow creating local seats on client for immediate response
-            // if (!NetworkServer.active) return null!;
+            
+            // Disable local seat creation on client to prevent conflicts
+            if (!NetworkServer.active) return null!;
+
             var seatObject = (Networking.BagStateSync.AdditionalSeatPrefab != null) 
                 ? UnityEngine.Object.Instantiate(Networking.BagStateSync.AdditionalSeatPrefab)
                 : new GameObject($"AdditionalSeat_Empty_{DateTime.Now.Ticks}");
@@ -995,10 +990,7 @@ namespace DrifterBossGrabMod.Patches
             var newSeat = seatObject.GetComponent<RoR2.VehicleSeat>();
             if (newSeat == null) newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
             
-            if (NetworkServer.active)
-            {
-                NetworkServer.Spawn(seatObject);
-            }
+            NetworkServer.Spawn(seatObject);
 
             newSeat.seatPosition = vehicleSeat.seatPosition;
             newSeat.exitPosition = vehicleSeat.exitPosition;
@@ -1048,8 +1040,9 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             
-            // Allow creating local seats on client for immediate response
-            // if (!NetworkServer.active) return null!;
+            // Disable local seat creation on client to prevent conflicts
+            if (!NetworkServer.active) return null!;
+
             var seatObject = (Networking.BagStateSync.AdditionalSeatPrefab != null) 
                 ? UnityEngine.Object.Instantiate(Networking.BagStateSync.AdditionalSeatPrefab)
                 : new GameObject($"AdditionalSeat_Empty_{DateTime.Now.Ticks}");
@@ -1062,10 +1055,7 @@ namespace DrifterBossGrabMod.Patches
             var newSeat = seatObject.GetComponent<RoR2.VehicleSeat>();
             if (newSeat == null) newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
             
-            if (NetworkServer.active)
-            {
-                NetworkServer.Spawn(seatObject);
-            }
+            NetworkServer.Spawn(seatObject);
 
             newSeat.seatPosition = vehicleSeat.seatPosition;
             newSeat.exitPosition = vehicleSeat.exitPosition;
@@ -1271,10 +1261,10 @@ namespace DrifterBossGrabMod.Patches
                 Log.Info($"[HasSpaceForNullStateTransition] currentObjectCount: {currentObjectCount}, effectiveCapacity: {effectiveCapacity}");
             }
 
-            if (currentObjectCount > effectiveCapacity)
+            if (currentObjectCount >= effectiveCapacity)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[HasSpaceForNullStateTransition] Capacity exceeded ({currentObjectCount}/{effectiveCapacity}), blocking null transition");
+                    Log.Info($"[HasSpaceForNullStateTransition] Capacity reached ({currentObjectCount}/{effectiveCapacity}), blocking null transition to prevent over-filling");
                 return false;
             }
 
