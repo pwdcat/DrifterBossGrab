@@ -156,8 +156,7 @@ namespace DrifterBossGrabMod.Networking
         public bool EnableNPCGrabbing;
         public bool EnableEnvironmentGrabbing;
         public bool EnableLockedObjectGrabbing;
-        public bool EnableProjectileGrabbing;
-        public bool ProjectileGrabbingSurvivorOnly;
+        public ProjectileGrabbingMode ProjectileGrabbingMode;
 
         // Skill Scalars
         public float SearchRangeMultiplier;
@@ -165,13 +164,13 @@ namespace DrifterBossGrabMod.Networking
         public float ForwardVelocityMultiplier;
         public float UpwardVelocityMultiplier;
         public int MaxSmacks;
-        public string MassMultiplier;
+        public string MassMultiplier = string.Empty;
 
         // Blacklists & Component Types
-        public string BodyBlacklist;
-        public string RecoveryObjectBlacklist;
-        public string GrabbableComponentTypes; // IMPORTANT: This significantly affects client scanning
-        public string GrabbableKeywordBlacklist;
+        public string BodyBlacklist = string.Empty;
+        public string RecoveryObjectBlacklist = string.Empty;
+        public string GrabbableComponentTypes = string.Empty; // IMPORTANT: This significantly affects client scanning
+        public string GrabbableKeywordBlacklist = string.Empty;
 
         // Persistence
         public bool EnableObjectPersistence; // Important sync
@@ -179,7 +178,7 @@ namespace DrifterBossGrabMod.Networking
         public bool PersistBaggedBosses;
         public bool PersistBaggedNPCs;
         public bool PersistBaggedEnvironmentObjects;
-        public string PersistenceBlacklist;
+        public string PersistenceBlacklist = string.Empty;
         public float AutoGrabDelay;
 
         // Bottomless Bag
@@ -196,8 +195,7 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableNPCGrabbing);
             writer.Write(EnableEnvironmentGrabbing);
             writer.Write(EnableLockedObjectGrabbing);
-            writer.Write(EnableProjectileGrabbing);
-            writer.Write(ProjectileGrabbingSurvivorOnly);
+            writer.Write((int)ProjectileGrabbingMode);
             
             writer.Write(SearchRangeMultiplier);
             writer.Write(BreakoutTimeMultiplier);
@@ -233,8 +231,7 @@ namespace DrifterBossGrabMod.Networking
             EnableNPCGrabbing = reader.ReadBoolean();
             EnableEnvironmentGrabbing = reader.ReadBoolean();
             EnableLockedObjectGrabbing = reader.ReadBoolean();
-            EnableProjectileGrabbing = reader.ReadBoolean();
-            ProjectileGrabbingSurvivorOnly = reader.ReadBoolean();
+            ProjectileGrabbingMode = (ProjectileGrabbingMode)reader.ReadInt32();
             
             SearchRangeMultiplier = reader.ReadSingle();
             BreakoutTimeMultiplier = reader.ReadSingle();

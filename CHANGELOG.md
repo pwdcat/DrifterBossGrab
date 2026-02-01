@@ -3,22 +3,91 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.4]
+## [1.6.11]
+### Fixed
+- Clamping no longer fully refresh all stocks
+- ModelStatePerserver applying when cycling for the client
 
+## [1.6.10]
+
+### Fixed
+- ModelPerserver adding itself despite my changes (while hosting)
+- ModelLocator.autoUpdateModelTransform being applied while persistence is off
+- Initial grab will correctly update the UI
+- Actually fix autograb at capacity = 1
+- Fix client persistence
+- Fix auto grab, now works for other clients
+- Fix bug with persistence, can now persist an object that is currently in your bag and can persist more than once
+- Update Projectile Config, cleaner with a dropdown
+
+### Note
+- If you noticed weird UI issues when grabbing, it means you're desynced with the host - Most likely the host has bottomless bag on. You can turn it on midgame. Config syncing still needs more testing so don't expect it to be flawless.
+- You need Carousel hud on for BottomlessBag (might force it on in the future)
+
+## [1.6.9]
+
+### Fixed
+- Duplicate UI overlapping
+- Remove restriction for Autograb at capacity = 1
+- Desync when grabbing objects mid-air
+- Mass sync for clients
+- Tighter Grabbing container, no modelperserver
+- Cycle wrap around
+- Bug involving needing to grab an additional object to scroll
+
+### Note
+- Might be a little bloated was in a middle of refactoring BottomlessBag (no changes yet)
+
+## [1.6.8]
+
+### Added
+- Containers for each feature, shouldn't interfere with each other for future updates
+- So Persistence, Bottomless Bag, and Grabbing will be separate
+
+## [1.6.7]
+
+### Added
+- UncapBagScale configuration
+- AutoGrabDelay configuration
+
+### Fixed
+- Multiplayer:
+    - Host-authoritative persistence to prevent NPC duplication in multiplayer
+    - Restricted autograb to host player as a temporary stability measure for clients
+    - Improved seat assignment and collision handling for additional passengers
+    - Fixed impact visibility desynchronization
+- Persistence:
+    - Fixed NullReferenceException in StopCoroutines when leaving or closing the game
+    - Safer logging to prevent NREs
+    - UI updates now correctly reflect object destruction
+- General:
+    - Fixed recovery
+    - Resolved teleportation bug for objects with pre-existing vehicle seats (Solus Wing)
+
+## [1.6.6]
+### Fixed
+- Improved skill override cleanup
+- NullReferenceExceptions in logging when Unity objects are destroyed
+- Mass recalculation
+- Persistent slow movement when bagged objects are destroyed
+
+## [1.6.5]
+### Fixed
+- Skill overrides persisting after bagged objects are destroyed in the bag/scene (sorry Bread)
+
+## [1.6.4]
 ### Added
 - UI for Bottomless Bag
 - UI animations for bag transitions
-- Risk of Options setting for `EnableStockRefreshClamping`
+- Risk of Options setting for EnableStockRefreshClamping
 
 ### Fixed
 - General multiplayer synchronization and setup
-- UI fixes for death and state transitions
-- UI fixes for bag capacity greater than 5
-- Removed UI fade-in when capacity is set to 1
 
 ### Note
-- Autograb is still currently broken, but Bottomless Bag features are semi functional
+- Autograb is still currently broken
 - Persistence should be fine, it'll spawn on the host but should be synced
+- Bottomless Bag has a bug where you get 1 extra capacity, don't feel like fixing it so enjoy the extra capacity
 
 ## [1.6.3]
 

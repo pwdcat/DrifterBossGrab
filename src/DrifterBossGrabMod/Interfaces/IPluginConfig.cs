@@ -15,8 +15,7 @@ namespace DrifterBossGrabMod
         ConfigEntry<bool> EnableNPCGrabbing { get; }
         ConfigEntry<bool> EnableEnvironmentGrabbing { get; }
         ConfigEntry<bool> EnableLockedObjectGrabbing { get; }
-        ConfigEntry<bool> EnableProjectileGrabbing { get; }
-        ConfigEntry<bool> ProjectileGrabbingSurvivorOnly { get; }
+        ConfigEntry<ProjectileGrabbingMode> ProjectileGrabbingMode { get; }
         ConfigEntry<int> MaxSmacks { get; }
         ConfigEntry<string> MassMultiplier { get; }
         ConfigEntry<bool> EnableDebugLogs { get; }

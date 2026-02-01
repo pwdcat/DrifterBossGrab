@@ -157,6 +157,7 @@ namespace DrifterBossGrabMod
                     Log.Info($" Starting restoration of {persistedObjects.Count} persisted objects");
                 }
                 var objectsToRemove = new List<GameObject>();
+                var successfullyRestoredObjects = new List<GameObject>();
                 // Create a copy to iterate safely
                 var persistedArray = persistedObjects.ToArray();
                 
@@ -167,7 +168,7 @@ namespace DrifterBossGrabMod
                         objectsToRemove.Add(null!);
                         continue;
                     }
-
+ 
                     bool isAlreadyInScene = obj.scene == SceneManager.GetActiveScene();
                     var networkIdentity = obj.GetComponent<NetworkIdentity>();
 
@@ -300,12 +301,28 @@ namespace DrifterBossGrabMod
                                // Client: AutoGrab is handled by Network Sync
                           }
                     }
+                    
+                    // Track successfully restored objects to remove from persistence set
+                    successfullyRestoredObjects.Add(obj);
                 }
                 
-                // Cleanup nulls
-                 foreach (var obj in objectsToRemove)
+                // Cleanup nulls and remove successfully restored objects from persistence set
+                // This allows them to be re-persisted on next scene change if they're still bagged
+                foreach (var obj in objectsToRemove)
                 {
                     persistedObjects.Remove(obj);
+                }
+                
+                // Remove successfully restored objects from persistence set
+                // They will be re-added by CaptureCurrentlyBaggedObjects() on next scene change if still bagged
+                foreach (var obj in successfullyRestoredObjects)
+                {
+                    persistedObjects.Remove(obj);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        var netId = obj.GetComponent<NetworkIdentity>()?.netId;
+                        Log.Info($"[RestorePersistedObjects] Removed {obj.name} from persistence set after restoration (NetID: {netId})");
+                    }
                 }
             }
         }
@@ -332,16 +349,16 @@ namespace DrifterBossGrabMod
             
             if (obj != null)
             {
-                 var rb = obj.GetComponent<Rigidbody>();
-                 if (rb)
-                 {
-                     rb.isKinematic = false; // Re-enable physics
-                     rb.velocity = Vector3.zero; // Reset velocity just in case
-                     if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                     {
-                        Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
-                     }
-                 }
+                  var rb = obj.GetComponent<Rigidbody>();
+                  if (rb)
+                  {
+                      rb.isKinematic = false; // Re-enable physics
+                      rb.velocity = Vector3.zero; // Reset velocity just in case
+                      if (PluginConfig.Instance.EnableDebugLogs.Value)
+                      {
+                         Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
+                      }
+                  }
             }
             
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
@@ -350,7 +367,7 @@ namespace DrifterBossGrabMod
         // Helper class to seek owner body if not immediately found (Server Side)
         private class PersistedObjectSeeker : MonoBehaviour
         {
-            private string _ownerPlayerId;
+            private string _ownerPlayerId = string.Empty;
             private float _timeout = 60f;
             private float _timer = 0f;
 
@@ -377,8 +394,14 @@ namespace DrifterBossGrabMod
                 }
 
                 // Try to find the user associated with this player id
+                // NetworkUserId doesn't have ToString() override, so we need to manually serialize it for comparison
                 var users = NetworkUser.readOnlyInstancesList
-                    .Where(nu => nu.id.ToString() == _ownerPlayerId)
+                    .Where(nu =>
+                    {
+                        var id = nu.id;
+                        var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                        return idString == _ownerPlayerId;
+                    })
                     .ToList();
                 
                 if (users.Count > 0)
@@ -397,13 +420,13 @@ namespace DrifterBossGrabMod
                         transform.position = targetPos;
                         transform.rotation = Quaternion.identity;
 
-                        if (TryGetComponent<Rigidbody>(out var rb))
-                        {
-                            rb.velocity = Vector3.zero;
-                            rb.angularVelocity = Vector3.zero;
-                            // Ensure it's not kinematic if it should fall, or keep it kinematic if waiting for something?
-                            // Usually we want it to settle.
-                        }
+                         if (TryGetComponent<Rigidbody>(out var rb))
+                         {
+                             rb.velocity = Vector3.zero;
+                             rb.angularVelocity = Vector3.zero;
+                             // Ensure it's not kinematic if it should fall, or keep it kinematic if waiting for something?
+                             // Usually we want it to settle.
+                         }
 
                         Destroy(this);
                     }
@@ -423,8 +446,14 @@ namespace DrifterBossGrabMod
             {
                 // Find the user associated with this player id using all network users
                 // Removed strict DrifterBody check to ensure we find the owner regardless of body state/type
+                // NetworkUserId doesn't have ToString() override, so we need to manually serialize it for comparison
                 var users = NetworkUser.readOnlyInstancesList
-                    .Where(nu => nu.id.ToString() == ownerPlayerId)
+                    .Where(nu =>
+                    {
+                        var id = nu.id;
+                        var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                        return idString == ownerPlayerId;
+                    })
                     .ToList();
                 if (users.Count > 0)
                 {
@@ -539,7 +568,13 @@ namespace DrifterBossGrabMod
             if (!string.IsNullOrEmpty(ownerPlayerId))
             {
                 // Find the Drifter body associated with this player id
-                var ownerUser = NetworkUser.readOnlyInstancesList.FirstOrDefault(nu => nu.id.ToString() == ownerPlayerId);
+                // NetworkUserId doesn't have ToString() override, so we need to manually serialize it for comparison
+                var ownerUser = NetworkUser.readOnlyInstancesList.FirstOrDefault(nu =>
+                {
+                    var id = nu.id;
+                    var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                    return idString == ownerPlayerId;
+                });
                 if (ownerUser != null && ownerUser.master != null)
                 {
                     targetBody = ownerUser.master.GetBody();
@@ -552,12 +587,20 @@ namespace DrifterBossGrabMod
             
             if (targetBody == null)
             {
-                // Fallback to the first Drifter found in the scene if no owner or owner unreachable
-                targetBody = CharacterBody.readOnlyInstancesList.FirstOrDefault(cb => cb.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"));
-                if (PluginConfig.Instance.EnableDebugLogs.Value && targetBody != null)
+                // IMPORTANT: Only grab if we found the specific owner Drifter
+                // Do NOT fall back to first available Drifter, as this causes cross-player object stealing
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" Fallback: assigning {obj.name} to first available Drifter {targetBody.name}");
+                    if (!string.IsNullOrEmpty(ownerPlayerId))
+                    {
+                        Log.Info($" Owner Drifter (player ID: {ownerPlayerId}) not found in scene yet for {obj.name}. Object will remain ungrabbed until owner spawns.");
+                    }
+                    else
+                    {
+                        Log.Info($" No owner assigned to {obj.name}. Object will remain ungrabbed (backward compatibility for unowned objects).");
+                    }
                 }
+                return;
             }
 
             if (targetBody == null)
@@ -580,14 +623,7 @@ namespace DrifterBossGrabMod
                 return;
             }
 
-            if (Patches.BagPatches.GetUtilityMaxStock(bagController) <= 1)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Skipping auto-grab for {obj.name} - bag capacity is 1 (Temporary Fix)");
-                }
-                return;
-            }
+
 
             if (Patches.BagPatches.HasRoomForGrab(bagController))
             {
@@ -692,6 +728,22 @@ namespace DrifterBossGrabMod
                 return;
             }
 
+            // Get the player ID for this Drifter to filter objects by owner
+            string? drifterPlayerId = null;
+            var characterBody = body.GetComponent<CharacterBody>();
+            if (characterBody != null && characterBody.master != null && characterBody.master.playerCharacterMasterController != null)
+            {
+                var networkUserId = characterBody.master.playerCharacterMasterController.networkUser.id;
+                // NetworkUserId doesn't have ToString() override, so we need to manually serialize it
+                drifterPlayerId = networkUserId.strValue != null
+                    ? networkUserId.strValue
+                    : $"{networkUserId.value}_{networkUserId.subId}";
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Drifter player ID: {drifterPlayerId}");
+                }
+            }
+
             // Find all persisted objects in the current scene
             var persistedObjectsInScene = new List<GameObject>();
             var _lock = PersistenceObjectManager.GetLock();
@@ -727,12 +779,26 @@ namespace DrifterBossGrabMod
             var objectsToGrab = new List<GameObject>();
             objectsToGrab.AddRange(persistedObjectsInScene);
             objectsToGrab.AddRange(currentlyBaggedObjectsInScene);
+
+            // Filter objects by owner - only grab objects that belong to this Drifter
+            var filteredObjectsToGrab = new List<GameObject>();
+            foreach (var obj in objectsToGrab)
+            {
+                var objOwnerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj);
+                // If object has an owner, only grab if it matches this Drifter
+                // If object has no owner, allow any Drifter to grab it (backward compatibility)
+                if (string.IsNullOrEmpty(objOwnerId) || objOwnerId == drifterPlayerId)
+                {
+                    filteredObjectsToGrab.Add(obj);
+                }
+            }
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" Total objects to attempt auto-grab: {objectsToGrab.Count}");
+                Log.Info($" Total objects to attempt auto-grab for Drifter {drifterPlayerId}: {filteredObjectsToGrab.Count} (filtered from {objectsToGrab.Count} total)");
             }
             // Try to grab each object
-            foreach (var obj in objectsToGrab)
+            foreach (var obj in filteredObjectsToGrab)
             {
                 // Skip CharacterMaster objects (AI controllers) but allow environment objects
                 if (obj.GetComponent<CharacterMaster>() != null)

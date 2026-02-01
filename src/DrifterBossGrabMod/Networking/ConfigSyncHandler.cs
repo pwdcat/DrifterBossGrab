@@ -48,8 +48,7 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.EnableNPCGrabbing.Value = msg.EnableNPCGrabbing;
             PluginConfig.Instance.EnableEnvironmentGrabbing.Value = msg.EnableEnvironmentGrabbing;
             PluginConfig.Instance.EnableLockedObjectGrabbing.Value = msg.EnableLockedObjectGrabbing;
-            PluginConfig.Instance.EnableProjectileGrabbing.Value = msg.EnableProjectileGrabbing;
-            PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value = msg.ProjectileGrabbingSurvivorOnly;
+            PluginConfig.Instance.ProjectileGrabbingMode.Value = msg.ProjectileGrabbingMode;
 
             // Blacklists & Component Types
             PluginConfig.Instance.BodyBlacklist.Value = msg.BodyBlacklist;
@@ -95,8 +94,7 @@ namespace DrifterBossGrabMod.Networking
                 EnableNPCGrabbing = PluginConfig.Instance.EnableNPCGrabbing.Value,
                 EnableEnvironmentGrabbing = PluginConfig.Instance.EnableEnvironmentGrabbing.Value,
                 EnableLockedObjectGrabbing = PluginConfig.Instance.EnableLockedObjectGrabbing.Value,
-                EnableProjectileGrabbing = PluginConfig.Instance.EnableProjectileGrabbing.Value,
-                ProjectileGrabbingSurvivorOnly = PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value,
+                ProjectileGrabbingMode = PluginConfig.Instance.ProjectileGrabbingMode.Value,
 
                 // Blacklists & Component Types
                 BodyBlacklist = PluginConfig.Instance.BodyBlacklist.Value,

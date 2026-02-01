@@ -7,6 +7,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
 using EntityStates.Drifter.Bag;
+using DrifterBossGrabMod;
+
 namespace DrifterBossGrabMod.Patches
 {
     public static class BottomlessBagPatches
@@ -16,9 +18,13 @@ namespace DrifterBossGrabMod.Patches
         private const float SCROLL_THRESHOLD = 0.1f; // Cumulative delta required to trigger one scroll event
         public static void HandleInput()
         {
-            if (PluginConfig.Instance.BottomlessBagEnabled.Value)
+            // Only process cycling input when BottomlessBag feature is enabled
+            if (!FeatureState.IsCyclingEnabled)
             {
-
+                return;
+            }
+            {
+                // Check if local player is in Repossess or AimRepossess state - prevent cycling while grabbing or aiming
                 var localUser = LocalUserManager.GetFirstLocalUser();
                 if (localUser != null && localUser.cachedBody != null)
                 {
@@ -78,7 +84,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-
+                // 2. Handle Keybinds (Always overrides/adds to threshold if pressed)
                 if (Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
                 {
                     if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
@@ -113,17 +119,23 @@ namespace DrifterBossGrabMod.Patches
         }
         public static void CyclePassengers(DrifterBagController bagController, int amount)
         {
+            // Only allow cycling when BottomlessBag feature is enabled
+            if (!FeatureState.IsCyclingEnabled)
+            {
+                return;
+            }
             if (bagController == null || amount == 0) return;
 
             // Prevent scrolling if capacity is 1 or less
             if (BagPatches.GetUtilityMaxStock(bagController) <= 1) return;
     
-            // If we are on client and have authority, send a message to server
+            // If we are on client and have authority, send a command to server
             if (!NetworkServer.active && bagController.hasAuthority)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                    Log.Info($"[CyclePassengers] Client has authority, sending cycle request via network message. amount: {amount}");
+                    Log.Info($"[CyclePassengers] Client has authority, sending cycle request via command. amount: {amount}");
                 
+                // Use CycleNetworkHandler for client-to-server communication
                 Networking.CycleNetworkHandler.SendCycleRequest(bagController, amount);
                 return;
             }
@@ -135,9 +147,14 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-
+        // Server-side implementation of cycling - called from CycleNetworkHandler or directly on host
         public static void ServerCyclePassengers(DrifterBagController bagController, int amount)
         {
+            // Only allow cycling when BottomlessBag feature is enabled
+            if (!FeatureState.IsCyclingEnabled)
+            {
+                return;
+            }
             if (!NetworkServer.active || amount == 0) return; // Safety guard
             
             if (bagController.vehicleSeat == null)
@@ -149,12 +166,7 @@ namespace DrifterBossGrabMod.Patches
             List<GameObject> baggedObjects;
             if (!BagPatches.baggedObjectsDict.TryGetValue(bagController, out baggedObjects) || baggedObjects.Count == 0)
             {
-                // Try network controller as fallback for client grabs
-                var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
-                if (netController != null)
-                {
-                    baggedObjects = netController.GetBaggedObjects();
-                }
+                // No bagged objects found
             }
 
             if (baggedObjects == null || baggedObjects.Count == 0)
@@ -162,13 +174,6 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[ServerCyclePassengers] No bagged objects found for {bagController.name}. Correcting client state (Empty).");
                 
-
-                var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
-                if (netController != null)
-                {
-                    // Clear any lingering NetIDs in the controller to ensure consistency
-                    netController.SetBagState(-1, new List<GameObject>(), new List<GameObject>());
-                }
                 return;
             }
             
@@ -420,7 +425,8 @@ namespace DrifterBossGrabMod.Patches
                         actualMainPassenger = mainPassenger;
                     }
                 }
-
+                // For client-grabbed objects, the server may not see them in the vehicle seat
+                // Trust the mainSeatDict tracking if the object is in validObjects
                 if (actualMainPassenger == null)
                 {
                     // Check if mainPassenger is in validObjects
@@ -442,7 +448,10 @@ namespace DrifterBossGrabMod.Patches
                             Log.Info($"[CycleToNextObject] mainPassenger {mainPassenger.name} not in validObjects and not in seat, returning early");
                         return;
                     }
-
+                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CycleToNextObject] Trusting mainSeatDict for {mainPassenger.name} (client-grabbed object)");
+                    }
                 }
             }
             int emptySeatsCount = 0;
@@ -463,49 +472,9 @@ namespace DrifterBossGrabMod.Patches
                     emptySeatsCount++;
                 }
             }
-
-            var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
-            bool isInNullState = false;
-            
-            if (netController != null)
-            {
-                if (netController.selectedIndex == -1)
-                {
-                    actualMainPassenger = null;
-                    isInNullState = true;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[CycleToNextObject] Logical state: Null (Empty Hands)");
-                }
-                else
-                {
-                    var logicalObjects = netController.GetBaggedObjects();
-                    if (netController.selectedIndex >= 0 && netController.selectedIndex < logicalObjects.Count)
-                    {
-                        var logicalMain = logicalObjects[netController.selectedIndex];
-                        if (logicalMain != null)
-                        {
-                            // Find this object in our current validObjects list to handle different instances/filtering
-                            foreach (var obj in validObjects)
-                            {
-                                if (obj != null && obj.GetInstanceID() == logicalMain.GetInstanceID())
-                                {
-                                    if (actualMainPassenger != obj && PluginConfig.Instance.EnableDebugLogs.Value)
-                                        Log.Info($"[CycleToNextObject] Overriding physical passenger ({actualMainPassenger?.name ?? "null"}) with logical selection ({obj.name})");
-                                    
-                                    actualMainPassenger = obj;
-                                    isInNullState = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Fallback to physical state if no net controller
-                isInNullState = actualMainPassenger == null && validObjects.Count > 0;
-            }
+            // Determine the logical selection state
+            // This is the source of truth for "where are we in the cycle" regardless of physical seat state
+            bool isInNullState = actualMainPassenger == null && validObjects.Count > 0;
 
             int totalPositions = validObjects.Count + 1;
             if (actualMainPassenger == null)
@@ -516,7 +485,8 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
             
-
+            // Only fall back to seat passenger if the logical state is also null AND we REALLY have someone in the seat
+            // This usually happens during the very first grab of a run or after a scene transition
             if (actualMainPassenger == null && !isInNullState && vehicleSeat.hasPassenger)
             {
                 GameObject? seatPassenger = vehicleSeat.NetworkpassengerBodyObject;
@@ -585,11 +555,30 @@ namespace DrifterBossGrabMod.Patches
             if (nextIndex < 0) nextIndex += totalPositions;
             bool nextIsNull = (nextIndex == validObjects.Count);
             
+            // Check if bag is full (no empty slots)
+            int effectiveCapacity = BagPatches.GetUtilityMaxStock(bagController);
+            bool isBagFull = validObjects.Count >= effectiveCapacity;
+            
             int direction = Math.Sign(amount);
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}");
+                Log.Info($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}, IsBagFull={isBagFull}");
+            }
+
+            // If bag is full and we're trying to go to null state, skip null state and wrap around
+            // This must be checked BEFORE any other logic to prevent early returns
+            if (isBagFull && nextIsNull)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
+                
+                // Skip the null state and go to the next/previous valid object
+                nextIndex = (direction > 0) ? 0 : validObjects.Count - 1;
+                nextIsNull = false;
+                
+                // Skip the null state handling block entirely
+                // Fall through to the swap logic below
             }
 
             bool hasValidSeatConfiguration = ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);
@@ -672,7 +661,8 @@ namespace DrifterBossGrabMod.Patches
                         return;
                     }
                     
-
+                    // Check if currentObject is actually in the vehicleSeat (server-side grab)
+                    // or if it's only tracked (client-grabbed, not physically in seat on server)
                     bool currentIsPhysicallyInSeat = vehicleSeat.hasPassenger && 
                         vehicleSeat.NetworkpassengerBodyObject != null &&
                         vehicleSeat.NetworkpassengerBodyObject.GetInstanceID() == currentObject.GetInstanceID();
@@ -708,7 +698,7 @@ namespace DrifterBossGrabMod.Patches
                             if (totalSeatsCount + 1 <= BagPatches.GetUtilityMaxStock(bagController))
                             {
                                 var newSeat = FindOrCreateEmptySeat(bagController, ref localSeatDict);
-                                if (newSeat != null)
+                                if (newSeat != null && currentObject != null)
                                 {
                                     newSeat.AssignPassenger(currentObject);
                                     localSeatDict[currentObject] = newSeat;
@@ -743,6 +733,12 @@ namespace DrifterBossGrabMod.Patches
                         BagPatches.SetMainSeatObject(bagController, targetObject);
                         if (targetObject != null)
                         {
+                            // Fix for UI Early Return: Ensure object is removed from additional seats dict immediately
+                            if (BagPatches.additionalSeatsDict.TryGetValue(bagController, out var realDict))
+                            {
+                                realDict.TryRemove(targetObject, out _);
+                            }
+
                             vehicleSeat.AssignPassenger(targetObject);
                             BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                             BaggedObjectPatches.SynchronizeBaggedObjectState(bagController, targetObject);
@@ -776,11 +772,13 @@ namespace DrifterBossGrabMod.Patches
             {
                 var targetObject = nextIndex < validObjects.Count ? validObjects[nextIndex] : null;
                 if (targetObject != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[CycleToNextObject] Calling final RefreshUIOverlayForMainSeat for {targetObject.name}");
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
+                }
             }
             
-            // Sync network state after cycle operation
-            BagPatches.UpdateNetworkBagState(bagController, direction);
             BagPatches.ForceRecalculateMass(bagController);
             
             // Debugging: Inspect BaggedObject state and active skills
@@ -924,7 +922,7 @@ namespace DrifterBossGrabMod.Patches
                     if (seat != null && seat.hasPassenger)
                     {
                         var seatPassenger = seat.NetworkpassengerBodyObject;
-                        if (seatPassenger != null && seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
+                        if (seatPassenger != null && currentObject != null && seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
                         {
                             return false;
                         }

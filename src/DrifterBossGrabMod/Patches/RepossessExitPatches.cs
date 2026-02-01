@@ -224,6 +224,17 @@ namespace DrifterBossGrabMod.Patches
                     var traverse = Traverse.Create(__instance);
                     GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
                     if (targetObject == null) return;
+
+                    // CHECK SUPPRESSION: If suppression is active, do NOT restore physics yet.
+                    if (BaggedObjectPatches.IsObjectExitSuppressed(targetObject))
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [BaggedObject.OnExit] Suppressing Rigidbody restoration for {targetObject.name} (AutoGrab/Transition)");
+                        }
+                        return;
+                    }
+
                     // Re-enable Rigidbody for released objects
                     var rb = targetObject.GetComponent<Rigidbody>();
                     if (rb)

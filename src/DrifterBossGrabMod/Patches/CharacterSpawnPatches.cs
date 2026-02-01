@@ -23,11 +23,18 @@ namespace DrifterBossGrabMod.Patches
                 {
                     DrifterBossGrabPlugin.IsDrifterPresent = true;
                     // Add carousel UI for bagged objects using Bag UI
-                    var ui = body.gameObject.AddComponent<UI.BaggedObjectUIController>();
-                    ui.slotPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/Bag UI.prefab").WaitForCompletion();
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableCarouselHUD.Value)
                     {
-                        Log.Info($"[CharacterMaster_OnBodyStart] Added BaggedObjectUIController to DrifterBody, slot prefab loaded: {ui.slotPrefab != null}");
+                        var ui = body.gameObject.AddComponent<UI.BaggedObjectUIController>();
+                        ui.slotPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/Bag UI.prefab").WaitForCompletion();
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[CharacterMaster_OnBodyStart] Added BaggedObjectUIController to DrifterBody, slot prefab loaded: {ui.slotPrefab != null}");
+                        }
+                    }
+                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CharacterMaster_OnBodyStart] Carousel HUD disabled, skipping BaggedObjectUIController creation");
                     }
                 }
                 if (!PluginConfig.Instance.EnableObjectPersistence.Value ||

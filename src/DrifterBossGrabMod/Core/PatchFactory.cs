@@ -28,7 +28,6 @@ namespace DrifterBossGrabMod
         {
             // Apply Harmony patches via attributes
             harmonyInstance = new Harmony("pwdcat.DrifterBossGrab");
-            harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
 
             // Initialize manual patches
             foreach (var patchType in registeredPatchTypes)

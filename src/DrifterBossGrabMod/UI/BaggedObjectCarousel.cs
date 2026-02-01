@@ -46,9 +46,40 @@ namespace DrifterBossGrabMod.UI
 
         public void UpdateToggles()
         {
-            if (aboveInstance) ToggleSlotElements(aboveInstance, false);
-            if (centerInstance) ToggleSlotElements(centerInstance, true);
-            if (belowInstance) ToggleSlotElements(belowInstance, false);
+            bool isEnabled = PluginConfig.Instance.EnableCarouselHUD.Value;
+            
+            // If disabled, hide everything
+            if (!isEnabled)
+            {
+                if (aboveInstance) aboveInstance.SetActive(false);
+                if (centerInstance) centerInstance.SetActive(false);
+                if (belowInstance) belowInstance.SetActive(false);
+                foreach (var slot in _slots) slot.SetActive(false);
+                // Also hide any extra slots we might have tracked
+                return;
+            }
+
+            if (aboveInstance) 
+            {
+                aboveInstance.SetActive(true);
+                ToggleSlotElements(aboveInstance, false);
+            }
+            if (centerInstance) 
+            {
+                centerInstance.SetActive(true);
+                ToggleSlotElements(centerInstance, true);
+            }
+            if (belowInstance) 
+            {
+                belowInstance.SetActive(true);
+                ToggleSlotElements(belowInstance, false);
+            }
+            
+            // Re-populate if we just re-enabled, to ensure everything is in correct state
+            if (isEnabled && (!centerInstance || !centerInstance.activeSelf))
+            {
+                PopulateCarousel();
+            }
         }
 
         public void UpdateScales()
@@ -99,6 +130,7 @@ namespace DrifterBossGrabMod.UI
             }
 
             PopulateCarousel();
+            UpdateToggles();
         }
 
         public void PopulateCarousel(int direction = 0)
@@ -172,7 +204,11 @@ namespace DrifterBossGrabMod.UI
                 }
             }
             Dictionary<int, GameObject?> targetPassengers = new();
-
+            
+            // Calculate capacity and check if bag is full (needed for wrap-around logic below)
+            int capacity = BagPatches.GetUtilityMaxStock(bagController);
+            bool isBagFull = passengerList.Count >= capacity;
+            
             if (mainPassenger == null)
             {
                 // Current is Empty
@@ -191,13 +227,37 @@ namespace DrifterBossGrabMod.UI
                 // Current is a passenger
                 targetPassengers[0] = mainPassenger;
                 
-                // Above (+1)
+                // Above (+1) - wrap around if bag is full
                 int aboveIndex = currentIndex + 1;
-                targetPassengers[1] = (aboveIndex < passengerList.Count) ? passengerList[aboveIndex] : EmptySlotMarker; // Shows empty if next is null
+                if (aboveIndex < passengerList.Count)
+                {
+                    targetPassengers[1] = passengerList[aboveIndex];
+                }
+                else if (isBagFull && passengerList.Count > 0)
+                {
+                    // Wrap around to first item when bag is full
+                    targetPassengers[1] = passengerList[0];
+                }
+                else
+                {
+                    targetPassengers[1] = EmptySlotMarker; // Shows empty if next is null
+                }
                 
-                // Below (-1)
+                // Below (-1) - wrap around if bag is full
                 int belowIndex = currentIndex - 1;
-                targetPassengers[-1] = (belowIndex >= 0) ? passengerList[belowIndex] : EmptySlotMarker; // Shows empty if prev is null
+                if (belowIndex >= 0)
+                {
+                    targetPassengers[-1] = passengerList[belowIndex];
+                }
+                else if (isBagFull && passengerList.Count > 0)
+                {
+                    // Wrap around to last item when bag is full
+                    targetPassengers[-1] = passengerList[passengerList.Count - 1];
+                }
+                else
+                {
+                    targetPassengers[-1] = EmptySlotMarker; // Shows empty if prev is null
+                }
 
                 // Hidden Above (+2)
                 int hiddenAbove = currentIndex + 2;
@@ -214,7 +274,6 @@ namespace DrifterBossGrabMod.UI
                 else targetPassengers[-2] = EmptySlotMarker;
             }
 
-            int capacity = BagPatches.GetUtilityMaxStock(bagController);
             float sideScaleVal = PluginConfig.Instance.CarouselSideScale.Value;
             float sideOpacityVal = PluginConfig.Instance.CarouselSideOpacity.Value;
 
@@ -430,7 +489,7 @@ namespace DrifterBossGrabMod.UI
             _activeCoroutines.Remove(slot);
         }
 
-        private void SetSlotData(GameObject slot, GameObject passenger, DrifterBagController bagController)
+        private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController)
         {
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)

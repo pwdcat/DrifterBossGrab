@@ -44,12 +44,13 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($" ProjectileController_Start: Processing projectile {__instance.gameObject.name}");
                 }
-                // Check if projectile grabbing is enabled
-                if (!PluginConfig.Instance.EnableProjectileGrabbing.Value)
+                // Check projectile grabbing mode
+                var projectileMode = PluginConfig.Instance.ProjectileGrabbingMode.Value;
+                if (projectileMode == ProjectileGrabbingMode.None)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" ProjectileController_Start: Projectile grabbing is disabled");
+                        Log.Info($" ProjectileController_Start: Projectile grabbing is disabled (None mode)");
                     }
                     return;
                 }
@@ -59,11 +60,11 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($" ProjectileController_Start: Is survivor projectile: {isSurvivorProjectile}");
                 }
-                if (PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value && !isSurvivorProjectile)
+                if (projectileMode == ProjectileGrabbingMode.SurvivorOnly && !isSurvivorProjectile)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" ProjectileController_Start: Skipping non-survivor projectile (survivor-only mode enabled)");
+                        Log.Info($" ProjectileController_Start: Skipping non-survivor projectile (SurvivorOnly mode)");
                     }
                     return;
                 }
@@ -101,7 +102,7 @@ namespace DrifterBossGrabMod.Patches
                 var newSoa = __instance.gameObject.GetComponent<SpecialObjectAttributes>();
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    string projectileType = PluginConfig.Instance.ProjectileGrabbingSurvivorOnly.Value ? "survivor" : "any";
+                    string projectileType = PluginConfig.Instance.ProjectileGrabbingMode.Value.ToString();
                     Log.Info($" Added SpecialObjectAttributes to {projectileType} projectile: {__instance.gameObject.name}, success: {newSoa != null}");
                     if (newSoa != null)
                     {

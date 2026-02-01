@@ -33,7 +33,14 @@ namespace DrifterBossGrabMod.Networking
                 amount = amount
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleNetworkHandler] Sent cycle request: netId={ni.netId.Value}, amount={amount}");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[CycleNetworkHandler.SendCycleRequest] === CLIENT SENDING CYCLE REQUEST ===");
+                Log.Info($"[CycleNetworkHandler.SendCycleRequest] Controller: {bagController.name}");
+                Log.Info($"[CycleNetworkHandler.SendCycleRequest] NetID: {ni.netId.Value}, amount: {amount}");
+                Log.Info($"[CycleNetworkHandler.SendCycleRequest] IsSwappingPassengers BEFORE: {DrifterBossGrabPlugin.IsSwappingPassengers}");
+                Log.Info($"[CycleNetworkHandler.SendCycleRequest] =========================================");
+            }
             NetworkManager.singleton.client.Send(MSG_CYCLE_REQUEST, msg);
         }
 
@@ -59,7 +66,13 @@ namespace DrifterBossGrabMod.Networking
         private static void OnServerReceiveCycleRequest(NetworkMessage netMsg)
         {
             var msg = netMsg.ReadMessage<CyclePassengersMessage>();
-            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleNetworkHandler] Server received cycle request: netId={msg.bagControllerNetId.Value}, amount={msg.amount}");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] === SERVER RECEIVED CYCLE REQUEST ===");
+                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] NetID: {msg.bagControllerNetId.Value}, amount: {msg.amount}");
+                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] IsSwappingPassengers BEFORE: {DrifterBossGrabPlugin.IsSwappingPassengers}");
+                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] ===========================================");
+            }
 
             var controllerObj = NetworkServer.FindLocalObject(msg.bagControllerNetId);
             if (controllerObj)
@@ -67,6 +80,8 @@ namespace DrifterBossGrabMod.Networking
                 var bagController = controllerObj.GetComponent<DrifterBagController>();
                 if (bagController)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] Calling ServerCyclePassengers for {bagController.name}");
                     BottomlessBagPatches.ServerCyclePassengers(bagController, msg.amount);
                 }
             }

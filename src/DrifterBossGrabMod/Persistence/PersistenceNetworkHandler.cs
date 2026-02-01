@@ -1,42 +1,38 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-using RoR2.Networking;
 using RoR2;
+using RoR2.Networking;
+using RoR2.Projectile;
+using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Networking;
 
 namespace DrifterBossGrabMod
 {
-
     public static class PersistenceNetworkHandler
     {
         private const short BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE = 201;
 
-        // Handle incoming bagged objects persistence messages
         [NetworkMessageHandler(msgType = BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, client = true, server = false)]
         public static void HandleBaggedObjectsPersistenceMessage(NetworkMessage netMsg)
         {
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
             message.Deserialize(netMsg.reader);
 
-            // Only allow Host (Server+Client) to handle THIS specific persistence message.
-            // Remote clients should NOT persist these objects locally, because the Server will spawn them 
-            // in the new scene, and standard networking will create them on the client.
-            // If we persist them locally on the client, we end up with duplicates (one restored from local, one spawned by server).
             if (!NetworkServer.active)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[HandleBaggedObjectsPersistenceMessage] Remote Client received persistence msg - IGNORING to prevent duplication (Server will spawn object)");
+                    Log.Info($"[HandleBaggedObjectsPersistenceMessage] Client received persistence msg - processing to track persisted object");
                 }
-                return;
             }
+              
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[HandleBaggedObjectsPersistenceMessage] Received bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
             }
-            // Add the received objects to persistence
             for (int i = 0; i < message.baggedObjectNetIds.Count; i++)
             {
                 var netId = message.baggedObjectNetIds[i];
@@ -44,46 +40,108 @@ namespace DrifterBossGrabMod
                 if (i < message.ownerPlayerIds.Count)
                 {
                     ownerPlayerId = message.ownerPlayerIds[i];
-                }
-                GameObject? obj = FindObjectByNetId(netId);
-                if (obj != null && PersistenceObjectManager.IsValidForPersistence(obj))
-                {
-                    // Ensure ModelStatePreserver is attached BEFORE moving to persistence container
-                    // This captures the original model state (parent, pos, rot, scale) correctly
-                    var modelLocator = obj.GetComponent<ModelLocator>();
-                    if (modelLocator != null && modelLocator.modelTransform != null && obj.GetComponent<ModelStatePreserver>() == null)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[HandleBaggedObjectsPersistenceMessage] Adding ModelStatePreserver to persisted object {obj.name}");
-                        obj.AddComponent<ModelStatePreserver>();
-                    }
-
-                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
-
-                    if (modelLocator != null && !modelLocator.autoUpdateModelTransform) 
-                    {
-                        modelLocator.autoUpdateModelTransform = true;
-                    }
-
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] Added object {obj.name} (netId: {netId}) to persistence from network message");
+                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] Received owner ID for netId {netId.Value}: '{ownerPlayerId ?? "null"}'");
                     }
                 }
                 else
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Warning($"[HandleBaggedObjectsPersistenceMessage] Could not find object with netId {netId} to persist (attempt failed)");
+                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] No owner ID available for netId {netId.Value} (index {i} >= ownerPlayerIds.Count {message.ownerPlayerIds.Count})");
                     }
-                }
+                 }
+
+                   GameObject? obj = FindObjectByNetIdWithRetry(netId, maxRetries: 3, retryDelay: 0.1f);
+
+                   if (PluginConfig.Instance.EnableDebugLogs.Value)
+                   {
+                       var projectileController = obj != null ? obj.GetComponent<ThrownObjectProjectileController>() : null;
+                       var isPersisted = obj != null && PersistenceObjectManager.IsObjectPersisted(obj);
+                       var isValid = obj != null && PersistenceObjectManager.IsValidForPersistence(obj);
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] === VALIDATION CHECK ===");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Object: {obj?.name ?? "null"} (NetID: {netId.Value})");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] obj != null: {obj != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] IsValidForPersistence: {isValid}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] IsObjectPersisted: {isPersisted}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Has ThrownObjectProjectileController: {projectileController != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] IsBlacklisted: {obj != null && PluginConfig.IsBlacklisted(obj.name)}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] NetworkServer.active: {NetworkServer.active}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Will process network message: {obj != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] ================================");
+                   }
+                   // On client side, trust network messages and add object to persistence even if not already persisted locally
+                   // This fixes the issue where host has object in persistence but client doesn't
+                   // Note: We still check for thrown objects and blacklist to prevent invalid objects from being persisted
+                   if (obj != null)
+                   {
+                       var projectileControllerCheck = obj.GetComponent<ThrownObjectProjectileController>();
+                       var isBlacklisted = PluginConfig.IsBlacklisted(obj.name);
+                       if (projectileControllerCheck != null && !isBlacklisted)
+                       {
+                           return;
+                       }
+                       else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                       {
+                           if (projectileControllerCheck != null)
+                           {
+                               Log.Warning($"[HandleBaggedObjectsPersistenceMessage] SKIPPING object {obj.name} - has ThrownObjectProjectileController (thrown objects excluded from persistence)");
+                           }
+                           else if (isBlacklisted)
+                           {
+                               Log.Warning($"[HandleBaggedObjectsPersistenceMessage] SKIPPING object {obj.name} - is blacklisted");
+                           }
+                       }
+                   }
+                   if (obj == null && PluginConfig.Instance.EnableDebugLogs.Value)
+                   {
+                       Log.Warning($"[HandleBaggedObjectsPersistenceMessage] Could not find object with netId {netId.Value}");
+                       return;
+                   }
+                   // Process the object - add to persistence and add ModelStatePreserver
+                   var existingPreserver = obj.GetComponent<ModelStatePreserver>();
+                   var modelLocator = obj.GetComponent<ModelLocator>();
+                   if (PluginConfig.Instance.EnableDebugLogs.Value)
+                   {
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] === CLIENT-SIDE PERSISTENCE CHECK ===");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Object: {obj.name} (NetID: {netId.Value})");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] EnableObjectPersistence: {PluginConfig.Instance.EnableObjectPersistence.Value}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] ModelLocator exists: {modelLocator != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] ModelTransform exists: {modelLocator != null && modelLocator.modelTransform != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] ModelStatePreserver already exists: {existingPreserver != null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] NetworkServer.active: {NetworkServer.active}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Will add ModelStatePreserver: {PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null}");
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] =======================================");
+                   }
+                   if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null)
+                   {
+                       if (PluginConfig.Instance.EnableDebugLogs.Value)
+                           Log.Info($"[HandleBaggedObjectsPersistenceMessage] Adding ModelStatePreserver to persisted object {obj.name} (Persistence enabled)");
+                       obj.AddComponent<ModelStatePreserver>();
+                   }
+                   else if (!PluginConfig.Instance.EnableObjectPersistence.Value && PluginConfig.Instance.EnableDebugLogs.Value)
+                   {
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] SKIPPING ModelStatePreserver for {obj.name} - Persistence is DISABLED");
+                   }
+                   PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
+
+                   if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
+                   {
+                       modelLocator.autoUpdateModelTransform = true;
+                   }
+                   
+                   if (PluginConfig.Instance.EnableDebugLogs.Value)
+                   {
+                       Log.Info($"[HandleBaggedObjectsPersistenceMessage] Added object {obj.name} (netId: {netId}) to persistence from network message");
+                   }
             }
         }
-
-        // Send bagged objects persistence message to all clients
+        
         public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
+            
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
             foreach (var obj in baggedObjects)
             {
@@ -92,27 +150,43 @@ namespace DrifterBossGrabMod
                     NetworkIdentity? identity = obj.GetComponent<NetworkIdentity>();
                     if (identity != null)
                     {
-                        message.baggedObjectNetIds.Add(identity.netId);
-                        // Add owner player id if available
-                        if (owner != null)
+                         message.baggedObjectNetIds.Add(identity.netId);
+                         if (owner != null)
                         {
                             var ownerBody = owner.GetComponent<CharacterBody>();
                             if (ownerBody != null && ownerBody.master != null && ownerBody.master.playerCharacterMasterController != null)
-                            {
-                                message.ownerPlayerIds.Add(ownerBody.master.playerCharacterMasterController.networkUser.id.ToString());
+                             {
+                                 var networkUserId = ownerBody.master.playerCharacterMasterController.networkUser.id;
+                                 var playerIdString = networkUserId.strValue != null
+                                    ? networkUserId.strValue
+                                    : $"{networkUserId.value}_{networkUserId.subId}";
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[SendBaggedObjectsPersistenceMessage] Adding owner ID for {obj.name}: {playerIdString} (value: {networkUserId.value}, strValue: {networkUserId.strValue}, subId: {networkUserId.subId})");
+                                }
+                                message.ownerPlayerIds.Add(playerIdString);
                             }
                             else
                             {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[SendBaggedObjectsPersistenceMessage] No owner info for {obj.name} - ownerBody={ownerBody != null}, master={ownerBody?.master != null}, pcmc={ownerBody?.master?.playerCharacterMasterController != null}");
+                                }
                                 message.ownerPlayerIds.Add(string.Empty);
                             }
                         }
-                        else
+                    }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            message.ownerPlayerIds.Add(string.Empty);
+                            Log.Info($"[SendBaggedObjectsPersistenceMessage] Owner is null for {obj.name}");
                         }
+                        message.ownerPlayerIds.Add(string.Empty);
                     }
                 }
             }
+            
             if (message.baggedObjectNetIds.Count > 0)
             {
                 NetworkServer.SendToAll(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, message);
@@ -122,17 +196,15 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-
+        
         private const short MSG_UPDATE_BAG_STATE = 206;
 
-        // Register network message handler
         public static void RegisterNetworkHandlers()
         {
             if (NetworkServer.active)
             {
                 Stage.onServerStageComplete += OnServerStageComplete;
             }
-            // Explicitly register client handlers if client is active
             if (NetworkManager.singleton != null && NetworkManager.singleton.client != null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[PersistenceNetworkHandler] Registering client handlers manually");
@@ -140,7 +212,7 @@ namespace DrifterBossGrabMod
                 NetworkManager.singleton.client.RegisterHandler(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, HandleBaggedObjectsPersistenceMessage);
             }
         }
-
+        
         [NetworkMessageHandler(msgType = MSG_UPDATE_BAG_STATE, client = true, server = false)]
         public static void HandleUpdateBagStateMessage(NetworkMessage netMsg)
         {
@@ -149,13 +221,15 @@ namespace DrifterBossGrabMod
             {
                 Log.Info($"[HandleUpdateBagStateMessage] Received update for controller NetID: {msg.controllerNetId.Value}, index: {msg.selectedIndex}, objects: {msg.baggedIds.Length}");
             }
-
+            
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Warning($"[HandleUpdateBagStateMessage] Could not find controller object with NetID {msg.controllerNetId.Value} - will retry.");
-                // Retry in coroutine handles race condition during scene loading
-                DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindController(msg));
+                if (DrifterBossGrabPlugin.Instance != null)
+                {
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindController(msg));
+                }
                 return;
             }
 
@@ -171,48 +245,60 @@ namespace DrifterBossGrabMod
                 return;
             }
 
-            // Ensure clients have ModelStatePreserver attached to bagged objects to prevent desync on throw
             if (msg.baggedIds != null)
             {
                 foreach (var netId in msg.baggedIds)
-                {
-                    var obj = FindObjectByNetId(new NetworkInstanceId(netId));
-                    if (obj != null)
                     {
-                        var modelLocator = obj.GetComponent<ModelLocator>();
-                        // Only add if not already present and model exists
-                        if (modelLocator != null && modelLocator.modelTransform != null && obj.GetComponent<ModelStatePreserver>() == null)
-                        {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[HandleUpdateBagStateMessage] Adding ModelStatePreserver to mapped client object {obj.name}");
-                            
-                            // Attach component to preserve state (Capture happens in Awake)
-                            obj.AddComponent<ModelStatePreserver>();
-                            
-                            // Also ensure autoUpdateModelTransform is true so the model follows the object while bagged
-                            if (!modelLocator.autoUpdateModelTransform)
-                            {
-                               modelLocator.autoUpdateModelTransform = true;
-                            }
+                         var obj = FindObjectByNetId(new NetworkInstanceId(netId));
+                      if (obj != null)
+                      {
+                          var modelLocator = obj.GetComponent<ModelLocator>();
+                          var existingPreserver = obj.GetComponent<ModelStatePreserver>();
+
+                          if (PluginConfig.Instance.EnableDebugLogs.Value)
+                         {
+                             Log.Info($"[HandleUpdateBagStateMessage] === CLIENT-SIDE BAG STATE UPDATE ===");
+                             Log.Info($"[HandleUpdateBagStateMessage] Object: {obj.name} (NetID: {netId})");
+                             Log.Info($"[HandleUpdateBagStateMessage] EnableObjectPersistence: {PluginConfig.Instance.EnableObjectPersistence.Value}");
+                             Log.Info($"[HandleUpdateBagStateMessage] ModelLocator exists: {modelLocator != null}");
+                             Log.Info($"[HandleUpdateBagStateMessage] ModelTransform exists: {modelLocator != null && modelLocator.modelTransform != null}");
+                             Log.Info($"[HandleUpdateBagStateMessage] ModelStatePreserver already exists: {existingPreserver != null}");
+                             Log.Info($"[HandleUpdateBagStateMessage] NetworkServer.active: {NetworkServer.active}");
+                             Log.Info($"[HandleUpdateBagStateMessage] Will add ModelStatePreserver: {PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null}");
+                             Log.Info($"[HandleUpdateBagStateMessage] =======================================");
+                         }
+                         if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null)
+                         {
+                             if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                 Log.Info($"[HandleUpdateBagStateMessage] Adding ModelStatePreserver to mapped client object {obj.name} (Persistence enabled)");
+
+                             obj.AddComponent<ModelStatePreserver>();
                         }
-                    }
-                }
-            }
+                        else if (!PluginConfig.Instance.EnableObjectPersistence.Value && PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[HandleUpdateBagStateMessage] SKIPPING ModelStatePreserver for {obj.name} - Persistence is DISABLED");
+                        }
 
-            // Manually trigger the update on the component
-            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds, msg.seatIds, msg.scrollDirection);
+                         if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
+                        {
+                            modelLocator.autoUpdateModelTransform = true;
+                        }
+                     }
+                 }
+             }
+
+             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection);
         }
-
+        
         private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)
         {
             for (int attempt = 0; attempt < 10; attempt++)
             {
-                // Wait 10 frames
                 for (int frame = 0; frame < 10; frame++)
                 {
                     yield return null;
                 }
-
+                
                 var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
                 if (controllerObj != null)
                 {
@@ -224,83 +310,134 @@ namespace DrifterBossGrabMod
                     yield break;
                 }
             }
+
             Log.Error($"[RetryFindController] Failed to find controller object with netId {msg.controllerNetId.Value} after 10 retries");
         }
 
-        // Helper to find object by NetID with multiple fallback strategies
         private static GameObject? FindObjectByNetId(NetworkInstanceId netId)
         {
-            if (netId == NetworkInstanceId.Invalid) return null;
-
-            // 1. Check if we already have it in persistence (Fastest, avoids ClientScene lookup issues on Host)
-            var persistedObjects = PersistenceObjectManager.GetPersistedObjects();
-            foreach (var key in persistedObjects)
-            {
-                if (key != null)
-                {
-                    var identity = key.GetComponent<NetworkIdentity>();
-                    if (identity != null)
-                    {
-                        if (identity.netId == netId) return key;
-                        // On Host, netId matches might fail if the internal value is 0 but the object is valid.
-                        // We trust our persistence list.
-                    }
-                }
-            }
-
-            // 3. Check currently bagged objects
-            var baggedObjects = Patches.BagPatches.baggedObjectsDict;
-            foreach (var kvp in baggedObjects)
-            {
-                if (kvp.Value != null)
-                {
-                    foreach (var obj in kvp.Value)
-                    {
-                        if (obj != null)
-                        {
-                            var identity = obj.GetComponent<NetworkIdentity>();
-                            if (identity != null && identity.netId == netId)
-                            {
-                                return obj;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 3. Standard Network Client Lookup
-            GameObject? foundObj = ClientScene.FindLocalObject(netId);
-            
-            // 4. Standard Network Server Lookup (Host/Server fallback)
-            if (foundObj == null && NetworkServer.active)
-            {
-                try
-                {
-                     foundObj = NetworkServer.FindLocalObject(netId);
-                }
-                catch { /* Ignore server lookup errors */ }
-            }
-            
-            if (foundObj == null && PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                 // Log why we failed to help debug Host issues
-                 Log.Warning($"[FindObjectByNetId] Failed to find object locally for NetID {netId.Value}. Checked Persistence ({persistedObjects.Length}), BaggedObjects, and NetworkServer.");
-            }
-
-            return foundObj;
+            return FindObjectByNetIdWithRetry(netId, maxRetries: 1, retryDelay: 0f);
         }
 
+        private static GameObject? FindObjectByNetIdWithRetry(NetworkInstanceId netId, int maxRetries, float retryDelay)
+        {
+            if (netId == NetworkInstanceId.Invalid) return null; 
+            
+            GameObject? foundObj = null;
+            int attempt = 0;
+            GameObject[] persistedObjects = PersistenceObjectManager.GetPersistedObjects();
+            
+                 while (attempt < maxRetries && foundObj == null)
+                 {
+                     attempt++;
+
+                     if (!NetworkServer.active)
+                {
+                    var dontDestroyOnLoadScene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("DontDestroyOnLoad");
+                    if (dontDestroyOnLoadScene.IsValid() && dontDestroyOnLoadScene.isLoaded)
+                    {
+                        foreach (var rootObj in dontDestroyOnLoadScene.GetRootGameObjects())
+                        {
+                            if (rootObj != null)
+                            {
+                                var identity = rootObj.GetComponent<NetworkIdentity>();
+                                if (identity != null && identity.netId == netId)
+                                {
+                                    foundObj = rootObj;
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    {
+                                        Log.Info($"[FindObjectByNetIdWithRetry] Found object {rootObj.name} (NetID: {netId}) in DontDestroyOnLoad");
+                                    }
+                                    break;
+                                }
+                            }
+                         }
+                     }
+                 }
+
+                 if (foundObj == null)
+                {
+                    foreach (var key in persistedObjects)
+                    {
+                        if (key != null)
+                        {
+                            var identity = key.GetComponent<NetworkIdentity>();
+                            if (identity != null && identity.netId == netId) 
+                            {
+                                foundObj = key;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    {
+                                        Log.Info($"[FindObjectByNetIdWithRetry] Found object {key.name} (NetID: {netId}) in bagged objects");
+                                    }
+                                 break;
+                             }
+                         }
+                     }
+                 }
+
+                 if (foundObj == null)
+                {
+                    var baggedObjects = Patches.BagPatches.baggedObjectsDict;
+                    foreach (var kvp in baggedObjects)
+                    {
+                        if (kvp.Value != null)
+                        {
+                            foreach (var obj in kvp.Value)
+                            {
+                                if (obj != null)
+                                {
+                                    var identity = obj.GetComponent<NetworkIdentity>();
+                                    if (identity != null && identity.netId == netId)
+                                    {
+                                        foundObj = obj;
+                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                            {
+                                                Log.Info($"[FindObjectByNetIdWithRetry] Found object {obj.name} (NetID: {netId}) in bagged objects");
+                                            }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                     }
+                 }
+
+                 if (foundObj == null)
+                 {
+                     foundObj = ClientScene.FindLocalObject(netId);
+                 }
+
+                 if (foundObj == null && NetworkServer.active)
+                 {
+                     try
+                     {
+                         foundObj = NetworkServer.FindLocalObject(netId);
+                     }
+                     catch { }
+                 }
+             }
+
+             if (foundObj == null && PluginConfig.Instance.EnableDebugLogs.Value)
+             {
+                 Log.Warning($"[FindObjectByNetIdWithRetry] Failed to find object locally for NetID {netId.Value} after {maxRetries} attempts. Checked Persistence ({(persistedObjects != null ? persistedObjects.Length : 0)}), BaggedObjects, and NetworkServer.");
+            }
+            else if (PluginConfig.Instance.EnableDebugLogs.Value && maxRetries > 1)
+            {
+                Log.Info($"[FindObjectByNetIdWithRetry] Found object for NetID {netId.Value} on attempt {attempt}/{maxRetries}");
+            }
+            
+            return foundObj;
+        }
+        
         private static void OnServerStageComplete(Stage stage)
         {
             if (!NetworkServer.active) return;
 
-            // Re-sync all bag states to all clients after scene load
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             foreach (var controller in bagControllers)
             {
                 Patches.BagPatches.UpdateNetworkBagState(controller, 0);
-                
-                // Also send persistence messages
+
                 if (Patches.BagPatches.baggedObjectsDict.TryGetValue(controller, out var list))
                 {
                     SendBaggedObjectsPersistenceMessage(list, controller);

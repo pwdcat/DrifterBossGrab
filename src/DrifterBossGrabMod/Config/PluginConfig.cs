@@ -6,6 +6,12 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod
 {
+    public enum ProjectileGrabbingMode
+    {
+        None = 0,
+        SurvivorOnly = 1,
+        AllProjectiles = 2
+    }
     public interface ICachedValue<T>
     {
         T Value { get; }
@@ -62,8 +68,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> EnableNPCGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableLockedObjectGrabbing { get; private set; } = null!;
-        public ConfigEntry<bool> EnableProjectileGrabbing { get; private set; } = null!;
-        public ConfigEntry<bool> ProjectileGrabbingSurvivorOnly { get; private set; } = null!;
+        public ConfigEntry<ProjectileGrabbingMode> ProjectileGrabbingMode { get; private set; } = null!;
         public ConfigEntry<int> MaxSmacks { get; private set; } = null!;
         public ConfigEntry<string> MassMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
@@ -105,6 +110,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         public ConfigEntry<bool> AutoPromoteMainSeat { get; private set; } = null!;
         public ConfigEntry<bool> UncapBagScale { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCarouselHUD { get; private set; } = null!;
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
@@ -185,8 +191,7 @@ namespace DrifterBossGrabMod
             Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag");
             Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines");
             Instance.EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Enable grabbing of locked objects");
-            Instance.EnableProjectileGrabbing = cfg.Bind("General", "EnableProjectileGrabbing", false, "Enable grabbing of projectiles");
-            Instance.ProjectileGrabbingSurvivorOnly = cfg.Bind("General", "ProjectileGrabbingSurvivorOnly", true, "Restrict projectile grabbing to only those fired by survivor players");
+            Instance.ProjectileGrabbingMode = cfg.Bind("General", "ProjectileGrabbingMode", DrifterBossGrabMod.ProjectileGrabbingMode.None, "Mode for projectile grabbing: None, Survivor Only, or All Projectiles");
             Instance.EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging");
             Instance.BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,ThrownObjectProjectile,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,MultiShopEquipmentTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike,LunarNeedleProjectile,StickyBomb,RocketProjectile,StunAndPierceBoomerang",
                 "Comma-separated list of body and projectile names to never grab.\n" +
@@ -198,7 +203,7 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
-            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction",
+            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction",
                 "Comma-separated list of component type names that make objects grabbable.\n" +
                 "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
                 "Objects must have at least one of these components to be grabbable.\n" +
@@ -247,9 +252,10 @@ namespace DrifterBossGrabMod
             Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert the mouse wheel scrolling direction");
             Instance.ScrollUpKeybind = cfg.Bind("Bottomless Bag", "ScrollUpKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll up through passengers");
             Instance.ScrollDownKeybind = cfg.Bind("Bottomless Bag", "ScrollDownKeybind", new KeyboardShortcut(KeyCode.None), "Keybind to scroll down through passengers");
+            Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD for the Drifter's bag. If disabled, reverts to the vanilla UI behavior.");
             Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items");
             Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 25.0f, "Horizontal offset for the center carousel item");
-            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 40.0f, "Vertical offset for the center carousel item");
+            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 50.0f, "Vertical offset for the center carousel item");
             Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 20.0f, "Horizontal offset for the side carousel items");
             Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 5.0f, "Vertical offset for the side carousel items");
             Instance.CarouselSideScale = cfg.Bind("Hud", "CarouselSideScale", 0.8f, "Scale for side carousel items");
@@ -266,6 +272,7 @@ namespace DrifterBossGrabMod
             Instance.UncapBagScale = cfg.Bind("Balance", "UncapBagScale", false, "When enabled, the bag size will not be capped and will continue to grow based on the mass of the stored object(s).");
 
             // Add event handlers for live updates
+            Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowWeight.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
@@ -346,7 +353,8 @@ namespace DrifterBossGrabMod
             EventHandler bossGrabbingHandler,
             EventHandler npcGrabbingHandler,
             EventHandler environmentGrabbingHandler,
-            EventHandler lockedObjectGrabbingHandler)
+            EventHandler lockedObjectGrabbingHandler,
+            EventHandler projectileGrabbingModeHandler)
         {
             Instance.EnableDebugLogs.SettingChanged -= debugLogsHandler;
             Instance.BodyBlacklist.SettingChanged -= blacklistHandler;
@@ -359,6 +367,7 @@ namespace DrifterBossGrabMod
             Instance.EnableNPCGrabbing.SettingChanged -= npcGrabbingHandler;
             Instance.EnableEnvironmentGrabbing.SettingChanged -= environmentGrabbingHandler;
             Instance.EnableLockedObjectGrabbing.SettingChanged -= lockedObjectGrabbingHandler;
+            Instance.ProjectileGrabbingMode.SettingChanged -= projectileGrabbingModeHandler;
         }
         public static void ClearBlacklistCache()
         {
@@ -392,7 +401,7 @@ namespace DrifterBossGrabMod
         }
 
 
-        private static UnityEngine.Transform FindDeepChild(UnityEngine.Transform parent, string name)
+        private static UnityEngine.Transform? FindDeepChild(UnityEngine.Transform parent, string name)
         {
             foreach (UnityEngine.Transform child in parent)
             {

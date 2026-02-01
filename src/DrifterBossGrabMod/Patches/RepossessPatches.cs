@@ -21,7 +21,6 @@ namespace DrifterBossGrabMod.Patches
 
         public static void Cleanup()
         {
-            // No cleanup needed for this patch
         }
         [HarmonyPatch(typeof(Repossess), MethodType.Constructor)]
         public class Repossess_Constructor_Patch
@@ -30,7 +29,6 @@ namespace DrifterBossGrabMod.Patches
             public static void Postfix(Repossess __instance)
             {
                 __instance.searchRange *= PluginConfig.Instance.SearchRangeMultiplier.Value;
-                // Cache original values on first use
                 if (originalForwardVelocity == null && forwardVelocityField != null && upwardVelocityField != null)
                 {
                     originalForwardVelocity = (float)forwardVelocityField.GetValue(null);
@@ -56,21 +54,19 @@ namespace DrifterBossGrabMod.Patches
                 {
                     __result = 0f;
                     return false;
-                }
-                
-                float mass = 1f;
-                // Try to get mass from IPhysMotor or SpecialObjectAttributes
-                if (targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
+                 }
+
+                 float mass =1f;
+                 if (targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
                 {
                     mass = physMotor.mass;
                 }
                 else if (targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
                 {
-                    mass = specialObjectAttributes.massOverride;
-                }
+                     mass = specialObjectAttributes.massOverride;
+                 }
 
-                // Apply mass multiplier
-                float multiplier = 1.0f;
+                 float multiplier = 1.0f;
                 if (float.TryParse(PluginConfig.Instance.MassMultiplier.Value, out float parsed))
                 {
                     multiplier = parsed;
@@ -80,23 +76,22 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [CalculateBaggedObjectMass] Object: {targetObject.name}, RawMass: {rawMass}, Multiplier: {multiplier}, FinalMass: {mass}, Uncapped: {PluginConfig.Instance.UncapBagScale.Value}");
-                }
+                     Log.Info($" [CalculateBaggedObjectMass] Object: {targetObject.name}, RawMass: {rawMass}, Multiplier: {multiplier}, FinalMass: {mass}, Uncapped: {PluginConfig.Instance.UncapBagScale.Value}");
+                 }
 
-                // Clamp like original, unless uncapping is enabled
-                if (!PluginConfig.Instance.UncapBagScale.Value)
+                 if (!PluginConfig.Instance.UncapBagScale.Value)
                 {
                     __result = Mathf.Clamp(mass, 0f, DrifterBagController.maxMass);
                 }
                 else
                 {
-                    __result = Mathf.Max(mass, 0f);
-                }
+                     __result = Mathf.Max(mass, 0f);
+                 }
 
-                return false; // Skip original method
+                 return false;
             }
         }
-
+        
         [HarmonyPatch(typeof(DrifterBagController), "RecalculateBaggedObjectMass")]
         public class DrifterBagController_RecalculateBaggedObjectMass_Patch
         {
@@ -112,11 +107,10 @@ namespace DrifterBossGrabMod.Patches
                         {
                             totalMass += __instance.CalculateBaggedObjectMass(obj);
                         }
-                    }
-                }
+                     }
+                 }
 
-                // Clamp like original, unless uncapping is enabled
-                if (!PluginConfig.Instance.UncapBagScale.Value)
+                 if (!PluginConfig.Instance.UncapBagScale.Value)
                 {
                     totalMass = Mathf.Clamp(totalMass, 0f, 700f);
                 }
@@ -124,37 +118,34 @@ namespace DrifterBossGrabMod.Patches
                 {
                     totalMass = Mathf.Max(totalMass, 0f);
                 }
-
+                
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [RecalculateBaggedObjectMass] Setting total baggedMass to {totalMass} (Objects: {(list?.Count ?? 0)})");
-                }
+                     Log.Info($" [RecalculateBaggedObjectMass] Setting total baggedMass to {totalMass} (Objects: {(list?.Count ?? 0)})");
+                 }
 
-                Traverse.Create(__instance).Field("baggedMass").SetValue(totalMass);
+                 Traverse.Create(__instance).Field("baggedMass").SetValue(totalMass);
 
-                // Update visual bag scale if we are in BaggedObject state
-                var stateMachines = __instance.GetComponents<EntityStateMachine>();
+                 var stateMachines = __instance.GetComponents<EntityStateMachine>();
                 foreach (var esm in stateMachines)
                 {
                     if (esm.customName == "Bag" && esm.state is BaggedObject baggedObject)
                     {
                         BaggedObjectPatches.UpdateBagScale(baggedObject, totalMass);
-                        break;
-                    }
-                }
+                         break;
+                     }
+                 }
 
-                // Skip original summation logic
-                return false;
+                 return false;
             }
         }
-
+        
         [HarmonyPatch(typeof(DrifterBagController), "OnSyncBaggedObject")]
         public class DrifterBagController_OnSyncBaggedObject_Patch
         {
             [HarmonyPostfix]
             public static void Postfix(DrifterBagController __instance)
             {
-                // Ensure total mass is recalculated on client when the main object changes
                 BagPatches.ForceRecalculateMass(__instance);
             }
         }
@@ -166,9 +157,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 __instance.maxSmacks = PluginConfig.Instance.MaxSmacks.Value;
                 BagPatches.ScanAllSceneComponents();
-                
-                // Ensure BottomlessBagNetworkController exists on this instance
-                // This handles cases where the prefab wasnt modified before instantiation
+
                 if (__instance.GetComponent<Networking.BottomlessBagNetworkController>() == null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -185,7 +174,6 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
             {
-                // Cache traverse object to avoid repeated creation
                 var traverse = Traverse.Create(__instance);
                 var targetObject = traverse.Field("targetObject").GetValue<GameObject>();
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -200,7 +188,6 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                // If targetObject is null, log error and skip processing to prevent NRE
                 if (targetObject == null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -211,16 +198,6 @@ namespace DrifterBossGrabMod.Patches
                 }
                 var currentBreakoutTime = traverse.Field("breakoutTime").GetValue<float>();
                 traverse.Field("breakoutTime").SetValue(currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
-                // Synchronize persistence across clients in multiplayer
-                if (UnityEngine.Networking.NetworkServer.active && PluginConfig.Instance.EnableObjectPersistence.Value)
-                {
-                    PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(new System.Collections.Generic.List<GameObject> { targetObject });
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Sent persistence message for bagged object {targetObject.name}");
-                    }
-                }
-                // Spawn the object on network if server
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
                 {
                     var networkIdentity = targetObject.GetComponent<UnityEngine.Networking.NetworkIdentity>();
@@ -233,19 +210,22 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                // Ensure UI overlay is refreshed for initial grabs (not done via AssignPassenger)
+                bool alreadyPersisted = PersistenceObjectManager.IsObjectPersisted(targetObject);
+                if (UnityEngine.Networking.NetworkServer.active && PluginConfig.Instance.EnableObjectPersistence.Value && !alreadyPersisted)
+                {
+                    PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(new System.Collections.Generic.List<GameObject> { targetObject });
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Sent persistence message for bagged object {targetObject.name}");
+                    }
+                }
+                else if (UnityEngine.Networking.NetworkServer.active && PluginConfig.Instance.EnableObjectPersistence.Value && alreadyPersisted && PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Skipped duplicate persistence message for {targetObject.name} (already persisted via auto-grab)");
+                }
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController != null && targetObject != null)
                 {
-                    // Proactively track as main seat occupant if not already tracked or if bag is empty
-                    // This fixes the client-side race condition where IsInMainSeat returns false initially
-                    if (BagPatches.GetMainSeatObject(bagController) == null)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($" [BaggedObject_OnEnter] Proactively setting {targetObject.name} as main seat occupant for {bagController.name}");
-                        BagPatches.SetMainSeatObject(bagController, targetObject);
-                    }
-
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -254,15 +234,14 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-
+        
         [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
         public class SpecialObjectAttributes_get_isTargetable
         {
             [HarmonyPrefix]
             public static bool Prefix(SpecialObjectAttributes __instance)
             {
-                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true; // Skip if no Drifter
-                // Clean null entries from SpecialObjectAttributes lists to prevent NullReferenceException
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true;
                 __instance.childSpecialObjectAttributes.RemoveAll(s => s == null);
                 __instance.renderersToDisable.RemoveAll(r => r == null);
                 __instance.behavioursToDisable.RemoveAll(b => b == null);
@@ -276,7 +255,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(SpecialObjectAttributes __instance, ref bool __result)
             {
-                if (!DrifterBossGrabPlugin.IsDrifterPresent) return; // Skip if no Drifter
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return;
                 var body = __instance.gameObject.GetComponent<CharacterBody>();
                 if (body)
                 {
@@ -290,7 +269,6 @@ namespace DrifterBossGrabMod.Patches
                         __result = true;
                     }
                 }
-                // Check for locked objects
                 if (PluginConfig.Instance.EnableLockedObjectGrabbing.Value && __instance.locked)
                 {
                     __result = true;
@@ -314,16 +292,14 @@ namespace DrifterBossGrabMod.Patches
                     bool allowTargeting = false;
                     if (body)
                     {
-                        // Check config settings for bosses and ungrabbable NPCs
                         if (body.isBoss && !PluginConfig.Instance.EnableBossGrabbing.Value)
                         {
-                            return; // Don't allow targeting if boss grabbing is disabled
+                            return;
                         }
                         if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && !body.isBoss && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                         {
-                            return; // Don't allow targeting if NPC grabbing is disabled for non-bosses
+                            return;
                         }
-                        // Allow targeting of regular enemies and enabled boss/NPC types as long as not blacklisted
                         allowTargeting = true;
                     }
                     if (allowTargeting && !PluginConfig.IsBlacklisted(body!.name))
@@ -343,10 +319,10 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(SpecialObjectAttributes __instance)
             {
-                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true; // Skip if no Drifter
+                if (!DrifterBossGrabPlugin.IsDrifterPresent) return true;
                 if (PluginConfig.IsBlacklisted(__instance.gameObject.name))
                 {
-                    return true; // Allow original behavior for blacklisted
+                    return true;
                 }
                 var body = __instance.gameObject.GetComponent<CharacterBody>();
                 if (body)
@@ -354,10 +330,10 @@ namespace DrifterBossGrabMod.Patches
                     bool isBoss = body.isBoss;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
                     bool shouldPrevent = (isBoss && PluginConfig.Instance.EnableBossGrabbing.Value) ||
-                                       (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value);
+                                        (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value);
                     return !shouldPrevent;
                 }
-                return true; // Allow if no body
+                return true;
             }
         }
         public static void OnForwardVelocityChanged(object sender, EventArgs args)
@@ -374,7 +350,7 @@ namespace DrifterBossGrabMod.Patches
                 upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.Instance.UpwardVelocityMultiplier.Value);
             }
         }
-
+        
         [HarmonyPatch(typeof(EntityStates.Drifter.Repossess), "OnExit")]
         public class Repossess_OnExit_Patch
         {
@@ -387,24 +363,20 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-
+        
         public static bool HasPassengerOverride(VehicleSeat seat)
         {
             if (seat == null) return false;
-            
-            // If mod disabled, return original behavior
+
             if (!PluginConfig.Instance.BottomlessBagEnabled.Value) return seat.hasPassenger;
-            
+
             var bagController = seat.GetComponentInParent<DrifterBagController>();
             if (bagController)
             {
-                // We need to count how many objects we really have
                 int count = BagPatches.GetBaggedObjectCount(bagController);
-                
+
                 int maxCapacity = BagPatches.GetUtilityMaxStock(bagController);
-                
-                // If we are at or above capacity
-                // This prevents the Repossess skill from starting a grab even if the seat is empty
+
                 if (count >= maxCapacity)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -412,7 +384,6 @@ namespace DrifterBossGrabMod.Patches
                     return true;
                 }
 
-                // If we have capacity AND there's a passenger, return false (Tricked to allow grab)
                 if (seat.hasPassenger)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)

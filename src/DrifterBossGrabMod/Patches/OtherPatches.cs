@@ -229,6 +229,26 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "CheckForDeadPassenger")]
+        public class ThrownObjectProjectileController_CheckForDeadPassenger_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(ThrownObjectProjectileController __instance, BlastAttack arg1, BlastAttack.Result arg2)
+            {
+                // Access vehicleSeat via reflection
+                var vehicleSeatField = typeof(ThrownObjectProjectileController).GetField("vehicleSeat", BindingFlags.NonPublic | BindingFlags.Instance);
+                var vehicleSeat = vehicleSeatField?.GetValue(__instance) as VehicleSeat;
+                if (vehicleSeat == null || vehicleSeat.NetworkpassengerBodyObject == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info(" [ThrownObjectProjectileController.CheckForDeadPassenger] Skipping check (seat or NetworkpassengerBodyObject is null)");
+                    }
+                    return false;
+                }
+                return true;
+            }
+        }
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "ImpactBehavior")]
         public class ThrownObjectProjectileController_ImpactBehavior_Patch
         {
@@ -716,6 +736,48 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
+        // Prevent clients from calling EjectPassengerToFinalPosition - this is a server-only function
+        // When the host grabs an object mid-air, the client's ImpactBehavior tries to eject the passenger
+        // which causes desync. This patch prevents the client from calling the server-only function.
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "EjectPassengerToFinalPosition")]
+        public class ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix()
+            {
+                // Only allow this function to run on the server
+                if (!UnityEngine.Networking.NetworkServer.active)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [ThrownObjectProjectileController.EjectPassengerToFinalPosition] Blocked client call - server only");
+                    }
+                    return false; // Skip the method on client
+                }
+                return true; // Allow the method on server
+            }
+        }
+
+        // Prevent clients from calling EjectPassenger (no-argument version) - this is also server-only
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "EjectPassenger", new Type[] { })]
+        public class ThrownObjectProjectileController_EjectPassenger_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix()
+            {
+                // Only allow this function to run on the server
+                if (!UnityEngine.Networking.NetworkServer.active)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [ThrownObjectProjectileController.EjectPassenger] Blocked client call - server only");
+                    }
+                    return false; // Skip the method on client
+                }
+                return true; // Allow the method on server
+            }
+        }
         [HarmonyPatch(typeof(BaggedObject), "OnEnter")]
         public class BaggedObject_OnEnter_Patch
         {
@@ -728,11 +790,21 @@ namespace DrifterBossGrabMod.Patches
                 if (targetObject != null)
                 {
                     // Ensure ModelStatePreserver is attached before the object is stashed and hidden
-                    if (targetObject.GetComponent<ModelStatePreserver>() == null)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[BaggedObject.OnEnter] Checking ModelStatePreserver for {targetObject.name}");
+                        Log.Info($"[BaggedObject.OnEnter] EnableObjectPersistence: {PluginConfig.Instance.EnableObjectPersistence.Value}");
+                        Log.Info($"[BaggedObject.OnEnter] ModelStatePreserver already exists: {targetObject.GetComponent<ModelStatePreserver>() != null}");
+                    }
+                    if (PluginConfig.Instance.EnableObjectPersistence.Value && targetObject.GetComponent<ModelStatePreserver>() == null)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($" [BaggedObject.OnEnter] Attaching ModelStatePreserver to {targetObject.name} to capture original state");
+                            Log.Info($"[BaggedObject.OnEnter] Attaching ModelStatePreserver to {targetObject.name} to capture original state (Persistence enabled)");
                         targetObject.AddComponent<ModelStatePreserver>();
+                    }
+                    else if (!PluginConfig.Instance.EnableObjectPersistence.Value && PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[BaggedObject.OnEnter] SKIPPING ModelStatePreserver for {targetObject.name} - Persistence is DISABLED");
                     }
 
                     var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();

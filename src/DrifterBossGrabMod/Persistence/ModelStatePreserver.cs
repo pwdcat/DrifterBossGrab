@@ -23,6 +23,15 @@ namespace DrifterBossGrabMod
 
         private void Awake()
         {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ModelStatePreserver.Awake] === MODELSTATEPRESERVER CREATED ===");
+                Log.Info($"[ModelStatePreserver.Awake] GameObject: {gameObject.name} (InstanceID: {gameObject.GetInstanceID()})");
+                Log.Info($"[ModelStatePreserver.Awake] EnableObjectPersistence: {PluginConfig.Instance.EnableObjectPersistence.Value}");
+                Log.Info($"[ModelStatePreserver.Awake] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
+                Log.Info($"[ModelStatePreserver.Awake] NetworkServer.active: {UnityEngine.Networking.NetworkServer.active}");
+                Log.Info($"[ModelStatePreserver.Awake] =======================================");
+            }
             _modelLocator = GetComponent<ModelLocator>();
             if (_modelLocator != null && _modelLocator.modelTransform != null)
             {
@@ -32,6 +41,14 @@ namespace DrifterBossGrabMod
                 originalInitialRotation = _modelLocator.modelTransform.localRotation;
                 originalInitialScale = _modelLocator.modelTransform.localScale;
                 originalModelParent = _modelLocator.modelTransform.parent;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ModelStatePreserver.Awake] Captured state for {gameObject.name}");
+                    Log.Info($"[ModelStatePreserver.Awake] Original Position: {originalInitialPosition}");
+                    Log.Info($"[ModelStatePreserver.Awake] Original Rotation: {originalInitialRotation}");
+                    Log.Info($"[ModelStatePreserver.Awake] Original Scale: {originalInitialScale}");
+                }
 
                 // Store root-relative values (relative to this GameObject's transform)
                 rootRelativePosition = transform.InverseTransformPoint(_modelLocator.modelTransform.position);
@@ -46,8 +63,12 @@ namespace DrifterBossGrabMod
                     rootWorldScale.z != 0 ? modelWorldScale.z / rootWorldScale.z : modelWorldScale.z
                 );
             }
+            else if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Warning($"[ModelStatePreserver.Awake] No ModelLocator or modelTransform found on {gameObject.name}");
+            }
 
-            // Store renderer states from the entire object hierarchy
+            // Store renderer states from entire object hierarchy
             var renderers = GetComponentsInChildren<Renderer>(true);
             foreach (var renderer in renderers)
             {
@@ -57,7 +78,7 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // Store collider states from the entire object hierarchy
+            // Store collider states from entire object hierarchy
             var colliders = GetComponentsInChildren<Collider>(true);
             foreach (var collider in colliders)
             {
@@ -70,9 +91,13 @@ namespace DrifterBossGrabMod
 
         public void RestoreOriginalState(bool restoreParent = true)
         {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ModelStatePreserver.RestoreOriginalState] Called for {gameObject.name}, restoreParent: {restoreParent}");
+            }
             if (_modelLocator != null && _modelLocator.modelTransform != null)
             {
-                // First restore the parent relationship if requested
+                // First restore parent relationship if requested
                 if (restoreParent)
                 {
                     _modelLocator.modelTransform.SetParent(originalModelParent, false);
@@ -84,7 +109,7 @@ namespace DrifterBossGrabMod
                 }
                 else
                 {
-                    // Restore root-relative values (useful when the model has been flattened/re-parented to root)
+                    // Restore root-relative values (useful when model has been flattened/re-parented to root)
                     if (_modelLocator.modelTransform != gameObject.transform)
                     {
                         _modelLocator.modelTransform.localPosition = rootRelativePosition;
@@ -93,17 +118,14 @@ namespace DrifterBossGrabMod
                     }
                     else
                     {
-                        // If the model is the root itself, we only restore its original scale.
-                        // Position and rotation are managed by the ejection/projectile/physics state.
+                        // If model is root itself, we only restore its original scale.
+                        // Position and rotation are managed by ejection/projectile/physics state.
                         _modelLocator.modelTransform.localScale = originalInitialScale;
                     }
                 }
 
-                // Finally restore autoUpdateModelTransform to false if it was originally false
-                if (!originalAutoUpdateModelTransform)
-                {
-                    _modelLocator.autoUpdateModelTransform = false;
-                }
+                // Finally restore autoUpdateModelTransform to its original value
+                _modelLocator.autoUpdateModelTransform = originalAutoUpdateModelTransform;
 
                 // Restore renderer states
                 foreach (var kvp in _rendererStates)
@@ -122,6 +144,17 @@ namespace DrifterBossGrabMod
                         kvp.Key.enabled = kvp.Value;
                     }
                 }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ModelStatePreserver.OnDestroy] === MODELSTATEPRESERVER DESTROYED ===");
+                Log.Info($"[ModelStatePreserver.OnDestroy] GameObject: {gameObject.name} (InstanceID: {gameObject.GetInstanceID()})");
+                Log.Info($"[ModelStatePreserver.OnDestroy] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
+                Log.Info($"[ModelStatePreserver.OnDestroy] =======================================");
             }
         }
     }

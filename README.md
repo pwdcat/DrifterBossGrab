@@ -50,6 +50,7 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/pw
 - **PersistBaggedNPCs** (true/false): Allow persistence of bagged NPCs.
 - **PersistBaggedEnvironmentObjects** (true/false): Allow persistence of bagged environment objects.
 - **PersistenceBlacklist**: Comma-separated list of object names to never persist.
+- **AutoGrabDelay**: Delay before auto-grabbing persisted objects on stage start (seconds).
 
 ### Hud
 - **CarouselSpacing**: Vertical spacing for carousel items.
@@ -68,5 +69,5 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/pw
 
 ## Credits
 
-- **plontII**: For the original idea for the Bottomless Bag feature.
+- **plontII**: For the idea for the Bottomless Bag and clamp feature.
 - **Matsan**: For the weight icon design and future balancing suggestions.

@@ -15,7 +15,7 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class BaggedObjectPatches
     {
-        private static string GetSafeName(UnityEngine.Object obj) => obj ? obj.name : "null";
+        private static string GetSafeName(UnityEngine.Object? obj) => obj ? obj.name : "null";
         private static readonly HashSet<GameObject> _suppressedExitObjects = new HashSet<GameObject>();
         public static void SuppressExitForObject(GameObject obj)
         {
@@ -25,7 +25,10 @@ namespace DrifterBossGrabMod.Patches
                 _suppressedExitObjects.Add(obj);
             }
             // Reset after 2 seconds to be safe
-            DrifterBossGrabPlugin.Instance.StartCoroutine(ResetSuppressionForObject(obj, 2f));
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(ResetSuppressionForObject(obj, 2f));
+            }
         }
         public static bool IsObjectExitSuppressed(GameObject obj)
         {
@@ -114,7 +117,7 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-
+            // If targetObject is null, we are clearing the state
             if (targetObject == null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -153,7 +156,8 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($" [RefreshUIOverlayForMainSeat] isNowMainSeatOccupant from seat: {isNowMainSeatOccupant}");
                 }
             }
-
+            // Method 2: Check tracked main seat state
+            // This is during cycling transitions
             if (!isNowMainSeatOccupant && BagPatches.mainSeatDict.TryGetValue(actualBagController, out var trackedMainSeatOccupant))
             {
                 isNowMainSeatOccupant = ReferenceEquals(targetObject, trackedMainSeatOccupant);
@@ -163,7 +167,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-
+            // Check if the target object is in an additional seat - if so, don't create UI
             bool isInAdditionalSeat = BagPatches.GetAdditionalSeat(actualBagController, targetObject) != null;
             if (isInAdditionalSeat)
             {
@@ -196,11 +200,11 @@ namespace DrifterBossGrabMod.Patches
                 bool targetObjectChanged = !ReferenceEquals(currentTargetObject, targetObject);
                 if (PluginConfig.Instance.EnableDebugLogs.Value && targetObjectChanged)
                 {
-                    Log.Info($" [SynchronizeBaggedObjectState] targetObject changed from {currentTargetObject?.name ?? "null"} to {targetObject?.name ?? "null"}");
+                    Log.Info($" [SynchronizeBaggedObjectState] targetObject changed from {(currentTargetObject != null ? currentTargetObject.name : "null")} to {(targetObject != null ? targetObject.name : "null")}");
                 }
                 
                 // Update the targetObject field of BaggedObject to point to the new target
-                baggedObject.targetObject = targetObject;
+                baggedObject.targetObject = targetObject!;
                 
                 // Update targetBody and vehiclePassengerAttributes for the new target first
                 var targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
@@ -265,7 +269,8 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-
+                // This reference is updated via the NetworkbaggedObject property setter (which calls OnSyncBaggedObject).
+                // We must ensure this is updated so the skill targets the correct body.
                 if (bagController != null)
                 {
                     if (NetworkServer.active)
@@ -395,12 +400,13 @@ namespace DrifterBossGrabMod.Patches
             // Also check if we can find it via BaggedObject state machine (if valid)
              if (bagController == null)
             {
-
+                // This is checking if the object itself has the component (unlikely based on issue, but fallback)
+                // or if we can find who owns it.
                 // In the issue case, we don't know the controller easily if not tracked.
                 // However, we can try to find the controller from the object if it was spawned by it or something, but likely not.
             }
 
-            BaggedObject baggedObject = null;
+            BaggedObject? baggedObject = null;
             if (bagController != null)
             {
                  baggedObject = FindOrCreateBaggedObjectState(bagController, targetObject);
@@ -410,16 +416,16 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [RemoveUIOverlay] EXIT: Could not find BaggedObject state for {targetObject.name} (Controller: {bagController?.name ?? "null"})");
+                    Log.Info($" [RemoveUIOverlay] EXIT: Could not find BaggedObject state for {(targetObject != null ? targetObject.name : "null")} (Controller: {bagController?.name ?? "null"})");
                 }
                 return;
             }
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" [RemoveUIOverlay] Called for {targetObject.name}");
+                Log.Info($" [RemoveUIOverlay] Called for {(targetObject != null ? targetObject.name : "null")}");
             }
-
+            // This prevents premature removal during cycling transitions
 
             if (bagController != null)
             {
@@ -460,7 +466,7 @@ namespace DrifterBossGrabMod.Patches
             }
             // Remove any existing overlay controller
             var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-            var existingController = (OverlayController)uiOverlayField.GetValue(baggedObject);
+            var existingController = baggedObject != null ? (OverlayController)uiOverlayField.GetValue(baggedObject) : null;
             if (existingController != null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -511,7 +517,14 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-
+        // Handle UI removal when cycling to null state (main seat becomes empty)
+        public static void RemoveUIOverlayForNullState(DrifterBagController bagController)
+        {
+            if (bagController == null) return;
+            // When cycling to null, the BaggedObject state may no longer be active
+            // We need to find it in the state machines or use cached instances
+            BaggedObject? baggedObject = null;
+            // First, try to find active BaggedObject state
             var stateMachines = bagController!.GetComponentsInChildren<EntityStateMachine>(true);
             foreach (var sm in stateMachines)
             {
@@ -538,7 +551,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
-
+            // This handles the case where we need to clean up UI state even when the state machine is missing
             if (baggedObject == null)
             {
                 baggedObject = ForceCreateBaggedObjectState(bagController!, null!);
@@ -579,9 +592,10 @@ namespace DrifterBossGrabMod.Patches
                     overriddenPrimaryField.SetValue(baggedObject, null);
                 }
             }
-
+            // Only remove overlay if we're truly transitioning to null state
+            // Check if there's actually a tracked main seat occupant before removing
             bool hasTrackedMainSeat = BagPatches.mainSeatDict.TryGetValue(bagController, out var trackedMainSeat) && trackedMainSeat != null;
-
+            // Also check if there's actually a passenger in the main seat
             bool hasActualMainSeatPassenger = false;
             if (bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger)
             {
@@ -596,11 +610,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-
+                    // Get the OnUIOverlayInstanceRemove method
                     var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
                     if (onUIOverlayInstanceRemoveMethod != null)
                     {
-
+                        // Get instancesList property to call OnUIOverlayInstanceRemove for each instance
                         var instancesListProperty = typeof(OverlayController).GetProperty("instancesList", BindingFlags.Public | BindingFlags.Instance);
                         if (instancesListProperty != null)
                         {
@@ -623,7 +637,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                         }
                     }
-
+                    // Remove the overlay from HudOverlayManager
                     HudOverlayManager.RemoveOverlay(uiOverlayController);
                     uiOverlayField.SetValue(baggedObject, null);
                 }
@@ -632,25 +646,26 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
                 }
             }
-
+            // Set targetObject to null for null state
             baggedObject.targetObject = null;
             targetBodyField.SetValue(baggedObject, null);
             vehiclePassengerAttributesField.SetValue(baggedObject, null);
             baggedMassField.SetValue(baggedObject, 0f);
-
+            // This ensures that when we cycle back, we'll properly detect and create the BaggedObject state
             _baggedObjectCache.Remove(bagController);
         }
-
+        // Helper method to check if an object is in the main seat
+        private static bool IsInMainSeat(DrifterBagController bagController, GameObject targetObject)
         {
             if (bagController == null || targetObject == null) return false;
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [IsInMainSeat] Checking for bagController: {GetSafeName(bagController)} (ID:{bagController?.GetInstanceID()}), targetObject: {GetSafeName(targetObject)}");
             }
-
-            var trackedMainSeat = BagPatches.GetMainSeatObject(bagController!);
+            // Check tracked main seat first (authoritative logical state)
+            var trackedMainSeat = BagPatches.GetMainSeatObject(bagController);
             
-
+            // If the controller is tracked in mainSeatDict, the entry (even if null) is logically authoritative.
             if (BagPatches.mainSeatDict.ContainsKey(bagController))
             {
                 bool isTrackedAsMain = trackedMainSeat != null && ReferenceEquals(targetObject, trackedMainSeat);
@@ -661,8 +676,8 @@ namespace DrifterBossGrabMod.Patches
                 return isTrackedAsMain;
             }
 
-
-            var outerSeat = bagController.vehicleSeat;
+            // Fallback to vehicle seat check only if not logically tracked (e.g. initial grab or vanilla behavior)
+            var outerSeat = bagController!.vehicleSeat;
             if (outerSeat == null) return false;
 
             var outerCurrentPassengerBodyObject = outerSeat.NetworkpassengerBodyObject;
@@ -676,7 +691,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" [IsInMainSeat] Fallback result: {result} (outerCurrentPassengerBodyObject={GetSafeName(outerCurrentPassengerBodyObject)})");
+                Log.Info($" [IsInMainSeat] Fallback result: {result} (outerCurrentPassengerBodyObject={GetSafeName(outerCurrentPassengerBodyObject!)})");
             }
             return result;
         }
@@ -701,7 +716,7 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    string targetName = (targetObject ? targetObject.name : "null");
+                    string targetName = targetObject != null ? targetObject.name : "null";
                     Log.Info($" [TryOverrideUtility] Attempting override for {targetName}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {(skill ? skill.skillName : "null")}");
                 }
                 // Only allow if the object is in the main seat
@@ -768,7 +783,7 @@ namespace DrifterBossGrabMod.Patches
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    string targetName = (targetObject ? targetObject.name : "null");
+                    string targetName = targetObject != null ? targetObject.name : "null";
                     Log.Info($" [TryOverridePrimary] Attempting override for {targetName}, isMainSeatOccupant: {isMainSeatOccupant}, skill: {(skill ? skill.skillName : "null")}");
                 }
                 // Only allow if the object is in the main seat
@@ -879,6 +894,9 @@ namespace DrifterBossGrabMod.Patches
                 }
                 if (targetObject == null) return;
 
+                // Check if object is in an additional seat - this is used in multiple places
+                bool isInAdditionalSeat = BagPatches.GetAdditionalSeat(bagController, targetObject) != null;
+
                 // Only populate if the network controller hasn't synced a null state (selectedIndex=-1)
                 if (bagController.hasAuthority && !NetworkServer.active)
                 {
@@ -888,7 +906,6 @@ namespace DrifterBossGrabMod.Patches
                     
                     if (netController != null && netController.selectedIndex < 0 && netController.GetBaggedObjects().Count > 0)
                     {
-                        // Network says we're in null state AND we have objects - don't set main seat
                         shouldPopulateMainSeat = false;
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
@@ -896,22 +913,18 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                     
-                    // Set this object as the main seat object in the local dictionary (only for capacity=1)
-                    if (shouldPopulateMainSeat && !BagPatches.mainSeatDict.ContainsKey(bagController))
+                    if (shouldPopulateMainSeat && !BagPatches.mainSeatDict.ContainsKey(bagController) && !isInAdditionalSeat)
+                    if (shouldPopulateMainSeat && !BagPatches.mainSeatDict.ContainsKey(bagController) && !isInAdditionalSeat)
                     {
-                        // Double check it's not in an additional seat
-                        if (BagPatches.GetAdditionalSeat(bagController, targetObject) == null)
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" [BaggedObject_OnEnter_Postfix] Populating mainSeatDict for client authority: {targetObject.name}");
-                            }
-                            BagPatches.SetMainSeatObject(bagController, targetObject);
+                            Log.Info($" [BaggedObject_OnEnter_Postfix] Populating mainSeatDict for client authority: {targetObject.name}");
                         }
-                        else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                             Log.Info($" [BaggedObject_OnEnter_Postfix] Skipping mainSeatDict population because {targetObject.name} is in an additional seat");
-                        }
+                        BagPatches.SetMainSeatObject(bagController, targetObject);
+                    }
+                    else if (isInAdditionalSeat && PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                         Log.Info($" [BaggedObject_OnEnter_Postfix] Skipping mainSeatDict population because {targetObject.name} is in an additional seat");
                     }
                     
                     // Also ensure it's in baggedObjectsDict (always do this, regardless of main seat state)
@@ -956,8 +969,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     // Neither seat nor tracked has targetObject, remove the UI
                     // (But only if it's not in an additional seat either)
-                    bool isAdditionalSeat = BagPatches.GetAdditionalSeat(bagController, targetObject) != null;
-                    if (!isAdditionalSeat)
+                    if (!isInAdditionalSeat)
                     {
                         var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
                         var uiOverlayController = (OverlayController)uiOverlayField.GetValue(__instance);
@@ -999,7 +1011,7 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($" [BaggedObject_OnEnter_Postfix] Seat or tracked has targetObject, not removing UI");
                     }
                     // Ensure UI is created/refreshed for main seat objects
-                    if (BagPatches.GetAdditionalSeat(bagController, targetObject) == null)
+                    if (bagController != null && targetObject != null && BagPatches.GetAdditionalSeat(bagController, targetObject) == null)
                     {
                         RefreshUIOverlayForMainSeat(bagController, targetObject);
                     }
@@ -1012,21 +1024,33 @@ namespace DrifterBossGrabMod.Patches
                     HudOverlayManager.RemoveOverlay(uiOverlayController2);
                     uiOverlayField2.SetValue(__instance, null);
                 }
+                
+                if (!isInAdditionalSeat)
+                {
+                    RefreshUIOverlayForMainSeat(bagController, targetObject);
+                }
 
-                // Fix for "Hands Free" soft-lock/glitch
-                // If the object is physically stashed (in additional seat), we must exit BaggedObject state on the Bag machine.
-                // This ensures the Bag machine goes back to Idle, matching the "Empty Main Seat" state.
-                bool isStashed = BagPatches.GetAdditionalSeat(bagController, targetObject) != null;
-                // Also check if it's NOT in main seat (hands free)
+                bool isStashed = isInAdditionalSeat;
                 bool isInMain = (bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger && ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, targetObject));
                 
-                if (isStashed && !isInMain)
+                // Check if object is tracked as main seat occupant (for capacity=1 scenarios with timing issues)
+                bool isTrackedAsMain = BagPatches.mainSeatDict.TryGetValue(bagController, out var trackedObj) && ReferenceEquals(trackedObj, targetObject);
+
+                if (isStashed && !isInMain && !isTrackedAsMain)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" [BaggedObject_OnEnter_Postfix] Object {targetObject.name} is stashed. Exiting BaggedObject state to Idle.");
                     }
                     __instance.outer.SetNextStateToMain();
+                }
+                else if (isStashed && !isInMain && isTrackedAsMain)
+                {
+                    // Don't exit if tracked as main seat, even if physical seat check fails due to timing
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" [BaggedObject_OnEnter_Postfix] Object {targetObject.name} is tracked as main seat, preventing premature state exit (isInMain={isInMain}, isTrackedAsMain={isTrackedAsMain})");
+                    }
                 }
 
                 // Uncap Bag Scale logic
@@ -1051,99 +1075,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-        [HarmonyPatch(typeof(BaggedObject), "OnUIOverlayInstanceAdded")]
-        public class BaggedObject_OnUIOverlayInstanceAdded
-        {
-            [HarmonyPostfix]
-            public static void Postfix(BaggedObject __instance, OverlayController controller, GameObject instance)
-            {
-                // Get the DrifterBagController
-                var bagController = __instance.outer.GetComponent<DrifterBagController>();
-                if (bagController == null)
-                {
-                    return;
-                }
-                var targetObject = __instance.targetObject;
-                // The issue is that when cycling, the vehicle seat state might not be updated yet
-                // We need to check both the current state and the tracked state
-                bool isMainSeatOccupant = false;
-                // Method 1: Check vehicle seat state (current state)
-                var outerSeat = bagController.vehicleSeat;
-                if (outerSeat != null)
-                {
-                    var outerCurrentPassengerBodyObject = outerSeat.NetworkpassengerBodyObject;
-                    // Check if targetObject matches the current passenger
-                    if (outerCurrentPassengerBodyObject != null)
-                    {
-                        isMainSeatOccupant = ReferenceEquals(targetObject, outerCurrentPassengerBodyObject);
-                    }
-                }
-                // Method 2: Check tracked main seat state (cached state)
-                // This is more reliable during cycling transitions
-                if (!isMainSeatOccupant && BagPatches.mainSeatDict.TryGetValue(bagController, out var trackedMainSeatOccupant))
-                {
-                    isMainSeatOccupant = ReferenceEquals(targetObject, trackedMainSeatOccupant);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value && isMainSeatOccupant)
-                    {
-                        Log.Info($" [OnUIOverlayInstanceAdded] Using tracked main seat state: {trackedMainSeatOccupant?.name}");
-                    }
-                }
-                if (!isMainSeatOccupant)
-                {
-                    bool isCurrentlyTracked = BagPatches.mainSeatDict.TryGetValue(bagController, out var currentlyTracked) &&
-                                            ReferenceEquals(targetObject, currentlyTracked);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" [OnUIOverlayInstanceAdded] isCurrentlyTracked: {isCurrentlyTracked}, currentlyTracked: {currentlyTracked?.name ?? "null"}");
-                    }
-                    if (!isCurrentlyTracked)
-                    {
-                        // Only remove overlay if this object is not currently tracked as main seat
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [OnUIOverlayInstanceAdded] REMOVING overlay for {targetObject?.name ?? "null"} - not main seat");
-                        }
-                        if (controller != null)
-                        {
-                            HudOverlayManager.RemoveOverlay(controller);
-                            // Null out the field to prevent OnExit from trying to remove again
-                            var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-                            uiOverlayField.SetValue(__instance, null);
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [OnUIOverlayInstanceAdded] NOT removing overlay - object is currently tracked as main seat");
-                        }
-                    }
-                }
-                else
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" [OnUIOverlayInstanceAdded] NOT removing overlay - isMainSeatOccupant");
-                    }
-                }
-            // If using bottomless bag (has additional seats), remove the overlay to prevent overlapping with carousel
-            // Only try to remove if controller is still valid (wasn't already removed above)
-            if (controller != null && bagController != null && BagPatches.additionalSeatsDict.TryGetValue(bagController, out var seatDict) && seatDict.Count > 0)
-            {
-                var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-                var currentOverlay = (OverlayController)uiOverlayField.GetValue(__instance);
-                if (currentOverlay != null)
-                {
-                    try
-                    {
-                        HudOverlayManager.RemoveOverlay(currentOverlay);
-                    }
-                    catch (ArgumentOutOfRangeException) { /* Overlay was already removed */ }
-                    uiOverlayField.SetValue(__instance, null);
-                }
-            }
-            }
-        }
+
         [HarmonyPatch(typeof(BaggedObject), "OnExit")]
         public class BaggedObject_OnExit
         {
@@ -1189,7 +1121,6 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                    // ALWAYS attempt cleanup first if we are not persisting. 
                     // This ensures that even if we skip the original OnExit or it fails, the overrides are gone.
                     UnsetAllOverrides(__instance);
                 }
@@ -1281,9 +1212,9 @@ namespace DrifterBossGrabMod.Patches
                         
                         if (overriddenUtility != null)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                                Log.Info($" [UnsetAllOverrides] Unsetting Utility override: {(utilityOverride ? utilityOverride.skillName : "null")} on skill: {(overriddenUtility ? overriddenUtility.skillName : "null")}");
-                            
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($" [UnsetAllOverrides] Unsetting Utility override: {(utilityOverride != null ? utilityOverride.skillName : "null")} on skill: {(overriddenUtility ? overriddenUtility.skillName : "null")}");
+
                             overriddenUtility.UnsetSkillOverride(instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                             overriddenUtilityField.SetValue(instance, null);
                         }
@@ -1300,9 +1231,9 @@ namespace DrifterBossGrabMod.Patches
                         
                         if (overriddenPrimary != null)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                                Log.Info($" [UnsetAllOverrides] Unsetting Primary override: {(primaryOverride ? primaryOverride.skillName : "null")} on skill: {(overriddenPrimary ? overriddenPrimary.skillName : "null")}");
-                            
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($" [UnsetAllOverrides] Unsetting Primary override: {(primaryOverride != null ? primaryOverride.skillName : "null")} on skill: {(overriddenPrimary ? overriddenPrimary.skillName : "null")}");
+
                             overriddenPrimary.UnsetSkillOverride(instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                             overriddenPrimaryField.SetValue(instance, null);
                         }
@@ -1377,11 +1308,14 @@ namespace DrifterBossGrabMod.Patches
                             var skillDef = (SkillDef)skillDefField?.GetValue(skillOverride);
                             var priorityField = skillOverride.GetType().GetField("priority", BindingFlags.Public | BindingFlags.Instance);
                             var priority = (GenericSkill.SkillOverridePriority)(priorityField?.GetValue(skillOverride) ?? GenericSkill.SkillOverridePriority.Contextual);
-                            
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) 
-                                Log.Info($" [UnsetAllOverrides] NUCLEAR: Force removing override {(skillDef ? skillDef.skillName : "null")} from {skill.skillName} (sourced from {instance.GetHashCode()})");
-                            
-                            skill.UnsetSkillOverride(instance, skillDef, priority);
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($" [UnsetAllOverrides] NUCLEAR: Force removing override {(skillDef != null ? skillDef.skillName : "null")} from {skill.skillName} (sourced from {instance.GetHashCode()})");
+
+                            if (skillDef != null)
+                            {
+                                skill.UnsetSkillOverride(instance, skillDef, priority);
+                            }
                         }
                     }
                 }
@@ -1461,7 +1395,30 @@ namespace DrifterBossGrabMod.Patches
                     {
                         Log.Info($" [BaggedObject_OnExit_Postfix] Removing {GetSafeName(__instance.targetObject)} from bag due to {(isDead ? "death" : (isDestroyed ? "destruction" : "exit from main seat"))}");
                     }
-                    BagPatches.RemoveBaggedObject(bagController, __instance.targetObject);
+                    
+                    // Check server's authoritative state from network controller before allowing removal
+                    var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
+                    if (netController != null)
+                    {
+                        Log.Info($" [BaggedObject_OnExit_Postfix] Server selectedIndex: {netController.selectedIndex}, Server hasAuthority: {bagController.hasAuthority}");
+                    }
+                    
+                    // Only allow removal if server indicates object is NOT in main seat (selectedIndex < 0)
+                    bool serverIndicatesObjectNotInMainSeat = netController != null && netController.selectedIndex < 0;
+                    
+                    if (!serverIndicatesObjectNotInMainSeat)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [BaggedObject_OnExit_Postfix] BLOCKING removal - Server selectedIndex={netController?.selectedIndex} indicates object is in main seat, not removing");
+                        }
+                        return; // Block removal
+                    }
+                    
+                    if (bagController != null && __instance.targetObject != null)
+                    {
+                        BagPatches.RemoveBaggedObject(bagController, __instance.targetObject);
+                    }
                 }
                 else if (hasAuthority)
                 {
@@ -1477,7 +1434,10 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($" [BaggedObject_OnExit_Postfix] Object {GetSafeName(__instance.targetObject)} is still in a seat, not removing from bag");
                     }
                     // Update carousel since the object is still bagged
-                    BagPatches.UpdateCarousel(bagController);
+                    if (bagController != null)
+                    {
+                        BagPatches.UpdateCarousel(bagController);
+                    }
                 }
             }
         }
@@ -1550,7 +1510,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (controller == null || controller.vehicleSeat == null) return null;
             if (!controller.vehicleSeat.hasPassenger) return null;
-            return controller.vehicleSeat.currentPassengerBody?.gameObject;
+            return controller.vehicleSeat.currentPassengerBody != null ? controller.vehicleSeat.currentPassengerBody.gameObject : null;
         }
         public static void LogUIOverlayState(string context, DrifterBagController bagController, GameObject targetObject)
         {
@@ -1632,10 +1592,19 @@ namespace DrifterBossGrabMod.Patches
                         if (passenger != null)
                         {
                             // Check if the passenger is actually tracked as a bagged object
+                            // Check if passenger is actually tracked as a bagged object
+                            // For capacity=1, check mainSeatDict (authoritative for main seat objects)
+                            // For capacity>1, check baggedObjectsDict (includes stashed objects)
                             bool isTracked = false;
-                            if (BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list))
+                            if (BagPatches.mainSeatDict.TryGetValue(bagController, out var mainSeatObject) && ReferenceEquals(mainSeatObject, passenger))
                             {
-                                isTracked = list.Contains(passenger);
+                                // Object is tracked as main seat occupant
+                                isTracked = true;
+                            }
+                            else if (BagPatches.baggedObjectsDict.TryGetValue(bagController, out var list) && list.Contains(passenger))
+                            {
+                                // Object is tracked in bag (e.g., stashed in additional seat)
+                                isTracked = true;
                             }
 
                             // Block reset if we have a passenger that is still considered "bagged"
@@ -1941,6 +1910,7 @@ namespace DrifterBossGrabMod.Patches
             try
             {
                 // Try to find any existing state machine that could host BaggedObject
+                if (bagController == null) return null;
                 var stateMachines = bagController.GetComponentsInChildren<EntityStateMachine>(true);
                 EntityStateMachine targetStateMachine = null;
                 // Look for a Bag state machine first
@@ -2049,12 +2019,12 @@ namespace DrifterBossGrabMod.Patches
                 string stateName = __instance.GetType().Name;
                 if (stateName.Contains("Slam") || stateName.Contains("Bag") || stateName.Contains("Drifter"))
                 {
-                    Log.Info($" [EntityState_OnEnter] Entering State: {stateName} (Outer: {__instance.outer?.customName ?? "null"})");
-                    
+                    Log.Info($" [EntityState_OnEnter] Entering State: {stateName} (Outer: {(__instance?.outer != null ? __instance.outer.customName : "null")})");
+
                     // Try to inspect fields if it's a Drifter state
                     if (stateName.Contains("Suffocate") || stateName.Contains("Slam"))
                     {
-                        var controller = __instance.outer.GetComponent<DrifterBagController>();
+                        var controller = __instance?.outer?.GetComponent<DrifterBagController>();
                         if (controller)
                         {
                             var currentPassenger = controller.vehicleSeat?.NetworkpassengerBodyObject;
@@ -2073,9 +2043,9 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
 
-                if (__instance.characterBody && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
+                if (__instance.characterBody != null && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
                 {
-                     Log.Info($" [GenericSkill_ExecuteIfReady] Skill: {(__instance.skillDef ? __instance.skillDef.skillName : "null")} (Stock: {__instance.stock})");
+                     Log.Info($" [GenericSkill_ExecuteIfReady] Skill: {(__instance.skillDef != null ? __instance.skillDef.skillName : "null")} (Stock: {__instance.stock})");
                 }
             }
         }
