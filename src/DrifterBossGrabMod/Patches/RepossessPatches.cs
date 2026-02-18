@@ -73,7 +73,15 @@ namespace DrifterBossGrabMod.Patches
                   }
                   mass *= multiplier;
 
-                  __result = Mathf.Clamp(mass, 0f, DrifterBagController.maxMass);
+                  // Clamp mass
+                  if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapMass.Value)
+                  {
+                      __result = Mathf.Clamp(mass, 0f, DrifterBagController.maxMass);
+                  }
+                  else
+                  {
+                      __result = Mathf.Max(mass, 0f);
+                  }
 
                   return false;
             }
