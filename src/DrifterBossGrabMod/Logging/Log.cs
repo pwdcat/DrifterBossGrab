@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 namespace DrifterBossGrabMod
 {
@@ -26,5 +27,9 @@ namespace DrifterBossGrabMod
         internal static void Message(object data) => _logger.Log(LogLevel.Info, data.ToString());
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Warning(object data) => _logger.Log(LogLevel.Warning, data.ToString());
+
+        [Conditional("DEBUG")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Debug(object data) => _logger.Log(LogLevel.Info, data.ToString());
     }
 }

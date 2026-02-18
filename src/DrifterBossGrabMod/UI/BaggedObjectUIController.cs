@@ -46,7 +46,6 @@ namespace DrifterBossGrabMod.UI
                         var carousel = carouselInstance.AddComponent<BaggedObjectCarousel>();
                         carousel.slotPrefab = slotPrefab;
 
-
                         // Instantiate the slot instances directly
                         aboveInstance = Instantiate(slotPrefab, carouselInstance.transform);
                         aboveInstance.name = "aboveSlot";

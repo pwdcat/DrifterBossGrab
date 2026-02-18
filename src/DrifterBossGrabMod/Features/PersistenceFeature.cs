@@ -20,7 +20,6 @@ namespace DrifterBossGrabMod
             // Initialize manual patches
             Log.Info($"[{FeatureName}] Initializing manual patches (RunLifecyclePatches, TeleporterPatches)...");
             Patches.RunLifecyclePatches.Initialize();
-            Patches.TeleporterPatches.Initialize();
             Log.Info($"[{FeatureName}] Patches applied successfully.");
         }
 
@@ -30,7 +29,6 @@ namespace DrifterBossGrabMod
             // Cleanup manual patches
             Log.Info($"[{FeatureName}] Cleaning up manual patches...");
             Patches.RunLifecyclePatches.Cleanup();
-            Patches.TeleporterPatches.Cleanup();
             Log.Info($"[{FeatureName}] Cleanup complete.");
         }
     }

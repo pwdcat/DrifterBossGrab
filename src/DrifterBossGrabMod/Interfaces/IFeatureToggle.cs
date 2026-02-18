@@ -6,7 +6,7 @@ namespace DrifterBossGrabMod.Interfaces
     {
         string FeatureName { get; }
         bool IsEnabled { get; }
-        
+
         void Initialize(Harmony harmony);
         void Cleanup(Harmony harmony);
     }

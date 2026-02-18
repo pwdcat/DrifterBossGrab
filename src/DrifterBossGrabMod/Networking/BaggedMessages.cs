@@ -70,10 +70,10 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
             writer.Write(scrollDirection);
-            
+
             writer.Write(baggedIds.Length);
             foreach (var id in baggedIds) writer.Write(id);
-            
+
             writer.Write(seatIds.Length);
             foreach (var id in seatIds) writer.Write(id);
         }
@@ -83,11 +83,11 @@ namespace DrifterBossGrabMod.Networking
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
             scrollDirection = reader.ReadInt32();
-            
+
             int count = reader.ReadInt32();
             baggedIds = new uint[count];
             for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
-            
+
             int count2 = reader.ReadInt32();
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
@@ -113,7 +113,6 @@ namespace DrifterBossGrabMod.Networking
     }
 
     // Network message for client to send bag state to server (Client -> Server)
-    // Using custom message because [Command] isn't reliably reaching server
     public class ClientUpdateBagStateMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -125,10 +124,10 @@ namespace DrifterBossGrabMod.Networking
         {
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
-            
+
             writer.Write(baggedIds.Length);
             foreach (var id in baggedIds) writer.Write(id);
-            
+
             writer.Write(seatIds.Length);
             foreach (var id in seatIds) writer.Write(id);
         }
@@ -137,14 +136,34 @@ namespace DrifterBossGrabMod.Networking
         {
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
-            
+
             int count = reader.ReadInt32();
             baggedIds = new uint[count];
             for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
-            
+
             int count2 = reader.ReadInt32();
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
+        }
+    }
+
+    // Network message for grabbing an object (Client -> Server)
+    // This message is sent when a client grabs an object via RepossessExit
+    public class GrabObjectMessage : MessageBase
+    {
+        public NetworkInstanceId bagControllerNetId = NetworkInstanceId.Invalid;
+        public NetworkInstanceId targetObjectNetId = NetworkInstanceId.Invalid;
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(bagControllerNetId);
+            writer.Write(targetObjectNetId);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            bagControllerNetId = reader.ReadNetworkId();
+            targetObjectNetId = reader.ReadNetworkId();
         }
     }
 
@@ -169,7 +188,7 @@ namespace DrifterBossGrabMod.Networking
         // Blacklists & Component Types
         public string BodyBlacklist = string.Empty;
         public string RecoveryObjectBlacklist = string.Empty;
-        public string GrabbableComponentTypes = string.Empty; // IMPORTANT: This significantly affects client scanning
+        public string GrabbableComponentTypes = string.Empty;
         public string GrabbableKeywordBlacklist = string.Empty;
 
         // Persistence
@@ -178,16 +197,22 @@ namespace DrifterBossGrabMod.Networking
         public bool PersistBaggedBosses;
         public bool PersistBaggedNPCs;
         public bool PersistBaggedEnvironmentObjects;
-        public string PersistenceBlacklist = string.Empty;
         public float AutoGrabDelay;
 
         // Bottomless Bag
         public bool BottomlessBagEnabled;
         public int BottomlessBagBaseCapacity;
-        public bool EnableStockRefreshClamping;
-        public float CycleCooldown;
-        public bool AutoPromoteMainSeat;
-        public bool UncapBagScale; // Balance
+        public bool UncapBagScale;
+        public bool UncapMass;
+
+        // Balance - All toggle fields
+        public bool EnableBalance;
+        public bool EnableAoESlamDamage;
+        public bool EliteMassBonusEnabled;
+        public bool EnableOverencumbrance;
+        public bool UncapCapacity;
+        public bool ToggleMassCapacity;
+        public bool StateCalculationModeEnabled;
 
         public override void Serialize(NetworkWriter writer)
         {
@@ -196,33 +221,39 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableEnvironmentGrabbing);
             writer.Write(EnableLockedObjectGrabbing);
             writer.Write((int)ProjectileGrabbingMode);
-            
+
             writer.Write(SearchRangeMultiplier);
             writer.Write(BreakoutTimeMultiplier);
             writer.Write(ForwardVelocityMultiplier);
             writer.Write(UpwardVelocityMultiplier);
             writer.Write(MaxSmacks);
             writer.Write(MassMultiplier);
-            
+
             writer.Write(BodyBlacklist);
             writer.Write(RecoveryObjectBlacklist);
             writer.Write(GrabbableComponentTypes);
             writer.Write(GrabbableKeywordBlacklist);
-            
+
             writer.Write(EnableObjectPersistence);
             writer.Write(EnableAutoGrab);
             writer.Write(PersistBaggedBosses);
             writer.Write(PersistBaggedNPCs);
             writer.Write(PersistBaggedEnvironmentObjects);
-            writer.Write(PersistenceBlacklist);
             writer.Write(AutoGrabDelay);
-            
+
             writer.Write(BottomlessBagEnabled);
             writer.Write(BottomlessBagBaseCapacity);
-            writer.Write(EnableStockRefreshClamping);
-            writer.Write(CycleCooldown);
-            writer.Write(AutoPromoteMainSeat);
+
+            // Balance
+            writer.Write(EnableBalance);
+            writer.Write(EnableAoESlamDamage);
+            writer.Write(EliteMassBonusEnabled);
+            writer.Write(EnableOverencumbrance);
+            writer.Write(UncapCapacity);
+            writer.Write(ToggleMassCapacity);
+            writer.Write(StateCalculationModeEnabled);
             writer.Write(UncapBagScale);
+            writer.Write(UncapMass);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -232,33 +263,39 @@ namespace DrifterBossGrabMod.Networking
             EnableEnvironmentGrabbing = reader.ReadBoolean();
             EnableLockedObjectGrabbing = reader.ReadBoolean();
             ProjectileGrabbingMode = (ProjectileGrabbingMode)reader.ReadInt32();
-            
+
             SearchRangeMultiplier = reader.ReadSingle();
             BreakoutTimeMultiplier = reader.ReadSingle();
             ForwardVelocityMultiplier = reader.ReadSingle();
             UpwardVelocityMultiplier = reader.ReadSingle();
             MaxSmacks = reader.ReadInt32();
             MassMultiplier = reader.ReadString();
-            
+
             BodyBlacklist = reader.ReadString();
             RecoveryObjectBlacklist = reader.ReadString();
             GrabbableComponentTypes = reader.ReadString();
             GrabbableKeywordBlacklist = reader.ReadString();
-            
+
             EnableObjectPersistence = reader.ReadBoolean();
             EnableAutoGrab = reader.ReadBoolean();
             PersistBaggedBosses = reader.ReadBoolean();
             PersistBaggedNPCs = reader.ReadBoolean();
             PersistBaggedEnvironmentObjects = reader.ReadBoolean();
-            PersistenceBlacklist = reader.ReadString();
             AutoGrabDelay = reader.ReadSingle();
-            
+
             BottomlessBagEnabled = reader.ReadBoolean();
             BottomlessBagBaseCapacity = reader.ReadInt32();
-            EnableStockRefreshClamping = reader.ReadBoolean();
-            CycleCooldown = reader.ReadSingle();
-            AutoPromoteMainSeat = reader.ReadBoolean();
+
+            // Balance
+            EnableBalance = reader.ReadBoolean();
+            EnableAoESlamDamage = reader.ReadBoolean();
+            EliteMassBonusEnabled = reader.ReadBoolean();
+            EnableOverencumbrance = reader.ReadBoolean();
+            UncapCapacity = reader.ReadBoolean();
+            ToggleMassCapacity = reader.ReadBoolean();
+            StateCalculationModeEnabled = reader.ReadBoolean();
             UncapBagScale = reader.ReadBoolean();
+            UncapMass = reader.ReadBoolean();
         }
     }
 }

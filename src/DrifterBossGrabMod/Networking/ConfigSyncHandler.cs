@@ -13,7 +13,7 @@ namespace DrifterBossGrabMod.Networking
         public static void Init()
         {
             // Register server handler if active (none for now as this is Server->Client)
-            
+
             // Register client handler manually to be safe
             NetworkManagerSystem.onClientConnectGlobal += RegisterClientHandler;
         }
@@ -40,7 +40,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[ConfigSyncHandler] Received full config from host.");
+                Log.Info($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
             }
 
             // General
@@ -50,11 +50,9 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.EnableLockedObjectGrabbing.Value = msg.EnableLockedObjectGrabbing;
             PluginConfig.Instance.ProjectileGrabbingMode.Value = msg.ProjectileGrabbingMode;
 
-            // Blacklists & Component Types
-            PluginConfig.Instance.BodyBlacklist.Value = msg.BodyBlacklist;
-            PluginConfig.Instance.RecoveryObjectBlacklist.Value = msg.RecoveryObjectBlacklist;
-            PluginConfig.Instance.GrabbableComponentTypes.Value = msg.GrabbableComponentTypes; 
-            PluginConfig.Instance.GrabbableKeywordBlacklist.Value = msg.GrabbableKeywordBlacklist;
+            // Bottomless Bag
+            PluginConfig.Instance.BottomlessBagEnabled.Value = msg.BottomlessBagEnabled;
+            PluginConfig.Instance.BottomlessBagBaseCapacity.Value = msg.BottomlessBagBaseCapacity;
 
             // Persistence
             PluginConfig.Instance.EnableObjectPersistence.Value = msg.EnableObjectPersistence;
@@ -62,12 +60,23 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.PersistBaggedBosses.Value = msg.PersistBaggedBosses;
             PluginConfig.Instance.PersistBaggedNPCs.Value = msg.PersistBaggedNPCs;
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.Value = msg.PersistBaggedEnvironmentObjects;
-            PluginConfig.Instance.PersistenceBlacklist.Value = msg.PersistenceBlacklist;
+            PluginConfig.Instance.AutoGrabDelay.Value = msg.AutoGrabDelay;
+
+            // Balance - All toggle fields
+            PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
+            PluginConfig.Instance.EnableAoESlamDamage.Value = msg.EnableAoESlamDamage;
+            PluginConfig.Instance.EliteMassBonusEnabled.Value = msg.EliteMassBonusEnabled;
+            PluginConfig.Instance.EnableOverencumbrance.Value = msg.EnableOverencumbrance;
+            PluginConfig.Instance.UncapCapacity.Value = msg.UncapCapacity;
+            PluginConfig.Instance.ToggleMassCapacity.Value = msg.ToggleMassCapacity;
+            PluginConfig.Instance.StateCalculationModeEnabled.Value = msg.StateCalculationModeEnabled;
+            PluginConfig.Instance.UncapBagScale.Value = msg.UncapBagScale;
+            PluginConfig.Instance.UncapMass.Value = msg.UncapMass;
 
             // Trigger re-scan of grabbable objects to apply new settings to the current scene
             // This is crucial because objects might have already spawned with the old config
             GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
-            
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info("[ConfigSyncHandler] Local config updated and scene objects re-scanned.");
@@ -77,7 +86,7 @@ namespace DrifterBossGrabMod.Networking
         public static void SendConfigToClient(NetworkConnection conn)
         {
             if (!NetworkServer.active) return;
-            
+
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -96,11 +105,9 @@ namespace DrifterBossGrabMod.Networking
                 EnableLockedObjectGrabbing = PluginConfig.Instance.EnableLockedObjectGrabbing.Value,
                 ProjectileGrabbingMode = PluginConfig.Instance.ProjectileGrabbingMode.Value,
 
-                // Blacklists & Component Types
-                BodyBlacklist = PluginConfig.Instance.BodyBlacklist.Value,
-                RecoveryObjectBlacklist = PluginConfig.Instance.RecoveryObjectBlacklist.Value,
-                GrabbableComponentTypes = PluginConfig.Instance.GrabbableComponentTypes.Value,
-                GrabbableKeywordBlacklist = PluginConfig.Instance.GrabbableKeywordBlacklist.Value,
+                // Bottomless Bag
+                BottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value,
+                BottomlessBagBaseCapacity = PluginConfig.Instance.BottomlessBagBaseCapacity.Value,
 
                 // Persistence
                 EnableObjectPersistence = PluginConfig.Instance.EnableObjectPersistence.Value,
@@ -108,12 +115,23 @@ namespace DrifterBossGrabMod.Networking
                 PersistBaggedBosses = PluginConfig.Instance.PersistBaggedBosses.Value,
                 PersistBaggedNPCs = PluginConfig.Instance.PersistBaggedNPCs.Value,
                 PersistBaggedEnvironmentObjects = PluginConfig.Instance.PersistBaggedEnvironmentObjects.Value,
-                PersistenceBlacklist = PluginConfig.Instance.PersistenceBlacklist.Value,
+                AutoGrabDelay = PluginConfig.Instance.AutoGrabDelay.Value,
+
+                // Balance
+                EnableBalance = PluginConfig.Instance.EnableBalance.Value,
+                EnableAoESlamDamage = PluginConfig.Instance.EnableAoESlamDamage.Value,
+                EliteMassBonusEnabled = PluginConfig.Instance.EliteMassBonusEnabled.Value,
+                EnableOverencumbrance = PluginConfig.Instance.EnableOverencumbrance.Value,
+                UncapCapacity = PluginConfig.Instance.UncapCapacity.Value,
+                ToggleMassCapacity = PluginConfig.Instance.ToggleMassCapacity.Value,
+                StateCalculationModeEnabled = PluginConfig.Instance.StateCalculationModeEnabled.Value,
+                UncapBagScale = PluginConfig.Instance.UncapBagScale.Value,
+                UncapMass = PluginConfig.Instance.UncapMass.Value,
             };
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[ConfigSyncHandler] Sending full config to client {conn.connectionId}");
+                Log.Info($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
             }
 
             conn.Send(MSG_SYNC_CONFIG, msg);

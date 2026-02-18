@@ -8,7 +8,7 @@ namespace DrifterBossGrabMod.Patches
     public static class BaggedObjectsOnlyDetection
     {
         private static BodyIndex _drifterBodyIndex = BodyIndex.None;
-        
+
         public static List<GameObject> GetCurrentlyBaggedObjects()
         {
             var currentlyBaggedObjects = new List<GameObject>();
@@ -80,7 +80,7 @@ namespace DrifterBossGrabMod.Patches
             }
         return currentlyBaggedObjects;
         }
-        
+
         private static bool IsValidForPersistence(GameObject obj)
         {
             if (obj == null) return false;
@@ -90,7 +90,7 @@ namespace DrifterBossGrabMod.Patches
             }
             return true;
         }
-        
+
         public static bool IsObjectCurrentlyBagged(GameObject obj)
         {
             if (obj == null) return false;

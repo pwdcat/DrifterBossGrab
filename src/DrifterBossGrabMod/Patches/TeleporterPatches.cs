@@ -4,14 +4,6 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class TeleporterPatches
     {
-        public static void Initialize()
-        {
-            // No initialization needed for teleporter disabling logic
-        }
-        public static void Cleanup()
-        {
-            // No cleanup needed for teleporter disabling logic
-        }
         [HarmonyPatch(typeof(TeleporterInteraction), "FixedUpdate")]
         [HarmonyPrefix]
         private static bool FixedUpdatePrefix(TeleporterInteraction __instance)

@@ -18,8 +18,7 @@ namespace DrifterBossGrabMod.Networking
             RoR2.Networking.NetworkManagerSystem.onClientConnectGlobal += OnClientConnect;
             RoR2.Networking.NetworkManagerSystem.onStartServerGlobal += OnServerStart;
             Run.onRunStartGlobal += OnRunStart;
-            
-            // Use CallWhenAvailable to ensure DLC bodies (like Drifter) are loaded
+
             BodyCatalog.availability.CallWhenAvailable(() => {
                 AddControllerToDrifterPrefab();
             });
@@ -53,20 +52,32 @@ namespace DrifterBossGrabMod.Networking
             var ni = AdditionalSeatPrefab.AddComponent<NetworkIdentity>();
             ni.localPlayerAuthority = false;
             ni.serverOnly = false;
-            
+
             var seat = AdditionalSeatPrefab.AddComponent<VehicleSeat>();
+
+            // Create child transforms for seatPosition and exitPosition
+            var seatPosObj = new GameObject("SeatPosition");
+            seatPosObj.transform.SetParent(AdditionalSeatPrefab.transform);
+            seatPosObj.transform.localPosition = Vector3.zero;
+            seat.seatPosition = seatPosObj.transform;
+
+            var exitPosObj = new GameObject("ExitPosition");
+            exitPosObj.transform.SetParent(AdditionalSeatPrefab.transform);
+            exitPosObj.transform.localPosition = Vector3.zero;
+            seat.exitPosition = exitPosObj.transform;
+
             // Default settings, will be copied from actual seat during spawn
             seat.passengerState = new EntityStates.SerializableEntityStateType(typeof(EntityStates.Idle));
-            
+
             // Apply settings to match Drifter's main seat
             // Since VehicleSeat doesn't sync these flags, we must set them on the prefab
             seat.hidePassenger = true;
             seat.disablePassengerMotor = true;
             seat.disableAllCollidersAndHurtboxes = true;
             seat.isEquipmentActivationAllowed = true;
-            
+
             seat.shouldSetIdle = true; // Set to true to match default expectation for vehicles
-            
+
             // Register it so it can be spawned
             // Use a stable hash for the assetId
             var assetId = new Guid("d62f2e5a-7b3c-4e8a-9d1f-8c5e2a3b4d5e");
@@ -84,7 +95,7 @@ namespace DrifterBossGrabMod.Networking
         {
             Log.Info("[BagStateSync] OnClientConnect firing");
             PersistenceNetworkHandler.RegisterNetworkHandlers();
-            
+
             // Register additional handlers for bag state
             if (NetworkManager.singleton?.client != null)
             {
@@ -101,7 +112,7 @@ namespace DrifterBossGrabMod.Networking
                 DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedCycleHandlerInit());
             }
         }
-        
+
         private static System.Collections.IEnumerator DelayedCycleHandlerInit()
         {
             // Wait until NetworkServer.active is true
@@ -112,7 +123,7 @@ namespace DrifterBossGrabMod.Networking
                 yield return new WaitForSeconds(0.1f);
                 elapsed += 0.1f;
             }
-            
+
             if (NetworkServer.active)
             {
                 Log.Info($"[BagStateSync] NetworkServer.active became true after {elapsed:F1}s, initializing CycleNetworkHandler");
@@ -123,7 +134,7 @@ namespace DrifterBossGrabMod.Networking
                 Log.Warning($"[BagStateSync] Timed out waiting for NetworkServer.active after {timeout}s");
             }
         }
-        
+
         private static void OnRunStart(Run run)
         {
             // Re-register the cycle handler when a run starts (in case it was lost during scene transition)

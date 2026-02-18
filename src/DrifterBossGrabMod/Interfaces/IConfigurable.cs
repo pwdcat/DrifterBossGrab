@@ -3,10 +3,10 @@ namespace DrifterBossGrabMod
     // Interface for components that can be configured and require initialization/cleanup
     public interface IConfigurable
     {
-        // Initialize the configurable component. Called when the mod is loaded.
+        // Initialize() configurable component. Called when mod is loaded.
         void Initialize();
 
-        // Cleanup the configurable component. Called when the mod is unloaded.
+        // Cleanup() configurable component. Called when mod is unloaded.
         void Cleanup();
     }
 }

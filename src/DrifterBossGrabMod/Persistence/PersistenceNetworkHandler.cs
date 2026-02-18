@@ -8,6 +8,7 @@ using RoR2.Projectile;
 using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Networking;
+using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod
 {
@@ -28,7 +29,7 @@ namespace DrifterBossGrabMod
                     Log.Info($"[HandleBaggedObjectsPersistenceMessage] Client received persistence msg - processing to track persisted object");
                 }
             }
-              
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[HandleBaggedObjectsPersistenceMessage] Received bagged objects persistence message with {message.baggedObjectNetIds.Count} objects");
@@ -72,8 +73,6 @@ namespace DrifterBossGrabMod
                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] ================================");
                    }
                    // On client side, trust network messages and add object to persistence even if not already persisted locally
-                   // This fixes the issue where host has object in persistence but client doesn't
-                   // Note: We still check for thrown objects and blacklist to prevent invalid objects from being persisted
                    if (obj != null)
                    {
                        var projectileControllerCheck = obj.GetComponent<ThrownObjectProjectileController>();
@@ -94,9 +93,12 @@ namespace DrifterBossGrabMod
                            }
                        }
                    }
-                   if (obj == null && PluginConfig.Instance.EnableDebugLogs.Value)
+                   if (obj == null)
                    {
-                       Log.Warning($"[HandleBaggedObjectsPersistenceMessage] Could not find object with netId {netId.Value}");
+                       if (PluginConfig.Instance.EnableDebugLogs.Value)
+                       {
+                           Log.Warning($"[HandleBaggedObjectsPersistenceMessage] Could not find object with netId {netId.Value}");
+                       }
                        return;
                    }
                    // Process the object - add to persistence and add ModelStatePreserver
@@ -130,18 +132,18 @@ namespace DrifterBossGrabMod
                    {
                        modelLocator.autoUpdateModelTransform = true;
                    }
-                   
+
                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                    {
                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] Added object {obj.name} (netId: {netId}) to persistence from network message");
                    }
             }
         }
-        
+
         public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
-            
+
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
             foreach (var obj in baggedObjects)
             {
@@ -186,7 +188,7 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
-            
+
             if (message.baggedObjectNetIds.Count > 0)
             {
                 NetworkServer.SendToAll(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, message);
@@ -196,7 +198,7 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-        
+
         private const short MSG_UPDATE_BAG_STATE = 206;
 
         public static void RegisterNetworkHandlers()
@@ -212,7 +214,7 @@ namespace DrifterBossGrabMod
                 NetworkManager.singleton.client.RegisterHandler(BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE, HandleBaggedObjectsPersistenceMessage);
             }
         }
-        
+
         [NetworkMessageHandler(msgType = MSG_UPDATE_BAG_STATE, client = true, server = false)]
         public static void HandleUpdateBagStateMessage(NetworkMessage netMsg)
         {
@@ -221,7 +223,7 @@ namespace DrifterBossGrabMod
             {
                 Log.Info($"[HandleUpdateBagStateMessage] Received update for controller NetID: {msg.controllerNetId.Value}, index: {msg.selectedIndex}, objects: {msg.baggedIds.Length}");
             }
-            
+
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
             {
@@ -289,7 +291,7 @@ namespace DrifterBossGrabMod
 
              netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection);
         }
-        
+
         private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)
         {
             for (int attempt = 0; attempt < 10; attempt++)
@@ -298,7 +300,7 @@ namespace DrifterBossGrabMod
                 {
                     yield return null;
                 }
-                
+
                 var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
                 if (controllerObj != null)
                 {
@@ -321,12 +323,12 @@ namespace DrifterBossGrabMod
 
         private static GameObject? FindObjectByNetIdWithRetry(NetworkInstanceId netId, int maxRetries, float retryDelay)
         {
-            if (netId == NetworkInstanceId.Invalid) return null; 
-            
+            if (netId == NetworkInstanceId.Invalid) return null;
+
             GameObject? foundObj = null;
             int attempt = 0;
             GameObject[] persistedObjects = PersistenceObjectManager.GetPersistedObjects();
-            
+
                  while (attempt < maxRetries && foundObj == null)
                  {
                      attempt++;
@@ -362,7 +364,7 @@ namespace DrifterBossGrabMod
                         if (key != null)
                         {
                             var identity = key.GetComponent<NetworkIdentity>();
-                            if (identity != null && identity.netId == netId) 
+                            if (identity != null && identity.netId == netId)
                             {
                                 foundObj = key;
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -376,29 +378,30 @@ namespace DrifterBossGrabMod
                  }
 
                  if (foundObj == null)
-                {
-                    var baggedObjects = Patches.BagPatches.baggedObjectsDict;
-                    foreach (var kvp in baggedObjects)
-                    {
-                        if (kvp.Value != null)
-                        {
-                            foreach (var obj in kvp.Value)
-                            {
-                                if (obj != null)
-                                {
-                                    var identity = obj.GetComponent<NetworkIdentity>();
-                                    if (identity != null && identity.netId == netId)
-                                    {
-                                        foundObj = obj;
-                                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                            {
-                                                Log.Info($"[FindObjectByNetIdWithRetry] Found object {obj.name} (NetID: {netId}) in bagged objects");
-                                            }
-                                        break;
-                                    }
-                                }
-                            }
+                 {
+                     foreach (var controller in BagPatches.GetAllControllers())
+                     {
+                         var list = BagPatches.GetState(controller).BaggedObjects;
+                         if (list != null)
+                         {
+                             foreach (var obj in list)
+                             {
+                                 if (obj != null)
+                                 {
+                                     var identity = obj.GetComponent<NetworkIdentity>();
+                                     if (identity != null && identity.netId == netId)
+                                     {
+                                         foundObj = obj;
+                                         if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                         {
+                                             Log.Info($"[FindObjectByNetIdWithRetry] Found object {obj.name} (NetID: {netId}) in bagged objects");
+                                         }
+                                         break;
+                                     }
+                                 }
+                             }
                         }
+                        if (foundObj != null) break;
                      }
                  }
 
@@ -407,14 +410,10 @@ namespace DrifterBossGrabMod
                      foundObj = ClientScene.FindLocalObject(netId);
                  }
 
-                 if (foundObj == null && NetworkServer.active)
-                 {
-                     try
-                     {
-                         foundObj = NetworkServer.FindLocalObject(netId);
-                     }
-                     catch { }
-                 }
+                  if (foundObj == null && NetworkServer.active)
+                  {
+                      foundObj = ErrorHandler.SafeExecute("FindObjectByNetIdWithRetry.NetworkServerFind", () => NetworkServer.FindLocalObject(netId), null);
+                  }
              }
 
              if (foundObj == null && PluginConfig.Instance.EnableDebugLogs.Value)
@@ -425,10 +424,10 @@ namespace DrifterBossGrabMod
             {
                 Log.Info($"[FindObjectByNetIdWithRetry] Found object for NetID {netId.Value} on attempt {attempt}/{maxRetries}");
             }
-            
+
             return foundObj;
         }
-        
+
         private static void OnServerStageComplete(Stage stage)
         {
             if (!NetworkServer.active) return;
@@ -436,9 +435,10 @@ namespace DrifterBossGrabMod
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             foreach (var controller in bagControllers)
             {
-                Patches.BagPatches.UpdateNetworkBagState(controller, 0);
+                BagCarouselUpdater.UpdateNetworkBagState(controller, 0);
 
-                if (Patches.BagPatches.baggedObjectsDict.TryGetValue(controller, out var list))
+                var list = BagPatches.GetState(controller).BaggedObjects;
+                if (list != null)
                 {
                     SendBaggedObjectsPersistenceMessage(list, controller);
                 }

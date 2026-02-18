@@ -84,13 +84,33 @@ namespace DrifterBossGrabMod.Patches
                 }
                 // Check if already has SpecialObjectAttributes
                 var existingSoa = __instance.gameObject.GetComponent<SpecialObjectAttributes>();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                if (existingSoa != null)
                 {
-                    Log.Info($" ProjectileController_Start: Already has SpecialObjectAttributes: {existingSoa != null}");
-                    if (existingSoa != null)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" ProjectileController_Start: SOA grabbable: {existingSoa.grabbable}, bestName: {existingSoa.bestName}");
+                        Log.Info($" ProjectileController_Start: Skipping projectile - already has SpecialObjectAttributes (grabbable: {existingSoa.grabbable}, bestName: {existingSoa.bestName})");
                     }
+                    return;
+                }
+                // Check if has HealthComponent
+                var healthComponent = __instance.gameObject.GetComponent<HealthComponent>();
+                if (healthComponent != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" ProjectileController_Start: Skipping projectile - has HealthComponent");
+                    }
+                    return;
+                }
+                // Check if has CharacterBody
+                var characterBody = __instance.gameObject.GetComponent<CharacterBody>();
+                if (characterBody != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" ProjectileController_Start: Skipping projectile - has CharacterBody");
+                    }
+                    return;
                 }
                 // Add SpecialObjectAttributes to make the projectile grabbable
                 if (PluginConfig.Instance.EnableDebugLogs.Value)

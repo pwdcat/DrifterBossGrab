@@ -7,7 +7,7 @@ namespace DrifterBossGrabMod
     {
         public override string FeatureName => "DrifterGrab";
         public override bool IsEnabled => true; // Always enabled - core functionality
-        
+
         protected override void ApplyPatches(Harmony harmony)
         {
             Log.Info($"[{FeatureName}] Applying patches...");
@@ -18,13 +18,12 @@ namespace DrifterBossGrabMod
             // Explicitly register all nested patches for OtherPatches
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.HackingMainState_FixedUpdate_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.MapZoneChecker_FixedUpdate_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ProjectileFuse_FixedUpdate_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.BaggedObject_OnEnter_Patch)).Patch();
-            // Prevent clients from calling server-only eject functions (fixes desync when host grabs mid-air)
+            // Prevent clients from calling server-only eject functions
             harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
 
             // Explicitly register all nested patches for RepossessExitPatches
@@ -47,12 +46,15 @@ namespace DrifterBossGrabMod
             // CharacterMaster_OnBodyStart handles both AutoGrab (core) and UI (bottomless bag)
             harmony.CreateClassProcessor(typeof(Patches.CharacterSpawnPatches.CharacterMaster_OnBodyStart)).Patch();
 
-            // Explicitly register UI patches to handle overlay suppression based on config
-            harmony.CreateClassProcessor(typeof(Patches.UIPatches.BaggedObject_OnUIOverlayInstanceAdded)).Patch();
-
             // Explicitly register all nested patches for GrabbableObjectPatches
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.DirectorCore_TrySpawnObject_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.SpecialObjectAttributes_Start_Patch)).Patch();
+
+            // Detect and clean up tracking when a bagged creature's ESM leaves VehicleSeated (Child teleport)
+            harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetState)).Patch();
+
+            // Defensive null check for CheckForDeadPassenger when passenger has been destroyed/teleported
+            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
 
             // Explicitly register all nested patches for ProjectilePatches
             harmony.CreateClassProcessor(typeof(Patches.ProjectilePatches.ProjectileController_Start_Patch)).Patch();

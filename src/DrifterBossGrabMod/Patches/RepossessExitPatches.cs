@@ -5,119 +5,16 @@ using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
 using EntityStates.Drifter;
+using DrifterBossGrabMod.Networking;
 namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessExitPatches
     {
-        private static void DumpGrabbingComponents(GameObject obj, string context)
-        {
-            if (!PluginConfig.Instance.EnableDebugLogs.Value || obj == null) return;
-            Log.Info($" === DUMPING COMPONENTS FOR {obj.name} ({context}) ===");
-            // EntityStateMachine
-            var esm = obj.GetComponent<EntityStateMachine>();
-            if (esm != null)
-            {
-                Log.Info($" EntityStateMachine:");
-                Log.Info($"   customName: '{esm.customName}'");
-                Log.Info($"   initialStateType: {esm.initialStateType}");
-                Log.Info($"   mainStateType: {esm.mainStateType}");
-                Log.Info($"   networkIndex: {esm.networkIndex}");
-                Log.Info($"   state: {esm.state}");
-                Log.Info($"   AllowStartWithoutNetworker: {esm.AllowStartWithoutNetworker}");
-                // Get all fields via reflection
-                var esmFields = typeof(EntityStateMachine).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                foreach (var field in esmFields)
-                {
-                    try
-                    {
-                        var value = field.GetValue(esm);
-                        Log.Info($"   {field.Name}: {value}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Info($"   {field.Name}: <error getting value: {ex.Message}>");
-                    }
-                }
-            }
-            else
-            {
-                Log.Info($" EntityStateMachine: NOT FOUND");
-            }
-            // NetworkStateMachine
-            var nsm = obj.GetComponent<NetworkStateMachine>();
-            if (nsm != null)
-            {
-                Log.Info($" NetworkStateMachine:");
-                // Get all fields via reflection
-                var nsmFields = typeof(NetworkStateMachine).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                foreach (var field in nsmFields)
-                {
-                    try
-                    {
-                        var value = field.GetValue(nsm);
-                        if (field.FieldType.IsArray && value != null)
-                        {
-                            // Handle arrays
-                            var array = (System.Array)value;
-                            Log.Info($"   {field.Name}: Array[{array.Length}]");
-                            for (int i = 0; i < array.Length; i++)
-                            {
-                                Log.Info($"     [{i}]: {array.GetValue(i)}");
-                            }
-                        }
-                        else
-                        {
-                            Log.Info($"   {field.Name}: {value}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Info($"   {field.Name}: <error getting value: {ex.Message}>");
-                    }
-                }
-            }
-            else
-            {
-                Log.Info($" NetworkStateMachine: NOT FOUND");
-            }
-            // NetworkIdentity
-            var ni = obj.GetComponent<NetworkIdentity>();
-            if (ni != null)
-            {
-                Log.Info($" NetworkIdentity:");
-                Log.Info($"   netId: {ni.netId}");
-                Log.Info($"   isServer: {ni.isServer}");
-                Log.Info($"   isClient: {ni.isClient}");
-                Log.Info($"   hasAuthority: {ni.hasAuthority}");
-                Log.Info($"   isLocalPlayer: {ni.isLocalPlayer}");
-                Log.Info($"   serverOnly: {ni.serverOnly}");
-                Log.Info($"   localPlayerAuthority: {ni.localPlayerAuthority}");
-                // Get all fields via reflection
-                var niFields = typeof(NetworkIdentity).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                foreach (var field in niFields)
-                {
-                    try
-                    {
-                        var value = field.GetValue(ni);
-                        Log.Info($"   {field.Name}: {value}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Info($"   {field.Name}: <error getting value: {ex.Message}>");
-                    }
-                }
-            }
-            else
-            {
-                Log.Info($" NetworkIdentity: NOT FOUND");
-            }
-            Log.Info($" === END COMPONENT DUMP ===");
-        }
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
             private static GameObject? originalChosenTarget;
-            
+
             [HarmonyPrefix]
             public static bool Prefix(RepossessExit __instance)
             {
@@ -127,7 +24,9 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
+                    var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                     Log.Info($" RepossessExit Prefix: originalChosenTarget = {originalChosenTarget}");
+                    Log.Info($"[RepossessExit Prefix] EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}, hasAuthority={bagController?.hasAuthority}");
                 }
                 return true;
             }
@@ -147,11 +46,6 @@ namespace DrifterBossGrabMod.Patches
                 // If chosenTarget was rejected but it's grabbable, allow it
                 if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Allowing grab for grabbable object: {originalChosenTarget.name}");
-                        DumpGrabbingComponents(originalChosenTarget, "grabbable object override");
-                    }
                     traverse.Field("chosenTarget").SetValue(originalChosenTarget);
                     traverse.Field("activatedHitpause").SetValue(true);
                 }
@@ -176,14 +70,27 @@ namespace DrifterBossGrabMod.Patches
                         }
                         if (canGrab && !isBlacklisted)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                var bodyName = component2.name;
-                                Log.Info($" Allowing grab for {bodyName}");
-                                DumpGrabbingComponents(originalChosenTarget, "boss/NPC grab");
-                            }
                             traverse.Field("chosenTarget").SetValue(originalChosenTarget);
                             traverse.Field("activatedHitpause").SetValue(true);
+                        }
+                    }
+                }
+
+                // Send network message to host when balance is enabled and a grab occurs
+                // This ensures the host also calls AssignPassenger, triggering the Harmony patch
+                if (PluginConfig.Instance.EnableBalance.Value && originalChosenTarget != null)
+                {
+                    // Only send if we're a client (not the host)
+                    if (!NetworkServer.active && NetworkClient.active)
+                    {
+                        var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+                        if (bagController != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[RepossessExit Postfix] Sending grab request to host for {originalChosenTarget.name}");
+                            }
+                            CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
                         }
                     }
                 }
@@ -200,12 +107,6 @@ namespace DrifterBossGrabMod.Patches
                     var traverse = Traverse.Create(__instance);
                     GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
                     if (targetObject == null) return;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        var targetName = targetObject.name;
-                        Log.Info($" BaggedObject.OnEnter: targetObject = {targetName} ({targetObject})");
-                        DumpGrabbingComponents(targetObject, "BaggedObject.OnEnter");
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -255,4 +156,3 @@ namespace DrifterBossGrabMod.Patches
         }
     }
 }
-

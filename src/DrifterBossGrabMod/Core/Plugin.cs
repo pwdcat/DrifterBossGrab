@@ -16,7 +16,6 @@ namespace DrifterBossGrabMod
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
     public class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
-        private const short BAGGED_OBJECTS_PERSISTENCE_MSG_TYPE = 85;
         public static DrifterBossGrabPlugin? Instance { get; private set; }
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
@@ -25,21 +24,22 @@ namespace DrifterBossGrabMod
         public static bool IsSwappingPassengers => _isSwappingPassengers;
         public static bool IsDrifterPresent { get; set; } = false;
 
-
-
         // Feature instances
         private DrifterGrabFeature? _drifterGrabFeature;
         private BottomlessBagFeature? _bottomlessBagFeature;
         private PersistenceFeature? _persistenceFeature;
+        private BalanceFeature? _balanceFeature;
 
         // Harmony instances
         private Harmony? _drifterGrabHarmony;
         private Harmony? _bottomlessBagHarmony;
         private Harmony? _persistenceHarmony;
+        private Harmony? _balanceHarmony;
 
         // Track current feature states
         private bool _wasBottomlessBagEnabled;
         private bool _wasPersistenceEnabled;
+        private bool _wasBalanceEnabled;
 
         private ConfigurationComposite? _configurationComposite;
 
@@ -60,6 +60,8 @@ namespace DrifterBossGrabMod
         private EventHandler? autoGrabHandler;
         private EventHandler? bottomlessBagToggleHandler;
         private EventHandler? persistenceToggleHandler;
+        private EventHandler? balanceToggleHandler;
+
         private void InitializeInstance()
         {
             Instance = this;
@@ -76,28 +78,38 @@ namespace DrifterBossGrabMod
         private void InitializeConfigurationComposite()
         {
             _configurationComposite = new ConfigurationComposite();
+
             // Register patches that need initialization/cleanup
-            
+
             // Create and store Harmony instances
             _drifterGrabHarmony = new Harmony(Constants.PluginGuid + ".driftergrab");
             _bottomlessBagHarmony = new Harmony(Constants.PluginGuid + ".bottomlessbag");
             _persistenceHarmony = new Harmony(Constants.PluginGuid + ".persistence");
+            _balanceHarmony = new Harmony(Constants.PluginGuid + ".balance");
 
             // Create and store feature instances
             _drifterGrabFeature = new DrifterGrabFeature();
             _drifterGrabFeature.Initialize(_drifterGrabHarmony);
-            
+
             _bottomlessBagFeature = new BottomlessBagFeature();
             _bottomlessBagFeature.Initialize(_bottomlessBagHarmony);
-            _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
-            
+
             _persistenceFeature = new PersistenceFeature();
             _persistenceFeature.Initialize(_persistenceHarmony);
+
+            _balanceFeature = new BalanceFeature();
+            _balanceFeature.Initialize(_balanceHarmony);
+
+            _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
+
             _wasPersistenceEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
-            
+
+            _wasBalanceEnabled = PluginConfig.Instance.EnableBalance.Value;
+
             // Add components to composite
             _configurationComposite.AddComponent((IConfigurable)PatchFactory.Instance);
             _configurationComposite.AddComponent(new PersistenceManagerWrapper());
+
             // Initialize all components
             _configurationComposite.Initialize();
         }
@@ -112,11 +124,12 @@ namespace DrifterBossGrabMod
             SetupConfigurationEventHandlers();
             SetupFeatureToggleHandlers();
             RegisterGameEvents();
-            
+
             // Initialize networking
             Networking.BagStateSync.Init(new Harmony(Constants.PluginGuid + ".networking"));
             Networking.ConfigSyncHandler.Init();
         }
+
         private void RemoveConfigurationEventHandlers()
         {
             PluginConfig.RemoveEventHandlers(
@@ -145,16 +158,18 @@ namespace DrifterBossGrabMod
         {
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= bottomlessBagToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceToggleHandler;
+            PluginConfig.Instance.EnableBalance.SettingChanged -= balanceToggleHandler;
         }
 
         private void CleanupConfigurationComposite()
         {
             _configurationComposite?.Cleanup();
-            
+
             // Cleanup using stored feature instances
             _drifterGrabFeature?.Cleanup(_drifterGrabHarmony!);
             _bottomlessBagFeature?.Cleanup(_bottomlessBagHarmony!);
             _persistenceFeature?.Cleanup(_persistenceHarmony!);
+            _balanceFeature?.Cleanup(_balanceHarmony!);
         }
 
         private void StopCoroutines()
@@ -194,11 +209,27 @@ namespace DrifterBossGrabMod
                     _wasPersistenceEnabled = isEnabled;
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                         Log.Info($"[FeatureToggle] Persistence feature {(isEnabled ? "enabled" : "disabled")} at runtime");
+                        Log.Info($"[FeatureToggle] Persistence feature {(isEnabled ? "enabled" : "disabled")} at runtime");
                     }
                 }
             };
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged += persistenceToggleHandler;
+
+            // Balance toggle handler
+            balanceToggleHandler = (sender, args) =>
+            {
+                bool isEnabled = PluginConfig.Instance.EnableBalance.Value;
+                if (isEnabled != _wasBalanceEnabled)
+                {
+                    _balanceFeature?.Toggle(_balanceHarmony!, isEnabled);
+                    _wasBalanceEnabled = isEnabled;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[FeatureToggle] Balance feature {(isEnabled ? "enabled" : "disabled")} at runtime");
+                    }
+                }
+            };
+            PluginConfig.Instance.EnableBalance.SettingChanged += balanceToggleHandler;
         }
 
         public void OnDestroy()
@@ -208,6 +239,7 @@ namespace DrifterBossGrabMod
             RemoveFeatureToggleHandlers();
             CleanupConfigurationComposite();
             StopCoroutines();
+            Patches.UIPatches.CleanupMassCapacityUI();
         }
 
         public void OnConfigChanged(string key, object value)
@@ -218,19 +250,20 @@ namespace DrifterBossGrabMod
                 Log.Info($"[OnConfigChanged] Config changed: {key} = {value}");
             }
         }
+
         public void Start()
         {
             SetupRiskOfOptions();
         }
+
         public void Update()
         {
-            // Only handle bottomless bag input when the feature is enabled
+            // Only handle bottomless bag input when feature is enabled
             if (FeatureState.IsCyclingEnabled)
             {
                 Patches.BottomlessBagPatches.HandleInput();
             }
         }
-        #region Configuration Management
         private void SetupConfigurationEventHandlers()
         {
             SetupDebugLogsHandler();
@@ -241,6 +274,7 @@ namespace DrifterBossGrabMod
             SetupPersistenceHandlers();
             PersistenceManager.UpdateCachedConfig();
         }
+
         private void SetupDebugLogsHandler()
         {
             debugLogsHandler = (sender, args) =>
@@ -325,6 +359,10 @@ namespace DrifterBossGrabMod
 
             lockedObjectGrabbingHandler = (sender, args) =>
             {
+                if (DrifterBossGrabPlugin.IsDrifterPresent)
+                {
+                    Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+                }
             };
             PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged += lockedObjectGrabbingHandler;
 
@@ -352,9 +390,6 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.Instance.EnableAutoGrab.SettingChanged += autoGrabHandler;
         }
-
-        #endregion
-        #region Game Event Management
         private void RegisterGameEvents()
         {
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
@@ -366,14 +401,17 @@ namespace DrifterBossGrabMod
         {
             if (body && body.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
             {
-                // Check if it's the Drifter Survivor
-                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                // Check if it's Drifter Survivor
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[Plugin] Drifter body spawned: {body.name}. Triggering object scan.");
                 }
-                
+
                 IsDrifterPresent = true;
                 Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
+
+                // Initialize Mass Capacity UI
+                Patches.UIPatches.InitializeMassCapacityUI();
             }
         }
 
@@ -384,6 +422,7 @@ namespace DrifterBossGrabMod
                 Networking.ConfigSyncHandler.SendConfigToClient(pcm.networkUser.connectionToClient);
             }
         }
+
         private static void OnSceneChanged(UnityEngine.SceneManagement.Scene oldScene, UnityEngine.SceneManagement.Scene newScene)
         {
             DrifterBossGrabPlugin.IsDrifterPresent = false; // Reset flag on scene change
@@ -395,8 +434,9 @@ namespace DrifterBossGrabMod
                 Instance.StartCoroutine(DelayedEnsureSpecialObjectAttributes());
                 Instance.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
             }
-            Patches.BagPatches.ScanAllSceneComponents();
+
         }
+
         private static System.Collections.IEnumerator DelayedEnsureSpecialObjectAttributes()
         {
             yield return null;
@@ -405,6 +445,7 @@ namespace DrifterBossGrabMod
                 Patches.GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
             }
         }
+
         private static System.Collections.IEnumerator DelayedBatchSpecialObjectAttributesInitialization()
         {
             yield return new UnityEngine.WaitForSeconds(0.2f);
@@ -436,11 +477,13 @@ namespace DrifterBossGrabMod
                 Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] Completed batched SpecialObjectAttributes initialization for {allObjects.Length} objects");
             }
         }
+
         private static System.Collections.IEnumerator DelayedUpdateDrifterPresence()
         {
             yield return null; // Wait one frame for objects to spawn
             DrifterBossGrabPlugin.IsDrifterPresent = UnityEngine.Object.FindAnyObjectByType<RoR2.DrifterBagController>() != null;
         }
+
         private static System.Collections.IEnumerator DelayedGrabbableComponentTypesUpdate()
         {
             yield return new UnityEngine.WaitForSeconds(0.5f);
@@ -451,8 +494,6 @@ namespace DrifterBossGrabMod
             }
             _grabbableComponentTypesUpdateCoroutine = null;
         }
-        #endregion
-        #region Risk of Options Integration
         private void SetupRiskOfOptions()
         {
             if (!RooInstalled) return;
@@ -469,6 +510,7 @@ namespace DrifterBossGrabMod
             }
             AddConfigurationOptions();
         }
+
         private void AddConfigurationOptions()
         {
             if (!RooInstalled) return;
@@ -496,11 +538,11 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableComponentAnalysisLogs));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableConfigSync));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled));
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.BottomlessBagBaseCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CycleCooldown, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 1f, increment = 0.01f }));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.InverseMouseWheelScrolling));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
@@ -514,18 +556,42 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideScale));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSideOpacity));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration));
-
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowIcon));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowWeight));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowName));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowHealthBar));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDamagePreview));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.DamagePreviewColor));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UseNewWeightIcon));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowWeightText));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.WeightDisplayMode));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ScaleWeightColor));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMassCapacityUI));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionX));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionY));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIScale));
 
+            // Balance configuration options
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapBagScale));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapMass));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ToggleMassCapacity));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingMode));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingType));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CapacityScalingBonusPerCapacity));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EliteMassBonusEnabled));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.EliteMassBonusPercent));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableOverencumbrance));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMaxPercent));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.StateCalculationModeEnabled));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableAoESlamDamage));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.AllModeMassMultiplier));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MinMovespeedPenalty));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MaxMovespeedPenalty));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.FinalMovespeedPenaltyLimit));
         }
-        #endregion
     }
 }
-

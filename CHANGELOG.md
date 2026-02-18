@@ -3,10 +3,40 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.11]
+## [1.7.0]
+
+### Added
+- Balance features:
+    - ToggleMassCapacity
+    - Capacity Scaling System for mass:
+        - IncreaseCapacity
+        - HalveMass
+    - Elite Mass Bonus
+    - Overencumbrance System
+    - State Calculation System:
+        - Current
+        - All
+    - AoE Slam Damage: Slam/bluntforce damage every object in the bag
+        - Full
+        - Split
+    - UncapCapacity
+
+- HUD features:
+    - Weight Display for Pounds and Kilograms (still need some tweaking)
+    - Capacity UI
+
 ### Fixed
 - Clamping no longer fully refresh all stocks
 - ModelStatePerserver applying when cycling for the client
+- Fix lossyscale restore being applied twice when reparenting
+- Tracking when an enemy teleports out of your bag
+- Bottomlessbag not spawning junk after destroying an object
+- Projectile Grabbing overriding values, like for junk cube
+- Issue when grabbing other drifters with bottomless (not a full fix but it won't soft lock you this time)
+
+### Changed
+- Refactoring and optimizations
+- Split UncapBagScale to UpcapBagScale (increase bag size based on mass, probably would want uncapmass on) and UncapMass (removes 700 mass cap)
 
 ## [1.6.10]
 

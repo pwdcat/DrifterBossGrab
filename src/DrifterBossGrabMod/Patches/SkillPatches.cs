@@ -26,15 +26,12 @@ namespace DrifterBossGrabMod.Patches
                     var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
-                        int baggedCount = BagPatches.GetCurrentBaggedCount(bagController);
+                        int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                         int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
                         if (__instance.stock >= clampedMax)
                         {
                             // Skip the restock - stock is already at or above clamped max
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[GenericSkill_RestockSteplike] Skipping restock - stock {__instance.stock} is already at clamped max {clampedMax} (baggedCount: {baggedCount})");
-                            }
+
                             return false;
                         }
                     }
@@ -67,15 +64,12 @@ namespace DrifterBossGrabMod.Patches
                     var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
-                        int baggedCount = BagPatches.GetCurrentBaggedCount(bagController);
+                        int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                         int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
                         if (__instance.stock >= clampedMax)
                         {
                             // Skip the reset - stock is already at or above clamped max
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[GenericSkill_Reset] Skipping reset - stock {__instance.stock} is already at clamped max {clampedMax} (baggedCount: {baggedCount})");
-                            }
+
                             return false;
                         }
                     }
@@ -108,7 +102,7 @@ namespace DrifterBossGrabMod.Patches
                     var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
-                        int baggedCount = BagPatches.GetCurrentBaggedCount(bagController);
+                        int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                         int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
                         if (__instance.stock >= clampedMax)
                         {
@@ -141,7 +135,7 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = skill.characterBody.GetComponent<DrifterBagController>();
                 if (bagController != null)
                 {
-                    int baggedCount = BagPatches.GetCurrentBaggedCount(bagController);
+                    int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                     int maxAllowedStock = skill.maxStock - baggedCount;
                     if (skill.stock > maxAllowedStock)
                     {
