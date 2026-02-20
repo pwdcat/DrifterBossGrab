@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using BepInEx;
 using BepInEx.Bootstrap;
+using BepInEx.Configuration;
 using UnityEngine;
 using UnityEngine.Networking;
 using HarmonyLib;
@@ -264,6 +265,15 @@ namespace DrifterBossGrabMod
                 Patches.BottomlessBagPatches.HandleInput();
             }
         }
+        private void RecalculateAllBaggedMasses()
+        {
+            // Trigger mass recalculation for all bag controllers
+            foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
+            {
+                Patches.BagPassengerManager.ForceRecalculateMass(bagController);
+            }
+        }
+
         private void SetupConfigurationEventHandlers()
         {
             SetupDebugLogsHandler();
@@ -272,6 +282,9 @@ namespace DrifterBossGrabMod
             SetupGrabbableHandlers();
             SetupGrabbingHandlers();
             SetupPersistenceHandlers();
+            SetupCharacterFlagMultiplierHandlers();
+            SetupHudSubTabHandlers();
+            SetupBalanceSubTabHandlers();
             PersistenceManager.UpdateCachedConfig();
         }
 
@@ -390,6 +403,268 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.Instance.EnableAutoGrab.SettingChanged += autoGrabHandler;
         }
+
+        private void SetupCharacterFlagMultiplierHandlers()
+        {
+            // When dropdown changes, update float field to show current value for that flag
+            PluginConfig.Instance.SelectedFlag.SettingChanged += (sender, args) =>
+            {
+                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+                var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
+                var newValue = flagConfig.Value;
+
+                Log.Info($"[SelectedFlag.SettingChanged] Selected flag changed to: {selectedFlag}");
+                Log.Info($"[SelectedFlag.SettingChanged] Flag multiplier value: {newValue}");
+                Log.Info($"[SelectedFlag.SettingChanged] Setting SelectedFlagMultiplier.Value to: {newValue}");
+
+                PluginConfig.Instance.SelectedFlagMultiplier.Value = newValue;
+
+                // Refresh the FloatField UI to show the updated value
+                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
+            };
+
+            // When float field changes, update the multiplier for the currently selected flag
+            PluginConfig.Instance.SelectedFlagMultiplier.SettingChanged += (sender, args) =>
+            {
+                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+                var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
+                flagConfig.Value = PluginConfig.Instance.SelectedFlagMultiplier.Value;
+                Log.Info($"[SelectedFlagMultiplier.SettingChanged] Flag {selectedFlag} multiplier updated to: {PluginConfig.Instance.SelectedFlagMultiplier.Value}");
+                // Trigger mass recalculation for all bag controllers
+                RecalculateAllBaggedMasses();
+            };
+        }
+
+        private void SetupHudSubTabHandlers()
+        {
+            // When HUD sub-tab changes, update visibility of settings
+            PluginConfig.Instance.SelectedHudSubTab.SettingChanged += (sender, args) =>
+            {
+                var selectedSubTab = PluginConfig.Instance.SelectedHudSubTab.Value;
+                Log.Info($"[SelectedHudSubTab.SettingChanged] HUD sub-tab changed to: {selectedSubTab}");
+                UpdateHudSubTabVisibility();
+            };
+        }
+
+        private void SetupBalanceSubTabHandlers()
+        {
+            // When Balance sub-tab changes, update visibility of settings
+            PluginConfig.Instance.SelectedBalanceSubTab.SettingChanged += (sender, args) =>
+            {
+                var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
+                Log.Info($"[SelectedBalanceSubTab.SettingChanged] Balance sub-tab changed to: {selectedSubTab}");
+                UpdateBalanceSubTabVisibility();
+            };
+        }
+
+        // Refreshes the FloatField UI to display the current ConfigEntry value.
+        private void RefreshFloatFieldUI(ConfigEntry<float> configEntry)
+        {
+            if (!RooInstalled) return;
+
+            // Build the setting token that RiskOfOptions uses to identify UI components
+            // Format: {ModGuid}.{Category}.{Name}.{OptionTypeName} (no RISK_OF_OPTIONS prefix)
+            string expectedToken = $"{Constants.PluginGuid}.Balance.FlagMultiplier.FLOAT_FIELD".Replace(" ", "_").ToUpper();
+
+            Log.Info($"[RefreshFloatFieldUI] Attempting to refresh FloatField UI");
+            Log.Info($"[RefreshFloatFieldUI] Expected token: {expectedToken}");
+
+            // Find all ModSettingsFloatField components in the scene
+            var floatFields = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSettingsFloatField>(UnityEngine.FindObjectsSortMode.None);
+            Log.Info($"[RefreshFloatFieldUI] Found {floatFields.Length} FloatField components");
+
+            bool found = false;
+            foreach (var floatField in floatFields)
+            {
+                Log.Info($"[RefreshFloatFieldUI] Checking FloatField with token: {floatField.settingToken}");
+                // Check if this floatField matches our setting token
+                if (floatField.settingToken == expectedToken)
+                {
+                    Log.Info($"[RefreshFloatFieldUI] Found matching FloatField!");
+                    // Directly update the text field to display the new value
+                    // Get the current value from the config entry
+                    var newValue = configEntry.Value;
+                    Log.Info($"[RefreshFloatFieldUI] Updating text field to: {newValue}");
+
+                    // Access the valueText field (it's a public field, not a property)
+                    var valueTextField = typeof(RiskOfOptions.Components.Options.ModSettingsNumericField<float>)
+                        .GetField("valueText", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                    if (valueTextField != null)
+                    {
+                        // Get the TMP_InputField object
+                        var inputField = valueTextField.GetValue(floatField) as TMPro.TMP_InputField;
+
+                        if (inputField != null)
+                        {
+                            // Format the value using the formatString from the config
+                            var formatStringField = typeof(RiskOfOptions.Components.Options.ModSettingsNumericField<float>)
+                                .GetField("formatString", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                            string formatString = formatStringField?.GetValue(floatField) as string ?? "F2";
+
+                            // Get the culture info for decimal separator
+                            var separatorProperty = typeof(RiskOfOptions.Components.Options.ModSetting)
+                                .GetProperty("Separator", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+
+                            System.Globalization.CultureInfo cultureInfo;
+                            if (separatorProperty != null)
+                            {
+                                var separator = (RiskOfOptions.Options.DecimalSeparator)separatorProperty.GetValue(null);
+                                cultureInfo = separator.GetCultureInfo();
+                            }
+                            else
+                            {
+                                cultureInfo = System.Globalization.CultureInfo.InvariantCulture;
+                            }
+                            var formattedValue = string.Format(cultureInfo, formatString, newValue);
+                            inputField.text = formattedValue;
+                            Log.Info($"[RefreshFloatFieldUI] Text field updated successfully to: {formattedValue}");
+                        }
+                        else
+                        {
+                            Log.Warning($"[RefreshFloatFieldUI] valueText field is null!");
+                        }
+                    }
+                    else
+                    {
+                        Log.Warning($"[RefreshFloatFieldUI] Could not find valueText field!");
+                    }
+
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                Log.Warning($"[RefreshFloatFieldUI] Could not find FloatField with token: {expectedToken}");
+            }
+        }
+
+        // Updates the visibility of HUD settings based on the selected sub-tab.
+        public void UpdateHudSubTabVisibility()
+        {
+            if (!RooInstalled) return;
+
+            var selectedSubTab = PluginConfig.Instance.SelectedHudSubTab.Value;
+            Log.Info($"[UpdateHudSubTabVisibility] Updating visibility for sub-tab: {selectedSubTab}");
+
+            // Get all ModSetting components in the scene
+            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            Log.Info($"[UpdateHudSubTabVisibility] Found {allSettings.Length} total settings");
+
+            int shownCount = 0;
+            int hiddenCount = 0;
+            int notFoundCount = 0;
+
+            foreach (var setting in allSettings)
+            {
+                // Check if this setting belongs to HUD category
+                if (PluginConfig.HudSettingToSubTab.TryGetValue(setting.settingToken, out var subTab))
+                {
+                    bool shouldShow = subTab == selectedSubTab || selectedSubTab == HudSubTabType.All;
+
+                    // Use CanvasGroup and LayoutElement to properly show/hide without destroying
+                    var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
+                    if (canvasGroup == null)
+                    {
+                        canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
+                    }
+
+                    var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
+                    if (layoutElement == null)
+                    {
+                        layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+                    }
+
+                    if (shouldShow)
+                    {
+                        canvasGroup.alpha = 1f;
+                        canvasGroup.blocksRaycasts = true;
+                        layoutElement.ignoreLayout = false;
+                        shownCount++;
+                        Log.Info($"[UpdateHudSubTabVisibility] SHOWING: {setting.settingToken} (sub-tab: {subTab})");
+                    }
+                    else
+                    {
+                        canvasGroup.alpha = 0f;
+                        canvasGroup.blocksRaycasts = false;
+                        layoutElement.ignoreLayout = true;
+                        hiddenCount++;
+                        Log.Info($"[UpdateHudSubTabVisibility] HIDING: {setting.settingToken} (sub-tab: {subTab})");
+                    }
+                }
+                else
+                {
+                    notFoundCount++;
+                }
+            }
+
+            Log.Info($"[UpdateHudSubTabVisibility] === SUMMARY === Show: {shownCount}, Hide: {hiddenCount}, Not in mapping: {notFoundCount}");
+        }
+
+        // Updates the visibility of Balance settings based on the selected sub-tab.
+        public void UpdateBalanceSubTabVisibility()
+        {
+            if (!RooInstalled) return;
+
+            var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
+            Log.Info($"[UpdateBalanceSubTabVisibility] Updating visibility for sub-tab: {selectedSubTab}");
+
+            // Get all ModSetting components in the scene
+            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            Log.Info($"[UpdateBalanceSubTabVisibility] Found {allSettings.Length} total settings");
+
+            int shownCount = 0;
+            int hiddenCount = 0;
+            int notFoundCount = 0;
+
+            foreach (var setting in allSettings)
+            {
+                // Check if this setting belongs to Balance category
+                if (PluginConfig.BalanceSettingToSubTab.TryGetValue(setting.settingToken, out var subTab))
+                {
+                    bool shouldShow = subTab == selectedSubTab || selectedSubTab == BalanceSubTabType.All;
+
+                    // Use CanvasGroup and LayoutElement to properly show/hide without destroying
+                    var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
+                    if (canvasGroup == null)
+                    {
+                        canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
+                    }
+
+                    var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
+                    if (layoutElement == null)
+                    {
+                        layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+                    }
+
+                    if (shouldShow)
+                    {
+                        canvasGroup.alpha = 1f;
+                        canvasGroup.blocksRaycasts = true;
+                        layoutElement.ignoreLayout = false;
+                        shownCount++;
+                        Log.Info($"[UpdateBalanceSubTabVisibility] SHOWING: {setting.settingToken} (sub-tab: {subTab})");
+                    }
+                    else
+                    {
+                        canvasGroup.alpha = 0f;
+                        canvasGroup.blocksRaycasts = false;
+                        layoutElement.ignoreLayout = true;
+                        hiddenCount++;
+                        Log.Info($"[UpdateBalanceSubTabVisibility] HIDING: {setting.settingToken} (sub-tab: {subTab})");
+                    }
+                }
+                else
+                {
+                    notFoundCount++;
+                }
+            }
+
+            Log.Info($"[UpdateBalanceSubTabVisibility] === SUMMARY === Show: {shownCount}, Hide: {hiddenCount}, Not in mapping: {notFoundCount}");
+        }
         private void RegisterGameEvents()
         {
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
@@ -494,6 +769,24 @@ namespace DrifterBossGrabMod
             }
             _grabbableComponentTypesUpdateCoroutine = null;
         }
+
+        private static System.Collections.IEnumerator DelayedUpdateHudSubTabVisibility()
+        {
+            yield return new UnityEngine.WaitForSeconds(0.5f); // Wait for RiskOfOptions UI to initialize
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.UpdateHudSubTabVisibility();
+            }
+        }
+
+        private static System.Collections.IEnumerator DelayedUpdateBalanceSubTabVisibility()
+        {
+            yield return new UnityEngine.WaitForSeconds(0.5f); // Wait for RiskOfOptions UI to initialize
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.UpdateBalanceSubTabVisibility();
+            }
+        }
         private void SetupRiskOfOptions()
         {
             if (!RooInstalled) return;
@@ -509,6 +802,11 @@ namespace DrifterBossGrabMod
             {
             }
             AddConfigurationOptions();
+
+            // Initialize HUD sub-tab visibility after options are added
+            StartCoroutine(DelayedUpdateHudSubTabVisibility());
+            // Initialize Balance sub-tab visibility after options are added
+            StartCoroutine(DelayedUpdateBalanceSubTabVisibility());
         }
 
         private void AddConfigurationOptions()
@@ -547,6 +845,10 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.InverseMouseWheelScrolling));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
             ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollDownKeybind));
+
+            // HUD sub-tab selection dropdown (at the top of HUD category)
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedHudSubTab));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselHUD));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselCenterOffsetX));
@@ -572,6 +874,9 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIScale));
 
             // Balance configuration options
+            // Balance sub-tab selection dropdown (at the top of Balance category)
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapBagScale));
@@ -580,8 +885,6 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingMode));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingType));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CapacityScalingBonusPerCapacity));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EliteMassBonusEnabled));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.EliteMassBonusPercent));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableOverencumbrance));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMaxPercent));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.StateCalculationModeEnabled));
@@ -592,6 +895,10 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MinMovespeedPenalty));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MaxMovespeedPenalty));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.FinalMovespeedPenaltyLimit));
+
+            // Character flag multiplier UI options
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagMultiplier));
         }
     }
 }

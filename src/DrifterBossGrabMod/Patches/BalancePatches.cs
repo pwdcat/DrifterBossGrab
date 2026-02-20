@@ -35,10 +35,8 @@ namespace DrifterBossGrabMod.Patches
                     __result = Balance.CapacityScalingSystem.ApplyMassScaling(__instance, targetObject, __result);
                 }
 
-                if (PluginConfig.Instance.EliteMassBonusEnabled.Value)
-                {
-                    __result = Balance.EliteMassBonus.ApplyEliteBonus(targetObject, __result);
-                }
+                // Apply character flag mass bonus using the new system
+                __result = Balance.CharacterFlagMassBonus.ApplyFlagBonus(targetObject, __result);
             }
         }
 

@@ -36,6 +36,37 @@ namespace DrifterBossGrabMod
         Split = 1
     }
 
+    public enum CharacterFlagType
+    {
+        Elite,
+        Boss,
+        Champion,
+        Player,
+        Minion,
+        Drone,
+        Mechanical,
+        Void
+    }
+
+    public enum HudSubTabType
+    {
+        All,
+        Carousel,
+        CapacityUI,
+        DamagePreview
+    }
+
+    public enum BalanceSubTabType
+    {
+        All,
+        Capacity,
+        MassMultipliers,
+        Overencumbrance,
+        StateCalculation,
+        MovespeedPenalty,
+        Other
+    }
+
     public interface ICachedValue<T>
     {
         T Value { get; }
@@ -149,7 +180,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<DrifterBossGrabMod.Balance.CapacityScalingMode> CapacityScalingMode { get; private set; } = null!;
         public ConfigEntry<DrifterBossGrabMod.Balance.ScalingType> CapacityScalingType { get; private set; } = null!;
         public ConfigEntry<float> CapacityScalingBonusPerCapacity { get; private set; } = null!;
-        public ConfigEntry<bool> EliteMassBonusEnabled { get; private set; } = null!;
         public ConfigEntry<float> EliteMassBonusPercent { get; private set; } = null!;
         public ConfigEntry<bool> EnableOverencumbrance { get; private set; } = null!;
         public ConfigEntry<float> OverencumbranceMaxPercent { get; private set; } = null!;
@@ -159,9 +189,107 @@ namespace DrifterBossGrabMod
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
         public ConfigEntry<float> AllModeMassMultiplier { get; private set; } = null!;
 
+        // Character flag mass multiplier configurations
+        public ConfigEntry<float> BossMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> ChampionMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> PlayerMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> MinionMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> DroneMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> MechanicalMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> VoidMassBonusPercent { get; private set; } = null!;
+
+        // Risk of Options UI controls for flag multiplier configuration
+        public ConfigEntry<CharacterFlagType> SelectedFlag { get; private set; } = null!;
+        public ConfigEntry<float> SelectedFlagMultiplier { get; private set; } = null!;
+
+        // Risk of Options UI controls for HUD sub-tab system
+        public ConfigEntry<HudSubTabType> SelectedHudSubTab { get; private set; } = null!;
+
+        // Risk of Options UI controls for Balance sub-tab system
+        public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
+
         public ConfigEntry<float> MinMovespeedPenalty { get; private set; } = null!;
         public ConfigEntry<float> MaxMovespeedPenalty { get; private set; } = null!;
         public ConfigEntry<float> FinalMovespeedPenaltyLimit { get; private set; } = null!;
+
+        // Mapping of setting tokens to HUD sub-tabs
+        public static readonly Dictionary<string, HudSubTabType> HudSettingToSubTab = new()
+        {
+            // Carousel settings (includes all carousel + bag UI elements)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLECAROUSELHUD.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSPACING.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELCENTEROFFSETX.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELCENTEROFFSETY.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOFFSETX.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOFFSETY.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDESCALE.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOPACITY.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELANIMATIONDURATION.FLOAT_FIELD"] = HudSubTabType.Carousel,
+            // Bag UI settings (icons, names, healthbar, weight)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWICON.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWWEIGHT.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWNAME.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWHEALTHBAR.CHECKBOX"] = HudSubTabType.Carousel,
+            // Weight icon and display settings
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALEWEIGHTCOLOR.CHECKBOX"] = HudSubTabType.Carousel,
+
+            // Capacity UI settings
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEMASSCAPACITYUI.CHECKBOX"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONX.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONY.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUISCALE.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
+
+            // Damage Preview settings (only these two)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEDAMAGEPREVIEW.CHECKBOX"] = HudSubTabType.DamagePreview,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGEPREVIEWCOLOR.COLOR"] = HudSubTabType.DamagePreview
+        };
+
+        // Mapping of setting tokens to Balance sub-tabs
+        public static readonly Dictionary<string, BalanceSubTabType> BalanceSettingToSubTab = new()
+        {
+            // Capacity settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEBALANCE.CHECKBOX"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPCAPACITY.CHECKBOX"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.TOGGLEMASSCAPACITY.CHECKBOX"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CAPACITYSCALINGMODE.CHOICE"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CAPACITYSCALINGTYPE.CHOICE"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CAPACITYSCALINGBONUSPERCAPACITY.FLOAT_FIELD"] = BalanceSubTabType.Capacity,
+
+            // Mass Multipliers settings (only UI controls, not individual multipliers)
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SELECTEDFLAG.CHOICE"] = BalanceSubTabType.MassMultipliers,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.MassMultipliers,
+
+            // Overencumbrance settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEOVERENCUMBRANCE.CHECKBOX"] = BalanceSubTabType.Overencumbrance,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.OVERENCUMBRANCEMAXPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Overencumbrance,
+
+            // State Calculation settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATECALCULATIONMODEENABLED.CHECKBOX"] = BalanceSubTabType.StateCalculation,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATECALCULATIONMODE.CHOICE"] = BalanceSubTabType.StateCalculation,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ALLMODEMASSMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.StateCalculation,
+
+            // Movespeed Penalty settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MINMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FINALMOVESPEEDPENALTYLIMIT.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
+
+            // Other settings (includes individual mass multipliers and other settings)
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ELITEMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BOSSMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CHAMPIONMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.PLAYERMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MINIONMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.DRONEMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MECHANICALMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.VOIDMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPBAGSCALE.CHECKBOX"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPMASS.CHECKBOX"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEAOESLAMDAMAGE.CHECKBOX"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOEDAMAGEDISTRIBUTION.CHOICE"] = BalanceSubTabType.Other
+        };
+
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
@@ -392,11 +520,57 @@ namespace DrifterBossGrabMod
             Instance.CapacityScalingBonusPerCapacity = cfg.Bind("Balance", "CapacityScalingBonusPerCapacity", 100.0f, "Bonus mass capacity per utility stock.\n" +
                 "Formula: CapacityBonus = UtilityStocks × CapacityScalingBonusPerCapacity\n" +
                 "Example: With 2 stocks and 100 bonus, capacity increases by 200");
-            Instance.EliteMassBonusEnabled = cfg.Bind("Balance", "EliteMassBonusEnabled", true, "Enable elite mass bonus.\n" +
-                "When enabled, elite enemies have increased mass when bagged.");
-            Instance.EliteMassBonusPercent = cfg.Bind("Balance", "EliteMassBonusPercent", 10.0f, "Percentage mass bonus for elites.\n" +
+            Instance.EliteMassBonusPercent = cfg.Bind("Balance", "EliteMassBonusPercent", 0.0f, "Percentage mass bonus for elites.\n" +
                 "Formula: EliteMass = BaseMass × (1 + EliteMassBonusPercent / 100)\n" +
-                "Example: With 10%, a 100 mass elite becomes 110 mass");
+                "Example: With 10%, a 100 mass elite becomes 110 mass\n" +
+                "0 = disabled");
+            Instance.BossMassBonusPercent = cfg.Bind("Balance", "BossMassBonusPercent", 0.0f, "Percentage mass bonus for bosses.\n" +
+                "Formula: BossMass = BaseMass × (1 + BossMassBonusPercent / 100)\n" +
+                "Example: With 100%, a 100 mass boss becomes 200 mass\n" +
+                "0 = disabled");
+            Instance.ChampionMassBonusPercent = cfg.Bind("Balance", "ChampionMassBonusPercent", 0.0f, "Percentage mass bonus for champions.\n" +
+                "Formula: ChampionMass = BaseMass × (1 + ChampionMassBonusPercent / 100)\n" +
+                "Example: With 75%, a 100 mass champion becomes 175 mass\n" +
+                "0 = disabled");
+            Instance.PlayerMassBonusPercent = cfg.Bind("Balance", "PlayerMassBonusPercent", 0.0f, "Percentage mass bonus for player-controlled entities.\n" +
+                "Formula: PlayerMass = BaseMass × (1 + PlayerMassBonusPercent / 100)\n" +
+                "Example: With 50%, a 100 mass player becomes 150 mass\n" +
+                "0 = disabled");
+            Instance.MinionMassBonusPercent = cfg.Bind("Balance", "MinionMassBonusPercent", 0.0f, "Percentage mass bonus for minions.\n" +
+                "Formula: MinionMass = BaseMass × (1 + MinionMassBonusPercent / 100)\n" +
+                "Example: With 50%, a 100 mass minion becomes 150 mass\n" +
+                "0 = disabled");
+            Instance.DroneMassBonusPercent = cfg.Bind("Balance", "DroneMassBonusPercent", 0.0f, "Percentage mass bonus for drones.\n" +
+                "Formula: DroneMass = BaseMass × (1 + DroneMassBonusPercent / 100)\n" +
+                "Example: With -50%, a 100 mass drone becomes 50 mass\n" +
+                "Negative values reduce mass, 0 = disabled");
+            Instance.MechanicalMassBonusPercent = cfg.Bind("Balance", "MechanicalMassBonusPercent", 0.0f, "Percentage mass bonus for mechanical entities.\n" +
+                "Formula: MechanicalMass = BaseMass × (1 + MechanicalMassBonusPercent / 100)\n" +
+                "Example: With 50%, a 100 mass mechanical becomes 150 mass\n" +
+                "0 = disabled");
+            Instance.VoidMassBonusPercent = cfg.Bind("Balance", "VoidMassBonusPercent", 0.0f, "Percentage mass bonus for void entities.\n" +
+                "Formula: VoidMass = BaseMass × (1 + VoidMassBonusPercent / 100)\n" +
+                "Example: With 50%, a 100 mass void becomes 150 mass\n" +
+                "0 = disabled");
+
+            // Risk of Options UI controls (not saved to config file, used for UI only)
+            Instance.SelectedFlag = cfg.Bind("Balance", "SelectedFlag", CharacterFlagType.Elite,
+                "Select which flag to modify (UI only)");
+            Instance.SelectedFlag.Value = CharacterFlagType.Elite; // Set default
+            Instance.SelectedFlagMultiplier = cfg.Bind("Balance", "FlagMultiplier", 10.0f,
+                "Multiplier for selected flag (UI only)");
+            Instance.SelectedFlagMultiplier.Value = Instance.EliteMassBonusPercent.Value; // Initialize with elite value
+
+            // HUD sub-tab selection
+            Instance.SelectedHudSubTab = cfg.Bind("Hud", "SelectedHudSubTab", HudSubTabType.All,
+                "Select which HUD settings group to view (UI only)");
+            Instance.SelectedHudSubTab.Value = HudSubTabType.All; // Set default
+
+            // Balance sub-tab selection
+            Instance.SelectedBalanceSubTab = cfg.Bind("Balance", "SelectedBalanceSubTab", BalanceSubTabType.All,
+                "Select which Balance settings group to view (UI only)");
+            Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All; // Set default
+
             Instance.EnableOverencumbrance = cfg.Bind("Balance", "EnableOverencumbrance", true, "Enable overencumbrance penalties.\n" +
                 "When enabled, exceeding mass capacity incurs additional penalties.");
             Instance.OverencumbranceMaxPercent = cfg.Bind("Balance", "OverencumbranceMaxPercent", 100.0f, "Maximum overencumbrance percentage.\n" +
@@ -694,6 +868,38 @@ namespace DrifterBossGrabMod
         public static void ClearGrabbableKeywordBlacklistCache()
         {
             Instance._grabbableKeywordBlacklistCache.Invalidate();
+        }
+
+        public static ConfigEntry<float> GetFlagMultiplierConfig(CharacterFlagType flag)
+        {
+            switch (flag)
+            {
+                case CharacterFlagType.Elite: return Instance.EliteMassBonusPercent;
+                case CharacterFlagType.Boss: return Instance.BossMassBonusPercent;
+                case CharacterFlagType.Champion: return Instance.ChampionMassBonusPercent;
+                case CharacterFlagType.Player: return Instance.PlayerMassBonusPercent;
+                case CharacterFlagType.Minion: return Instance.MinionMassBonusPercent;
+                case CharacterFlagType.Drone: return Instance.DroneMassBonusPercent;
+                case CharacterFlagType.Mechanical: return Instance.MechanicalMassBonusPercent;
+                case CharacterFlagType.Void: return Instance.VoidMassBonusPercent;
+                default: return Instance.EliteMassBonusPercent;
+            }
+        }
+
+        public static string GetFlagDisplayName(CharacterFlagType flag)
+        {
+            switch (flag)
+            {
+                case CharacterFlagType.Elite: return "Elite";
+                case CharacterFlagType.Boss: return "Boss";
+                case CharacterFlagType.Champion: return "Champion";
+                case CharacterFlagType.Player: return "Player";
+                case CharacterFlagType.Minion: return "Minion";
+                case CharacterFlagType.Drone: return "Drone";
+                case CharacterFlagType.Mechanical: return "Mechanical";
+                case CharacterFlagType.Void: return "Void";
+                default: return "Elite";
+            }
         }
 
         private static void UpdateBagUIToggles()

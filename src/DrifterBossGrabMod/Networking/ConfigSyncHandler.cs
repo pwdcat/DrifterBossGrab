@@ -65,7 +65,6 @@ namespace DrifterBossGrabMod.Networking
             // Balance - All toggle fields
             PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
             PluginConfig.Instance.EnableAoESlamDamage.Value = msg.EnableAoESlamDamage;
-            PluginConfig.Instance.EliteMassBonusEnabled.Value = msg.EliteMassBonusEnabled;
             PluginConfig.Instance.EnableOverencumbrance.Value = msg.EnableOverencumbrance;
             PluginConfig.Instance.UncapCapacity.Value = msg.UncapCapacity;
             PluginConfig.Instance.ToggleMassCapacity.Value = msg.ToggleMassCapacity;
@@ -120,7 +119,6 @@ namespace DrifterBossGrabMod.Networking
                 // Balance
                 EnableBalance = PluginConfig.Instance.EnableBalance.Value,
                 EnableAoESlamDamage = PluginConfig.Instance.EnableAoESlamDamage.Value,
-                EliteMassBonusEnabled = PluginConfig.Instance.EliteMassBonusEnabled.Value,
                 EnableOverencumbrance = PluginConfig.Instance.EnableOverencumbrance.Value,
                 UncapCapacity = PluginConfig.Instance.UncapCapacity.Value,
                 ToggleMassCapacity = PluginConfig.Instance.ToggleMassCapacity.Value,

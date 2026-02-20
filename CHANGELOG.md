@@ -3,6 +3,12 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1]
+
+### Added
+- Config subtabs
+- CharacterFlag Multiplier Selector
+
 ## [1.7.0]
 
 ### Added
@@ -32,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tracking when an enemy teleports out of your bag
 - Bottomlessbag not spawning junk after destroying an object
 - Projectile Grabbing overriding values, like for junk cube
-- Issue when grabbing other drifters with bottomless (not a full fix but it won't soft lock you this time)
+- Issue when grabbing other drifters with bottomless (not a full fix but it won't soft lock you this time, well if you don't have persistence)
 
 ### Changed
 - Refactoring and optimizations

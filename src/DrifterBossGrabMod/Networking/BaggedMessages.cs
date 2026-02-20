@@ -208,7 +208,6 @@ namespace DrifterBossGrabMod.Networking
         // Balance - All toggle fields
         public bool EnableBalance;
         public bool EnableAoESlamDamage;
-        public bool EliteMassBonusEnabled;
         public bool EnableOverencumbrance;
         public bool UncapCapacity;
         public bool ToggleMassCapacity;
@@ -247,7 +246,6 @@ namespace DrifterBossGrabMod.Networking
             // Balance
             writer.Write(EnableBalance);
             writer.Write(EnableAoESlamDamage);
-            writer.Write(EliteMassBonusEnabled);
             writer.Write(EnableOverencumbrance);
             writer.Write(UncapCapacity);
             writer.Write(ToggleMassCapacity);
@@ -289,7 +287,6 @@ namespace DrifterBossGrabMod.Networking
             // Balance
             EnableBalance = reader.ReadBoolean();
             EnableAoESlamDamage = reader.ReadBoolean();
-            EliteMassBonusEnabled = reader.ReadBoolean();
             EnableOverencumbrance = reader.ReadBoolean();
             UncapCapacity = reader.ReadBoolean();
             ToggleMassCapacity = reader.ReadBoolean();

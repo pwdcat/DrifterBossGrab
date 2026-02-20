@@ -101,4 +101,4 @@ Configurable options that can be adjusted in the config file (`BepInEx/config/pw
 ## Credits
 
 - **plontII**: For the idea for the Bottomless Bag and clamp feature.
-- **Matsan**: For the weight icon design and future balancing suggestions.
+- **Matsan**: For the weight icon and balancing suggestions.
