@@ -1,12 +1,13 @@
 using HarmonyLib;
 using UnityEngine;
+using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
     public class DrifterGrabFeature : FeatureToggleBase
     {
         public override string FeatureName => "DrifterGrab";
-        public override bool IsEnabled => true; // Always enabled - core functionality
+        public override bool IsEnabled => PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla; // Disabled when Vanilla preset is selected
 
         protected override void ApplyPatches(Harmony harmony)
         {

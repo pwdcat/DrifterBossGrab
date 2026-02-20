@@ -67,6 +67,15 @@ namespace DrifterBossGrabMod
         Other
     }
 
+    public enum PresetType
+    {
+        Vanilla,       // All features disabled, vanilla behavior
+        Intended,      // Boss grab only
+        Default,       // All features in DrifterGrabFeature + bottomless bag and persistence
+        Balance,       // Default + balance features
+        Custom         // User has modified settings
+    }
+
     public interface ICachedValue<T>
     {
         T Value { get; }
@@ -207,6 +216,9 @@ namespace DrifterBossGrabMod
 
         // Risk of Options UI controls for Balance sub-tab system
         public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
+
+        // Risk of Options UI controls for Preset system
+        public ConfigEntry<PresetType> SelectedPreset { get; private set; } = null!;
 
         public ConfigEntry<float> MinMovespeedPenalty { get; private set; } = null!;
         public ConfigEntry<float> MaxMovespeedPenalty { get; private set; } = null!;
@@ -473,7 +485,7 @@ namespace DrifterBossGrabMod
                 "When enabled, displays the object's name in the UI.");
             Instance.BagUIShowHealthBar = cfg.Bind("Hud", "BagUIShowHealthBar", true, "Show health bar in additional Bag UI elements.\n" +
                 "When enabled, displays a health bar for the object in the UI.");
-            Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", true, "Show a damage preview overlay on bagged object health bars.\n" +
+            Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show a damage preview overlay on bagged object health bars.\n" +
                 "Indicates predicted slam damage to the object.");
             Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for the damage preview overlay.\n" +
                 "RGBA color for the damage preview indicator.");
@@ -493,7 +505,7 @@ namespace DrifterBossGrabMod
                 "When disabled, bag scale is clamped between 1 and MaxMass.");
             Instance.UncapMass = cfg.Bind("Balance", "UncapMass", false, "When enabled, the mass cap of 700 is removed.\n" +
                 "When disabled, mass is clamped to a maximum of 700.");
-            Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", true, "Enable the Mass Capacity UI for displaying bag capacity status.\n" +
+            Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI for displaying bag capacity status.\n" +
                 "Shows current mass vs capacity as a progress bar.");
             Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "Horizontal position offset for the Mass Capacity UI.\n" +
                 "X position offset from the default location.");
@@ -570,6 +582,15 @@ namespace DrifterBossGrabMod
             Instance.SelectedBalanceSubTab = cfg.Bind("Balance", "SelectedBalanceSubTab", BalanceSubTabType.All,
                 "Select which Balance settings group to view (UI only)");
             Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All; // Set default
+
+            // Preset selection
+            Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
+                "Select a preset to apply all settings at once.\n" +
+                "- Vanilla: All features disabled, vanilla behavior\n" +
+                "- Intended: Boss grab only\n" +
+                "- Default: All features in DrifterGrabFeature + bottomless bag and persistence\n" +
+                "- Balance: Default + balance features\n" +
+                "- Custom: User has modified settings (auto-switched)");
 
             Instance.EnableOverencumbrance = cfg.Bind("Balance", "EnableOverencumbrance", true, "Enable overencumbrance penalties.\n" +
                 "When enabled, exceeding mass capacity incurs additional penalties.");

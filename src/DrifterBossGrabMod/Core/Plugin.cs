@@ -11,6 +11,7 @@ using HarmonyLib;
 using RiskOfOptions;
 using RiskOfOptions.Options;
 using RoR2;
+using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
@@ -41,6 +42,7 @@ namespace DrifterBossGrabMod
         private bool _wasBottomlessBagEnabled;
         private bool _wasPersistenceEnabled;
         private bool _wasBalanceEnabled;
+        private bool _wasDrifterGrabEnabled;
 
         private ConfigurationComposite? _configurationComposite;
 
@@ -106,6 +108,8 @@ namespace DrifterBossGrabMod
             _wasPersistenceEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
 
             _wasBalanceEnabled = PluginConfig.Instance.EnableBalance.Value;
+
+            _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
 
             // Add components to composite
             _configurationComposite.AddComponent((IConfigurable)PatchFactory.Instance);
@@ -285,6 +289,8 @@ namespace DrifterBossGrabMod
             SetupCharacterFlagMultiplierHandlers();
             SetupHudSubTabHandlers();
             SetupBalanceSubTabHandlers();
+            SetupPresetHandlers();
+            SetupAutoSwitchToCustomHandlers();
             PersistenceManager.UpdateCachedConfig();
         }
 
@@ -457,6 +463,156 @@ namespace DrifterBossGrabMod
             };
         }
 
+        private void SetupPresetHandlers()
+        {
+            // When preset changes, apply the preset to all config entries
+            PluginConfig.Instance.SelectedPreset.SettingChanged += (sender, args) =>
+            {
+                var selectedPreset = PluginConfig.Instance.SelectedPreset.Value;
+                Log.Info($"[SelectedPreset.SettingChanged] Preset changed to: {selectedPreset}");
+                PresetManager.ApplyPreset(selectedPreset);
+
+                // Toggle DrifterGrabFeature based on preset (enabled when not Vanilla)
+                bool isNowEnabled = selectedPreset != PresetType.Vanilla;
+                if (isNowEnabled != _wasDrifterGrabEnabled)
+                {
+                    _drifterGrabFeature?.Toggle(_drifterGrabHarmony!, isNowEnabled);
+                    _wasDrifterGrabEnabled = isNowEnabled;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[FeatureToggle] DrifterGrab feature {(isNowEnabled ? "enabled" : "disabled")} at runtime due to preset change");
+                    }
+                }
+            };
+        }
+
+        private void SetupAutoSwitchToCustomHandlers()
+        {
+            // Add event handlers to all settings to detect modifications and auto-switch to Custom
+            // General settings
+            PluginConfig.Instance.EnableBossGrabbing.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableNPCGrabbing.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.ProjectileGrabbingMode.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableDebugLogs.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableComponentAnalysisLogs.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.EnableConfigSync.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+            PluginConfig.Instance.MassMultiplier.SettingChanged += (sender, args) =>
+            {
+                PresetManager.OnSettingModified();
+                PresetManager.RefreshPresetDropdownUI();
+            };
+
+            // Skill settings
+            PluginConfig.Instance.SearchRangeMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MaxSmacks.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+
+            // Persistence settings
+            PluginConfig.Instance.EnableObjectPersistence.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableAutoGrab.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PersistBaggedBosses.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PersistBaggedNPCs.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.AutoGrabDelay.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+
+            // Bottomless Bag settings
+            PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BottomlessBagBaseCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableStockRefreshClamping.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CycleCooldown.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.InverseMouseWheelScrolling.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.AutoPromoteMainSeat.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+
+            // HUD settings
+            PluginConfig.Instance.EnableCarouselHUD.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselSpacing.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselCenterOffsetX.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselCenterOffsetY.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselSideOffsetX.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselSideOffsetY.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselSideScale.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselSideOpacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CarouselAnimationDuration.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BagUIShowIcon.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BagUIShowWeight.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BagUIShowName.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BagUIShowHealthBar.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableDamagePreview.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.DamagePreviewColor.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.UseNewWeightIcon.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.WeightDisplayMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ScaleWeightColor.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableMassCapacityUI.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MassCapacityUIPositionY.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MassCapacityUIScale.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+
+            // Balance settings
+            PluginConfig.Instance.EnableBalance.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableAoESlamDamage.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.AoEDamageDistribution.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityScalingMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityScalingType.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityScalingBonusPerCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EliteMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BossMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ChampionMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PlayerMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MinionMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.DroneMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MechanicalMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.VoidMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableOverencumbrance.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.OverencumbranceMaxPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.UncapCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ToggleMassCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.StateCalculationModeEnabled.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.StateCalculationMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.AllModeMassMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MinMovespeedPenalty.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MaxMovespeedPenalty.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.FinalMovespeedPenaltyLimit.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.UncapBagScale.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.UncapMass.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+        }
+
         // Refreshes the FloatField UI to display the current ConfigEntry value.
         private void RefreshFloatFieldUI(ConfigEntry<float> configEntry)
         {
@@ -517,6 +673,7 @@ namespace DrifterBossGrabMod
                             {
                                 cultureInfo = System.Globalization.CultureInfo.InvariantCulture;
                             }
+
                             var formattedValue = string.Format(cultureInfo, formatString, newValue);
                             inputField.text = formattedValue;
                             Log.Info($"[RefreshFloatFieldUI] Text field updated successfully to: {formattedValue}");
@@ -812,6 +969,9 @@ namespace DrifterBossGrabMod
         private void AddConfigurationOptions()
         {
             if (!RooInstalled) return;
+            // Preset selection dropdown (at the top of General category)
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedPreset));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBossGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableNPCGrabbing));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableEnvironmentGrabbing));
