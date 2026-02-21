@@ -10,7 +10,7 @@ namespace DrifterBossGrabMod.Core
 {
     // Calculates predicted slam damage for the damage preview overlay
     // Uses the SuffocateSlam damage formula:
-    //   effectiveCoef = baseDamageCoef + (massScaling * baggedMass / maxMass)
+    //   effectiveCoef = baseDamageCoef + (massScaling * baggedMass / maxCapacity)
     //   damage = drifterBody.damage * effectiveCoef
     public static class SlamDamageCalculator
     {
@@ -126,7 +126,8 @@ namespace DrifterBossGrabMod.Core
             // Only apply mass scaling if we didn't read the already-scaled value from the state
             if (!foundState)
             {
-                float massFraction = bagController ? (bagController.baggedMass / DrifterBagController.maxMass) : 0f;
+                float maxCapacity = bagController ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+                float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
                 return baseDamageCoef + (massScaling * massFraction);
             }
 
@@ -159,7 +160,8 @@ namespace DrifterBossGrabMod.Core
 
             // Calculation logic matching GetEffectiveCoefficient
             float mass = bagController ? bagController.baggedMass : 0f;
-            float massFraction = bagController ? (bagController.baggedMass / DrifterBagController.maxMass) : 0f;
+            float maxCapacity = bagController ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+            float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
             float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
 
             var drifterBody = bagController ? bagController.GetComponent<CharacterBody>() : null;
@@ -185,7 +187,7 @@ namespace DrifterBossGrabMod.Core
 
             Log.Info($"[SlamCalcs] Target: {target.name}");
             Log.Info($"  Components: Coef={baseDamageCoef} (StateFound={foundState}) MassScaling={massScaling} (Only applied if !StateFound)");
-            Log.Info($"  Mass: {mass}/{DrifterBagController.maxMass} (Frac={massFraction:F2})");
+            Log.Info($"  Mass: {mass}/{maxCapacity} (Frac={massFraction:F2})");
             Log.Info($"  EffectiveCoef: {effectiveCoef:F2}");
             Log.Info($"  Damage: {damageStat} * {effectiveCoef:F2} = {baseDamage:F1}");
             Log.Info($"  Mitigation: Armor={armor} -> Factor={armorFactor:F2} -> Mitigated={mitigatedDamage:F1}");

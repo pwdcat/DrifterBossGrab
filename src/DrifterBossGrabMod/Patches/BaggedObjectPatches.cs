@@ -189,17 +189,24 @@ namespace DrifterBossGrabMod.Patches
         {
             if (baggedObject == null) return;
 
+            float maxCapacity = DrifterBagController.maxMass;
+            var controller = baggedObject.outer.GetComponent<DrifterBagController>();
+            if (controller != null)
+            {
+                maxCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
+            }
+
             float value = mass;
             if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapBagScale.Value)
             {
-                value = Mathf.Clamp(mass, 1f, DrifterBagController.maxMass);
+                value = Mathf.Clamp(mass, 1f, maxCapacity);
             }
             else
             {
                 value = Mathf.Max(mass, 1f);
             }
 
-            float t = (value - 1f) / (DrifterBagController.maxMass - 1f);
+            float t = (value - 1f) / (maxCapacity - 1f);
             float bagScale01 = 0.5f + 0.5f * t;
 
             _bagScale01Field.SetValue(baggedObject, bagScale01);
@@ -207,10 +214,9 @@ namespace DrifterBossGrabMod.Patches
             // When UncapBagScale is enabled
             if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapBagScale.Value)
             {
-                var bagController = baggedObject.outer.GetComponent<DrifterBagController>();
-                if (bagController != null)
+                if (controller != null)
                 {
-                    BagPassengerManager.UpdateUncappedBagScale(bagController, mass);
+                    BagPassengerManager.UpdateUncappedBagScale(controller, mass);
                 }
             }
             else

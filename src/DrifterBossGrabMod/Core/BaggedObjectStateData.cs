@@ -166,15 +166,17 @@ namespace DrifterBossGrabMod.Core
 
                 // Calculate bagScale01 - only apply UncapBagScale when EnableBalance is true
                 float massValue = baggedMass;
+                float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
+                
                 if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapBagScale.Value)
                 {
-                    massValue = Mathf.Clamp(baggedMass, 1f, DrifterBagController.maxMass);
+                    massValue = Mathf.Clamp(baggedMass, 1f, maxCapacity);
                 }
                 else
                 {
                     massValue = Mathf.Max(baggedMass, 1f);
                 }
-                float t = (massValue - 1f) / (DrifterBagController.maxMass - 1f);
+                float t = (massValue - 1f) / (maxCapacity - 1f);
                 bagScale01 = 0.5f + 0.5f * t;
 
                 // Calculate movespeedPenalty
@@ -182,8 +184,7 @@ namespace DrifterBossGrabMod.Core
                 var minPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MinMovespeedPenalty.Value : 0f;
                 var maxPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MaxMovespeedPenalty.Value : 0f;
                 var finalLimit = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.FinalMovespeedPenaltyLimit.Value : 0f;
-                float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
-                float massRatio = Mathf.Clamp01(baggedMass / massCapacity);
+                float massRatio = Mathf.Clamp01(baggedMass / maxCapacity);
                 movespeedPenalty = Mathf.Lerp(minPenalty, maxPenalty, massRatio);
                 movespeedPenalty = Mathf.Min(movespeedPenalty, finalLimit);
 

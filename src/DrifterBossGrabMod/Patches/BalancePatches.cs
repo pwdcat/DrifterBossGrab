@@ -30,13 +30,16 @@ namespace DrifterBossGrabMod.Patches
                 // Only apply balance features when EnableBalance is true
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
-                if (PluginConfig.Instance.CapacityScalingMode.Value == Balance.CapacityScalingMode.HalveMass)
+                if (targetObject != null)
                 {
-                    __result = Balance.CapacityScalingSystem.ApplyMassScaling(__instance, targetObject, __result);
-                }
+                    if (PluginConfig.Instance.CapacityScalingMode.Value == Balance.CapacityScalingMode.HalveMass)
+                    {
+                        __result = Balance.CapacityScalingSystem.ApplyMassScaling(__instance, targetObject, __result);
+                    }
 
-                // Apply character flag mass bonus using the new system
-                __result = Balance.CharacterFlagMassBonus.ApplyFlagBonus(targetObject, __result);
+                    // Apply character flag mass bonus using the new system
+                    __result = Balance.CharacterFlagMassBonus.ApplyFlagBonus(targetObject, __result);
+                }
             }
         }
 
@@ -49,10 +52,15 @@ namespace DrifterBossGrabMod.Patches
                 // Only apply overencumbrance when EnableBalance is true
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
-                if (PluginConfig.Instance.EnableOverencumbrance.Value)
+                var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
+                if (drifterBagController != null && drifterBagController.hasAuthority)
                 {
-                    var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
-                    if (drifterBagController != null && drifterBagController.hasAuthority)
+                    if (PluginConfig.Instance.HealthPerExtraSlot.Value > 0 || PluginConfig.Instance.LevelsPerExtraSlot.Value > 0)
+                    {
+                        UIPatches.UpdateMassCapacityUIOnCapacityChange(drifterBagController);
+                    }
+
+                    if (PluginConfig.Instance.EnableOverencumbrance.Value)
                     {
                         Balance.OverencumbranceSystem.ApplyOverencumbrance(__instance, drifterBagController);
                     }

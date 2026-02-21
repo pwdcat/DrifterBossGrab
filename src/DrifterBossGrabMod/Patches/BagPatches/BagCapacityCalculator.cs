@@ -45,13 +45,31 @@ namespace DrifterBossGrabMod.Patches
             return totalMass;
         }
 
-        // Gets the maximum utility stock capacity for the bag
+        // Gets maximum utility stock capacity for bag
         public static int GetUtilityMaxStock(DrifterBagController drifterBagController, GameObject? incomingObject = null)
         {
-            // If UncapCapacity is enabled AND EnableBalance is true, return a very large value (effectively unlimited slots)
-            // The bag will rely purely on mass capacity instead
+            // If UncapCapacity is enabled AND EnableBalance is true, check mass capacity
+            // The bag will rely purely on mass capacity instead of slot count
             if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapCapacity.Value)
             {
+                // Check if we're at or would be at mass cap
+                int usedCapacity = GetCurrentBaggedCount(drifterBagController);
+                float totalMass = CalculateTotalBagMass(drifterBagController, incomingObject);
+                
+                // Calculate mass capacity with overencumbrance limit
+                float massCapacity = CapacityScalingSystem.CalculateMassCapacity(drifterBagController);
+                float overencumbranceMultiplier = Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor);
+                float maxMassCapacity = massCapacity * overencumbranceMultiplier;
+                
+                // Check if we're at or would be at 200% mass cap
+                bool isAtMassCap = totalMass >= maxMassCapacity;
+                if (isAtMassCap)
+                {
+                    // Enforce slot capacity to used capacity (minimum 1)
+                    return Math.Max(1, usedCapacity);
+                }
+                
+                // Not at mass cap - return a large value (effectively unlimited)
                 return int.MaxValue;
             }
 
@@ -63,9 +81,35 @@ namespace DrifterBossGrabMod.Patches
             if (body && body.skillLocator && body.skillLocator.utility)
             {
                 int maxStock = body.skillLocator.utility.maxStock;
-                int slotCapacity = maxStock + PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
+                int baseSlots = maxStock + PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
 
-                // If overencumbrance is enabled, check if we're at the 200% mass cap
+                int extraSlots = 0;
+
+                // Add Capacity slots using new formula (Health and Level sliders)
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    float healthSlots = 0;
+                    float levelSlots = 0;
+
+                    float healthPerSlot = PluginConfig.Instance.HealthPerExtraSlot.Value;
+                    if (healthPerSlot > 0)
+                    {
+                        float health = body.maxHealth;
+                        healthSlots = Mathf.Floor(health / healthPerSlot);
+                    }
+
+                    int levelsPerSlot = PluginConfig.Instance.LevelsPerExtraSlot.Value;
+                    if (levelsPerSlot > 0)
+                    {
+                        levelSlots = Mathf.Floor((body.level - 1f) / levelsPerSlot);
+                    }
+
+                    extraSlots = (int)healthSlots + (int)levelSlots;
+                }
+
+                int slotCapacity = baseSlots + extraSlots;
+
+                // If overencumbrance is enabled, check if we're at 200% mass cap
                 if (PluginConfig.Instance.EnableOverencumbrance.Value && PluginConfig.Instance.EnableBalance.Value)
                 {
                     // Predictive capacity calculation: Check if we WOULD be at mass cap after adding incoming object
@@ -80,13 +124,12 @@ namespace DrifterBossGrabMod.Patches
                         : Constants.Multipliers.DefaultMassMultiplier;
                     float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 
-                    // Check if we're at or would be at the 200% mass cap
+                    // Check if we're at or would be at 200% mass cap
                     bool isAtMassCap = totalMass >= maxMassCapacity;
                     if (isAtMassCap)
                     {
-                        // Set slot capacity to used capacity (current object count) to make it "maxed out"
-                        bool hasIncoming = incomingObject != null || BagPatches.GetState(drifterBagController).IncomingObject != null;
-                        slotCapacity = hasIncoming ? usedCapacity + 1 : usedCapacity;
+                        // Enforce slot capacity to used capacity (minimum 1) to make it "maxed out"
+                        slotCapacity = Math.Max(1, usedCapacity);
                     }
                 }
 
@@ -95,7 +138,7 @@ namespace DrifterBossGrabMod.Patches
             return PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
         }
 
-        // Checks if the bag is at or above the 200% mass capacity cap
+        // Checks if bag is at or above 200% mass capacity cap
         private static bool IsAtMassCapacityCap(DrifterBagController drifterBagController)
         {
             if (drifterBagController == null) return false;
@@ -111,11 +154,11 @@ namespace DrifterBossGrabMod.Patches
             // Get current total mass
             float totalMass = CalculateTotalBagMass(drifterBagController);
 
-            // Check if we're at or above the 200% cap
+            // Check if we're at or above 200% cap
             return totalMass >= maxMassCapacity;
         }
 
-        // Gets the current count of bagged objects
+        // Gets current count of bagged objects
         public static int GetCurrentBaggedCount(DrifterBagController controller)
         {
             if (controller == null) return 0;
@@ -182,7 +225,7 @@ namespace DrifterBossGrabMod.Patches
             return currentCount < effectiveCapacity;
         }
 
-        // Gets the total mass of all bagged objects
+        // Gets total mass of all bagged objects
         public static float GetBaggedObjectMass(DrifterBagController controller)
         {
             if (controller == null) return 0f;

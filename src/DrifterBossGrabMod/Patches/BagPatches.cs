@@ -213,6 +213,17 @@ namespace DrifterBossGrabMod.Patches
                     return false;
                 }
                 if (passengerObject == null) return true;
+
+                // If the object was previously thrown and grabbed mid-air, it is no longer a projectile
+                if (OtherPatches.IsInProjectileState(passengerObject))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[AssignPassenger] Object {passengerObject.name} grabbed mid-air. Removing from projectile tracking.");
+                    }
+                    OtherPatches.RemoveFromProjectileState(passengerObject);
+                }
+
                 CharacterBody? body = null;
                 var localDisabledStates = new Dictionary<GameObject, bool>();
                 var modelLocator = passengerObject.GetComponent<ModelLocator>();

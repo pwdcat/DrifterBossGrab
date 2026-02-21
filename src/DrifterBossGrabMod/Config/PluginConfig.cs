@@ -60,7 +60,8 @@ namespace DrifterBossGrabMod
     {
         All,
         Capacity,
-        MassMultipliers,
+        TagScaling,
+        HealthScaling,
         Overencumbrance,
         StateCalculation,
         MovespeedPenalty,
@@ -199,6 +200,8 @@ namespace DrifterBossGrabMod
         public ConfigEntry<DrifterBossGrabMod.Balance.ScalingType> CapacityScalingType { get; private set; } = null!;
         public ConfigEntry<float> CapacityScalingBonusPerCapacity { get; private set; } = null!;
         public ConfigEntry<float> EliteMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> EliteBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> EliteLevelMassMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableOverencumbrance { get; private set; } = null!;
         public ConfigEntry<float> OverencumbranceMaxPercent { get; private set; } = null!;
         public ConfigEntry<bool> UncapCapacity { get; private set; } = null!;
@@ -207,18 +210,44 @@ namespace DrifterBossGrabMod
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
         public ConfigEntry<float> AllModeMassMultiplier { get; private set; } = null!;
 
+        // Health/Level Slot Scaling configurations
+        public ConfigEntry<float> HealthPerExtraSlot { get; private set; } = null!;
+        public ConfigEntry<int> LevelsPerExtraSlot { get; private set; } = null!;
+
         // Character flag mass multiplier configurations
         public ConfigEntry<float> BossMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> BossBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> BossLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> ChampionMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> ChampionBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> ChampionLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> PlayerMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> PlayerBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> PlayerLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> MinionMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> MinionBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> MinionLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> DroneMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> DroneBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> DroneLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> MechanicalMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> MechanicalBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> MechanicalLevelMassMultiplier { get; private set; } = null!;
+
         public ConfigEntry<float> VoidMassBonusPercent { get; private set; } = null!;
+        public ConfigEntry<float> VoidBaseHealthMassMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> VoidLevelMassMultiplier { get; private set; } = null!;
 
         // Risk of Options UI controls for flag multiplier configuration
         public ConfigEntry<CharacterFlagType> SelectedFlag { get; private set; } = null!;
         public ConfigEntry<float> SelectedFlagMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> SelectedFlagBaseHealthMultiplier { get; private set; } = null!;
+        public ConfigEntry<float> SelectedFlagLevelMultiplier { get; private set; } = null!;
 
         // Risk of Options UI controls for HUD sub-tab system
         public ConfigEntry<HudSubTabType> SelectedHudSubTab { get; private set; } = null!;
@@ -287,9 +316,15 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CAPACITYSCALINGTYPE.CHOICE"] = BalanceSubTabType.Capacity,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.CAPACITYSCALINGBONUSPERCAPACITY.FLOAT_FIELD"] = BalanceSubTabType.Capacity,
 
-            // Mass Multipliers settings (only UI controls, not individual multipliers)
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SELECTEDFLAG.CHOICE"] = BalanceSubTabType.MassMultipliers,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.MassMultipliers,
+            // Tag Scaling settings (only UI controls, not individual multipliers)
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SELECTEDFLAG.CHOICE"] = BalanceSubTabType.TagScaling,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.TagScaling,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGBASEHEALTHMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.TagScaling,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGLEVELMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.TagScaling,
+
+            // Health Scaling settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.HEALTHPEREXTRASLOT.FLOAT_FIELD"] = BalanceSubTabType.HealthScaling,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.LEVELSPEREXTRASLOT.INT_SLIDER"] = BalanceSubTabType.HealthScaling,
 
             // Overencumbrance settings
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEOVERENCUMBRANCE.CHECKBOX"] = BalanceSubTabType.Overencumbrance,
@@ -564,46 +599,83 @@ namespace DrifterBossGrabMod
             Instance.CapacityScalingBonusPerCapacity = cfg.Bind("Balance", "CapacityScalingBonusPerCapacity", 100.0f, "Bonus mass capacity per utility stock.\n" +
                 "Formula: CapacityBonus = UtilityStocks × CapacityScalingBonusPerCapacity\n" +
                 "Example: With 2 stocks and 100 bonus, capacity increases by 200");
-            Instance.EliteMassBonusPercent = cfg.Bind("Balance", "EliteMassBonusPercent", 0.0f, "Percentage mass bonus for elites.\n" +
-                "Formula: EliteMass = BaseMass × (1 + EliteMassBonusPercent / 100)\n" +
-                "Example: With 10%, a 100 mass elite becomes 110 mass\n" +
+
+            Instance.HealthPerExtraSlot = cfg.Bind("Balance", "HealthPerExtraSlot", 0.0f, "When greater than 0, how much Maximum Health grants +1 numerical Slot.\n" +
+                "Leveling up will also grant slots via health increases. Set to 0 to disable this scaling.");
+
+            Instance.LevelsPerExtraSlot = cfg.Bind("Balance", "LevelsPerExtraSlot", 0, new BepInEx.Configuration.ConfigDescription("When greater than 0, how many character levels grants +1 numerical Slot directly, independent of health.\n" +
+                "For example, at level 4 you gain +1 slot if set to 3. Set to 0 to disable this scaling.", new BepInEx.Configuration.AcceptableValueRange<int>(0, 20)));
+
+            Instance.EliteMassBonusPercent = cfg.Bind("Balance", "EliteMassBonusPercent", 0.0f, "Mass multiplier for elites (e.g. 1.5 = 1.5x mass).\n" +
                 "0 = disabled");
-            Instance.BossMassBonusPercent = cfg.Bind("Balance", "BossMassBonusPercent", 0.0f, "Percentage mass bonus for bosses.\n" +
-                "Formula: BossMass = BaseMass × (1 + BossMassBonusPercent / 100)\n" +
-                "Example: With 100%, a 100 mass boss becomes 200 mass\n" +
+            Instance.EliteBaseHealthMassMultiplier = cfg.Bind("Balance", "EliteBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Elite entities.\n" +
                 "0 = disabled");
-            Instance.ChampionMassBonusPercent = cfg.Bind("Balance", "ChampionMassBonusPercent", 0.0f, "Percentage mass bonus for champions.\n" +
-                "Formula: ChampionMass = BaseMass × (1 + ChampionMassBonusPercent / 100)\n" +
-                "Example: With 75%, a 100 mass champion becomes 175 mass\n" +
+            Instance.EliteLevelMassMultiplier = cfg.Bind("Balance", "EliteLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Elite entities.\n" +
                 "0 = disabled");
-            Instance.PlayerMassBonusPercent = cfg.Bind("Balance", "PlayerMassBonusPercent", 0.0f, "Percentage mass bonus for player-controlled entities.\n" +
-                "Formula: PlayerMass = BaseMass × (1 + PlayerMassBonusPercent / 100)\n" +
-                "Example: With 50%, a 100 mass player becomes 150 mass\n" +
+            Instance.BossMassBonusPercent = cfg.Bind("Balance", "BossMassBonusPercent", 0.0f, "Mass multiplier for bosses (e.g. 1.5 = 1.5x mass).\n" +
                 "0 = disabled");
-            Instance.MinionMassBonusPercent = cfg.Bind("Balance", "MinionMassBonusPercent", 0.0f, "Percentage mass bonus for minions.\n" +
-                "Formula: MinionMass = BaseMass × (1 + MinionMassBonusPercent / 100)\n" +
-                "Example: With 50%, a 100 mass minion becomes 150 mass\n" +
+            Instance.BossBaseHealthMassMultiplier = cfg.Bind("Balance", "BossBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Boss entities.\n" +
+                "Formula: AddedMass = BaseHealth × BossBaseHealthMassMultiplier\n" +
+                "Example: With 0.1, a 1000 base health boss gains 100 mass. 0 = disabled");
+            Instance.BossLevelMassMultiplier = cfg.Bind("Balance", "BossLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Boss entities.\n" +
+                "Formula: AddedMass = BossLevel × BossLevelMassMultiplier\n" +
+                "Example: With 10.0, a level 5 boss gains 50 mass. 0 = disabled");
+
+            Instance.ChampionMassBonusPercent = cfg.Bind("Balance", "ChampionMassBonusPercent", 0.0f, "Mass multiplier for champions (e.g. 1.5 = 1.5x mass).\n" +
                 "0 = disabled");
-            Instance.DroneMassBonusPercent = cfg.Bind("Balance", "DroneMassBonusPercent", 0.0f, "Percentage mass bonus for drones.\n" +
-                "Formula: DroneMass = BaseMass × (1 + DroneMassBonusPercent / 100)\n" +
-                "Example: With -50%, a 100 mass drone becomes 50 mass\n" +
-                "Negative values reduce mass, 0 = disabled");
-            Instance.MechanicalMassBonusPercent = cfg.Bind("Balance", "MechanicalMassBonusPercent", 0.0f, "Percentage mass bonus for mechanical entities.\n" +
-                "Formula: MechanicalMass = BaseMass × (1 + MechanicalMassBonusPercent / 100)\n" +
-                "Example: With 50%, a 100 mass mechanical becomes 150 mass\n" +
+            Instance.ChampionBaseHealthMassMultiplier = cfg.Bind("Balance", "ChampionBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Champion entities.\n" +
                 "0 = disabled");
-            Instance.VoidMassBonusPercent = cfg.Bind("Balance", "VoidMassBonusPercent", 0.0f, "Percentage mass bonus for void entities.\n" +
-                "Formula: VoidMass = BaseMass × (1 + VoidMassBonusPercent / 100)\n" +
-                "Example: With 50%, a 100 mass void becomes 150 mass\n" +
+            Instance.ChampionLevelMassMultiplier = cfg.Bind("Balance", "ChampionLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Champion entities.\n" +
+                "0 = disabled");
+
+            Instance.PlayerMassBonusPercent = cfg.Bind("Balance", "PlayerMassBonusPercent", 0.0f, "Mass multiplier for player-controlled entities (e.g. 1.5 = 1.5x mass).\n" +
+                "0 = disabled");
+            Instance.PlayerBaseHealthMassMultiplier = cfg.Bind("Balance", "PlayerBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Player-controlled entities.\n" +
+                "0 = disabled");
+            Instance.PlayerLevelMassMultiplier = cfg.Bind("Balance", "PlayerLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Player-controlled entities.\n" +
+                "0 = disabled");
+
+            Instance.MinionMassBonusPercent = cfg.Bind("Balance", "MinionMassBonusPercent", 0.0f, "Mass multiplier for minions (e.g. 1.5 = 1.5x mass).\n" +
+                "0 = disabled");
+            Instance.MinionBaseHealthMassMultiplier = cfg.Bind("Balance", "MinionBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Minion entities.\n" +
+                "0 = disabled");
+            Instance.MinionLevelMassMultiplier = cfg.Bind("Balance", "MinionLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Minion entities.\n" +
+                "0 = disabled");
+
+            Instance.DroneMassBonusPercent = cfg.Bind("Balance", "DroneMassBonusPercent", 0.0f, "Mass multiplier for drones (e.g. 0.5 = 0.5x mass).\n" +
+                "Values between 0 and 1 reduce mass, 0 = disabled");
+            Instance.DroneBaseHealthMassMultiplier = cfg.Bind("Balance", "DroneBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Drone entities.\n" +
+                "0 = disabled");
+            Instance.DroneLevelMassMultiplier = cfg.Bind("Balance", "DroneLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Drone entities.\n" +
+                "0 = disabled");
+
+            Instance.MechanicalMassBonusPercent = cfg.Bind("Balance", "MechanicalMassBonusPercent", 1.5f, "Mass multiplier for mechanical entities (e.g. 1.5 = 1.5x mass).\n" +
+                "0 = disabled");
+            Instance.MechanicalBaseHealthMassMultiplier = cfg.Bind("Balance", "MechanicalBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Mechanical entities.\n" +
+                "0 = disabled");
+            Instance.MechanicalLevelMassMultiplier = cfg.Bind("Balance", "MechanicalLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Mechanical entities.\n" +
+                "0 = disabled");
+
+            Instance.VoidMassBonusPercent = cfg.Bind("Balance", "VoidMassBonusPercent", 0.0f, "Mass multiplier for void entities (e.g. 1.5 = 1.5x mass).\n" +
+                "0 = disabled");
+            Instance.VoidBaseHealthMassMultiplier = cfg.Bind("Balance", "VoidBaseHealthMassMultiplier", 0.0f, "Amount of mass granted per 1 point of base level 1 health for Void entities.\n" +
+                "0 = disabled");
+            Instance.VoidLevelMassMultiplier = cfg.Bind("Balance", "VoidLevelMassMultiplier", 0.0f, "Amount of mass granted per level for Void entities.\n" +
                 "0 = disabled");
 
             // Risk of Options UI controls (not saved to config file, used for UI only)
             Instance.SelectedFlag = cfg.Bind("Balance", "SelectedFlag", CharacterFlagType.Elite,
                 "Select which flag to modify (UI only)");
             Instance.SelectedFlag.Value = CharacterFlagType.Elite; // Set default
-            Instance.SelectedFlagMultiplier = cfg.Bind("Balance", "FlagMultiplier", 10.0f,
-                "Multiplier for selected flag (UI only)");
+            Instance.SelectedFlagMultiplier = cfg.Bind("Balance", "FlagMultiplier", 0.0f,
+                "Mass Multiplier for selected flag (UI only)");
             Instance.SelectedFlagMultiplier.Value = Instance.EliteMassBonusPercent.Value; // Initialize with elite value
+            Instance.SelectedFlagBaseHealthMultiplier = cfg.Bind("Balance", "FlagBaseHealthMultiplier", 0.0f,
+                "Amount of mass granted per 1 point of base level 1 health for selected flag (UI only)");
+            Instance.SelectedFlagBaseHealthMultiplier.Value = 0.0f; 
+            Instance.SelectedFlagLevelMultiplier = cfg.Bind("Balance", "FlagLevelMultiplier", 0.0f,
+                "Amount of mass granted per level for selected flag (UI only)");
+            Instance.SelectedFlagLevelMultiplier.Value = 0.0f;
 
             // HUD sub-tab selection
             Instance.SelectedHudSubTab = cfg.Bind("Hud", "SelectedHudSubTab", HudSubTabType.All,
@@ -734,6 +806,26 @@ namespace DrifterBossGrabMod
                     CapacityScalingSystem.RecalculateCapacity(bagController);
                 }
             };
+
+            Instance.HealthPerExtraSlot.SettingChanged += (sender, args) =>
+            {
+                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
+                {
+                    CapacityScalingSystem.RecalculateCapacity(bagController);
+                    CapacityScalingSystem.RecalculateState(bagController);
+                }
+            };
+
+            Instance.LevelsPerExtraSlot.SettingChanged += (sender, args) =>
+            {
+                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
+                {
+                    CapacityScalingSystem.RecalculateCapacity(bagController);
+                    CapacityScalingSystem.RecalculateState(bagController);
+                }
+            };
+
+
 
             Instance.UncapCapacity.SettingChanged += (sender, args) =>
             {
@@ -945,6 +1037,39 @@ namespace DrifterBossGrabMod
                 case CharacterFlagType.Mechanical: return Instance.MechanicalMassBonusPercent;
                 case CharacterFlagType.Void: return Instance.VoidMassBonusPercent;
                 default: return Instance.EliteMassBonusPercent;
+            }
+        }
+
+        public static ConfigEntry<float> GetFlagBaseHealthMultiplierConfig(CharacterFlagType flag)
+        {
+            switch (flag)
+            {
+                case CharacterFlagType.Elite: return Instance.EliteBaseHealthMassMultiplier;
+                case CharacterFlagType.Boss: return Instance.BossBaseHealthMassMultiplier;
+                case CharacterFlagType.Champion: return Instance.ChampionBaseHealthMassMultiplier;
+                case CharacterFlagType.Player: return Instance.PlayerBaseHealthMassMultiplier;
+                case CharacterFlagType.Minion: return Instance.MinionBaseHealthMassMultiplier;
+                case CharacterFlagType.Drone: return Instance.DroneBaseHealthMassMultiplier;
+                case CharacterFlagType.Mechanical: return Instance.MechanicalBaseHealthMassMultiplier;
+                case CharacterFlagType.Void: return Instance.VoidBaseHealthMassMultiplier;
+                default: 
+                    return Instance.EliteBaseHealthMassMultiplier;
+            }
+        }
+
+        public static ConfigEntry<float> GetFlagLevelMultiplierConfig(CharacterFlagType flag)
+        {
+            switch (flag)
+            {
+                case CharacterFlagType.Elite: return Instance.EliteLevelMassMultiplier;
+                case CharacterFlagType.Boss: return Instance.BossLevelMassMultiplier;
+                case CharacterFlagType.Champion: return Instance.ChampionLevelMassMultiplier;
+                case CharacterFlagType.Player: return Instance.PlayerLevelMassMultiplier;
+                case CharacterFlagType.Minion: return Instance.MinionLevelMassMultiplier;
+                case CharacterFlagType.Drone: return Instance.DroneLevelMassMultiplier;
+                case CharacterFlagType.Mechanical: return Instance.MechanicalLevelMassMultiplier;
+                case CharacterFlagType.Void: return Instance.VoidLevelMassMultiplier;
+                default: return Instance.EliteLevelMassMultiplier;
             }
         }
 

@@ -194,7 +194,7 @@ namespace DrifterBossGrabMod.Core
             }
 
             // Calculate bag scale from aggregated mass
-            aggregateState.bagScale01 = CalculateBagScale01(aggregateState.baggedMass);
+            aggregateState.bagScale01 = CalculateBagScale01(controller, aggregateState.baggedMass);
 
             // Restore breakout data to prevent immediate breakout
             aggregateState.breakoutTime = preservedBreakoutTime;
@@ -244,22 +244,24 @@ namespace DrifterBossGrabMod.Core
         }
 
         // Calculates the bag scale (0-1 range) from mass
+        // controller: The DrifterBagController instance
         // mass: The mass to calculate scale for
         // Returns: The calculated bag scale (0-1 range)
-        public static float CalculateBagScale01(float mass)
+        public static float CalculateBagScale01(DrifterBagController controller, float mass)
         {
+            float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
             float value = mass;
             // Only apply UncapBagScale when EnableBalance is true
             if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapBagScale.Value)
             {
-                value = Mathf.Clamp(mass, 1f, DrifterBagController.maxMass);
+                value = Mathf.Clamp(mass, 1f, maxCapacity);
             }
             else
             {
                 value = Mathf.Max(mass, 1f);
             }
 
-            float t = (value - 1f) / (DrifterBagController.maxMass - 1f);
+            float t = (value - 1f) / (maxCapacity - 1f);
             return 0.5f + 0.5f * t;
         }
     }

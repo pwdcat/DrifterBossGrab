@@ -338,7 +338,7 @@ namespace DrifterBossGrabMod.Patches
             var maxPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MaxMovespeedPenalty.Value : 0f;
             var finalLimit = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.FinalMovespeedPenaltyLimit.Value : 0f;
             // Calculate mass ratio for penalty interpolation
-            float massCapacity = DrifterBagController.maxMass;
+            float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
             float value = Mathf.Clamp(totalMass, Constants.Limits.MinimumMass, massCapacity);
             // Only apply UncapMass when EnableBalance is true
             if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapMass.Value)

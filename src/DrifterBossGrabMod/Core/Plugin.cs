@@ -412,30 +412,48 @@ namespace DrifterBossGrabMod
 
         private void SetupCharacterFlagMultiplierHandlers()
         {
-            // When dropdown changes, update float field to show current value for that flag
+            // When dropdown changes, update float fields to show current values for that flag
             PluginConfig.Instance.SelectedFlag.SettingChanged += (sender, args) =>
             {
                 var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+
                 var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
-                var newValue = flagConfig.Value;
-
-                Log.Info($"[SelectedFlag.SettingChanged] Selected flag changed to: {selectedFlag}");
-                Log.Info($"[SelectedFlag.SettingChanged] Flag multiplier value: {newValue}");
-                Log.Info($"[SelectedFlag.SettingChanged] Setting SelectedFlagMultiplier.Value to: {newValue}");
-
-                PluginConfig.Instance.SelectedFlagMultiplier.Value = newValue;
-
-                // Refresh the FloatField UI to show the updated value
+                PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value;
                 RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
+
+                var healthConfig = PluginConfig.GetFlagBaseHealthMultiplierConfig(selectedFlag);
+                PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.Value = healthConfig.Value;
+                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagBaseHealthMultiplier);
+
+                var levelConfig = PluginConfig.GetFlagLevelMultiplierConfig(selectedFlag);
+                PluginConfig.Instance.SelectedFlagLevelMultiplier.Value = levelConfig.Value;
+                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagLevelMultiplier);
             };
 
-            // When float field changes, update the multiplier for the currently selected flag
+            // When float fields change, update the multiplier for the currently selected flag
             PluginConfig.Instance.SelectedFlagMultiplier.SettingChanged += (sender, args) =>
             {
                 var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
                 var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
                 flagConfig.Value = PluginConfig.Instance.SelectedFlagMultiplier.Value;
-                Log.Info($"[SelectedFlagMultiplier.SettingChanged] Flag {selectedFlag} multiplier updated to: {PluginConfig.Instance.SelectedFlagMultiplier.Value}");
+                // Trigger mass recalculation for all bag controllers
+                RecalculateAllBaggedMasses();
+            };
+
+            PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.SettingChanged += (sender, args) =>
+            {
+                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+                var healthConfig = PluginConfig.GetFlagBaseHealthMultiplierConfig(selectedFlag);
+                healthConfig.Value = PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.Value;
+                // Trigger mass recalculation for all bag controllers
+                RecalculateAllBaggedMasses();
+            };
+
+            PluginConfig.Instance.SelectedFlagLevelMultiplier.SettingChanged += (sender, args) =>
+            {
+                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+                var levelConfig = PluginConfig.GetFlagLevelMultiplierConfig(selectedFlag);
+                levelConfig.Value = PluginConfig.Instance.SelectedFlagLevelMultiplier.Value;
                 // Trigger mass recalculation for all bag controllers
                 RecalculateAllBaggedMasses();
             };
@@ -1075,9 +1093,15 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MaxMovespeedPenalty));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.FinalMovespeedPenaltyLimit));
 
+            // Health Scaling options
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.HealthPerExtraSlot));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.LevelsPerExtraSlot, new RiskOfOptions.OptionConfigs.IntSliderConfig { min = 0, max = 20 }));
+
             // Character flag multiplier UI options
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagMultiplier));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagBaseHealthMultiplier));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagLevelMultiplier));
         }
     }
 }

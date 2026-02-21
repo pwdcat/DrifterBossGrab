@@ -171,26 +171,27 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            float maxMass = DrifterBagController.maxMass; // 700f
+            var bagController = GetComponent<DrifterBagController>();
+            float maxCapacity = bagController != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass; // dynamic instead of 700f
 
-            // If mass is at or below maxMass, don't use this component
+            // If mass is at or below maxCapacity, don't use this component
             // Let the original animation system handle scaling
-            if (mass <= maxMass)
+            if (mass <= maxCapacity)
             {
                 TargetScale = 1.0f; // Reset to original scale
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[UncappedBagScaleComponent] Mass {mass} <= maxMass {maxMass}, using original animation system");
+                    Log.Info($"[UncappedBagScaleComponent] Mass {mass} <= maxCapacity {maxCapacity}, using original animation system");
                 }
                 return;
             }
 
-            // Only apply uncapped scaling if mass exceeds maxMass
+            // Only apply uncapped scaling if mass exceeds maxCapacity
             // Calculate scale based on to mass, similar to to original formula but to uncapped
             float value = Mathf.Max(mass, 1f);
 
-            // Calculate to normalized value (0 to to 1 range based on to maxMass)
-            float t = (value - 1f) / (maxMass - 1f);
+            // Calculate to normalized value (0 to to 1 range based on to maxCapacity)
+            float t = (value - 1f) / (maxCapacity - 1f);
 
             // Map to to scale range with floor of 1.0f and allow to exceeding
             // Original formula was 0.5f + 0.5f * t, which gave range 0.5f to 1.0f
@@ -201,7 +202,7 @@ namespace DrifterBossGrabMod.Features
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[UncappedBagScaleComponent] Mass {mass} > maxMass {maxMass}, calculated scale {newScale:F2} (t={t:F2})");
+                Log.Info($"[UncappedBagScaleComponent] Mass {mass} > maxCapacity {maxCapacity}, calculated scale {newScale:F2} (t={t:F2})");
             }
         }
 
@@ -217,8 +218,8 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            // Only apply scaling if target scale exceeds 1.0f (i.e., mass > maxMass)
-            // When mass <= maxMass, target scale is 1.0f, so we don't scale
+            // Only apply scaling if target scale exceeds 1.0f (i.e., mass > maxCapacity)
+            // When mass <= maxCapacity, target scale is 1.0f, so we don't scale
             if (_targetScale <= 1.0f) return;
 
             // Smoothly interpolate to current scale to to target scale

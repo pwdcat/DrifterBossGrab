@@ -48,7 +48,7 @@ namespace DrifterBossGrabMod.Patches
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
             [HarmonyPrefix]
-            public static bool Prefix(GameObject targetObject, ref float __result)
+            public static bool Prefix(DrifterBagController __instance, GameObject targetObject, ref float __result)
             {
                 if (!targetObject)
                 {
@@ -76,7 +76,8 @@ namespace DrifterBossGrabMod.Patches
                   // Clamp mass
                   if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapMass.Value)
                   {
-                      __result = Mathf.Clamp(mass, 0f, DrifterBagController.maxMass);
+                      float maxCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance);
+                      __result = Mathf.Clamp(mass, 0f, maxCapacity);
                   }
                   else
                   {

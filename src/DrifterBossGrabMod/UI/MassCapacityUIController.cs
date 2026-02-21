@@ -543,7 +543,7 @@ namespace DrifterBossGrabMod.UI
                 if (_bagController != null)
                 {
                     int capacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
-                    bool uncap = PluginConfig.Instance.UncapCapacity.Value;
+                    bool uncap = PluginConfig.Instance.UncapCapacity.Value && PluginConfig.Instance.EnableBalance.Value;
 
                     int k = 1;
 

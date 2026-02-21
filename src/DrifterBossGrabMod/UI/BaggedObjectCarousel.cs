@@ -815,7 +815,7 @@ namespace DrifterBossGrabMod.UI
             unitLabel.color = Color.white;
             unitLabel.alignment = TextAlignmentOptions.BottomRight;
             unitLabel.characterSpacing = -6;
-            unitLabel.fontSize = 2.5f;
+            unitLabel.fontSize = 3.5f;
 
             var unitRectTransform = unitLabel.GetComponent<RectTransform>();
             if (unitRectTransform)
@@ -825,12 +825,12 @@ namespace DrifterBossGrabMod.UI
                 // Position unit label at bottom-right of value
                 if (PluginConfig.Instance.UseNewWeightIcon.Value)
                 {
-                    unitRectTransform.anchoredPosition = new Vector2(-10f, -2f);
+                    unitRectTransform.anchoredPosition = new Vector2(-10.3f, -2.2f);
                     unitRectTransform.localRotation = Quaternion.identity;
                 }
                 else
                 {
-                    unitRectTransform.anchoredPosition = new Vector2(-0.5f, -10f);
+                    unitRectTransform.anchoredPosition = new Vector2(0f, -10f);
                     unitRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
                 }
             }

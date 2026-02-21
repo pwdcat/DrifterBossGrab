@@ -19,58 +19,70 @@ namespace DrifterBossGrabMod.Balance
                 return baseMass;
 
             // Check each flag and collect multipliers
-            float highestMultiplier = 0f;
+            float highestMassBonusPercent = 0f;
+            float highestHealthMultiplier = 0f;
+            float highestLevelMultiplier = 0f;
 
-            // Boolean properties
-            if (characterBody.isElite)
+            void CheckFlag(bool condition, float massBonus, float healthMult, float levelMult)
             {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.EliteMassBonusPercent.Value);
+                if (condition)
+                {
+                    highestMassBonusPercent = Mathf.Max(highestMassBonusPercent, massBonus);
+                    highestHealthMultiplier = Mathf.Max(highestHealthMultiplier, healthMult);
+                    highestLevelMultiplier = Mathf.Max(highestLevelMultiplier, levelMult);
+                }
             }
 
-            if (characterBody.isBoss)
+            var cfg = PluginConfig.Instance;
+
+            CheckFlag(characterBody.isElite, 
+                cfg.EliteMassBonusPercent.Value, cfg.EliteBaseHealthMassMultiplier.Value, cfg.EliteLevelMassMultiplier.Value);
+
+            CheckFlag(characterBody.isBoss, 
+                cfg.BossMassBonusPercent.Value, cfg.BossBaseHealthMassMultiplier.Value, cfg.BossLevelMassMultiplier.Value);
+
+            CheckFlag(characterBody.isChampion, 
+                cfg.ChampionMassBonusPercent.Value, cfg.ChampionBaseHealthMassMultiplier.Value, cfg.ChampionLevelMassMultiplier.Value);
+
+            CheckFlag(characterBody.isPlayerControlled, 
+                cfg.PlayerMassBonusPercent.Value, cfg.PlayerBaseHealthMassMultiplier.Value, cfg.PlayerLevelMassMultiplier.Value);
+
+            CheckFlag(characterBody.master != null && characterBody.master.minionOwnership != null, 
+                cfg.MinionMassBonusPercent.Value, cfg.MinionBaseHealthMassMultiplier.Value, cfg.MinionLevelMassMultiplier.Value);
+
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Drone) != 0, 
+                cfg.DroneMassBonusPercent.Value, cfg.DroneBaseHealthMassMultiplier.Value, cfg.DroneLevelMassMultiplier.Value);
+
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0, 
+                cfg.MechanicalMassBonusPercent.Value, cfg.MechanicalBaseHealthMassMultiplier.Value, cfg.MechanicalLevelMassMultiplier.Value);
+
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Void) != 0, 
+                cfg.VoidMassBonusPercent.Value, cfg.VoidBaseHealthMassMultiplier.Value, cfg.VoidLevelMassMultiplier.Value);
+
+            float totalMass = baseMass;
+
+            // Apply Base Health Mass (additive)
+            if (highestHealthMultiplier > 0f)
             {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.BossMassBonusPercent.Value);
+                float baseHealth = characterBody.baseMaxHealth;
+                totalMass += baseHealth * highestHealthMultiplier;
             }
 
-            if (characterBody.isChampion)
+            // Apply flag multiplier directly
+            if (highestMassBonusPercent != 0f)
             {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.ChampionMassBonusPercent.Value);
+                totalMass *= highestMassBonusPercent;
             }
 
-            if (characterBody.isPlayerControlled)
+            // Apply Level Multiplier
+            if (highestLevelMultiplier > 0f)
             {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.PlayerMassBonusPercent.Value);
+                // RoR2 considers base stats to be level 1, so additional levels are level - 1
+                float levelScaling = Mathf.Max(0, characterBody.level - 1f);
+                totalMass *= (1f + levelScaling * highestLevelMultiplier);
             }
 
-            // Minion check
-            if (characterBody.master != null && characterBody.master.minionOwnership != null)
-            {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.MinionMassBonusPercent.Value);
-            }
-
-            // BodyFlags
-            if ((characterBody.bodyFlags & CharacterBody.BodyFlags.Drone) != 0)
-            {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.DroneMassBonusPercent.Value);
-            }
-
-            if ((characterBody.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0)
-            {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.MechanicalMassBonusPercent.Value);
-            }
-
-            if ((characterBody.bodyFlags & CharacterBody.BodyFlags.Void) != 0)
-            {
-                highestMultiplier = Mathf.Max(highestMultiplier, PluginConfig.Instance.VoidMassBonusPercent.Value);
-            }
-
-            // Apply the highest multiplier
-            if (highestMultiplier != 0f)
-            {
-                return baseMass * (1f + (highestMultiplier / 100f));
-            }
-
-            return baseMass;
+            return totalMass;
         }
     }
 }
