@@ -182,6 +182,15 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> MassCapacityUIPositionX { get; private set; } = null!;
         public ConfigEntry<float> MassCapacityUIPositionY { get; private set; } = null!;
         public ConfigEntry<float> MassCapacityUIScale { get; private set; } = null!;
+        public ConfigEntry<bool> EnableSeparators { get; private set; } = null!;
+        public ConfigEntry<bool> EnableGradient { get; private set; } = null!;
+        public ConfigEntry<float> GradientIntensity { get; private set; } = null!;
+        public ConfigEntry<Color> CapacityGradientColorStart { get; private set; } = null!;
+        public ConfigEntry<Color> CapacityGradientColorMid { get; private set; } = null!;
+        public ConfigEntry<Color> CapacityGradientColorEnd { get; private set; } = null!;
+        public ConfigEntry<Color> OverencumbranceGradientColorStart { get; private set; } = null!;
+        public ConfigEntry<Color> OverencumbranceGradientColorMid { get; private set; } = null!;
+        public ConfigEntry<Color> OverencumbranceGradientColorEnd { get; private set; } = null!;
         // Balance configuration
         public ConfigEntry<bool> EnableBalance { get; private set; } = null!;
         public ConfigEntry<bool> EnableAoESlamDamage { get; private set; } = null!;
@@ -252,6 +261,15 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONX.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONY.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUISCALE.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLESEPARATORS.CHECKBOX"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEGRADIENT.CHECKBOX"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENTINTENSITY.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORSTART.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORMID.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLOREND.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORSTART.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORMID.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLOREND.COLOR"] = HudSubTabType.CapacityUI,
 
             // Damage Preview settings (only these two)
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEDAMAGEPREVIEW.CHECKBOX"] = HudSubTabType.DamagePreview,
@@ -513,6 +531,20 @@ namespace DrifterBossGrabMod
                 "Y position offset from the default location.");
             Instance.MassCapacityUIScale = cfg.Bind("Hud", "MassCapacityUIScale", 0.8f, "Scale multiplier for the Mass Capacity UI.\n" +
                 "Size multiplier for the UI element.");
+            Instance.EnableSeparators = cfg.Bind("Hud", "EnableSeparators", true, "Enable dynamic separators (threshold pips) on the Mass Capacity UI.\n" +
+                "Shows boundaries for each slot, or dynamically based on mass.");
+            Instance.EnableGradient = cfg.Bind("Hud", "EnableGradient", true, "Enable a color gradient on the Mass Capacity UI fill bar.\n" +
+                "Changes color from left to right based on capacity.");
+            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 1.0f, "Intensity of the gradient color on the Mass Capacity UI.\n" +
+                "1.0 is full intensity, lower values blend with the default color.");
+
+            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.2f, 0.8f, 0.2f, 1.0f), "Start color (low mass) for standard capacity gradient.");
+            Instance.CapacityGradientColorMid = cfg.Bind("Hud", "CapacityGradientColorMid", new Color(1.0f, 1.0f, 0.0f, 1.0f), "Mid color (medium mass) for standard capacity gradient.");
+            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.2f, 0.2f, 1.0f), "End color (high mass) for standard capacity gradient.");
+
+            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0.2f, 0.8f, 1.0f, 1.0f), "Start color (low encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.1f, 0.4f, 1.0f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.1f, 0.8f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
 
             // Balance configuration bindings
             Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable balance features (capacity scaling, elite mass bonus, overencumbrance).\n" +
@@ -656,6 +688,15 @@ namespace DrifterBossGrabMod
             Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
             Instance.MassCapacityUIPositionY.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
             Instance.MassCapacityUIScale.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.EnableSeparators.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.EnableGradient.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.GradientIntensity.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.CapacityGradientColorStart.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.CapacityGradientColorMid.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.CapacityGradientColorEnd.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.OverencumbranceGradientColorStart.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.OverencumbranceGradientColorMid.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
+            Instance.OverencumbranceGradientColorEnd.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
 
             // Balance config change handlers
             Instance.CapacityScalingMode.SettingChanged += (sender, args) =>

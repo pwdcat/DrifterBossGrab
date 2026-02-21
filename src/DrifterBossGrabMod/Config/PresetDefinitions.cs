@@ -71,6 +71,9 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionX"] = -20.0f,
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
+                ["Hud.EnableSeparators"] = true,
+                ["Hud.EnableGradient"] = true,
+                ["Hud.GradientIntensity"] = 1.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
@@ -155,6 +158,9 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionX"] = -20.0f,
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
+                ["Hud.EnableSeparators"] = true,
+                ["Hud.EnableGradient"] = true,
+                ["Hud.GradientIntensity"] = 1.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
@@ -239,6 +245,9 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionX"] = -20.0f,
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
+                ["Hud.EnableSeparators"] = true,
+                ["Hud.EnableGradient"] = true,
+                ["Hud.GradientIntensity"] = 1.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
@@ -323,6 +332,9 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionX"] = -20.0f,
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
+                ["Hud.EnableSeparators"] = true,
+                ["Hud.EnableGradient"] = true,
+                ["Hud.GradientIntensity"] = 1.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = true,
@@ -331,7 +343,6 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
                 ["Balance.CapacityScalingType"] = ScalingType.Exponential,
                 ["Balance.CapacityScalingBonusPerCapacity"] = 100.0f,
-                // MassBonusPercent settings are NOT included - they stay at default 0
                 ["Balance.EnableOverencumbrance"] = true,
                 ["Balance.OverencumbranceMaxPercent"] = 100.0f,
                 ["Balance.UncapCapacity"] = false,

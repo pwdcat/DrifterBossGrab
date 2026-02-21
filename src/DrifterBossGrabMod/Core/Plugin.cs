@@ -583,6 +583,16 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityUIPositionY.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityUIScale.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableSeparators.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.EnableGradient.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.GradientIntensity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityGradientColorStart.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityGradientColorMid.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.CapacityGradientColorEnd.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.OverencumbranceGradientColorStart.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.OverencumbranceGradientColorMid.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.OverencumbranceGradientColorEnd.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.GradientIntensity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
 
             // Balance settings
             PluginConfig.Instance.EnableBalance.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
@@ -1032,6 +1042,15 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionX));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionY));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIScale));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSeparators));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableGradient));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.GradientIntensity, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 1f, increment = 0.05f }));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.CapacityGradientColorStart));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.CapacityGradientColorMid));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.CapacityGradientColorEnd));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorStart));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorMid));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorEnd));
 
             // Balance configuration options
             // Balance sub-tab selection dropdown (at the top of Balance category)

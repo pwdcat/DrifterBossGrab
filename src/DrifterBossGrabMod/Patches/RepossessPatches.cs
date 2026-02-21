@@ -318,7 +318,7 @@ namespace DrifterBossGrabMod.Patches
             var bagController = seat.GetComponentInParent<DrifterBagController>();
             if (bagController)
             {
-                int count = BagCapacityCalculator.GetBaggedObjectCount(bagController);
+                int count = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
 
                 int maxCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
 

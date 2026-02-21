@@ -270,7 +270,7 @@ namespace DrifterBossGrabMod.Patches
                 int effectiveCapacity = __instance != null ? BagCapacityCalculator.GetUtilityMaxStock(__instance!, passengerObject) : 1;
                 var list = (__instance != null) ? GetState(__instance!).BaggedObjects : null;
                 if (list == null) return true;
-                int objectsInBag = BagCapacityCalculator.GetBaggedObjectCount(__instance!);
+                int objectsInBag = BagCapacityCalculator.GetCurrentBaggedCount(__instance!);
                 int passengerInstanceId = passengerObject.GetInstanceID();
                 bool isAlreadyTrackedByThisController = false;
                 foreach (var trackedObj in list)

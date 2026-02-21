@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using RoR2;
 using RoR2.UI;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.AddressableAssets;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Balance;
@@ -20,6 +21,12 @@ namespace DrifterBossGrabMod.UI
         private HGTextMeshProUGUI? _percentageText;
         private Image? _fillBarImage;
         private Image? _overencumbranceFillImage;
+        private CapacityUIGradient? _gradientEffect;
+        private OverencumbranceUIGradient? _overencumbranceGradientEffect;
+
+        // Separator logic
+        private GameObject? _separatorTemplate;
+        private List<GameObject> _separatorObjects = new List<GameObject>();
 
         // State tracking
         private float _currentCapacity = 0f;
@@ -77,7 +84,7 @@ namespace DrifterBossGrabMod.UI
 
         private IEnumerator LoadCapacityUIPrefabCoroutine()
         {
-            // Load the Junk UI prefab from Addressables (still uses the same prefab)
+            // Load the Junk UI prefab from Addressables
             var handle = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/Junk UI.prefab");
             yield return handle;
 
@@ -178,39 +185,51 @@ namespace DrifterBossGrabMod.UI
 
             // Find the percentage text
             _percentageText = _massCapacityUIInstance.GetComponentInChildren<HGTextMeshProUGUI>();
-            if (_percentageText == null && PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Warning("[MassCapacityUIController] HGTextMeshProUGUI component not found on CapacityUI instance");
-            }
-
+            
             // Find the fill bar image
-            // Look for Image components that might be fill bars
             var images = _massCapacityUIInstance.GetComponentsInChildren<Image>();
             foreach (var img in images)
             {
-                // Check if this image has a fill type (likely a fill bar)
-                if (img.type == Image.Type.Filled)
+                if (img.type == Image.Type.Filled && img.fillMethod == Image.FillMethod.Horizontal)
                 {
                     _fillBarImage = img;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[MassCapacityUIController] Found fill bar Image: {img.name}");
-                    }
                     break;
                 }
             }
 
-            if (_fillBarImage == null && PluginConfig.Instance.EnableDebugLogs.Value)
+            if (_fillBarImage != null)
             {
-                Log.Warning("[MassCapacityUIController] No fill bar Image found on CapacityUI instance");
+                _gradientEffect = _fillBarImage.gameObject.AddComponent<CapacityUIGradient>();
+                
+                // Grab one of the original Thresholds and save it as an exact blueprint clone, delete the rest
+                Transform junkMeterTransform = _fillBarImage.transform.parent;
+                if (junkMeterTransform != null)
+                {
+                    for (int i = junkMeterTransform.childCount - 1; i >= 0; i--)
+                    {
+                        Transform child = junkMeterTransform.GetChild(i);
+                        if (child.name.StartsWith("Threshold"))
+                        {
+                            if (_separatorTemplate == null)
+                            {
+                                child.gameObject.name = "SeparatorTemplate";
+                                child.gameObject.SetActive(false);
+                                _separatorTemplate = child.gameObject;
+                            }
+                            else
+                            {
+                                UnityEngine.Object.Destroy(child.gameObject);
+                            }
+                        }
+                    }
+                }
             }
 
             // Create overencumbrance fill image dynamically
             CreateOverencumbranceFillImage();
         }
 
-        // Creates the overencumbrance fill image as a sibling of the main fill bar image.
-        // This overlays the primary fill to show overencumbrance status.
+        // Creates the overencumbrance fill image as a sibling of the main fill bar image
         private void CreateOverencumbranceFillImage()
         {
             if (_fillBarImage == null)
@@ -269,10 +288,10 @@ namespace DrifterBossGrabMod.UI
             _overencumbranceFillImage.useSpriteMesh = _fillBarImage.useSpriteMesh;
             _overencumbranceFillImage.pixelsPerUnitMultiplier = _fillBarImage.pixelsPerUnitMultiplier;
 
-            // Set the color to blue (overencumbrance indicator)
-            _overencumbranceFillImage.color = new Color(0.2f, 0.5f, 1.0f, 0.7f); // Semi-transparent blue
+            // Set the color to white so the vertex gradient handles the colors pure without muddying
+            _overencumbranceFillImage.color = Color.white;
 
-            // Set the sprite to match the fill bar (if it has one)
+            // Set the sprite to match the fill bar
             if (_fillBarImage.sprite != null)
             {
                 _overencumbranceFillImage.sprite = _fillBarImage.sprite;
@@ -281,14 +300,16 @@ namespace DrifterBossGrabMod.UI
             // Set raycast target to false so it doesn't block UI interactions
             _overencumbranceFillImage.raycastTarget = false;
 
+            // Add the new blue gradient effect
+            _overencumbranceGradientEffect = overencumbranceFillObj.AddComponent<OverencumbranceUIGradient>();
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info("[MassCapacityUIController] Created overencumbrance fill image as sibling of Fill");
             }
         }
 
-        // Updates the Capacity UI display based on current capacity.
-        // Called via hooks when bag state changes.
+        // Updates the Capacity UI display based on current capacity
         public void UpdateCapacityUI()
         {
             if (_massCapacityUIInstance == null || !PluginConfig.Instance.EnableMassCapacityUI.Value)
@@ -335,7 +356,7 @@ namespace DrifterBossGrabMod.UI
                 massPercentage = _currentUsedCapacity / _currentCapacity;
             }
 
-            // Calculate percentage based on SLOT COUNT
+            // Calculate percentage based on slot count
             // This ensures UI shows fill even when grabbing 0-mass objects
             float slotPercentage = 0f;
             if (_bagController != null)
@@ -374,6 +395,9 @@ namespace DrifterBossGrabMod.UI
             {
                 _percentageText.text = $"{Mathf.RoundToInt(percentage * 100)}%";
             }
+
+            UpdateGradient(percentage);
+            UpdateSeparators(percentage);
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
@@ -414,12 +438,6 @@ namespace DrifterBossGrabMod.UI
             // Update fill amount
             _overencumbranceFillImage.fillAmount = overencumbranceFraction;
 
-            // Update color based on overencumbrance severity (gradient effect)
-            // Light blue (low overencumbrance) -> Dark blue (high overencumbrance)
-            Color lightBlue = new Color(0.2f, 0.6f, 1.0f, 0.7f);
-            Color darkBlue = new Color(0.1f, 0.3f, 0.8f, 0.9f);
-            _overencumbranceFillImage.color = Color.Lerp(lightBlue, darkBlue, overencumbranceFraction);
-
             // Show/hide based on whether we're overencumbered
             _overencumbranceFillImage.gameObject.SetActive(overencumbranceFraction > 0f);
 
@@ -429,7 +447,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        // Updates the Capacity UI configuration (position, scale, visibility).
+        // Updates the Capacity UI configuration
         public void UpdateConfig()
         {
             if (_massCapacityUIInstance == null) return;
@@ -477,5 +495,298 @@ namespace DrifterBossGrabMod.UI
 
         // Gets the current used mass capacity (total mass of bagged objects).
         public float CurrentUsedCapacity => _currentUsedCapacity;
+
+        private void UpdateGradient(float percentage)
+        {
+            if (_gradientEffect != null && _fillBarImage != null)
+            {
+                _gradientEffect.Enabled = PluginConfig.Instance.EnableGradient.Value;
+                _gradientEffect.Intensity = PluginConfig.Instance.GradientIntensity.Value;
+                _fillBarImage.SetVerticesDirty();
+            }
+
+            if (_overencumbranceGradientEffect != null && _overencumbranceFillImage != null)
+            {
+                _overencumbranceGradientEffect.Enabled = PluginConfig.Instance.EnableGradient.Value;
+                _overencumbranceGradientEffect.Intensity = PluginConfig.Instance.GradientIntensity.Value;
+                _overencumbranceFillImage.SetVerticesDirty();
+            }
+        }
+
+        private void CreateSeparator()
+        {
+            if (_fillBarImage == null || _separatorTemplate == null) return;
+
+            GameObject sepObj = UnityEngine.Object.Instantiate(_separatorTemplate, _separatorTemplate.transform.parent);
+            sepObj.name = $"Separator_{_separatorObjects.Count}";
+            _separatorObjects.Add(sepObj);
+        }
+
+        private void UpdateSeparators(float percentage)
+        {
+            if (_massCapacityUIInstance == null) return;
+
+            bool enableSeparators = PluginConfig.Instance.EnableSeparators.Value;
+            if (!enableSeparators || _currentCapacity <= 0)
+            {
+                foreach (var bg in _separatorObjects) bg.SetActive(false);
+                return;
+            }
+
+            List<float> separatorFractions = new List<float>();
+
+            // Hybrid Mode Logic
+            if (PluginConfig.Instance.EnableBalance.Value)
+            {
+                float cumulativeMass = 0f;
+                // Add separators for objects currently in the bag based on mass
+                if (_bagController != null)
+                {
+                    int capacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
+                    bool uncap = PluginConfig.Instance.UncapCapacity.Value;
+
+                    int k = 1;
+
+                    var list = BagPatches.GetState(_bagController).BaggedObjects;
+                    if (list != null)
+                    {
+                        var countedInstanceIds = new HashSet<int>();
+                        foreach (var obj in list)
+                        {
+                            if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                            {
+                                int instanceId = obj.GetInstanceID();
+                                if (!countedInstanceIds.Contains(instanceId))
+                                {
+                                    countedInstanceIds.Add(instanceId);
+                                    float mass = _bagController.CalculateBaggedObjectMass(obj);
+                                    cumulativeMass += mass;
+                                    
+                                    float frac = cumulativeMass / _currentCapacity;
+                                    if (!uncap && capacity > 0)
+                                    {
+                                        frac = Mathf.Max((float)k / capacity, frac);
+                                    }
+                                    separatorFractions.Add(frac);
+                                    k++;
+                                }
+                            }
+                        }
+                    }
+
+                    var incomingObject = BagPatches.GetState(_bagController).IncomingObject;
+                    if (incomingObject != null && !OtherPatches.IsInProjectileState(incomingObject))
+                    {
+                        float mass = _bagController.CalculateBaggedObjectMass(incomingObject);
+                        cumulativeMass += mass;
+                        
+                        float frac = cumulativeMass / _currentCapacity;
+                        if (!uncap && capacity > 0)
+                        {
+                            frac = Mathf.Max((float)k / capacity, frac);
+                        }
+                        separatorFractions.Add(frac);
+                        k++;
+                    }
+
+                    // If Capacity is capped, we want to pad the remaining space with static slot separators
+                    if (!uncap && capacity > 1)
+                    {
+                        for (int i = k; i < capacity; i++)
+                        {
+                            // Static slot location
+                            float slotFrac = (float)i / capacity;
+                            
+                            // Only draw this static slot pip if we haven't already filled past it with mass
+                            float currentMassFrac = cumulativeMass / _currentCapacity;
+                            if (slotFrac > currentMassFrac)
+                            {
+                                separatorFractions.Add(slotFrac);
+                            }
+                        }
+                    }
+                }
+
+                // --- Overencumbrance Separator Remapping ---
+                if (PluginConfig.Instance.EnableOverencumbrance.Value)
+                {
+                    float maxOverencumbrancePercent = PluginConfig.Instance.OverencumbranceMaxPercent.Value / 100.0f;
+                    if (maxOverencumbrancePercent > 0 && cumulativeMass > _currentCapacity)
+                    {
+                        List<float> remappedFractions = new List<float>();
+                        foreach (float originalFrac in separatorFractions)
+                        {
+                            // If this separator is for an object that pushed us into overencumbrance
+                            if (originalFrac > 1.0f)
+                            {
+                                // Subtract 100% base capacity, and map the remainder to the Overencumbrance bar's bounds
+                                float overAmount = originalFrac - 1.0f;
+                                float newFrac = Mathf.Clamp01(overAmount / maxOverencumbrancePercent);
+                                remappedFractions.Add(newFrac);
+                            }
+                        }
+                        separatorFractions = remappedFractions;
+                    }
+                }
+            }
+            else
+            {
+                // Retrieve the raw utility slot capacity to map the fractions evenly
+                int capacity = _bagController != null ? BagCapacityCalculator.GetUtilityMaxStock(_bagController) : 3;
+                
+                if (capacity > 1) 
+                {
+                    for (int i = 1; i < capacity; i++)
+                    {
+                        separatorFractions.Add((float)i / capacity); 
+                    }
+                }
+            }
+
+            while (_separatorObjects.Count < separatorFractions.Count)
+            {
+                CreateSeparator();
+            }
+
+            for (int i = 0; i < _separatorObjects.Count; i++)
+            {
+                if (i < separatorFractions.Count)
+                {
+                    float frac = separatorFractions[i];
+                    if (frac > 0.01f && frac < 0.99f)
+                    {
+                        _separatorObjects[i].SetActive(true);
+                        var rect = _separatorObjects[i].GetComponent<RectTransform>();
+                        if (rect != null)
+                        {
+                            // Threshold 1 (66.6%): (pos: -58.06, 59.10, rot: 251.7)
+                            // Threshold 2 (16%):   (pos: -56.26, 40.90, rot: 122.2)
+                            // Threshold 3 (33.3%): (pos: -58.70, 46.90, rot: 284.0)
+                            
+                            // Exact Circle Center
+                            float centerX = -37.76f;
+                            float centerY = 51.92f;
+                            
+                            // Exact Radius
+                            float radius = 21.53f;
+
+                            // 0% translates to ~226.44 degrees
+                            // 100% translates to ~127.56 degrees
+                            // Total sweep = 98.88 degrees
+                            float startAngle = 226.44f;
+                            float totalSweep = 98.88f;
+
+                            // Interpolate the angle along the circle
+                            float curAngle = startAngle - (frac * totalSweep);
+                            
+                            // Calculate exact position on the circle
+                            float rad = curAngle * Mathf.Deg2Rad;
+                            float posX = centerX + (Mathf.Cos(rad) * radius);
+                            float posY = centerY + (Mathf.Sin(rad) * radius);
+                            
+                            // The rotation tangent to the circle points away the center
+                            float rotZ = curAngle + 90.5f;
+
+                            rect.localPosition = new Vector3(posX, posY, 0f);
+                            rect.localEulerAngles = new Vector3(0, 0, rotZ);
+                        }
+                    }
+                    else
+                    {
+                        _separatorObjects[i].SetActive(false);
+                    }
+                }
+                else
+                {
+                    _separatorObjects[i].SetActive(false);
+                }
+            }
+        }
+    }
+
+    public class CapacityUIGradient : UnityEngine.UI.BaseMeshEffect
+    {
+        public bool Enabled = true;
+        public float Intensity = 1f;
+
+        public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
+        {
+            if (!IsActive() || !Enabled) return;
+
+            List<UIVertex> vertices = new List<UIVertex>();
+            vh.GetUIVertexStream(vertices);
+
+            if (vertices.Count == 0) return;
+
+            Rect rect = graphic.rectTransform.rect;
+            float minX = rect.xMin;
+            float width = rect.width;
+
+            Color colorStart = PluginConfig.Instance.CapacityGradientColorStart.Value;
+            Color colorMid = PluginConfig.Instance.CapacityGradientColorMid.Value;
+            Color colorEnd = PluginConfig.Instance.CapacityGradientColorEnd.Value;
+
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                UIVertex vertex = vertices[i];
+                float normalizedX = width > 0 ? (vertex.position.x - minX) / width : 0f;
+                normalizedX = Mathf.Clamp01(normalizedX);
+
+                Color targetColor;
+                if (normalizedX <= 0.5f)
+                    targetColor = Color.Lerp(colorEnd, colorMid, normalizedX * 2f);
+                else
+                    targetColor = Color.Lerp(colorMid, colorStart, (normalizedX - 0.5f) * 2f);
+
+                vertex.color = Color.Lerp(vertex.color, vertex.color * targetColor, Intensity);
+                vertices[i] = vertex;
+            }
+
+            vh.Clear();
+            vh.AddUIVertexTriangleStream(vertices);
+        }
+    }
+
+    public class OverencumbranceUIGradient : UnityEngine.UI.BaseMeshEffect
+    {
+        public bool Enabled = true;
+        public float Intensity = 1f;
+
+        public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
+        {
+            if (!IsActive() || !Enabled) return;
+
+            List<UIVertex> vertices = new List<UIVertex>();
+            vh.GetUIVertexStream(vertices);
+
+            if (vertices.Count == 0) return;
+
+            Rect rect = graphic.rectTransform.rect;
+            float minX = rect.xMin;
+            float width = rect.width;
+
+            Color colorStart = PluginConfig.Instance.OverencumbranceGradientColorStart.Value;
+            Color colorMid = PluginConfig.Instance.OverencumbranceGradientColorMid.Value;
+            Color colorEnd = PluginConfig.Instance.OverencumbranceGradientColorEnd.Value;
+
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                UIVertex vertex = vertices[i];
+                float normalizedX = width > 0 ? (vertex.position.x - minX) / width : 0f;
+                normalizedX = Mathf.Clamp01(normalizedX);
+
+                Color targetColor;
+                if (normalizedX <= 0.5f)
+                    targetColor = Color.Lerp(colorEnd, colorMid, normalizedX * 2f);
+                else
+                    targetColor = Color.Lerp(colorMid, colorStart, (normalizedX - 0.5f) * 2f);
+
+                vertex.color = Color.Lerp(vertex.color, vertex.color * targetColor, Intensity);
+                vertices[i] = vertex;
+            }
+
+            vh.Clear();
+            vh.AddUIVertexTriangleStream(vertices);
+        }
     }
 }

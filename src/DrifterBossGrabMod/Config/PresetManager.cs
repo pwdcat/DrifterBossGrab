@@ -309,6 +309,15 @@ namespace DrifterBossGrabMod.Config
                 "MassCapacityUIPositionX" => instance.MassCapacityUIPositionX,
                 "MassCapacityUIPositionY" => instance.MassCapacityUIPositionY,
                 "MassCapacityUIScale" => instance.MassCapacityUIScale,
+                "EnableSeparators" => instance.EnableSeparators,
+                "EnableGradient" => instance.EnableGradient,
+                "GradientIntensity" => instance.GradientIntensity,
+                "CapacityGradientColorStart" => instance.CapacityGradientColorStart,
+                "CapacityGradientColorMid" => instance.CapacityGradientColorMid,
+                "CapacityGradientColorEnd" => instance.CapacityGradientColorEnd,
+                "OverencumbranceGradientColorStart" => instance.OverencumbranceGradientColorStart,
+                "OverencumbranceGradientColorMid" => instance.OverencumbranceGradientColorMid,
+                "OverencumbranceGradientColorEnd" => instance.OverencumbranceGradientColorEnd,
                 _ => null
             };
         }

@@ -115,32 +115,6 @@ namespace DrifterBossGrabMod.Patches
             return totalMass >= maxMassCapacity;
         }
 
-        // Gets the count of bagged objects in the controller
-        public static int GetBaggedObjectCount(DrifterBagController controller)
-        {
-            if (controller == null) return 0;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            if (list != null)
-            {
-                var countedInstanceIds = new HashSet<int>();
-                int objectsInBag = 0;
-                foreach (var obj in list)
-                {
-                    if (obj != null && !OtherPatches.IsInProjectileState(obj))
-                    {
-                        int instanceId = obj.GetInstanceID();
-                        if (!countedInstanceIds.Contains(instanceId))
-                        {
-                            countedInstanceIds.Add(instanceId);
-                            objectsInBag++;
-                        }
-                    }
-                }
-                return objectsInBag;
-            }
-            return 0;
-        }
-
         // Gets the current count of bagged objects
         public static int GetCurrentBaggedCount(DrifterBagController controller)
         {
@@ -150,8 +124,10 @@ namespace DrifterBossGrabMod.Patches
             {
                 return 0;
             }
-            var countedInstanceIds = new HashSet<int>();
+
             int objectsInBag = 0;
+            var countedInstanceIds = new HashSet<int>();
+
             foreach (var obj in list)
             {
                 if (obj != null && !OtherPatches.IsInProjectileState(obj))
@@ -164,6 +140,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
+
             return objectsInBag;
         }
 
