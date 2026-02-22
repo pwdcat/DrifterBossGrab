@@ -432,6 +432,30 @@ namespace DrifterBossGrabMod.Patches
                      SetMainSeatObject(__instance, null);
                  }
 
+                 // Attach breakout timer if network active
+                 if (NetworkServer.active && !passengerObject.GetComponent<AdditionalSeatBreakoutTimer>())
+                 {
+                     var timer = passengerObject.AddComponent<AdditionalSeatBreakoutTimer>();
+                     timer.controller = __instance;
+                     
+                     // Calculate breakout time logic analogous to vanilla BaggedObject.OnEnter
+                     float mass = __instance.CalculateBaggedObjectMass(passengerObject);
+                     float baseBreakoutTime = 10f; // Vanilla base
+                     
+                     // DrifterBossGrab config multiplier is applied here 
+                     float breakoutMultiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value;
+                     
+                     float finalTime = Mathf.Max(baseBreakoutTime - 0.005f * mass, 1f);
+                     
+                     var hc = passengerObject.GetComponent<CharacterBody>();
+                     if (hc && hc.isElite)
+                     {
+                         finalTime *= 0.8f; // Vanilla elite coefficient
+                     }
+                     
+                     timer.breakoutTime = finalTime * breakoutMultiplier;
+                 }
+
                  seatDict[passengerObject] = newSeat;
 
                  if (NetworkServer.active)

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mid air grab for capping your capacity
 - Capacity not being set to 1 when grabbing a big object
 - UncapCapacity + MassCapacity not capping correctly
+- Additionalseat enemies breakout
 
 ## [1.7.0]
 

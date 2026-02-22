@@ -146,6 +146,15 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
+            if (obj != null)
+            {
+                var timer = obj.GetComponent<AdditionalSeatBreakoutTimer>();
+                if (timer != null)
+                {
+                    UnityEngine.Object.Destroy(timer);
+                }
+            }
+
             if (UnityEngine.Networking.NetworkServer.active && list != null)
             {
                 PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, controller);
