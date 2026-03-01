@@ -454,6 +454,21 @@ namespace DrifterBossGrabMod.Patches
                      }
                      
                      timer.breakoutTime = finalTime * breakoutMultiplier;
+
+                     // Restore previous timer state if available
+                     var storedState = BaggedObjectPatches.LoadObjectState(__instance, passengerObject);
+                     if (storedState != null)
+                     {
+                         if (storedState.breakoutTime > 0f)
+                         {
+                             timer.breakoutTime = storedState.breakoutTime;
+                         }
+                         timer.SetElapsedBreakoutTime(storedState.elapsedBreakoutTime);
+                         timer.breakoutAttempts = storedState.breakoutAttempts;
+                         
+                         if (PluginConfig.Instance.EnableDebugLogs.Value)
+                             Log.Info($"[DEBUG] [TryAssignToAdditionalSeat] Restored timer for {passengerObject.name}: age={storedState.elapsedBreakoutTime}, attempts={storedState.breakoutAttempts}, breakoutTime={timer.breakoutTime}");
+                     }
                  }
 
                  seatDict[passengerObject] = newSeat;

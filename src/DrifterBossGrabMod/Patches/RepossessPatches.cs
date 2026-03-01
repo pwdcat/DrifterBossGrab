@@ -9,40 +9,12 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessPatches
     {
-        private static FieldInfo? forwardVelocityField;
-        private static FieldInfo? upwardVelocityField;
-        private static float? originalForwardVelocity;
-        private static float? originalUpwardVelocity;
         public static void Initialize()
         {
-            forwardVelocityField = AccessTools.Field(typeof(Repossess), "forwardVelocity");
-            upwardVelocityField = AccessTools.Field(typeof(Repossess), "upwardVelocity");
         }
 
         public static void Cleanup()
         {
-        }
-        [HarmonyPatch(typeof(Repossess), MethodType.Constructor)]
-        public class Repossess_Constructor_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(Repossess __instance)
-            {
-                __instance.searchRange *= PluginConfig.Instance.SearchRangeMultiplier.Value;
-                if (originalForwardVelocity == null && forwardVelocityField != null && upwardVelocityField != null)
-                {
-                    originalForwardVelocity = (float)forwardVelocityField.GetValue(null);
-                    originalUpwardVelocity = (float)upwardVelocityField.GetValue(null);
-                }
-                if (forwardVelocityField != null && originalForwardVelocity.HasValue)
-                {
-                    forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.Instance.ForwardVelocityMultiplier.Value);
-                }
-                if (upwardVelocityField != null && originalUpwardVelocity.HasValue)
-                {
-                    upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.Instance.UpwardVelocityMultiplier.Value);
-                }
-            }
         }
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
@@ -65,13 +37,6 @@ namespace DrifterBossGrabMod.Patches
                 {
                      mass = specialObjectAttributes.massOverride;
                  }
-
-                  float multiplier = Constants.Multipliers.DefaultMassMultiplier;
-                  if (float.TryParse(PluginConfig.Instance.MassMultiplier.Value, out float parsed))
-                  {
-                      multiplier = parsed;
-                  }
-                  mass *= multiplier;
 
                   // Clamp mass
                   if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapMass.Value)
@@ -283,20 +248,6 @@ namespace DrifterBossGrabMod.Patches
                     return !shouldPrevent;
                 }
                 return true;
-            }
-        }
-        public static void OnForwardVelocityChanged(object sender, EventArgs args)
-        {
-            if (forwardVelocityField != null && originalForwardVelocity.HasValue)
-            {
-                forwardVelocityField.SetValue(null, originalForwardVelocity.Value * PluginConfig.Instance.ForwardVelocityMultiplier.Value);
-            }
-        }
-        public static void OnUpwardVelocityChanged(object sender, EventArgs args)
-        {
-            if (upwardVelocityField != null && originalUpwardVelocity.HasValue)
-            {
-                upwardVelocityField.SetValue(null, originalUpwardVelocity.Value * PluginConfig.Instance.UpwardVelocityMultiplier.Value);
             }
         }
 

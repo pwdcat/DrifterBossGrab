@@ -49,8 +49,6 @@ namespace DrifterBossGrabMod
         // Event handlers
         private EventHandler? debugLogsHandler;
         private EventHandler? blacklistHandler;
-        private EventHandler? forwardVelHandler;
-        private EventHandler? upwardVelHandler;
         private EventHandler? recoveryBlacklistHandler;
         private EventHandler? grabbableComponentTypesHandler;
         private EventHandler? grabbableKeywordBlacklistHandler;
@@ -140,8 +138,6 @@ namespace DrifterBossGrabMod
             PluginConfig.RemoveEventHandlers(
                 debugLogsHandler ?? ((sender, args) => { }),
                 blacklistHandler ?? ((sender, args) => { }),
-                forwardVelHandler ?? ((sender, args) => { }),
-                upwardVelHandler ?? ((sender, args) => { }),
                 recoveryBlacklistHandler ?? ((sender, args) => { }),
                 grabbableComponentTypesHandler ?? ((sender, args) => { }),
                 grabbableKeywordBlacklistHandler ?? ((sender, args) => { }),
@@ -321,11 +317,6 @@ namespace DrifterBossGrabMod
 
         private void SetupVelocityHandlers()
         {
-            forwardVelHandler = Patches.RepossessPatches.OnForwardVelocityChanged;
-            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged += forwardVelHandler;
-
-            upwardVelHandler = Patches.RepossessPatches.OnUpwardVelocityChanged;
-            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged += upwardVelHandler;
         }
 
         private void SetupGrabbableHandlers()
@@ -548,16 +539,7 @@ namespace DrifterBossGrabMod
                 PresetManager.OnSettingModified();
                 PresetManager.RefreshPresetDropdownUI();
             };
-            PluginConfig.Instance.MassMultiplier.SettingChanged += (sender, args) =>
-            {
-                PresetManager.OnSettingModified();
-                PresetManager.RefreshPresetDropdownUI();
-            };
 
-            // Skill settings
-            PluginConfig.Instance.SearchRangeMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MaxSmacks.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
 
@@ -1012,12 +994,6 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedEnvironmentObjects));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.PersistenceBlacklist));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.AutoGrabDelay, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 10f, increment = 0.1f }));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRangeMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.ForwardVelocityMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.UpwardVelocityMultiplier));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassMultiplier));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist));
@@ -1075,6 +1051,8 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapBagScale));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UncapMass));

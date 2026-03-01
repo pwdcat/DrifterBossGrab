@@ -178,12 +178,8 @@ namespace DrifterBossGrabMod.Networking
         public ProjectileGrabbingMode ProjectileGrabbingMode;
 
         // Skill Scalars
-        public float SearchRangeMultiplier;
         public float BreakoutTimeMultiplier;
-        public float ForwardVelocityMultiplier;
-        public float UpwardVelocityMultiplier;
         public int MaxSmacks;
-        public string MassMultiplier = string.Empty;
 
         // Blacklists & Component Types
         public string BodyBlacklist = string.Empty;
@@ -221,12 +217,8 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableLockedObjectGrabbing);
             writer.Write((int)ProjectileGrabbingMode);
 
-            writer.Write(SearchRangeMultiplier);
             writer.Write(BreakoutTimeMultiplier);
-            writer.Write(ForwardVelocityMultiplier);
-            writer.Write(UpwardVelocityMultiplier);
             writer.Write(MaxSmacks);
-            writer.Write(MassMultiplier);
 
             writer.Write(BodyBlacklist);
             writer.Write(RecoveryObjectBlacklist);
@@ -262,12 +254,8 @@ namespace DrifterBossGrabMod.Networking
             EnableLockedObjectGrabbing = reader.ReadBoolean();
             ProjectileGrabbingMode = (ProjectileGrabbingMode)reader.ReadInt32();
 
-            SearchRangeMultiplier = reader.ReadSingle();
             BreakoutTimeMultiplier = reader.ReadSingle();
-            ForwardVelocityMultiplier = reader.ReadSingle();
-            UpwardVelocityMultiplier = reader.ReadSingle();
             MaxSmacks = reader.ReadInt32();
-            MassMultiplier = reader.ReadString();
 
             BodyBlacklist = reader.ReadString();
             RecoveryObjectBlacklist = reader.ReadString();

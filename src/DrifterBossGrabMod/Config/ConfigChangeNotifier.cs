@@ -36,17 +36,13 @@ namespace DrifterBossGrabMod
         public static void Init()
         {
             // Subscribe to all config entries
-            PluginConfig.Instance.SearchRangeMultiplier.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ProjectileGrabbingMode.SettingChanged += configChangedHandler;
             PluginConfig.Instance.MaxSmacks.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.MassMultiplier.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableDebugLogs.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BodyBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged += configChangedHandler;
@@ -72,17 +68,13 @@ namespace DrifterBossGrabMod
         public static void Cleanup()
         {
             // Unsubscribe from all config entries
-            PluginConfig.Instance.SearchRangeMultiplier.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.ForwardVelocityMultiplier.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.UpwardVelocityMultiplier.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ProjectileGrabbingMode.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.MaxSmacks.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.MassMultiplier.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableDebugLogs.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BodyBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged -= configChangedHandler;

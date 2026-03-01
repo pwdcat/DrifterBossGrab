@@ -5,6 +5,7 @@ using RoR2;
 using UnityEngine;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Balance;
+using EntityStates;
 using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.Core
@@ -47,6 +48,7 @@ namespace DrifterBossGrabMod.Core
             // Breakout data from current BaggedObject state before calculating new state
             float preservedBreakoutTime = 0f;
             float preservedBreakoutAttempts = 0f;
+            float preservedElapsedBreakoutTime = 0f;
             bool shouldPreserve = false;
 
             var currentBaggedObject = GetCurrentBaggedObjectState(controller);
@@ -55,6 +57,7 @@ namespace DrifterBossGrabMod.Core
                 shouldPreserve = true;
                 var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
                 var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
 
                 if (breakoutTimeField != null)
                 {
@@ -63,6 +66,10 @@ namespace DrifterBossGrabMod.Core
                 if (breakoutAttemptsField != null)
                 {
                     preservedBreakoutAttempts = (float)breakoutAttemptsField.GetValue(currentBaggedObject);
+                }
+                if (fixedAgeProp != null)
+                {
+                    preservedElapsedBreakoutTime = (float)fixedAgeProp.GetValue(currentBaggedObject);
                 }
             }
 
@@ -83,8 +90,19 @@ namespace DrifterBossGrabMod.Core
 
             if (shouldPreserve)
             {
-                state.breakoutTime = preservedBreakoutTime;
-                state.breakoutAttempts = preservedBreakoutAttempts;
+                if (preservedBreakoutTime > 0f || state.breakoutTime == 0f)
+                {
+                    state.breakoutTime = preservedBreakoutTime;
+                }
+                if (preservedBreakoutAttempts > 0f || state.breakoutAttempts == 0f)
+                {
+                    state.breakoutAttempts = preservedBreakoutAttempts;
+                }
+                
+                if (preservedElapsedBreakoutTime > state.elapsedBreakoutTime)
+                {
+                    state.elapsedBreakoutTime = preservedElapsedBreakoutTime;
+                }
             }
 
             return state;
@@ -105,11 +123,13 @@ namespace DrifterBossGrabMod.Core
             // Breakout data from current BaggedObject state before calculating new state
             float preservedBreakoutTime = 0f;
             float preservedBreakoutAttempts = 0f;
+            float preservedElapsedBreakoutTime = 0f;
             var currentBaggedObject = GetCurrentBaggedObjectState(controller);
             if (currentBaggedObject != null)
             {
                 var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
                 var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
 
                 if (breakoutTimeField != null)
                 {
@@ -118,6 +138,19 @@ namespace DrifterBossGrabMod.Core
                 if (breakoutAttemptsField != null)
                 {
                     preservedBreakoutAttempts = (float)breakoutAttemptsField.GetValue(currentBaggedObject);
+                }
+                if (fixedAgeProp != null)
+                {
+                    preservedElapsedBreakoutTime = (float)fixedAgeProp.GetValue(currentBaggedObject);
+                }
+
+                if (currentBaggedObject.targetObject != null)
+                {
+                    var msStoredState = BaggedObjectPatches.LoadObjectState(controller, currentBaggedObject.targetObject);
+                    if (msStoredState != null && msStoredState.elapsedBreakoutTime > preservedElapsedBreakoutTime)
+                    {
+                        preservedElapsedBreakoutTime = msStoredState.elapsedBreakoutTime;
+                    }
                 }
             }
 
@@ -197,8 +230,15 @@ namespace DrifterBossGrabMod.Core
             aggregateState.bagScale01 = CalculateBagScale01(controller, aggregateState.baggedMass);
 
             // Restore breakout data to prevent immediate breakout
-            aggregateState.breakoutTime = preservedBreakoutTime;
-            aggregateState.breakoutAttempts = preservedBreakoutAttempts;
+            if (preservedBreakoutTime > 0f || aggregateState.breakoutTime == 0f)
+            {
+                aggregateState.breakoutTime = preservedBreakoutTime;
+            }
+            if (preservedBreakoutAttempts > 0f || aggregateState.breakoutAttempts == 0f)
+            {
+                aggregateState.breakoutAttempts = preservedBreakoutAttempts;
+            }
+            aggregateState.elapsedBreakoutTime = preservedElapsedBreakoutTime;
 
             return aggregateState;
         }

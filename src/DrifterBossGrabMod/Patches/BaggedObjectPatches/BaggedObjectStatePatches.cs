@@ -165,6 +165,37 @@ namespace DrifterBossGrabMod.Patches
 
                 if (targetObject == null) return;
 
+                // Restore breakout timer progress when entering main seat
+                if (NetworkServer.active)
+                {
+                    var savedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
+                    if (savedState != null)
+                    {
+                        var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                        if (fixedAgeProp != null && savedState.elapsedBreakoutTime > 0f)
+                        {
+                            fixedAgeProp.SetValue(__instance, savedState.elapsedBreakoutTime);
+                            
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[DEBUG] [BaggedObject_OnEnter] Restored main seat breakout timer for {targetObject.name} to {savedState.elapsedBreakoutTime:F2}s");
+                            }
+                        }
+
+                        if (savedState.breakoutTime > 0f)
+                        {
+                            var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
+                            if (bTimeField != null) bTimeField.SetValue(__instance, savedState.breakoutTime);
+                        }
+
+                        if (savedState.breakoutAttempts > 0f)
+                        {
+                            var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                            if (bAttemptsField != null) bAttemptsField.SetValue(__instance, savedState.breakoutAttempts);
+                        }
+                    }
+                }
+
                 // Check if object is in an additional seat - this is used in multiple places
                 bool isInAdditionalSeat = BagHelpers.GetAdditionalSeat(bagController, targetObject) != null;
 
@@ -208,7 +239,7 @@ namespace DrifterBossGrabMod.Patches
             }
                 }
 
-                var outerMainSeat = bagController.vehicleSeat;
+                var outerMainSeat = bagController!.vehicleSeat;
 
                 bool seatHasTarget = outerMainSeat != null && outerMainSeat.hasPassenger && ReferenceEquals(outerMainSeat.NetworkpassengerBodyObject, targetObject);
                 var tracked = BagPatches.GetMainSeatObject(bagController);
@@ -532,29 +563,23 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TrySpawnJunk] Reason: {reason}");
-                        Log.Info($" [TrySpawnJunk] drifterBagController: {(drifterBagController != null ? drifterBagController.name : "NULL")}");
-                        Log.Info($" [TrySpawnJunk] NetworkServer.active: {NetworkServer.active}");
-                        Log.Info($" [TrySpawnJunk] instance.outer: {(instance.outer != null ? instance.outer.name : "NULL")}");
-                        if (drifterBagController != null)
-                        {
-                            Log.Info($" [TrySpawnJunk] baggedBody: {(drifterBagController.baggedBody != null ? drifterBagController.baggedBody.name : "NULL")}");
-                            Log.Info($" [TrySpawnJunk] baggedAttributes: {(drifterBagController.baggedAttributes != null ? drifterBagController.baggedAttributes.name : "NULL")}");
-                        }
+                        string bName = drifterBagController?.name ?? "NULL";
+                        string bbName = drifterBagController?.baggedBody?.name ?? "NULL";
+                        string attrName = drifterBagController?.baggedAttributes?.name ?? "NULL";
+                        Log.Info($"[TrySpawnJunk] Reason: {reason} | bagController: {bName} | Server: {NetworkServer.active} | baggedBody: {bbName} | attributes: {attrName}");
                     }
 
                     if (drifterBagController != null && NetworkServer.active)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk");
-                        }
+                            Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {instance?.targetObject?.name ?? "unknown"}");
+                        
                         drifterBagController.ExecuteBody();
                         drifterBagController.ResetBaggedObject();
                     }
                     else if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [TrySpawnJunk] >>> SKIPPED ExecuteBody - controller null: {drifterBagController == null}, server: {NetworkServer.active}");
+                        Log.Info($"[TrySpawnJunk] >>> SKIPPED ExecuteBody - controller null: {drifterBagController == null}, server: {NetworkServer.active}");
                     }
                 }
                 catch (Exception ex)
@@ -704,17 +729,38 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(BaggedObject), "FixedUpdate")]
         public class BaggedObject_FixedUpdate
         {
+            // Throttle debug logging to avoid spamming every FixedUpdate frame
+            private static float _lastFixedUpdateLogTime;
+            private static string _lastFixedUpdateBlockReason = "";
+            
             [HarmonyPrefix]
             public static bool Prefix(BaggedObject __instance)
             {
                 try
                 {
-                    if (__instance == null || __instance.targetObject == null) return false;
+                    bool shouldLog = PluginConfig.Instance.EnableDebugLogs.Value && (Time.time - _lastFixedUpdateLogTime > 2f);
+                    
+                    if (__instance == null || __instance.targetObject == null)
+                    {
+                        if (shouldLog && _lastFixedUpdateBlockReason != "null_instance")
+                        {
+                            _lastFixedUpdateBlockReason = "null_instance";
+                            _lastFixedUpdateLogTime = Time.time;
+                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: instance or targetObject is null");
+                        }
+                        return false;
+                    }
 
                     // 1. Check isBody flag
                     var isBodyVal = _isBodyField?.GetValue(__instance);
                     if (isBodyVal is bool isBody && !isBody)
                     {
+                        if (shouldLog && _lastFixedUpdateBlockReason != "isBody_false")
+                        {
+                            _lastFixedUpdateBlockReason = "isBody_false";
+                            _lastFixedUpdateLogTime = Time.time;
+                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: isBody=false for {__instance.targetObject.name}");
+                        }
                         return false;
                     }
 
@@ -722,7 +768,12 @@ namespace DrifterBossGrabMod.Patches
                     var targetBody = _targetBodyField?.GetValue(__instance) as UnityEngine.Object;
                     if (targetBody == null)
                     {
-                        // Safest to skip if we don't have a valid body reference but might be treated as one
+                        if (shouldLog && _lastFixedUpdateBlockReason != "targetBody_null")
+                        {
+                            _lastFixedUpdateBlockReason = "targetBody_null";
+                            _lastFixedUpdateLogTime = Time.time;
+                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: targetBody is null for {__instance.targetObject.name}");
+                        }
                         return false;
                     }
 
@@ -730,6 +781,12 @@ namespace DrifterBossGrabMod.Patches
                     var dbc = _drifterBagControllerField?.GetValue(__instance) as UnityEngine.Object;
                     if (dbc == null)
                     {
+                        if (shouldLog && _lastFixedUpdateBlockReason != "dbc_null")
+                        {
+                            _lastFixedUpdateBlockReason = "dbc_null";
+                            _lastFixedUpdateLogTime = Time.time;
+                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: drifterBagController is null for {__instance.targetObject.name}");
+                        }
                         return false;
                     }
 
@@ -737,7 +794,16 @@ namespace DrifterBossGrabMod.Patches
                     try
                     {
                         var hc = __instance.targetObject.GetComponent<HealthComponent>();
-                        if (hc != null && !hc.alive) return false;
+                        if (hc != null && !hc.alive)
+                        {
+                            if (shouldLog && _lastFixedUpdateBlockReason != "dead")
+                            {
+                                _lastFixedUpdateBlockReason = "dead";
+                                _lastFixedUpdateLogTime = Time.time;
+                                Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: target is dead for {__instance.targetObject.name}");
+                            }
+                            return false;
+                        }
                     }
                     catch { return false; }
 
@@ -747,8 +813,29 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (BagHelpers.GetAdditionalSeat(bagController, __instance.targetObject) != null)
                         {
+                            if (shouldLog && _lastFixedUpdateBlockReason != "additional_seat")
+                            {
+                                _lastFixedUpdateBlockReason = "additional_seat";
+                                _lastFixedUpdateLogTime = Time.time;
+                                Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: target is in additional seat for {__instance.targetObject.name}");
+                            }
                             return false;
                         }
+                    }
+
+                    // Log that FixedUpdate is ALLOWED to run (throttled)
+                    if (shouldLog && _lastFixedUpdateBlockReason != "allowed")
+                    {
+                        var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                        float currentAge = fixedAgeProp != null ? (float)fixedAgeProp.GetValue(__instance) : -1f;
+                        var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
+                        float bTime = breakoutTimeField != null ? (float)breakoutTimeField.GetValue(__instance) : -1f;
+                        var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                        float bAttempts = breakoutAttemptsField != null ? (float)breakoutAttemptsField.GetValue(__instance) : -1f;
+                        
+                        _lastFixedUpdateBlockReason = "allowed";
+                        _lastFixedUpdateLogTime = Time.time;
+                        Log.Info($"[BaggedObject_FixedUpdate] ALLOWED for {__instance.targetObject.name}: fixedAge={currentAge:F2}, breakoutTime={bTime:F2}, attempts={bAttempts}");
                     }
 
                     return true;

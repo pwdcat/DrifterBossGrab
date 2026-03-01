@@ -7,17 +7,13 @@ namespace DrifterBossGrabMod
 {
     public interface IPluginConfig
     {
-        ConfigEntry<float> SearchRangeMultiplier { get; }
         ConfigEntry<float> BreakoutTimeMultiplier { get; }
-        ConfigEntry<float> ForwardVelocityMultiplier { get; }
-        ConfigEntry<float> UpwardVelocityMultiplier { get; }
         ConfigEntry<bool> EnableBossGrabbing { get; }
         ConfigEntry<bool> EnableNPCGrabbing { get; }
         ConfigEntry<bool> EnableEnvironmentGrabbing { get; }
         ConfigEntry<bool> EnableLockedObjectGrabbing { get; }
         ConfigEntry<ProjectileGrabbingMode> ProjectileGrabbingMode { get; }
         ConfigEntry<int> MaxSmacks { get; }
-        ConfigEntry<string> MassMultiplier { get; }
         ConfigEntry<bool> EnableDebugLogs { get; }
         ConfigEntry<string> BodyBlacklist { get; }
         ConfigEntry<string> RecoveryObjectBlacklist { get; }
@@ -44,8 +40,6 @@ namespace DrifterBossGrabMod
         void RemoveEventHandlers(
             EventHandler debugLogsHandler,
             EventHandler blacklistHandler,
-            EventHandler forwardVelHandler,
-            EventHandler upwardVelHandler,
             EventHandler recoveryBlacklistHandler,
             EventHandler grabbableComponentTypesHandler,
             EventHandler grabbableKeywordBlacklistHandler,

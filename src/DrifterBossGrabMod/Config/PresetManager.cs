@@ -208,7 +208,6 @@ namespace DrifterBossGrabMod.Config
             var configEntry = category switch
             {
                 "General" => GetGeneralConfigEntry(key),
-                "Skill" => GetSkillConfigEntry(key),
                 "Persistence" => GetPersistenceConfigEntry(key),
                 "BottomlessBag" => GetBottomlessBagConfigEntry(key),
                 "Hud" => GetHudConfigEntry(key),
@@ -232,24 +231,10 @@ namespace DrifterBossGrabMod.Config
                 "EnableDebugLogs" => instance.EnableDebugLogs,
                 "EnableComponentAnalysisLogs" => instance.EnableComponentAnalysisLogs,
                 "EnableConfigSync" => instance.EnableConfigSync,
-                "MassMultiplier" => instance.MassMultiplier,
                 _ => null
             };
         }
 
-        private static ConfigEntryBase? GetSkillConfigEntry(string key)
-        {
-            var instance = PluginConfig.Instance;
-            return key switch
-            {
-                "SearchRangeMultiplier" => instance.SearchRangeMultiplier,
-                "ForwardVelocityMultiplier" => instance.ForwardVelocityMultiplier,
-                "UpwardVelocityMultiplier" => instance.UpwardVelocityMultiplier,
-                "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
-                "MaxSmacks" => instance.MaxSmacks,
-                _ => null
-            };
-        }
 
         private static ConfigEntryBase? GetPersistenceConfigEntry(string key)
         {
@@ -328,6 +313,8 @@ namespace DrifterBossGrabMod.Config
             return key switch
             {
                 "EnableBalance" => instance.EnableBalance,
+                "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
+                "MaxSmacks" => instance.MaxSmacks,
                 "EnableAoESlamDamage" => instance.EnableAoESlamDamage,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
                 "CapacityScalingMode" => instance.CapacityScalingMode,

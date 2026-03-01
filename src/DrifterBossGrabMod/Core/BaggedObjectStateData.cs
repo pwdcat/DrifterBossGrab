@@ -4,6 +4,7 @@ using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using EntityStates.Drifter.Bag;
+using EntityStates;
 
 namespace DrifterBossGrabMod.Core
 {
@@ -21,9 +22,7 @@ namespace DrifterBossGrabMod.Core
         private static readonly FieldInfo _damageStatField = AccessTools.Field(typeof(BaggedObject), "damageStat");
         private static readonly FieldInfo _critStatField = AccessTools.Field(typeof(BaggedObject), "critStat");
         private static readonly FieldInfo _moveSpeedStatField = AccessTools.Field(typeof(BaggedObject), "moveSpeedStat");
-        private static readonly FieldInfo _breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-        private static readonly FieldInfo _breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-
+        
         // Target references
         public CharacterBody? targetBody;
         public GameObject? targetObject;
@@ -40,9 +39,10 @@ namespace DrifterBossGrabMod.Core
         public float critStat;
         public float moveSpeedStat;
 
-        // Breakout data
-        public float breakoutTime;
-        public float breakoutAttempts;
+        // Breakout timer tracking properties
+        public float breakoutTime = 10f;
+        public float breakoutAttempts = 0f;
+        public float elapsedBreakoutTime = 0f;
 
         // Additional
         public SpecialObjectAttributes? vehiclePassengerAttributes;
@@ -75,9 +75,19 @@ namespace DrifterBossGrabMod.Core
                 critStat = _critStatField != null ? (float)_critStatField.GetValue(state) : 0f;
                 moveSpeedStat = _moveSpeedStatField != null ? (float)_moveSpeedStatField.GetValue(state) : 0f;
                 
-                // Breakout data
-                breakoutTime = _breakoutTimeField != null ? (float)_breakoutTimeField.GetValue(state) : 0f;
-                breakoutAttempts = _breakoutAttemptsField != null ? (float)_breakoutAttemptsField.GetValue(state) : 0f;
+                // Breakout timer tracking
+                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
+                if (bTimeField != null) breakoutTime = (float)bTimeField.GetValue(state);
+
+                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                if (bAttemptsField != null) breakoutAttempts = (float)bAttemptsField.GetValue(state);
+
+                // Try to get EntityState's internal age
+                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                if (fixedAgeProp != null)
+                {
+                    elapsedBreakoutTime = (float)fixedAgeProp.GetValue(state);
+                }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
@@ -121,13 +131,24 @@ namespace DrifterBossGrabMod.Core
                 _moveSpeedStatField?.SetValue(state, moveSpeedStat);
                 
                 // Breakout data
-                _breakoutTimeField?.SetValue(state, breakoutTime);
-                _breakoutAttemptsField?.SetValue(state, breakoutAttempts);
+                // Set breakoutTime and breakoutAttempts directly on the state object
+                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
+                if (bTimeField != null) bTimeField.SetValue(state, breakoutTime);
+
+                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                if (bAttemptsField != null) bAttemptsField.SetValue(state, breakoutAttempts);
+
+                // Set EntityState's internal age
+                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                if (fixedAgeProp != null)
+                {
+                    fixedAgeProp.SetValue(state, elapsedBreakoutTime);
+                }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[BaggedObjectStateData] Applied state to {targetObject?.name ?? "null"}: " +
-                            $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
+                            $"mass={baggedMass}, age={elapsedBreakoutTime}, scale={bagScale01}, penalty={movespeedPenalty}, " +
                             $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
                 }
             }
@@ -207,7 +228,8 @@ namespace DrifterBossGrabMod.Core
 
                 // Breakout data - reset for new objects
                 breakoutTime = 0f;
-                breakoutAttempts = 0;
+                breakoutAttempts = 0f;
+                elapsedBreakoutTime = 0f; // Reset elapsed time for new objects
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
@@ -219,6 +241,21 @@ namespace DrifterBossGrabMod.Core
             catch (Exception ex)
             {
                 Log.Error($"[BaggedObjectStateData] Error calculating from object: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // Capture properties explicitly from an additional seat timer
+        public void CaptureFromAdditionalTimer(Patches.AdditionalSeatBreakoutTimer timer)
+        {
+            if (timer == null) return;
+            
+            this.breakoutTime = timer.breakoutTime;
+            this.breakoutAttempts = timer.breakoutAttempts;
+            this.elapsedBreakoutTime = timer.GetElapsedBreakoutTime();
+            
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[BaggedObjectStateData] Captured timer state from AdditionalSeat: age={elapsedBreakoutTime}, attempts={breakoutAttempts}");
             }
         }
     }

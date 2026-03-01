@@ -125,17 +125,13 @@ namespace DrifterBossGrabMod
         private static PluginConfig _instance = null!;
         public static PluginConfig Instance => _instance ??= new PluginConfig();
 
-        public ConfigEntry<float> SearchRangeMultiplier { get; private set; } = null!;
         public ConfigEntry<float> BreakoutTimeMultiplier { get; private set; } = null!;
-        public ConfigEntry<float> ForwardVelocityMultiplier { get; private set; } = null!;
-        public ConfigEntry<float> UpwardVelocityMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableBossGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableNPCGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableLockedObjectGrabbing { get; private set; } = null!;
         public ConfigEntry<ProjectileGrabbingMode> ProjectileGrabbingMode { get; private set; } = null!;
         public ConfigEntry<int> MaxSmacks { get; private set; } = null!;
-        public ConfigEntry<string> MassMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
         public ConfigEntry<string> BodyBlacklist { get; private set; } = null!;
         public ConfigEntry<string> RecoveryObjectBlacklist { get; private set; } = null!;
@@ -352,7 +348,9 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPBAGSCALE.CHECKBOX"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPMASS.CHECKBOX"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEAOESLAMDAMAGE.CHECKBOX"] = BalanceSubTabType.Other,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOEDAMAGEDISTRIBUTION.CHOICE"] = BalanceSubTabType.Other
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOEDAMAGEDISTRIBUTION.CHOICE"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUTTIMEMULTIPLIER.STEP_SLIDER"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXSMACKS.INT_SLIDER"] = BalanceSubTabType.Other
         };
 
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
@@ -425,12 +423,8 @@ namespace DrifterBossGrabMod
         }
         public static void Init(ConfigFile cfg)
         {
-            Instance.SearchRangeMultiplier = cfg.Bind("Skill", "SearchRangeMultiplier", 1.0f, "Multiplier for Drifter's repossess search range.\nFormula: FinalRange = BaseRange × SearchRangeMultiplier");
-            Instance.ForwardVelocityMultiplier = cfg.Bind("Skill", "ForwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess forward velocity.\nFormula: FinalForwardVelocity = BaseForwardVelocity × ForwardVelocityMultiplier");
-            Instance.UpwardVelocityMultiplier = cfg.Bind("Skill", "UpwardVelocityMultiplier", 1.0f, "Multiplier for Drifter's repossess upward velocity.\nFormula: FinalUpwardVelocity = BaseUpwardVelocity × UpwardVelocityMultiplier");
-            Instance.BreakoutTimeMultiplier = cfg.Bind("Skill", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out.\nFormula: FinalBreakoutTime = BaseBreakoutTime × BreakoutTimeMultiplier");
-            Instance.MaxSmacks = cfg.Bind("Skill", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out.\nBagged enemies will break out after receiving this many hits.", new AcceptableValueRange<int>(1, 100)));
-            Instance.MassMultiplier = cfg.Bind("Skill", "MassMultiplier", "1", "Multiplier for mass of bagged objects.\nFormula: FinalMass = BaseMass × MassMultiplier\nExample: 1.5 = 50% more mass, 0.5 = 50% less mass");
+            Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out.\nFormula: FinalBreakoutTime = BaseBreakoutTime × BreakoutTimeMultiplier");
+            Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out.\nBagged enemies will break out after receiving this many hits.", new AcceptableValueRange<int>(1, 100)));
             Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies.\nWhen disabled, boss enemies cannot be repossessed.");
             Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag.\nWhen enabled, allows grabbing NPCs that are normally marked as ungrabbable.");
             Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines.\nWhen enabled, allows repossessing interactable world objects.");
@@ -981,8 +975,6 @@ namespace DrifterBossGrabMod
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
             EventHandler blacklistHandler,
-            EventHandler forwardVelHandler,
-            EventHandler upwardVelHandler,
             EventHandler recoveryBlacklistHandler,
             EventHandler grabbableComponentTypesHandler,
             EventHandler grabbableKeywordBlacklistHandler,
@@ -994,8 +986,6 @@ namespace DrifterBossGrabMod
         {
             Instance.EnableDebugLogs.SettingChanged -= debugLogsHandler;
             Instance.BodyBlacklist.SettingChanged -= blacklistHandler;
-            Instance.ForwardVelocityMultiplier.SettingChanged -= forwardVelHandler;
-            Instance.UpwardVelocityMultiplier.SettingChanged -= upwardVelHandler;
             Instance.RecoveryObjectBlacklist.SettingChanged -= recoveryBlacklistHandler;
             Instance.GrabbableComponentTypes.SettingChanged -= grabbableComponentTypesHandler;
             Instance.GrabbableKeywordBlacklist.SettingChanged -= grabbableKeywordBlacklistHandler;

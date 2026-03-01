@@ -21,15 +21,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableDebugLogs"] = false,
                 ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-                ["General.MassMultiplier"] = "1",
-
-                // Skill settings
-                ["Skill.SearchRangeMultiplier"] = 1.0f,
-                ["Skill.ForwardVelocityMultiplier"] = 1.0f,
-                ["Skill.UpwardVelocityMultiplier"] = 1.0f,
-                ["Skill.BreakoutTimeMultiplier"] = 1.0f,
-                ["Skill.MaxSmacks"] = 3,
-                ["Skill.MassMultiplier"] = "1",
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
@@ -77,6 +68,8 @@ namespace DrifterBossGrabMod.Config
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.BreakoutTimeMultiplier"] = 1.0f,
+                ["Balance.MaxSmacks"] = 3,
                 ["Balance.EnableAoESlamDamage"] = false,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
                 ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
@@ -110,15 +103,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableDebugLogs"] = false,
                 ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-                ["General.MassMultiplier"] = "1",
-
-                // Skill settings
-                ["Skill.SearchRangeMultiplier"] = 1.0f,
-                ["Skill.ForwardVelocityMultiplier"] = 1.0f,
-                ["Skill.UpwardVelocityMultiplier"] = 1.0f,
-                ["Skill.BreakoutTimeMultiplier"] = 1.0f,
-                ["Skill.MaxSmacks"] = 3,
-                ["Skill.MassMultiplier"] = "1",
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
@@ -166,6 +150,8 @@ namespace DrifterBossGrabMod.Config
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.BreakoutTimeMultiplier"] = 1.0f,
+                ["Balance.MaxSmacks"] = 3,
                 ["Balance.EnableAoESlamDamage"] = false,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
                 ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
@@ -199,15 +185,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableDebugLogs"] = false,
                 ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-                ["General.MassMultiplier"] = "1",
-
-                // Skill settings
-                ["Skill.SearchRangeMultiplier"] = 1.0f,
-                ["Skill.ForwardVelocityMultiplier"] = 1.0f,
-                ["Skill.UpwardVelocityMultiplier"] = 1.0f,
-                ["Skill.BreakoutTimeMultiplier"] = 1.0f,
-                ["Skill.MaxSmacks"] = 3,
-                ["Skill.MassMultiplier"] = "1",
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
@@ -255,6 +232,8 @@ namespace DrifterBossGrabMod.Config
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.BreakoutTimeMultiplier"] = 1.0f,
+                ["Balance.MaxSmacks"] = 3,
                 ["Balance.EnableAoESlamDamage"] = false,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
                 ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
@@ -288,15 +267,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableDebugLogs"] = false,
                 ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-                ["General.MassMultiplier"] = "1",
-
-                // Skill settings
-                ["Skill.SearchRangeMultiplier"] = 1.0f,
-                ["Skill.ForwardVelocityMultiplier"] = 1.0f,
-                ["Skill.UpwardVelocityMultiplier"] = 1.0f,
-                ["Skill.BreakoutTimeMultiplier"] = 1.0f,
-                ["Skill.MaxSmacks"] = 3,
-                ["Skill.MassMultiplier"] = "1",
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
@@ -344,6 +314,8 @@ namespace DrifterBossGrabMod.Config
 
                 // Balance settings
                 ["Balance.EnableBalance"] = true,
+                ["Balance.BreakoutTimeMultiplier"] = 1.0f,
+                ["Balance.MaxSmacks"] = 3,
                 ["Balance.EnableAoESlamDamage"] = true,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Split,
                 ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,

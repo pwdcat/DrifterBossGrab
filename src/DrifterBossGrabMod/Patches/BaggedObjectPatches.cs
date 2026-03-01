@@ -428,10 +428,16 @@ namespace DrifterBossGrabMod.Patches
                     {
                         var newBaggedObject = (BaggedObject)constructor.Invoke(null);
                         newBaggedObject.targetObject = targetObject;
+                        var bagCtrl = bagStateMachine != null ? bagStateMachine.GetComponent<DrifterBagController>() : bagController.gameObject.GetComponent<DrifterBagController>();
+                        if (bagCtrl != null)
+                        {
+                            var dbcField = AccessTools.Field(typeof(BaggedObject), "drifterBagController");
+                            dbcField?.SetValue(newBaggedObject, bagCtrl);
+                        }
                         // DIAGNOSTIC LOG: Log when we create a new BaggedObject
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={targetObject?.name ?? "null"}");
+                            Log.Info($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={targetObject?.name ?? "null"}, drifterBagController={(bagCtrl != null ? bagCtrl.name : "null")}");
                         }
                         targetStateMachine.SetState(newBaggedObject);
                         return newBaggedObject;

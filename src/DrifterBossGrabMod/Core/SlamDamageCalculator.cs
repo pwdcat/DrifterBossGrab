@@ -185,21 +185,21 @@ namespace DrifterBossGrabMod.Core
                 dryRunResult = DryRunDamageCalculator.CalculateDamage(drifterBody, targetBody, dryRunBaseDamage);
             }
 
-            Log.Info($"[SlamCalcs] Target: {target.name}");
-            Log.Info($"  Components: Coef={baseDamageCoef} (StateFound={foundState}) MassScaling={massScaling} (Only applied if !StateFound)");
-            Log.Info($"  Mass: {mass}/{maxCapacity} (Frac={massFraction:F2})");
-            Log.Info($"  EffectiveCoef: {effectiveCoef:F2}");
-            Log.Info($"  Damage: {damageStat} * {effectiveCoef:F2} = {baseDamage:F1}");
-            Log.Info($"  Mitigation: Armor={armor} -> Factor={armorFactor:F2} -> Mitigated={mitigatedDamage:F1}");
+            // Log.Info($"[SlamCalcs] Target: {target.name}");
+            // Log.Info($"  Components: Coef={baseDamageCoef} (StateFound={foundState}) MassScaling={massScaling} (Only applied if !StateFound)");
+            // Log.Info($"  Mass: {mass}/{maxCapacity} (Frac={massFraction:F2})");
+            // Log.Info($"  EffectiveCoef: {effectiveCoef:F2}");
+            // Log.Info($"  Damage: {damageStat} * {effectiveCoef:F2} = {baseDamage:F1}");
+            // Log.Info($"  Mitigation: Armor={armor} -> Factor={armorFactor:F2} -> Mitigated={mitigatedDamage:F1}");
 
-            if (dryRunResult.activeModifiers != null && dryRunResult.activeModifiers.Count > 0)
-            {
-                Log.Info($"  DryRun Modifiers: {string.Join(", ", dryRunResult.activeModifiers)}");
-                Log.Info($"  DryRun Result: Base={dryRunResult.baseDamage:F1} -> Modified={dryRunResult.modifiedDamage:F1} -> Mitigated={dryRunResult.mitigatedDamage:F1} -> Final={dryRunResult.finalDamage:F1}");
-                Log.Info($"  ItemMultiplier: {dryRunResult.itemDamageMultiplier:F2}");
-                Log.Info($"  Crit: {(dryRunResult.wouldCrit ? $"YES (x{dryRunResult.critMultiplier:F2})" : "NO")}");
-            }
-            Log.Info($"  FinalDamage (preview): {finalDamage:F1}");
+            // if (dryRunResult.activeModifiers != null && dryRunResult.activeModifiers.Count > 0)
+            // {
+            //     Log.Info($"  DryRun Modifiers: {string.Join(", ", dryRunResult.activeModifiers)}");
+            //     Log.Info($"  DryRun Result: Base={dryRunResult.baseDamage:F1} -> Modified={dryRunResult.modifiedDamage:F1} -> Mitigated={dryRunResult.mitigatedDamage:F1} -> Final={dryRunResult.finalDamage:F1}");
+            //     Log.Info($"  ItemMultiplier: {dryRunResult.itemDamageMultiplier:F2}");
+            //     Log.Info($"  Crit: {(dryRunResult.wouldCrit ? $"YES (x{dryRunResult.critMultiplier:F2})" : "NO")}");
+            // }
+            // Log.Info($"  FinalDamage (preview): {finalDamage:F1}");
 
             // Priority 0: JunkCubeController
             var junkController = target.GetComponent<JunkCubeController>();
