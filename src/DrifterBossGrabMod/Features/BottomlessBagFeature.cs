@@ -25,6 +25,9 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_OnExit)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_FixedUpdate)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.VehicleSeat_OnPassengerExit)).Patch();
+            
+            // Animation Patches
+            harmony.CreateClassProcessor(typeof(Patches.AnimationPatches)).Patch();
 
             // Newly identified missing patches
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetNextStateToMain)).Patch();

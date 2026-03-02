@@ -150,6 +150,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
+        public ConfigEntry<bool> PlayAnimationOnCycle { get; private set; } = null!;
         public ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<bool> InverseMouseWheelScrolling { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
@@ -499,6 +500,8 @@ namespace DrifterBossGrabMod
                 "Prevents refreshing more stocks than available slots.");
             Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles (seconds).\n" +
                 "Minimum time between scroll wheel cycles to prevent rapid switching.");
+            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "When enabled, plays the bag grab animation when cycling to a new passenger.\n" +
+                "Disabled by default to reduce visual noise when cycling.");
             Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers.\n" +
                 "When enabled, mouse wheel can be used to cycle through bagged objects.");
             Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert the mouse wheel scrolling direction.\n" +

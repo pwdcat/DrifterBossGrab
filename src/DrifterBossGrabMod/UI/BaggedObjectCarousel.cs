@@ -599,10 +599,15 @@ namespace DrifterBossGrabMod.UI
                     baggedCardController.sourceBody = null;
                     baggedCardController.sourceMaster = null;
                     baggedCardController.sourcePassengerAttributes = null;
+                    baggedCardController.ForceUpdate();
 
                     if (baggedCardController.nameLabel) baggedCardController.nameLabel.gameObject.SetActive(false);
                     if (baggedCardController.portraitIconImage) baggedCardController.portraitIconImage.gameObject.SetActive(false);
-                    if (baggedCardController.healthBar) baggedCardController.healthBar.gameObject.SetActive(false);
+                    if (baggedCardController.healthBar)
+                    {
+                        baggedCardController.healthBar.gameObject.SetActive(false);
+                        if (baggedCardController.healthBar.deadImage) baggedCardController.healthBar.deadImage.enabled = false;
+                    }
 
                     if (canvasGroup) canvasGroup.alpha = 0f;
 
@@ -630,6 +635,12 @@ namespace DrifterBossGrabMod.UI
                     baggedCardController.sourceBody = body;
                     baggedCardController.sourceMaster = master;
                     baggedCardController.sourcePassengerAttributes = specialObjectAttributes;
+                    baggedCardController.ForceUpdate();
+
+                    if (baggedCardController.healthBar && baggedCardController.healthBar.deadImage)
+                    {
+                        baggedCardController.healthBar.deadImage.enabled = false;
+                    }
 
                     // Set weight icon
                     float mass = (bagController == passenger) ? bagController.baggedMass : bagController.CalculateBaggedObjectMass(passenger);

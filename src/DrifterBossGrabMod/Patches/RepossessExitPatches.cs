@@ -53,11 +53,13 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}");
                 }
+                
                 // If chosenTarget was rejected but it's grabbable, allow it
                 if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
                 {
                     traverse.Field("chosenTarget").SetValue(originalChosenTarget);
                     traverse.Field("activatedHitpause").SetValue(true);
+                    chosenTarget = originalChosenTarget;
                 }
                 else if (chosenTarget == null && originalChosenTarget != null)
                 {
@@ -82,6 +84,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             traverse.Field("chosenTarget").SetValue(originalChosenTarget);
                             traverse.Field("activatedHitpause").SetValue(true);
+                            chosenTarget = originalChosenTarget;
                         }
                     }
                 }
@@ -161,6 +164,42 @@ namespace DrifterBossGrabMod.Patches
                 catch (Exception ex)
                 {
                     Log.Error($" Error in BaggedObject.OnExit restoration: {ex.Message}");
+                }
+            }
+        }
+        
+        [HarmonyPatch(typeof(CharacterBody), "Start")]
+        public class CharacterBody_Start_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(CharacterBody __instance)
+            {
+                if (__instance == null) return;
+                
+                // Only modify flags if our grabbing features are enabled
+                if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
+                    return;
+
+                bool isBoss = __instance.isBoss || __instance.isChampion;
+                bool isUngrabbable = __instance.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
+                bool isBlacklisted = PluginConfig.IsBlacklisted(__instance.name);
+
+                bool shouldModify = false;
+
+                // Clearing Ungrabbable
+                if (isBoss && PluginConfig.Instance.EnableBossGrabbing.Value && !isBlacklisted)
+                    shouldModify = true;
+                
+                if (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value && !isBlacklisted)
+                    shouldModify = true;
+
+                if (shouldModify)
+                {
+                    __instance.bodyFlags &= ~CharacterBody.BodyFlags.Ungrabbable;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CharacterBody_Start_Patch] Removed Ungrabbable flag from {__instance.name}");
+                    }
                 }
             }
         }

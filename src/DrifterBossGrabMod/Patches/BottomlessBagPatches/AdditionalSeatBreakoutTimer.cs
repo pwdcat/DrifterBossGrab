@@ -13,6 +13,9 @@ namespace DrifterBossGrabMod.Patches
         public DrifterBagController? controller;
         public float breakoutTime;
         public float breakoutAttempts;
+        
+        private bool _hasPlayedRustle = false;
+        private static System.Collections.Generic.Dictionary<GameObject, int> _wiggleLoopsActive = new System.Collections.Generic.Dictionary<GameObject, int>();
 
         // Check if an object is eligible for breakout.
         // requires CharacterBody, not player-controlled, and has a CharacterMaster.
@@ -43,6 +46,13 @@ namespace DrifterBossGrabMod.Patches
 
         private void FixedUpdate()
         {
+            if (!_hasPlayedRustle && controller != null && NetworkServer.active)
+            {
+                _hasPlayedRustle = true;
+                PlayBagAnimation("Bag, Rumble", "Rustle", "Rumble.playbackRate", 1f, 0.1f);
+                AddWiggleLoop(controller.gameObject);
+            }
+
             if (controller == null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -113,6 +123,76 @@ namespace DrifterBossGrabMod.Patches
                     Breakout();
                     Patches.BagPassengerManager.RemoveBaggedObject(controller, gameObject, true);
                     return;
+                }
+                
+                PlayBagAnimation("Bag, Rumble", "BagBurst", "Rumble.playbackRate", 0.5f, 0.1f);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_hasPlayedRustle && controller != null && controller.gameObject != null)
+            {
+                RemoveWiggleLoop(controller.gameObject);
+                PlayBagAnimation("Bag, Rumble", "Empty", "Rumble.playbackRate", 1f, 0.1f);
+            }
+        }
+
+        private static void AddWiggleLoop(GameObject drifterObject)
+        {
+            if (drifterObject == null) return;
+            if (!_wiggleLoopsActive.ContainsKey(drifterObject))
+            {
+                _wiggleLoopsActive[drifterObject] = 0;
+            }
+            if (_wiggleLoopsActive[drifterObject] == 0)
+            {
+                Util.PlaySound("Play_drifter_repossess_bagWiggle_Loop", drifterObject);
+            }
+            _wiggleLoopsActive[drifterObject]++;
+        }
+
+        private static void RemoveWiggleLoop(GameObject drifterObject)
+        {
+            if (drifterObject == null) return;
+            if (_wiggleLoopsActive.ContainsKey(drifterObject))
+            {
+                _wiggleLoopsActive[drifterObject]--;
+                if (_wiggleLoopsActive[drifterObject] <= 0)
+                {
+                    Util.PlaySound("Stop_drifter_repossess_bagWiggle_Loop", drifterObject);
+                    _wiggleLoopsActive[drifterObject] = 0;
+                }
+            }
+        }
+
+        private void PlayBagAnimation(string layerName, string animationStateName, string playbackRateParam, float duration, float crossfadeDuration)
+        {
+            try
+            {
+                if (controller == null) return;
+                var esm = EntityStateMachine.FindByCustomName(controller.gameObject, "Bag");
+                if (esm != null && esm.state != null)
+                {
+                    var playCrossfadeMethod = typeof(EntityStates.EntityState).GetMethod(
+                        "PlayCrossfade",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                        null,
+                        new Type[] { typeof(string), typeof(string), typeof(string), typeof(float), typeof(float) },
+                        null
+                    );
+                    
+                    if (playCrossfadeMethod != null)
+                    {
+                        playCrossfadeMethod.Invoke(esm.state, new object[] { layerName, animationStateName, playbackRateParam, duration, crossfadeDuration });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Warning($"[AdditionalSeatBreakoutTimer] Failed to play animation {animationStateName}: {ex}");
                 }
             }
         }

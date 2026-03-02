@@ -590,10 +590,40 @@ namespace DrifterBossGrabMod.Patches
 
                     if (drifterBagController != null && NetworkServer.active)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {GetSafeName(instance?.targetObject)}");
+                        bool targetIsDestroyedOrNull = instance?.targetObject == null;
                         
-                        drifterBagController.ExecuteBody();
+                        if (targetIsDestroyedOrNull)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[TrySpawnJunk] targetObject is null/destroyed — spawning junk WITHOUT ExecuteBody() to avoid incrementing wrong object's invisibilityCount");
+                            
+                            // Unground the Drifter's motor
+                            var drifterBody = drifterBagController.GetComponent<CharacterBody>();
+                            var drifterMotor = drifterBody?.characterMotor;
+                            if (drifterMotor != null)
+                            {
+                                drifterMotor.Motor.ForceUnground(0.1f);
+                                drifterMotor.velocity = new Vector3(drifterMotor.velocity.x, Mathf.Max(drifterMotor.velocity.y, 8f), drifterMotor.velocity.z);
+                            }
+                            
+                            // Spawn junk
+                            Vector3 dropLocation = drifterBody
+                                ? drifterBody.corePosition
+                                : drifterBagController.transform.position;
+                            var junkControllerField = AccessTools.Field(typeof(DrifterBagController), "junkController");
+                            var junkCtrl = junkControllerField?.GetValue(drifterBagController) as JunkController;
+                            if (junkCtrl != null)
+                            {
+                                junkCtrl.CallCmdGenerateJunkQuantity(dropLocation, 4);
+                            }
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {GetSafeName(instance?.targetObject)}");
+                            drifterBagController.ExecuteBody();
+                        }
+
                         drifterBagController.ResetBaggedObject();
                     }
                     else if (PluginConfig.Instance.EnableDebugLogs.Value)

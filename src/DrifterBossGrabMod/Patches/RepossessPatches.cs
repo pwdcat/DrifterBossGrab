@@ -39,13 +39,15 @@ namespace DrifterBossGrabMod.Patches
                  }
 
                   // Clamp mass
-                  if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapMass.Value)
+                  // When EnableBalance is false, preserve original object mass (no clamping)
+                  if (PluginConfig.Instance.EnableBalance.Value && !PluginConfig.Instance.UncapMass.Value)
                   {
                       float maxCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance);
                       __result = Mathf.Clamp(mass, 0f, maxCapacity);
                   }
                   else
                   {
+                      // When balance is disabled or UncapMass is true, use vanilla mass (no clamping)
                       __result = Mathf.Max(mass, 0f);
                   }
 

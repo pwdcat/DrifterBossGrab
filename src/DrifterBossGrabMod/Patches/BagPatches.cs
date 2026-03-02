@@ -120,13 +120,25 @@ namespace DrifterBossGrabMod.Patches
                 // Assign to main seat
                 if (NetworkServer.active)
                 {
+                    // Force-clear dead/destroyed passengers from main seat before autopromote
+                    if (_controller.vehicleSeat != null && _controller.vehicleSeat.hasPassenger)
+                    {
+                        var currentPassenger = _controller.vehicleSeat.NetworkpassengerBodyObject;
+                        bool isDeadOrDestroyed = currentPassenger == null ||
+                            (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
+                            (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
+                        if (isDeadOrDestroyed)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[DelayedAutoPromote] Force-clearing dead passenger {currentPassenger?.name ?? "null"} from main seat before autopromote");
+                            _controller.vehicleSeat.EjectPassenger();
+                        }
+                    }
                     _controller.AssignPassenger(_newMain);
 
                     if (_controller.vehicleSeat != null)
                     {
                         if (_controller.vehicleSeat.NetworkpassengerBodyObject != _newMain)
                         {
-
                             _controller.vehicleSeat.AssignPassenger(_newMain);
 
                         }
