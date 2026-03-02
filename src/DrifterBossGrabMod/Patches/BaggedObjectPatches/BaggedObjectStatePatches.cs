@@ -582,16 +582,16 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        string bName = drifterBagController?.name ?? "NULL";
-                        string bbName = drifterBagController?.baggedBody?.name ?? "NULL";
-                        string attrName = drifterBagController?.baggedAttributes?.name ?? "NULL";
+                        string bName = GetSafeName(drifterBagController);
+                        string bbName = drifterBagController != null ? GetSafeName(drifterBagController.baggedBody) : "NULL";
+                        string attrName = drifterBagController != null ? GetSafeName(drifterBagController.baggedAttributes) : "NULL";
                         Log.Info($"[TrySpawnJunk] Reason: {reason} | bagController: {bName} | Server: {NetworkServer.active} | baggedBody: {bbName} | attributes: {attrName}");
                     }
 
                     if (drifterBagController != null && NetworkServer.active)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {instance?.targetObject?.name ?? "unknown"}");
+                            Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {GetSafeName(instance?.targetObject)}");
                         
                         drifterBagController.ExecuteBody();
                         drifterBagController.ResetBaggedObject();
