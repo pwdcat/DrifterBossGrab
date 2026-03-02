@@ -14,6 +14,33 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class OtherPatches
     {
+        // Constants for projectile recovery bounds and positioning.
+        public static class ProjectileRecovery
+        {
+            // Minimum Y-coordinate for projectile recovery. Objects below this value are considered lost and should be recovered.
+            public const float MinY = -1000f;
+
+            // Maximum Y-coordinate for projectile recovery. Objects above this value are considered lost and should be recovered.
+            public const float MaxY = 5000f;
+
+            // Forward distance offset for teleporting recovered objects in front of the player.
+            public const float TeleportForwardDistance = 4f;
+
+            // Upward distance offset for teleporting recovered objects above the player.
+            public const float TeleportUpDistance = 2f;
+
+            // Upward distance offset for recovering projectiles to player position.
+            public const float RecoveryUpDistance = 2f;
+        }
+
+        // Constants for timing intervals.
+        public static class Timing
+        {
+            // Interval in seconds between MapZoneChecker checks for each projectile instance.
+            // Throttles checks to prevent excessive processing.
+            public const float MapZoneCheckInterval = 5f;
+        }
+
         // Track objects in projectile state (don't count toward capacity).
         internal static readonly System.Collections.Generic.HashSet<GameObject> projectileStateObjects = new System.Collections.Generic.HashSet<GameObject>();
         // Tracks whether OutOfBounds zones are inverted in the current stage
@@ -59,7 +86,12 @@ namespace DrifterBossGrabMod.Patches
         {
             // Get the player who threw the projectile
             var projectileController = Traverse.Create(thrownController).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-            GameObject? owner = projectileController?.owner;
+            if (projectileController == null)
+            {
+                Log.Error($"[RecoverObject] Failed to get projectileController from {thrownController.GetType().Name}");
+                return;
+            }
+            GameObject? owner = projectileController.owner;
             if (owner != null)
             {
                 // Find the bag controller and properly remove/eject the object
@@ -79,25 +111,20 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 Vector3 playerPos = owner.transform.position;
-                string passengerName = "unknown";
-                try
+                string passengerName;
+                if (passenger == null)
                 {
-                    if (passenger != null)
-                    {
-                        passengerName = passenger.name;
-                    }
+                    Log.Warning($"[RecoverObject] Passenger is null, cannot recover object");
+                    return;
                 }
-                catch (System.NullReferenceException)
-                {
-                    passengerName = "corrupted";
-                }
+                passengerName = passenger.name;
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" Recovering {passengerName} to player position {playerPos}");
                 }
                 // Removed GrabbedObjectState restoration - testing if SpecialObjectAttributes handles this automatically
                 // Teleport passenger to a position in front of the player
-                Vector3 teleportPos = owner.transform.position + owner.transform.forward * 4f + Vector3.up * 2f;
+                Vector3 teleportPos = owner.transform.position + owner.transform.forward * ProjectileRecovery.TeleportForwardDistance + Vector3.up * ProjectileRecovery.TeleportUpDistance;
                 if (passenger != null) passenger.transform.position = teleportPos;
 
                 // Clear projectile state tracking so the object can be cycled if re-grabbed
@@ -126,10 +153,9 @@ namespace DrifterBossGrabMod.Patches
             {
                 // Update the search origin to follow the beacon's current position
                 var traverse = Traverse.Create(__instance);
-                var field = __instance.GetType().GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (field != null)
+                if (_sphereSearchField != null)
                 {
-                    var sphereSearch = (SphereSearch)field.GetValue(__instance);
+                    var sphereSearch = (SphereSearch)_sphereSearchField.GetValue(__instance);
                     var transform = traverse.Property("transform").GetValue<Transform>();
                     if (sphereSearch != null && transform != null && sphereSearch.origin != transform.position)
                     {
@@ -190,15 +216,12 @@ namespace DrifterBossGrabMod.Patches
         }
         private static void ProcessThrownObject(ThrownObjectProjectileController __instance, GameObject passenger)
         {
-            string passengerName = "unknown";
-            try
+            if (passenger == null)
             {
-                passengerName = passenger.name;
+                Log.Error("[ProcessThrownObject] Passenger is null, cannot process thrown object");
+                return;
             }
-            catch (System.NullReferenceException)
-            {
-                passengerName = "corrupted";
-            }
+            string passengerName = passenger.name;
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [ProcessThrownObject] Object {passengerName} is now a projectile (airborne) - removing from bag tracking");
@@ -211,7 +234,12 @@ namespace DrifterBossGrabMod.Patches
             }
             // Get the DrifterBagController to remove from tracking
             var projectileController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-            GameObject? owner = projectileController?.owner;
+            if (projectileController == null)
+            {
+                Log.Error($"[ProcessThrownObject] Failed to get projectileController from {__instance.GetType().Name}");
+                return;
+            }
+            GameObject? owner = projectileController.owner;
             if (owner != null)
             {
                 var bagController = owner.GetComponent<DrifterBagController>();
@@ -240,6 +268,14 @@ namespace DrifterBossGrabMod.Patches
         private static readonly MethodInfo _calculatePassengerFinalPositionMethod = AccessTools.Method(typeof(ThrownObjectProjectileController), "CalculatePassengerFinalPosition");
         private static readonly FieldInfo _runStickEventField = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "runStickEvent");
         private static readonly FieldInfo _alreadyRanStickEventField = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "alreadyRanStickEvent");
+        
+        // Additional cached reflection fields
+        private static readonly FieldInfo _sphereSearchField = typeof(HackingMainState).GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo _collisionToDisableField = typeof(SpecialObjectAttributes).GetField("collisionToDisable", BindingFlags.Public | BindingFlags.Instance);
+        private static readonly FieldInfo _targetObjectField = typeof(BaggedObject).GetField("targetObject", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo _collidersToDisableField = typeof(SpecialObjectAttributes).GetField("collidersToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo _behavioursToDisableField = typeof(SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo _uiOverlayControllerField = typeof(BaggedObject).GetField("uiOverlayController", BindingFlags.NonPublic | BindingFlags.Instance);
 
         public static void RecoverProjectile(GameObject projectile)
         {
@@ -247,7 +283,7 @@ namespace DrifterBossGrabMod.Patches
             var controller = projectile.GetComponent<ProjectileController>();
             if (controller != null && controller.owner != null)
             {
-                projectile.transform.position = controller.owner.transform.position + Vector3.up * 2f;
+                projectile.transform.position = controller.owner.transform.position + Vector3.up * ProjectileRecovery.RecoveryUpDistance;
                 var rb = projectile.GetComponent<Rigidbody>();
                 if (rb != null)
                 {
@@ -263,7 +299,7 @@ namespace DrifterBossGrabMod.Patches
             Vector3 pos = projectileComponent.transform.position;
 
             // Abstraction for both ProjectileController and ThrownObjectProjectileController
-            if (pos.y < -1000f || pos.y > 5000f)
+            if (pos.y < ProjectileRecovery.MinY || pos.y > ProjectileRecovery.MaxY)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[{source}] Projectile {projectileComponent.gameObject.name} out of bounds. Recovering.");
 
@@ -291,35 +327,14 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     GameObject passengerObj = __instance.Networkpassenger;
-                    string passengerName = "null";
-                    try
-                    {
-                        passengerName = passengerObj?.name ?? "null";
-                    }
-                    catch (System.NullReferenceException)
-                    {
-                        passengerName = "corrupted";
-                    }
+                    string passengerName = passengerObj?.name ?? "null";
                     Log.Info($" ThrownObjectProjectileController.ImpactBehavior called - Passenger: {passengerName}");
                 }
                 // Get passenger.
                 GameObject passenger = __instance.Networkpassenger;
                 if (passenger != null)
                 {
-                    string passengerName = "unknown";
-                    try
-                    {
-                        passengerName = passenger.name;
-                    }
-                    catch (System.NullReferenceException)
-                    {
-                        // Passenger object is corrupted, skip processing
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Skipping processing of corrupted passenger object");
-                        }
-                        return;
-                    }
+                    string passengerName = passenger.name;
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Projectile passenger: {passengerName}");
@@ -364,7 +379,12 @@ namespace DrifterBossGrabMod.Patches
                             }
                             // Get the DrifterBagController to clean up tracking
                             var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-                            GameObject? owner = projController?.owner;
+                            if (projController == null)
+                            {
+                                Log.Error($"[ThrownObjectProjectileController.ImpactBehavior] Failed to get projectileController from {__instance.GetType().Name}");
+                                return;
+                            }
+                            GameObject? owner = projController.owner;
                             if (owner != null)
                             {
                                 var bagController = owner.GetComponent<DrifterBagController>();
@@ -394,7 +414,12 @@ namespace DrifterBossGrabMod.Patches
                                 vehicleSeat.EjectPassenger();
                                 // Get the DrifterBagController to clean up tracking
                                 var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
-                                GameObject? owner = projController?.owner;
+                                if (projController == null)
+                                {
+                                    Log.Error($"[ThrownObjectProjectileController.ImpactBehavior] Failed to get projectileController from {__instance.GetType().Name}");
+                                    return;
+                                }
+                                GameObject? owner = projController.owner;
                                 if (owner != null)
                                 {
                                     var bagController = owner.GetComponent<DrifterBagController>();
@@ -517,7 +542,7 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(MapZoneChecker), "FixedUpdate")]
         public class MapZoneChecker_FixedUpdate_Patch
         {
-            private static readonly float checkInterval = 5f;
+            private static readonly float checkInterval = Timing.MapZoneCheckInterval;
             private static System.Collections.Generic.Dictionary<MapZoneChecker, float> lastCheckTimes = new System.Collections.Generic.Dictionary<MapZoneChecker, float>();
             [HarmonyPostfix]
             public static void Postfix(MapZoneChecker __instance)
@@ -541,19 +566,12 @@ namespace DrifterBossGrabMod.Patches
                     if (thrownController.Networkpassenger.GetComponent<CharacterBody>() == null)
                     {
                          // Check if object is blacklisted from recovery
-                        string passengerName = "unknown";
-                        try
+                        if (thrownController.Networkpassenger == null)
                         {
-                            if (thrownController.Networkpassenger != null)
-                            {
-                                passengerName = thrownController.Networkpassenger.name;
-                            }
-                        }
-                        catch (System.NullReferenceException)
-                        {
-                            // Passenger object is corrupted, skip processing
+                            Log.Warning("[MapZoneChecker] Passenger is null, skipping recovery check");
                             return;
                         }
+                        string passengerName = thrownController.Networkpassenger.name;
                         if (!PluginConfig.IsRecoveryBlacklisted(passengerName))
                         {
                             CheckAndRecoverProjectile(thrownController, "MapZoneChecker");
@@ -588,8 +606,7 @@ namespace DrifterBossGrabMod.Patches
                     string iconName = (__instance.portraitIcon != null) ? __instance.portraitIcon.name : "null";
                     Log.Info($" SpecialObjectAttributes.Start - Object: {__instance.gameObject.name}, portraitIcon: {iconName}, bestName: {__instance.bestName}");
                     // Log collisionToDisable count and contents
-                    var collisionToDisableField = typeof(SpecialObjectAttributes).GetField("collisionToDisable", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    var collisionToDisable = collisionToDisableField?.GetValue(__instance) as System.Collections.Generic.List<GameObject>;
+                    var collisionToDisable = _collisionToDisableField?.GetValue(__instance) as System.Collections.Generic.List<GameObject>;
                     Log.Info($" SpecialObjectAttributes.Start - collisionToDisable count: {collisionToDisable?.Count ?? 0}");
                     if (collisionToDisable != null)
                     {
@@ -657,8 +674,7 @@ namespace DrifterBossGrabMod.Patches
             public static void Prefix(BaggedObject __instance)
             {
                 // Store colliders in SpecialObjectAttributes before BaggedObject.OnEnter disables them
-                var targetObjectField = typeof(BaggedObject).GetField("targetObject", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var targetObject = targetObjectField?.GetValue(__instance) as GameObject;
+                var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                 if (targetObject != null)
                 {
                     // Ensure ModelStatePreserver is attached before the object is stashed and hidden
@@ -688,8 +704,7 @@ namespace DrifterBossGrabMod.Patches
                             Log.Info($" BaggedObject.OnEnter: Storing {colliders.Length} colliders for {targetObject.name} in SpecialObjectAttributes");
                         }
                         // Use reflection to access collidersToDisable
-                        var collidersToDisableField = typeof(SpecialObjectAttributes).GetField("collidersToDisable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var collidersToDisable = collidersToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<Collider>;
+                        var collidersToDisable = _collidersToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<Collider>;
                         if (collidersToDisable != null)
                         {
                             foreach (var collider in colliders)
@@ -701,8 +716,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                         }
                         // Also store behaviors
-                        var behavioursToDisableField = typeof(SpecialObjectAttributes).GetField("behavioursToDisable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var behavioursToDisable = behavioursToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<MonoBehaviour>;
+                        var behavioursToDisable = _behavioursToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<MonoBehaviour>;
                         if (behavioursToDisable != null)
                         {
                             var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
@@ -725,14 +739,13 @@ namespace DrifterBossGrabMod.Patches
                 // Remove original bag UI (Carousel enabled)
                 if (PluginConfig.Instance.EnableCarouselHUD.Value)
                 {
-                    var uiOverlayField = typeof(BaggedObject).GetField("uiOverlayController", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    var uiOverlayController = uiOverlayField?.GetValue(__instance) as OverlayController;
+                    var uiOverlayController = _uiOverlayControllerField?.GetValue(__instance) as OverlayController;
                     if (uiOverlayController != null)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[BaggedObject.OnEnter.Postfix] Removing original bag UI overlay - Carousel is enabled");
                         HudOverlayManager.RemoveOverlay(uiOverlayController);
-                        uiOverlayField?.SetValue(__instance, null);
+                        _uiOverlayControllerField?.SetValue(__instance, null);
                     }
                 }
             }
@@ -756,9 +769,9 @@ namespace DrifterBossGrabMod.Patches
                         return false;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // If even accessing the passenger reference throws, definitely skip
+                    Log.Error($"[CheckForDeadPassenger] Failed to check passenger: {ex.Message}\n{ex.StackTrace}");
                     return false;
                 }
                 return true;

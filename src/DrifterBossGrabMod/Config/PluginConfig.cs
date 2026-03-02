@@ -166,6 +166,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> BagUIShowWeight { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowName { get; private set; } = null!;
         public ConfigEntry<bool> BagUIShowHealthBar { get; private set; } = null!;
+        public ConfigEntry<bool> BagUIShowSlotNumber { get; private set; } = null!;
         public ConfigEntry<bool> EnableDamagePreview { get; private set; } = null!;
         public ConfigEntry<Color> DamagePreviewColor { get; private set; } = null!;
         public ConfigEntry<bool> UseNewWeightIcon { get; private set; } = null!;
@@ -276,6 +277,7 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWWEIGHT.CHECKBOX"] = HudSubTabType.Carousel,
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWNAME.CHECKBOX"] = HudSubTabType.Carousel,
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWHEALTHBAR.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWSLOTNUMBER.CHECKBOX"] = HudSubTabType.Carousel,
             // Weight icon and display settings
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = HudSubTabType.Carousel,
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = HudSubTabType.Carousel,
@@ -532,6 +534,8 @@ namespace DrifterBossGrabMod
                 "When enabled, displays the object's name in the UI.");
             Instance.BagUIShowHealthBar = cfg.Bind("Hud", "BagUIShowHealthBar", true, "Show health bar in additional Bag UI elements.\n" +
                 "When enabled, displays a health bar for the object in the UI.");
+            Instance.BagUIShowSlotNumber = cfg.Bind("Hud", "BagUIShowSlotNumber", true, "Show slot number on carousel items.\n" +
+                "When enabled, displays the 1-based slot number on each carousel item so you know which slot you're viewing.");
             Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show a damage preview overlay on bagged object health bars.\n" +
                 "Indicates predicted slam damage to the object.");
             Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for the damage preview overlay.\n" +
@@ -746,6 +750,7 @@ namespace DrifterBossGrabMod
             Instance.BagUIShowWeight.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.BagUIShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.BagUIShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.UseNewWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.WeightDisplayMode.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.ScaleWeightColor.SettingChanged += (sender, args) => UpdateBagUIToggles();

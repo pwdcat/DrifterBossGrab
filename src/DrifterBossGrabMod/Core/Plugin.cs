@@ -18,6 +18,54 @@ namespace DrifterBossGrabMod
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
     public class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
+        // Constants for timing delays in coroutines.
+        public static class Timing
+        {
+            // Delay in seconds before batch processing SpecialObjectAttributes initialization.
+            // Allows the scene to stabilize before scanning objects.
+            public const float BatchInitializationDelay = 0.2f;
+
+            // Delay in seconds before updating grabbable component types cache.
+            // Ensures configuration changes are processed before updating.
+            public const float GrabbableComponentTypesUpdateDelay = 0.5f;
+
+            // Delay in seconds before updating HUD sub-tab visibility.
+            // Allows RiskOfOptions UI to initialize properly.
+            public const float HudSubTabVisibilityUpdateDelay = 0.5f;
+
+            // Delay in seconds before updating Balance sub-tab visibility.
+            // Allows RiskOfOptions UI to initialize properly.
+            public const float BalanceSubTabVisibilityUpdateDelay = 0.5f;
+        }
+
+        // Constants for batch processing operations.
+        public static class BatchProcessing
+        {
+            // Number of objects to process per batch during SpecialObjectAttributes initialization.
+            // Balances performance and responsiveness during scene loading.
+            public const int BatchSize = 50;
+        }
+
+        // Constants for UI texture and icon dimensions.
+        public static class UI
+        {
+            // Width and height of the mod icon texture in pixels.
+            // Standard size for RiskOfOptions mod icons.
+            public const int IconTextureSize = 256;
+
+            // X-coordinate of the mod icon texture rect (always 0 for full texture).
+            public const float IconRectX = 0f;
+
+            // Y-coordinate of the mod icon texture rect (always 0 for full texture).
+            public const float IconRectY = 0f;
+
+            // X-coordinate of the mod icon sprite pivot point (center of texture).
+            public const float IconPivotX = 0.5f;
+
+            // Y-coordinate of the mod icon sprite pivot point (center of texture).
+            public const float IconPivotY = 0.5f;
+        }
+
         public static DrifterBossGrabPlugin? Instance { get; private set; }
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
@@ -574,6 +622,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.BagUIShowWeight.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BagUIShowName.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BagUIShowHealthBar.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BagUIShowSlotNumber.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.EnableDamagePreview.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.DamagePreviewColor.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.UseNewWeightIcon.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
@@ -890,14 +939,14 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedBatchSpecialObjectAttributesInitialization()
         {
-            yield return new UnityEngine.WaitForSeconds(0.2f);
+            yield return new UnityEngine.WaitForSeconds(Timing.BatchInitializationDelay);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[DelayedBatchSpecialObjectAttributesInitialization] IsDrifterPresent: {DrifterBossGrabPlugin.IsDrifterPresent}");
             }
             if (!DrifterBossGrabPlugin.IsDrifterPresent) yield break;
             var allObjects = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            const int batchSize = 50;
+            const int batchSize = BatchProcessing.BatchSize;
             for (int i = 0; i < allObjects.Length; i += batchSize)
             {
                 int endIndex = Mathf.Min(i + batchSize, allObjects.Length);
@@ -928,7 +977,7 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedGrabbableComponentTypesUpdate()
         {
-            yield return new UnityEngine.WaitForSeconds(0.5f);
+            yield return new UnityEngine.WaitForSeconds(Timing.GrabbableComponentTypesUpdateDelay);
             PluginConfig.ClearGrabbableComponentTypesCache();
             if (DrifterBossGrabPlugin.IsDrifterPresent)
             {
@@ -939,7 +988,7 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedUpdateHudSubTabVisibility()
         {
-            yield return new UnityEngine.WaitForSeconds(0.5f); // Wait for RiskOfOptions UI to initialize
+            yield return new UnityEngine.WaitForSeconds(Timing.HudSubTabVisibilityUpdateDelay); // Wait for RiskOfOptions UI to initialize
             if (DrifterBossGrabPlugin.Instance != null)
             {
                 DrifterBossGrabPlugin.Instance.UpdateHudSubTabVisibility();
@@ -948,7 +997,7 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedUpdateBalanceSubTabVisibility()
         {
-            yield return new UnityEngine.WaitForSeconds(0.5f); // Wait for RiskOfOptions UI to initialize
+            yield return new UnityEngine.WaitForSeconds(Timing.BalanceSubTabVisibilityUpdateDelay); // Wait for RiskOfOptions UI to initialize
             if (DrifterBossGrabPlugin.Instance != null)
             {
                 DrifterBossGrabPlugin.Instance.UpdateBalanceSubTabVisibility();
@@ -961,12 +1010,13 @@ namespace DrifterBossGrabMod
             try
             {
                 byte[] array = File.ReadAllBytes(System.IO.Path.Combine(DirectoryName, "icon.png"));
-                UnityEngine.Texture2D val = new UnityEngine.Texture2D(256, 256);
+                UnityEngine.Texture2D val = new UnityEngine.Texture2D(UI.IconTextureSize, UI.IconTextureSize);
                 UnityEngine.ImageConversion.LoadImage(val, array);
-                ModSettingsManager.SetModIcon(UnityEngine.Sprite.Create(val, new UnityEngine.Rect(0f, 0f, 256f, 256f), new UnityEngine.Vector2(0.5f, 0.5f)));
+                ModSettingsManager.SetModIcon(UnityEngine.Sprite.Create(val, new UnityEngine.Rect(UI.IconRectX, UI.IconRectY, UI.IconTextureSize, UI.IconTextureSize), new UnityEngine.Vector2(UI.IconPivotX, UI.IconPivotY)));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Error($"[SetupRiskOfOptions] Failed to load mod icon: {ex.Message}\n{ex.StackTrace}");
             }
             AddConfigurationOptions();
 
@@ -1026,6 +1076,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowWeight));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowName));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowHealthBar));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BagUIShowSlotNumber));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDamagePreview));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.DamagePreviewColor));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UseNewWeightIcon));

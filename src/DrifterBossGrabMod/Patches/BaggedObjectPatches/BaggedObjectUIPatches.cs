@@ -21,6 +21,7 @@ namespace DrifterBossGrabMod.Patches
         private static readonly FieldInfo _overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
         private static readonly FieldInfo _utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
         private static readonly FieldInfo _primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+        private static readonly PropertyInfo _instancesListProperty = typeof(OverlayController).GetProperty("instancesList", BindingFlags.Public | BindingFlags.Instance);
 
         // Refreshes the UI overlay for the main seat occupant of a bag controller
         // bagController: The bag controller to refresh the UI for
@@ -156,13 +157,12 @@ namespace DrifterBossGrabMod.Patches
 
             }
             // Remove any existing overlay controller
-            var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-            var existingController = baggedObject != null ? (OverlayController)uiOverlayField.GetValue(baggedObject) : null;
+            var existingController = baggedObject != null ? (OverlayController)_uiOverlayControllerField.GetValue(baggedObject) : null;
             if (existingController != null)
             {
 
                 HudOverlayManager.RemoveOverlay(existingController);
-                uiOverlayField.SetValue(baggedObject, null);
+                _uiOverlayControllerField.SetValue(baggedObject, null);
             }
             else
             {
@@ -212,6 +212,12 @@ namespace DrifterBossGrabMod.Patches
                 if (overriddenUtility != null)
                 {
                     var utilityOverride = (SkillDef)_utilityOverrideField.GetValue(baggedObject);
+                    if (utilityOverride == null)
+                    {
+                        Log.Warning($"[RemoveUIOverlayForNullState] utilityOverride is null from {baggedObject.GetType().Name}");
+                        _overriddenUtilityField.SetValue(baggedObject, null);
+                        return;
+                    }
                     overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                     _overriddenUtilityField.SetValue(baggedObject, null);
                 }
@@ -220,6 +226,12 @@ namespace DrifterBossGrabMod.Patches
                 if (overriddenPrimary != null)
                 {
                     var primaryOverride = (SkillDef)_primaryOverrideField.GetValue(baggedObject);
+                    if (primaryOverride == null)
+                    {
+                        Log.Warning($"[RemoveUIOverlayForNullState] primaryOverride is null from {baggedObject.GetType().Name}");
+                        _overriddenPrimaryField.SetValue(baggedObject, null);
+                        return;
+                    }
                     overriddenPrimary.UnsetSkillOverride(baggedObject, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                     _overriddenPrimaryField.SetValue(baggedObject, null);
                 }
@@ -244,29 +256,25 @@ namespace DrifterBossGrabMod.Patches
                 {
                     // Get the OnUIOverlayInstanceRemove method
                     var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
-                    if (onUIOverlayInstanceRemoveMethod != null)
+                    if (onUIOverlayInstanceRemoveMethod != null && _instancesListProperty != null)
                     {
-                        // Get instancesList property to call OnUIOverlayInstanceRemove for each instance
-                        var instancesListProperty = typeof(OverlayController).GetProperty("instancesList", BindingFlags.Public | BindingFlags.Instance);
-                        if (instancesListProperty != null)
+                        try
                         {
-                            try
+                            var instancesList = (IReadOnlyList<GameObject>)_instancesListProperty.GetValue(uiOverlayController);
+                            if (instancesList != null)
                             {
-                                var instancesList = (IReadOnlyList<GameObject>)instancesListProperty.GetValue(uiOverlayController);
-                                if (instancesList != null)
+                                foreach (var instance in instancesList)
                                 {
-                                    foreach (var instance in instancesList)
+                                    if (instance != null)
                                     {
-                                        if (instance != null)
-                                        {
-                                            onUIOverlayInstanceRemoveMethod.Invoke(baggedObject, new object[] { uiOverlayController, instance });
-                                        }
+                                        onUIOverlayInstanceRemoveMethod.Invoke(baggedObject, new object[] { uiOverlayController, instance });
                                     }
                                 }
                             }
-                            catch (Exception)
-                            {
-                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error($"[RemoveUIOverlayForNullState] Failed to iterate overlay instances: {ex.Message}\n{ex.StackTrace}");
                         }
                     }
                     // Remove the overlay from HudOverlayManager

@@ -94,6 +94,7 @@ namespace DrifterBossGrabMod.UI
         // Carousel slots management.
         private List<GameObject> _slots = new();
         private Dictionary<GameObject, GameObject?> _slotToPassenger = new();
+        private Dictionary<GameObject, int> _slotToIndex = new();
 
         // Cached bag controller reference to avoid expensive FindObjectsByType calls
         private DrifterBagController? _cachedBagController = null;
@@ -169,6 +170,7 @@ namespace DrifterBossGrabMod.UI
             {
                 foreach (var s in _slots) s.SetActive(false);
                 _slotToPassenger.Clear();
+                _slotToIndex.Clear();
                 return;
             }
 
@@ -208,6 +210,7 @@ namespace DrifterBossGrabMod.UI
             {
                 foreach (var s in _slots) s.SetActive(false);
                 _slotToPassenger.Clear();
+                _slotToIndex.Clear();
                 return;
             }
 
@@ -297,6 +300,13 @@ namespace DrifterBossGrabMod.UI
                 else targetPassengers[-2] = EmptySlotMarker;
             }
 
+            // Build passenger-to-index mapping (1-based)
+            Dictionary<GameObject?, int> passengerToIndex = new();
+            for (int pi = 0; pi < passengerList.Count; pi++)
+            {
+                passengerToIndex[passengerList[pi]] = pi + 1; // 1-based
+            }
+
             float sideScaleVal = PluginConfig.Instance.CarouselSideScale.Value;
             float sideOpacityVal = PluginConfig.Instance.CarouselSideOpacity.Value;
 
@@ -369,7 +379,9 @@ namespace DrifterBossGrabMod.UI
                 if (freeSlot)
                 {
                     _slotToPassenger[freeSlot] = targetP;
-                    SetSlotData(freeSlot, targetP, bagController);
+                    int slotIndex = (targetP != null && targetP != EmptySlotMarker && passengerToIndex.TryGetValue(targetP, out int idx)) ? idx : -1;
+                    _slotToIndex[freeSlot] = slotIndex;
+                    SetSlotData(freeSlot, targetP, bagController, slotIndex, passengerList.Count);
 
                     // Set initial position based on where it's coming from
                     int startState = (direction > 0) ? state + 1 : state - 1;
@@ -416,6 +428,23 @@ namespace DrifterBossGrabMod.UI
 
             // Ensure Center is on top
             if (centerInstance) centerInstance.transform.SetAsLastSibling();
+
+            // 4. Update slot number labels for ALL active slots (not just new ones)
+            // This ensures labels refresh when the passenger list changes (e.g., after throwing)
+            foreach (var slot in _slots)
+            {
+                if (_slotToPassenger.TryGetValue(slot, out var passenger) && passenger != null && passenger != EmptySlotMarker)
+                {
+                    int idx = passengerToIndex.TryGetValue(passenger, out int i) ? i : -1;
+                    _slotToIndex[slot] = idx;
+                    SetSlotNumberLabel(slot, idx, passengerList.Count);
+                }
+                else if (_slotToPassenger.ContainsKey(slot))
+                {
+                    _slotToIndex[slot] = -1;
+                    SetSlotNumberLabel(slot, -1, passengerList.Count);
+                }
+            }
         }
 
         private void AnimateToState(GameObject slot, int state, int capacity, DrifterBagController bagController, bool hideAfter = false)
@@ -555,7 +584,7 @@ namespace DrifterBossGrabMod.UI
             _activeCoroutines.Remove(slot);
         }
 
-        private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController)
+        private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController, int slotIndex = -1, int totalCount = 0)
         {
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)
@@ -749,6 +778,9 @@ namespace DrifterBossGrabMod.UI
                 // Apply toggles
                 bool isCenter = slot == centerInstance;
                 ToggleSlotElements(slot, isCenter);
+
+                // Set slot number label
+                SetSlotNumberLabel(slot, slotIndex, totalCount);
             }
         }
 
@@ -801,6 +833,93 @@ namespace DrifterBossGrabMod.UI
                 if (baggedCardController.healthBar)
                 {
                     baggedCardController.healthBar.gameObject.SetActive(PluginConfig.Instance.BagUIShowHealthBar.Value);
+                }
+
+                // Toggle slot number badge (parented to portrait icon)
+                if (baggedCardController.portraitIconImage)
+                {
+                    var slotNumberBadge = baggedCardController.portraitIconImage.transform.Find("SlotNumberBadge");
+                    if (slotNumberBadge)
+                    {
+                        slotNumberBadge.gameObject.SetActive(PluginConfig.Instance.BagUIShowSlotNumber.Value);
+                    }
+                }
+            }
+        }
+
+        private void SetSlotNumberLabel(GameObject slot, int slotIndex, int totalCount)
+        {
+            // Find or create the badge - it's parented to the portrait icon
+            var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
+            if (!baggedCardController || !baggedCardController.portraitIconImage) return;
+
+            Transform? portraitTransform = baggedCardController.portraitIconImage.transform;
+            var badgeTransform = portraitTransform.Find("SlotNumberBadge");
+            TextMeshProUGUI? slotNumberTmp = null;
+
+            if (badgeTransform)
+            {
+                slotNumberTmp = badgeTransform.GetComponentInChildren<TextMeshProUGUI>();
+            }
+            else
+            {
+                // Create badge container - parented to portrait icon
+                var badgeObj = new GameObject("SlotNumberBadge");
+                badgeObj.transform.SetParent(portraitTransform, false);
+
+                var badgeRect = badgeObj.AddComponent<RectTransform>();
+                // Anchor to top-right corner of portrait, pivot top-right so it stays inside
+                badgeRect.anchorMin = new Vector2(1f, 1f);
+                badgeRect.anchorMax = new Vector2(1f, 1f);
+                badgeRect.pivot = new Vector2(1f, 1f);
+                badgeRect.sizeDelta = new Vector2(16, 16);
+                badgeRect.anchoredPosition = new Vector2(-2f, -2f); // Inset 2px from the corner
+
+                var bgImage = badgeObj.AddComponent<UnityEngine.UI.Image>();
+                bgImage.color = new Color(0f, 0f, 0f, 0.85f);
+                bgImage.raycastTarget = false;
+                
+                // Load requested texture via Addressables
+                var outlineTex = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<Texture2D>("RoR2/Base/UI/texDetailPanel.png").WaitForCompletion();
+                if (outlineTex)
+                {
+                    bgImage.sprite = Sprite.Create(outlineTex, new UnityEngine.Rect(0, 0, outlineTex.width, outlineTex.height), new Vector2(0.5f, 0.5f));
+                    bgImage.type = UnityEngine.UI.Image.Type.Sliced; // Sliced is usually better for UI box outlines
+                }
+
+                // Text child
+                var textObj = new GameObject("Text");
+                textObj.transform.SetParent(badgeObj.transform, false);
+                slotNumberTmp = textObj.AddComponent<TextMeshProUGUI>();
+                slotNumberTmp.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
+                slotNumberTmp.fontSize = 12f;
+                slotNumberTmp.fontStyle = TMPro.FontStyles.Bold;
+                slotNumberTmp.alignment = TextAlignmentOptions.Center;
+                slotNumberTmp.color = Color.white;
+                slotNumberTmp.raycastTarget = false;
+                slotNumberTmp.enableWordWrapping = false;
+                slotNumberTmp.overflowMode = TextOverflowModes.Overflow;
+
+                var textRect = slotNumberTmp.GetComponent<RectTransform>();
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(1f, 0f); // slight left padding
+                textRect.offsetMax = new Vector2(-1f, 0f); // slight right padding
+            }
+
+            if (badgeTransform == null)
+                badgeTransform = portraitTransform.Find("SlotNumberBadge");
+
+            if (slotNumberTmp && badgeTransform)
+            {
+                if (slotIndex > 0)
+                {
+                    slotNumberTmp.text = $"{slotIndex}";
+                    badgeTransform.gameObject.SetActive(PluginConfig.Instance.BagUIShowSlotNumber.Value);
+                }
+                else
+                {
+                    badgeTransform.gameObject.SetActive(false);
                 }
             }
         }

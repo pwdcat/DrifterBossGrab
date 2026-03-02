@@ -285,6 +285,7 @@ namespace DrifterBossGrabMod.Config
                 "BagUIShowWeight" => instance.BagUIShowWeight,
                 "BagUIShowName" => instance.BagUIShowName,
                 "BagUIShowHealthBar" => instance.BagUIShowHealthBar,
+                "BagUIShowSlotNumber" => instance.BagUIShowSlotNumber,
                 "EnableDamagePreview" => instance.EnableDamagePreview,
                 "DamagePreviewColor" => instance.DamagePreviewColor,
                 "UseNewWeightIcon" => instance.UseNewWeightIcon,

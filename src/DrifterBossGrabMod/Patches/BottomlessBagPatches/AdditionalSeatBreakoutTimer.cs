@@ -13,6 +13,19 @@ namespace DrifterBossGrabMod.Patches
         public DrifterBagController? controller;
         public float breakoutTime;
         public float breakoutAttempts;
+
+        // Check if an object is eligible for breakout.
+        // requires CharacterBody, not player-controlled, and has a CharacterMaster.
+        public static bool CanBreakout(GameObject obj)
+        {
+            if (obj == null) return false;
+            var body = obj.GetComponent<CharacterBody>();
+            if (body == null) return false;
+            if (body.isPlayerControlled) return false;
+            if (body.master == null) return false;
+            if (body.healthComponent == null || !body.healthComponent.alive) return false;
+            return true;
+        }
         
         private float _breakoutTimer;
         private int _baseBreakoutChance1inX = 3;

@@ -207,9 +207,9 @@ namespace DrifterBossGrabMod.Patches
                         NetworkServer.Spawn(targetObj);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Silently handle spawn errors
+                    Log.Error($"[AddSpecialObjectAttributesToGrabbableObject] Failed to spawn object {objName} on network: {ex.Message}\n{ex.StackTrace}");
                 }
             }
             // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
@@ -374,9 +374,9 @@ namespace DrifterBossGrabMod.Patches
                         NetworkServer.Spawn(targetObj);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Silently handle spawn errors
+                    Log.Error($"[AddSpecialObjectAttributesToGrabbableObject] Failed to spawn object {objName} on network: {ex.Message}\n{ex.StackTrace}");
                 }
             }
             // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
@@ -511,9 +511,9 @@ namespace DrifterBossGrabMod.Patches
                 {
                     AddSpecialObjectAttributesToGrabbableObject(go);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-
+                    Log.Error($"[EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync] Failed to add attributes to {go?.name ?? "null"}: {ex.Message}\n{ex.StackTrace}");
                 }
 
                 count++;

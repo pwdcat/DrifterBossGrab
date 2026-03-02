@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
@@ -8,6 +9,12 @@ namespace DrifterBossGrabMod.Patches
     public static class BaggedObjectsOnlyDetection
     {
         private static BodyIndex _drifterBodyIndex = BodyIndex.None;
+        
+        // Reflection Cache
+        private static readonly PropertyInfo _networkbaggedObjectProperty = typeof(DrifterBagController).GetProperty("NetworkbaggedObject", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo _baggedObjectField = typeof(DrifterBagController).GetField("baggedObject", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly PropertyInfo _networkpassengerProperty = typeof(DrifterBagController).GetProperty("Networkpassenger", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly PropertyInfo _passengerProperty = typeof(DrifterBagController).GetProperty("passenger", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         public static List<GameObject> GetCurrentlyBaggedObjects()
         {
@@ -36,34 +43,21 @@ namespace DrifterBossGrabMod.Patches
                 try
                 {
                     GameObject? baggedObject = null;
-                    var networkBaggedObjectProperty = bagController.GetType().GetProperty("NetworkbaggedObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                    if (networkBaggedObjectProperty != null)
+                    if (_networkbaggedObjectProperty != null)
                     {
-                        baggedObject = (GameObject)networkBaggedObjectProperty.GetValue(bagController);
+                        baggedObject = (GameObject)_networkbaggedObjectProperty.GetValue(bagController);
                     }
-                    if (baggedObject == null)
+                    if (baggedObject == null && _baggedObjectField != null)
                     {
-                        var baggedObjectField = bagController.GetType().GetField("baggedObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (baggedObjectField != null)
-                        {
-                            baggedObject = (GameObject)baggedObjectField.GetValue(bagController);
-                        }
+                        baggedObject = (GameObject)_baggedObjectField.GetValue(bagController);
                     }
-                    if (baggedObject == null)
+                    if (baggedObject == null && _networkpassengerProperty != null)
                     {
-                        var networkPassengerProperty = bagController.GetType().GetProperty("Networkpassenger", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (networkPassengerProperty != null)
-                        {
-                            baggedObject = (GameObject)networkPassengerProperty.GetValue(bagController);
-                        }
+                        baggedObject = (GameObject)_networkpassengerProperty.GetValue(bagController);
                     }
-                    if (baggedObject == null)
+                    if (baggedObject == null && _passengerProperty != null)
                     {
-                        var passengerProperty = bagController.GetType().GetProperty("passenger", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (passengerProperty != null)
-                        {
-                            baggedObject = (GameObject)passengerProperty.GetValue(bagController);
-                        }
+                        baggedObject = (GameObject)_passengerProperty.GetValue(bagController);
                     }
                     if (baggedObject != null && IsValidForPersistence(baggedObject))
                     {
@@ -114,28 +108,24 @@ namespace DrifterBossGrabMod.Patches
                     if (bagController == null) return false;
                     try
                     {
-                        var networkBaggedObjectProperty = bagController.GetType().GetProperty("NetworkbaggedObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (networkBaggedObjectProperty != null)
+                        if (_networkbaggedObjectProperty != null)
                         {
-                            var baggedObject = (GameObject)networkBaggedObjectProperty.GetValue(bagController);
+                            var baggedObject = (GameObject)_networkbaggedObjectProperty.GetValue(bagController);
                             return baggedObject == obj;
                         }
-                        var baggedObjectField = bagController.GetType().GetField("baggedObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (baggedObjectField != null)
+                        if (_baggedObjectField != null)
                         {
-                            var baggedObject = (GameObject)baggedObjectField.GetValue(bagController);
+                            var baggedObject = (GameObject)_baggedObjectField.GetValue(bagController);
                             return baggedObject == obj;
                         }
-                        var networkPassengerProperty = bagController.GetType().GetProperty("Networkpassenger");
-                        if (networkPassengerProperty != null)
+                        if (_networkpassengerProperty != null)
                         {
-                            var baggedObject = (GameObject)networkPassengerProperty.GetValue(bagController);
+                            var baggedObject = (GameObject)_networkpassengerProperty.GetValue(bagController);
                             return baggedObject == obj;
                         }
-                        var passengerProperty = bagController.GetType().GetProperty("passenger");
-                        if (passengerProperty != null)
+                        if (_passengerProperty != null)
                         {
-                            var baggedObject = (GameObject)passengerProperty.GetValue(bagController);
+                            var baggedObject = (GameObject)_passengerProperty.GetValue(bagController);
                             return baggedObject == obj;
                         }
                     }

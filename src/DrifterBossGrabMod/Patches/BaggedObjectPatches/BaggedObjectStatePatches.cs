@@ -35,6 +35,11 @@ namespace DrifterBossGrabMod.Patches
         private static readonly FieldInfo _overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
         private static readonly FieldInfo _utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
         private static readonly FieldInfo _primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+        
+        // GenericSkill.SkillOverride struct field cache
+        private static readonly FieldInfo _skillOverrideSourceField = typeof(GenericSkill.SkillOverride).GetField("source", BindingFlags.Public | BindingFlags.Instance);
+        private static readonly FieldInfo _skillOverrideSkillDefField = typeof(GenericSkill.SkillOverride).GetField("skillDef", BindingFlags.Public | BindingFlags.Instance);
+        private static readonly FieldInfo _skillOverridePriorityField = typeof(GenericSkill.SkillOverride).GetField("priority", BindingFlags.Public | BindingFlags.Instance);
 
         // Track last processed object to prevent infinite re-entry during sync issues
         private static GameObject? _lastProcessedObject;
@@ -326,6 +331,10 @@ namespace DrifterBossGrabMod.Patches
                     {
                         float baggedMass = bagController != null ? bagController.baggedMass : (float)AccessTools.Field(typeof(BaggedObject), "baggedMass").GetValue(__instance);
                         if (__instance != null) BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
+                        else
+                        {
+                            Log.Warning($"[BaggedObject_OnEnter.Postfix] __instance is null, cannot update bag scale");
+                        }
 
                     }
                     catch (Exception ex)
@@ -469,7 +478,12 @@ namespace DrifterBossGrabMod.Patches
 
                         if (overriddenUtility != null)
                         {
-
+                            if (utilityOverride == null)
+                            {
+                                Log.Warning($"[UnsetAllOverrides] utilityOverride is null from {instance.GetType().Name}");
+                                overriddenUtilityField.SetValue(instance, null);
+                                return;
+                            }
                             overriddenUtility.UnsetSkillOverride(instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                             overriddenUtilityField.SetValue(instance, null);
                         }
@@ -486,7 +500,12 @@ namespace DrifterBossGrabMod.Patches
 
                         if (overriddenPrimary != null)
                         {
-
+                            if (primaryOverride == null)
+                            {
+                                Log.Warning($"[UnsetAllOverrides] primaryOverride is null from {instance.GetType().Name}");
+                                overriddenPrimaryField.SetValue(instance, null);
+                                return;
+                            }
                             overriddenPrimary.UnsetSkillOverride(instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                             overriddenPrimaryField.SetValue(instance, null);
                         }
@@ -603,15 +622,12 @@ namespace DrifterBossGrabMod.Patches
                     {
                         var skillOverride = overridesList[i];
                         // skillOverride is a private struct GenericSkill.SkillOverride
-                        var sourceField = skillOverride.GetType().GetField("source", BindingFlags.Public | BindingFlags.Instance);
-                        var source = sourceField?.GetValue(skillOverride);
+                        var source = _skillOverrideSourceField?.GetValue(skillOverride);
 
                         if (ReferenceEquals(source, instance))
                         {
-                            var skillDefField = skillOverride.GetType().GetField("skillDef", BindingFlags.Public | BindingFlags.Instance);
-                            var skillDef = skillDefField?.GetValue(skillOverride) as SkillDef;
-                            var priorityField = skillOverride.GetType().GetField("priority", BindingFlags.Public | BindingFlags.Instance);
-                            var priority = (GenericSkill.SkillOverridePriority)(priorityField?.GetValue(skillOverride) ?? GenericSkill.SkillOverridePriority.Contextual);
+                            var skillDef = _skillOverrideSkillDefField?.GetValue(skillOverride) as SkillDef;
+                            var priority = (GenericSkill.SkillOverridePriority)(_skillOverridePriorityField?.GetValue(skillOverride) ?? GenericSkill.SkillOverridePriority.Contextual);
 
                             if (skillDef != null)
                             {
@@ -620,9 +636,9 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-
+                    Log.Error($"[CleanupSkillFromLocator] Failed to cleanup skill overrides: {ex.Message}\n{ex.StackTrace}");
                 }
             }
             [HarmonyPostfix]
@@ -666,8 +682,9 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Log.Error($"[BaggedObject_OnExit.Postfix] Failed to check HoldsDeadBody: {ex.Message}\n{ex.StackTrace}");
                 }
 
                 bool shouldRemove = isDead || isDestroyed;

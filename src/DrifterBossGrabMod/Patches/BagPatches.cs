@@ -432,8 +432,8 @@ namespace DrifterBossGrabMod.Patches
                      SetMainSeatObject(__instance, null);
                  }
 
-                 // Attach breakout timer if network active
-                 if (NetworkServer.active && !passengerObject.GetComponent<AdditionalSeatBreakoutTimer>())
+                 // Attach breakout timer if network active and object can break out
+                 if (NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(passengerObject) && !passengerObject.GetComponent<AdditionalSeatBreakoutTimer>())
                  {
                      var timer = passengerObject.AddComponent<AdditionalSeatBreakoutTimer>();
                      timer.controller = __instance;

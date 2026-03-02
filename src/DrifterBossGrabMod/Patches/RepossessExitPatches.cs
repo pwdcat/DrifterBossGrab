@@ -20,6 +20,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 var traverse = Traverse.Create(__instance);
                 var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                if (chosenTarget == null)
+                {
+                    Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
+                    return true;
+                }
                 originalChosenTarget = chosenTarget;
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -39,6 +44,11 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 var traverse = Traverse.Create(__instance);
                 var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                if (chosenTarget == null)
+                {
+                    Log.Warning($"[RepossessExit Postfix] chosenTarget is null from {__instance.GetType().Name}");
+                    return;
+                }
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}");

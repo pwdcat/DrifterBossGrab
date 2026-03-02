@@ -57,7 +57,7 @@ namespace DrifterBossGrabMod.Patches
                 localSeatDict[actualMainPassenger] = seatForCurrent;
                 
                 // Create AdditionalSeatBreakoutTimer when moving object back to additional seat
-                if (UnityEngine.Networking.NetworkServer.active && !actualMainPassenger.GetComponent<AdditionalSeatBreakoutTimer>())
+                if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(actualMainPassenger) && !actualMainPassenger.GetComponent<AdditionalSeatBreakoutTimer>())
                 {
                     var timer = actualMainPassenger.AddComponent<AdditionalSeatBreakoutTimer>();
                     timer.controller = bagController;
@@ -214,7 +214,7 @@ namespace DrifterBossGrabMod.Patches
                     if (currentObject != null) localSeatDict[currentObject] = targetAdditionalSeat;
                     
                     // Create AdditionalSeatBreakoutTimer when moving current object to additional seat
-                    if (currentObject != null && UnityEngine.Networking.NetworkServer.active && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
+                    if (currentObject != null && UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                     {
                         var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
                         swapTimer.controller = bagController;
@@ -296,7 +296,7 @@ namespace DrifterBossGrabMod.Patches
                         localSeatDict[currentObject] = targetAdditionalSeat;
                         
                         // Create AdditionalSeatBreakoutTimer for client-side swap
-                        if (UnityEngine.Networking.NetworkServer.active && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
+                        if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                         {
                             var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
                             swapTimer.controller = bagController;
