@@ -48,12 +48,14 @@ namespace DrifterBossGrabMod
         Void
     }
 
-    public enum HudSubTabType
+    public enum HudElementType
     {
         All,
-        Carousel,
+        SelectedSlot,
+        AdjacentSlot,
+        DamagePreview,
         CapacityUI,
-        DamagePreview
+        BaggedObjectInfo
     }
 
     public enum BalanceSubTabType
@@ -61,10 +63,7 @@ namespace DrifterBossGrabMod
         All,
         Capacity,
         TagScaling,
-        HealthScaling,
-        Overencumbrance,
-        StateCalculation,
-        MovespeedPenalty,
+        Penalty,
         Other
     }
 
@@ -147,7 +146,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> PersistenceBlacklist { get; private set; } = null!;
         public ConfigEntry<float> AutoGrabDelay { get; private set; } = null!;
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
-        public ConfigEntry<int> BottomlessBagBaseCapacity { get; private set; } = null!;
+        public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
         public ConfigEntry<bool> PlayAnimationOnCycle { get; private set; } = null!;
@@ -156,26 +155,45 @@ namespace DrifterBossGrabMod
         public ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; private set; } = null!;
         public ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; private set; } = null!;
         public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
-        public ConfigEntry<float> CarouselCenterOffsetX { get; private set; } = null!;
-        public ConfigEntry<float> CarouselCenterOffsetY { get; private set; } = null!;
-        public ConfigEntry<float> CarouselSideOffsetX { get; private set; } = null!;
-        public ConfigEntry<float> CarouselSideOffsetY { get; private set; } = null!;
-        public ConfigEntry<float> CarouselSideScale { get; private set; } = null!;
-        public ConfigEntry<float> CarouselSideOpacity { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowIcon { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowWeight { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowName { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowHealthBar { get; private set; } = null!;
-        public ConfigEntry<bool> BagUIShowSlotNumber { get; private set; } = null!;
+
+        // Per-slot backing configs (CenterSlot)
+        public ConfigEntry<float> CenterSlotX { get; private set; } = null!;
+        public ConfigEntry<float> CenterSlotY { get; private set; } = null!;
+        public ConfigEntry<float> CenterSlotScale { get; private set; } = null!;
+        public ConfigEntry<float> CenterSlotOpacity { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowIcon { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowWeightIcon { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowName { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowHealthBar { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowSlotNumber { get; private set; } = null!;
+
+        // Per-slot backing configs (SideSlot)
+        public ConfigEntry<float> SideSlotX { get; private set; } = null!;
+        public ConfigEntry<float> SideSlotY { get; private set; } = null!;
+        public ConfigEntry<float> SideSlotScale { get; private set; } = null!;
+        public ConfigEntry<float> SideSlotOpacity { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowIcon { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowWeightIcon { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowName { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowHealthBar { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowSlotNumber { get; private set; } = null!;
+
+        // Risk of Options UI controls for HUD configuration
+        public ConfigEntry<HudElementType> SelectedHudElement { get; private set; } = null!;
+        public ConfigEntry<bool> EnableBaggedObjectInfo { get; private set; } = null!;
+        public ConfigEntry<float> BaggedObjectInfoX { get; private set; } = null!;
+        public ConfigEntry<float> BaggedObjectInfoY { get; private set; } = null!;
+        public ConfigEntry<float> BaggedObjectInfoScale { get; private set; } = null!;
+        public ConfigEntry<Color> BaggedObjectInfoColor { get; private set; } = null!;
         public ConfigEntry<bool> EnableDamagePreview { get; private set; } = null!;
         public ConfigEntry<Color> DamagePreviewColor { get; private set; } = null!;
         public ConfigEntry<bool> UseNewWeightIcon { get; private set; } = null!;
         public ConfigEntry<WeightDisplayMode> WeightDisplayMode { get; private set; } = null!;
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         public ConfigEntry<bool> AutoPromoteMainSeat { get; private set; } = null!;
-        public ConfigEntry<bool> UncapBagScale { get; private set; } = null!;
-        public ConfigEntry<bool> UncapMass { get; private set; } = null!;
+        public ConfigEntry<string> BagScaleCap { get; private set; } = null!;
+        public ConfigEntry<string> MassCap { get; private set; } = null!;
         public ConfigEntry<bool> EnableCarouselHUD { get; private set; } = null!;
         public ConfigEntry<bool> EnableMassCapacityUI { get; private set; } = null!;
         public ConfigEntry<float> MassCapacityUIPositionX { get; private set; } = null!;
@@ -202,9 +220,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> EliteLevelMassMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableOverencumbrance { get; private set; } = null!;
         public ConfigEntry<float> OverencumbranceMaxPercent { get; private set; } = null!;
-        public ConfigEntry<bool> UncapCapacity { get; private set; } = null!;
         public ConfigEntry<bool> ToggleMassCapacity { get; private set; } = null!;
-        public ConfigEntry<bool> StateCalculationModeEnabled { get; private set; } = null!;
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
         public ConfigEntry<float> AllModeMassMultiplier { get; private set; } = null!;
 
@@ -247,8 +263,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> SelectedFlagBaseHealthMultiplier { get; private set; } = null!;
         public ConfigEntry<float> SelectedFlagLevelMultiplier { get; private set; } = null!;
 
-        // Risk of Options UI controls for HUD sub-tab system
-        public ConfigEntry<HudSubTabType> SelectedHudSubTab { get; private set; } = null!;
+        // Risk of Options UI controls for Balance sub-tab system
 
         // Risk of Options UI controls for Balance sub-tab system
         public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
@@ -261,47 +276,66 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> FinalMovespeedPenaltyLimit { get; private set; } = null!;
 
         // Mapping of setting tokens to HUD sub-tabs
-        public static readonly Dictionary<string, HudSubTabType> HudSettingToSubTab = new()
+        public static readonly Dictionary<string, HudElementType[]> HudSettingToSubTab = new()
         {
-            // Carousel settings (includes all carousel + bag UI elements)
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLECAROUSELHUD.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSPACING.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELCENTEROFFSETX.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELCENTEROFFSETY.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOFFSETX.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOFFSETY.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDESCALE.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSIDEOPACITY.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELANIMATIONDURATION.FLOAT_FIELD"] = HudSubTabType.Carousel,
-            // Bag UI settings (icons, names, healthbar, weight)
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWICON.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWWEIGHT.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWNAME.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWHEALTHBAR.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGUISHOWSLOTNUMBER.CHECKBOX"] = HudSubTabType.Carousel,
+            // Carousel settings (shared)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SELECTEDHUDELEMENT.CHOICE"] = new[] { HudElementType.All },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLECAROUSELHUD.CHECKBOX"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELSPACING.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSELANIMATIONDURATION.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
+
+            // CenterSlot settings (Selected)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTX.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTY.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSCALE.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTOPACITY.FLOAT_FIELD"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSHOWICON.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSHOWWEIGHTICON.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSHOWNAME.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSHOWHEALTHBAR.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CENTERSLOTSHOWSLOTNUMBER.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+
+            // SideSlot settings (Adjacent)
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTX.FLOAT_FIELD"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTY.FLOAT_FIELD"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSCALE.FLOAT_FIELD"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTOPACITY.FLOAT_FIELD"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWICON.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWWEIGHTICON.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWNAME.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWHEALTHBAR.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWSLOTNUMBER.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
+
             // Weight icon and display settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = HudSubTabType.Carousel,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALEWEIGHTCOLOR.CHECKBOX"] = HudSubTabType.Carousel,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALEWEIGHTCOLOR.CHECKBOX"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
 
             // Capacity UI settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEMASSCAPACITYUI.CHECKBOX"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONX.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONY.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUISCALE.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLESEPARATORS.CHECKBOX"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEGRADIENT.CHECKBOX"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENTINTENSITY.FLOAT_FIELD"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORSTART.COLOR"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORMID.COLOR"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLOREND.COLOR"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORSTART.COLOR"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORMID.COLOR"] = HudSubTabType.CapacityUI,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLOREND.COLOR"] = HudSubTabType.CapacityUI,
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEMASSCAPACITYUI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONX.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUIPOSITIONY.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MASSCAPACITYUISCALE.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLESEPARATORS.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEGRADIENT.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENTINTENSITY.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORSTART.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLORMID.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITYGRADIENTCOLOREND.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORSTART.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLORMID.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCEGRADIENTCOLOREND.COLOR"] = new[] { HudElementType.CapacityUI },
 
             // Damage Preview settings (only these two)
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEDAMAGEPREVIEW.CHECKBOX"] = HudSubTabType.DamagePreview,
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGEPREVIEWCOLOR.COLOR"] = HudSubTabType.DamagePreview
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEDAMAGEPREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGEPREVIEWCOLOR.COLOR"] = new[] { HudElementType.DamagePreview },
+
+            // Bagged Object Info settings
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEBAGGEDOBJECTINFO.CHECKBOX"] = new[] { HudElementType.BaggedObjectInfo },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGGEDOBJECTINFOX.FLOAT_FIELD"] = new[] { HudElementType.BaggedObjectInfo },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGGEDOBJECTINFOY.FLOAT_FIELD"] = new[] { HudElementType.BaggedObjectInfo },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGGEDOBJECTINFOSCALE.FLOAT_FIELD"] = new[] { HudElementType.BaggedObjectInfo },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.BAGGEDOBJECTINFOCOLOR.COLOR"] = new[] { HudElementType.BaggedObjectInfo }
         };
 
         // Mapping of setting tokens to Balance sub-tabs
@@ -322,22 +356,17 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAGLEVELMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.TagScaling,
 
             // Health Scaling settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.HEALTHPEREXTRASLOT.FLOAT_FIELD"] = BalanceSubTabType.HealthScaling,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.LEVELSPEREXTRASLOT.INT_SLIDER"] = BalanceSubTabType.HealthScaling,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.HEALTHPEREXTRASLOT.FLOAT_FIELD"] = BalanceSubTabType.Capacity,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.LEVELSPEREXTRASLOT.INT_SLIDER"] = BalanceSubTabType.Capacity,
 
-            // Overencumbrance settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEOVERENCUMBRANCE.CHECKBOX"] = BalanceSubTabType.Overencumbrance,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.OVERENCUMBRANCEMAXPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Overencumbrance,
-
-            // State Calculation settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATECALCULATIONMODEENABLED.CHECKBOX"] = BalanceSubTabType.StateCalculation,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATECALCULATIONMODE.CHOICE"] = BalanceSubTabType.StateCalculation,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ALLMODEMASSMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.StateCalculation,
-
-            // Movespeed Penalty settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MINMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FINALMOVESPEEDPENALTYLIMIT.FLOAT_FIELD"] = BalanceSubTabType.MovespeedPenalty,
+            // Penalty settings
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEOVERENCUMBRANCE.CHECKBOX"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.OVERENCUMBRANCEMAXPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATECALCULATIONMODE.CHOICE"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ALLMODEMASSMULTIPLIER.FLOAT_FIELD"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MINMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXMOVESPEEDPENALTY.FLOAT_FIELD"] = BalanceSubTabType.Penalty,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FINALMOVESPEEDPENALTYLIMIT.FLOAT_FIELD"] = BalanceSubTabType.Penalty,
 
             // Other settings (includes individual mass multipliers and other settings)
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ELITEMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
@@ -348,8 +377,8 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.DRONEMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MECHANICALMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.VOIDMASSBONUSPERCENT.FLOAT_FIELD"] = BalanceSubTabType.Other,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPBAGSCALE.CHECKBOX"] = BalanceSubTabType.Other,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAPMASS.CHECKBOX"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGSCALECAP.STRING_INPUT_FIELD"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASSCAP.STRING_INPUT_FIELD"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLEAOESLAMDAMAGE.CHECKBOX"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOEDAMAGEDISTRIBUTION.CHOICE"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUTTIMEMULTIPLIER.STEP_SLIDER"] = BalanceSubTabType.Other,
@@ -492,9 +521,9 @@ namespace DrifterBossGrabMod
                 false,
                 "Allows the scroll wheel to cycle through stored passengers.\n" +
                 "When enabled, bag capacity scales with the number of repossesses.\n" +
-                "Formula: TotalCapacity = UtilityMaxStocks + BaseCapacity + (UtilityMaxStocks × CapacityScalingBonus)");
-            Instance.BottomlessBagBaseCapacity = cfg.Bind("Bottomless Bag", "BaseCapacity", 0, "Base capacity for bottomless bag, added to utility max stocks.\n" +
-                "Formula: TotalCapacity = UtilityMaxStocks + BaseCapacity + CapacityScalingBonus");
+                "Formula: TotalCapacity = UtilityMaxStocks + AddedCapacity + (UtilityMaxStocks × CapacityScalingBonus)");
+            Instance.AddedCapacity = cfg.Bind("Bottomless Bag", "AddedCapacity", "0", "Added capacity for bottomless bag, added to utility max stocks. Use 'INF' for infinity.\n" +
+                "Formula: TotalCapacity = UtilityMaxStocks + AddedCapacity + CapacityScalingBonus");
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items.\n" +
                 "Formula: RefreshedStocks = MaxStocks - BaggedItemCount\n" +
                 "Prevents refreshing more stocks than available slots.");
@@ -515,30 +544,43 @@ namespace DrifterBossGrabMod
                 "Note: Automatically enabled when BottomlessBag is enabled.");
             Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items.\n" +
                 "Distance between adjacent items in the carousel.");
-            Instance.CarouselCenterOffsetX = cfg.Bind("Hud", "CarouselCenterOffsetX", 25.0f, "Horizontal offset for center carousel item.\n" +
-                "X position offset for the currently selected item.");
-            Instance.CarouselCenterOffsetY = cfg.Bind("Hud", "CarouselCenterOffsetY", 50.0f, "Vertical offset for center carousel item.\n" +
-                "Y position offset for the currently selected item.");
-            Instance.CarouselSideOffsetX = cfg.Bind("Hud", "CarouselSideOffsetX", 20.0f, "Horizontal offset for side carousel items.\n" +
-                "X position offset for adjacent items.");
-            Instance.CarouselSideOffsetY = cfg.Bind("Hud", "CarouselSideOffsetY", 5.0f, "Vertical offset for side carousel items.\n" +
-                "Y position offset for adjacent items.");
-            Instance.CarouselSideScale = cfg.Bind("Hud", "CarouselSideScale", 0.8f, "Scale for side carousel items.\n" +
-                "Size multiplier for adjacent items (0.0 to 1.0).");
-            Instance.CarouselSideOpacity = cfg.Bind("Hud", "CarouselSideOpacity", 0.3f, "Opacity for side carousel items.\n" +
-                "Transparency for adjacent items (0.0 to 1.0).");
             Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation in seconds.\n" +
                 "Time for carousel items to animate into position when cycling.");
-            Instance.BagUIShowIcon = cfg.Bind("Hud", "BagUIShowIcon", true, "Show icon in additional Bag UI elements.\n" +
-                "When enabled, displays the object's icon in the UI.");
-            Instance.BagUIShowWeight = cfg.Bind("Hud", "BagUIShowWeight", true, "Show weight indicator in additional Bag UI elements.\n" +
-                "When enabled, displays the object's weight/mass in the UI.");
-            Instance.BagUIShowName = cfg.Bind("Hud", "BagUIShowName", true, "Show name in additional Bag UI elements.\n" +
-                "When enabled, displays the object's name in the UI.");
-            Instance.BagUIShowHealthBar = cfg.Bind("Hud", "BagUIShowHealthBar", true, "Show health bar in additional Bag UI elements.\n" +
-                "When enabled, displays a health bar for the object in the UI.");
-            Instance.BagUIShowSlotNumber = cfg.Bind("Hud", "BagUIShowSlotNumber", true, "Show slot number on carousel items.\n" +
-                "When enabled, displays the 1-based slot number on each carousel item so you know which slot you're viewing.");
+
+            // Per-slot backing configs (CenterSlot)
+            Instance.CenterSlotX = cfg.Bind("Hud", "CenterSlotX", 25.0f, "X position offset for center slot.");
+            Instance.CenterSlotY = cfg.Bind("Hud", "CenterSlotY", 50.0f, "Y position offset for center slot.");
+            Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot (0.0 to 2.0).");
+            Instance.CenterSlotOpacity = cfg.Bind("Hud", "CenterSlotOpacity", 1.0f, "Opacity for center slot (0.0 to 1.0).");
+            Instance.CenterSlotShowIcon = cfg.Bind("Hud", "CenterSlotShowIcon", true, "Show icon in center slot.");
+            Instance.CenterSlotShowWeightIcon = cfg.Bind("Hud", "CenterSlotShowWeightIcon", true, "Show weight icon in center slot.");
+            Instance.CenterSlotShowName = cfg.Bind("Hud", "CenterSlotShowName", true, "Show name in center slot.");
+            Instance.CenterSlotShowHealthBar = cfg.Bind("Hud", "CenterSlotShowHealthBar", true, "Show health bar in center slot.");
+            Instance.CenterSlotShowSlotNumber = cfg.Bind("Hud", "CenterSlotShowSlotNumber", true, "Show slot number in center slot.");
+
+            // Per-slot backing configs (SideSlot)
+            Instance.SideSlotX = cfg.Bind("Hud", "SideSlotX", 20.0f, "X position offset for side slots.");
+            Instance.SideSlotY = cfg.Bind("Hud", "SideSlotY", 5.0f, "Y position offset for side slots.");
+            Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots (0.0 to 2.0).");
+            Instance.SideSlotOpacity = cfg.Bind("Hud", "SideSlotOpacity", 0.3f, "Opacity for side slots (0.0 to 1.0).");
+            Instance.SideSlotShowIcon = cfg.Bind("Hud", "SideSlotShowIcon", true, "Show icon in side slots.");
+            Instance.SideSlotShowWeightIcon = cfg.Bind("Hud", "SideSlotShowWeightIcon", true, "Show weight icon in side slots.");
+            Instance.SideSlotShowName = cfg.Bind("Hud", "SideSlotShowName", true, "Show name in side slots.");
+            Instance.SideSlotShowHealthBar = cfg.Bind("Hud", "SideSlotShowHealthBar", true, "Show health bar in side slots.");
+            Instance.SideSlotShowSlotNumber = cfg.Bind("Hud", "SideSlotShowSlotNumber", true, "Show slot number in side slots.");
+
+            // HUD element selector and configs
+            Instance.SelectedHudElement = cfg.Bind("Hud", "SelectedHudElement", HudElementType.All,
+                "Select which HUD element group to configure (UI only).\n" +
+                "- SelectedSlot: Center slot settings\n" +
+                "- AdjacentSlot: Side slot settings");
+            Instance.SelectedHudElement.Value = HudElementType.All;
+
+            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", true, "Enable the Bagged Object Info stats panel on the Info Screen (Tab).");
+            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for the Bagged Object Info panel.");
+            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", -200.0f, "Y position offset for the Bagged Object Info panel.");
+            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale value for the Bagged Object Info panel.");
+            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Main text color for the Bagged Object Info panel.");
             Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show a damage preview overlay on bagged object health bars.\n" +
                 "Indicates predicted slam damage to the object.");
             Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for the damage preview overlay.\n" +
@@ -554,11 +596,9 @@ namespace DrifterBossGrabMod
                 "When enabled, weight icon color changes from green (light) to red (heavy) based on mass.");
             Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", true, "Automatically promote the next object in the bag to the main seat when the current main object is removed.\n" +
                 "When enabled, cycling through the bag automatically updates the main seat.");
-            Instance.UncapBagScale = cfg.Bind("Balance", "UncapBagScale", false, "When enabled, the bag visual size will not be capped and will continue to grow based on the mass of the stored object(s).\n" +
-                "Formula: BagScale = 0.5 + 0.5 × ((Mass - 1) / (MaxMass - 1))\n" +
-                "When disabled, bag scale is clamped between 1 and MaxMass.");
-            Instance.UncapMass = cfg.Bind("Balance", "UncapMass", false, "When enabled, the mass cap of 700 is removed.\n" +
-                "When disabled, mass is clamped to a maximum of 700.");
+            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap. Set to 'INF' or 'Infinity' to uncap completely, continuing to grow based on mass.\n" +
+                "Formula: BagScale = 0.5 + 0.5 × ((Mass - 1) / (MaxMass - 1))");
+            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities. Set to 'INF' or 'Infinity' to remove the mass cap.");
             Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI for displaying bag capacity status.\n" +
                 "Shows current mass vs capacity as a progress bar.");
             Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "Horizontal position offset for the Mass Capacity UI.\n" +
@@ -678,10 +718,7 @@ namespace DrifterBossGrabMod
                 "Amount of mass granted per level for selected flag (UI only)");
             Instance.SelectedFlagLevelMultiplier.Value = 0.0f;
 
-            // HUD sub-tab selection
-            Instance.SelectedHudSubTab = cfg.Bind("Hud", "SelectedHudSubTab", HudSubTabType.All,
-                "Select which HUD settings group to view (UI only)");
-            Instance.SelectedHudSubTab.Value = HudSubTabType.All; // Set default
+
 
             // Balance sub-tab selection
             Instance.SelectedBalanceSubTab = cfg.Bind("Balance", "SelectedBalanceSubTab", BalanceSubTabType.All,
@@ -702,13 +739,8 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceMaxPercent = cfg.Bind("Balance", "OverencumbranceMaxPercent", 100.0f, "Maximum overencumbrance percentage.\n" +
                 "100% = double capacity, 50% = 1.5x capacity.\n" +
                 "Formula: MaxMass = Capacity × (1 + OverencumbranceMaxPercent / 100)");
-            Instance.UncapCapacity = cfg.Bind("Balance", "UncapCapacity", false, "When enabled, storage is practically infinite (slot count ignored).\n" +
-                "Slot count is ignored, only mass matters.\n" +
-                "When disabled, both slot and mass capacity are enforced.");
             Instance.ToggleMassCapacity = cfg.Bind("Balance", "ToggleMassCapacity", true, "When disabled, mass capacity is ignored and only slot capacity is used.\n" +
                 "When enabled, both slot and mass capacity are enforced.");
-            Instance.StateCalculationModeEnabled = cfg.Bind("Balance", "StateCalculationModeEnabled", false, "Enable state calculation mode (Current vs All) in Balance tab.\n" +
-                "When enabled, allows choosing between Current and All calculation modes.");
             Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "Mode for calculating bagged object state:\n" +
                 "- Current: Only the currently selected object affects Drifter's stats\n" +
                 "- All: All bagged objects are aggregated for stat calculation");
@@ -749,11 +781,17 @@ namespace DrifterBossGrabMod
                 }
             };
             Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.BagUIShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.BagUIShowWeight.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.BagUIShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.BagUIShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.BagUIShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            // Per-slot backing config change handlers (trigger UI updates)
+            Instance.CenterSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.UseNewWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.WeightDisplayMode.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.ScaleWeightColor.SettingChanged += (sender, args) => UpdateBagUIToggles();
@@ -800,7 +838,7 @@ namespace DrifterBossGrabMod
                 }
             };
 
-            Instance.BottomlessBagBaseCapacity.SettingChanged += (sender, args) =>
+            Instance.AddedCapacity.SettingChanged += (sender, args) =>
             {
                 // Trigger capacity recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
@@ -829,14 +867,7 @@ namespace DrifterBossGrabMod
 
 
 
-            Instance.UncapCapacity.SettingChanged += (sender, args) =>
-            {
-                // Trigger capacity recalculation for all bag controllers
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateCapacity(bagController);
-                }
-            };
+
 
             Instance.ToggleMassCapacity.SettingChanged += (sender, args) =>
             {
@@ -847,17 +878,12 @@ namespace DrifterBossGrabMod
                 }
             };
 
-            // State calculation mode config change handlers
-            Instance.StateCalculationModeEnabled.SettingChanged += (sender, args) =>
+            // Handle AoE toggling StateCalculationMode
+            Instance.EnableAoESlamDamage.SettingChanged += (sender, args) =>
             {
-                // Trigger state recalculation for all bag controllers when mode is enabled/disabled
-                if (PluginConfig.Instance.EnableBalance.Value)
+                if (Instance.EnableAoESlamDamage.Value && Instance.StateCalculationMode.Value != DrifterBossGrabMod.StateCalculationMode.All)
                 {
-                    foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                    {
-                        CapacityScalingSystem.RecalculateMass(bagController);
-                        CapacityScalingSystem.RecalculateState(bagController);
-                    }
+                    Instance.StateCalculationMode.Value = DrifterBossGrabMod.StateCalculationMode.All;
                 }
             };
 
@@ -901,7 +927,7 @@ namespace DrifterBossGrabMod
 
 
 
-            Instance.UncapBagScale.SettingChanged += (sender, args) =>
+            Instance.BagScaleCap.SettingChanged += (sender, args) =>
             {
                 // Trigger bag scale recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
@@ -910,7 +936,7 @@ namespace DrifterBossGrabMod
                 }
             };
 
-            Instance.UncapMass.SettingChanged += (sender, args) =>
+            Instance.MassCap.SettingChanged += (sender, args) =>
             {
                 // Trigger mass recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
@@ -1086,6 +1112,26 @@ namespace DrifterBossGrabMod
                 default: return "Elite";
             }
         }
+
+        // Carousel slot backing config getters (follow SelectedFlag pattern)
+        public static ConfigEntry<float> GetSlotXConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotX : Instance.SideSlotX;
+        public static ConfigEntry<float> GetSlotYConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotY : Instance.SideSlotY;
+        public static ConfigEntry<float> GetSlotScaleConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotScale : Instance.SideSlotScale;
+        public static ConfigEntry<float> GetSlotOpacityConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotOpacity : Instance.SideSlotOpacity;
+        public static ConfigEntry<bool> GetSlotShowIconConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotShowIcon : Instance.SideSlotShowIcon;
+        public static ConfigEntry<bool> GetSlotShowWeightIconConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotShowWeightIcon : Instance.SideSlotShowWeightIcon;
+        public static ConfigEntry<bool> GetSlotShowNameConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotShowName : Instance.SideSlotShowName;
+        public static ConfigEntry<bool> GetSlotShowHealthBarConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotShowHealthBar : Instance.SideSlotShowHealthBar;
+        public static ConfigEntry<bool> GetSlotShowSlotNumberConfig(HudElementType slot) =>
+            slot == HudElementType.SelectedSlot ? Instance.CenterSlotShowSlotNumber : Instance.SideSlotShowSlotNumber;
 
         private static void UpdateBagUIToggles()
         {

@@ -27,7 +27,7 @@ namespace DrifterBossGrabMod
         ConfigEntry<bool> PersistBaggedEnvironmentObjects { get; }
         ConfigEntry<string> PersistenceBlacklist { get; }
         ConfigEntry<bool> BottomlessBagEnabled { get; }
-        ConfigEntry<int> BottomlessBagBaseCapacity { get; }
+        ConfigEntry<string> AddedCapacity { get; }
         ConfigEntry<bool> EnableMouseWheelScrolling { get; }
         ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; }
         ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; }

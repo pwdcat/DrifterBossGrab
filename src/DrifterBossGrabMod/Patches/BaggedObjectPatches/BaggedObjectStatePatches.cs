@@ -325,21 +325,25 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Uncap Bag Scale logic - only apply when EnableBalance is true
-                if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapBagScale.Value)
+                if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    try
+                    bool isScaleUncapped = PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INF";
+                    if (isScaleUncapped || (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f))
                     {
-                        float baggedMass = bagController != null ? bagController.baggedMass : (float)AccessTools.Field(typeof(BaggedObject), "baggedMass").GetValue(__instance);
-                        if (__instance != null) BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
-                        else
+                        try
                         {
-                            Log.Warning($"[BaggedObject_OnEnter.Postfix] __instance is null, cannot update bag scale");
-                        }
+                            float baggedMass = bagController != null ? bagController.baggedMass : (float)AccessTools.Field(typeof(BaggedObject), "baggedMass").GetValue(__instance);
+                            if (__instance != null) BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
+                            else
+                            {
+                                Log.Warning($"[BaggedObject_OnEnter.Postfix] __instance is null, cannot update bag scale");
+                            }
 
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($" [BaggedObject_OnEnter_Postfix] Error uncapping bag scale: {ex}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error($" [BaggedObject_OnEnter_Postfix] Error uncapping bag scale: {ex}");
+                        }
                     }
                 }
             }

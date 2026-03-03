@@ -96,7 +96,7 @@ namespace DrifterBossGrabMod.UI
                 var layoutElement = baggedCardController.portraitIconImage?.GetComponent<UnityEngine.UI.LayoutElement>();
                 if (layoutElement)
                 {
-                    layoutElement.gameObject.SetActive(PluginConfig.Instance.BagUIShowIcon.Value);
+                    layoutElement.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowIcon.Value);
                 }
 
                 // Toggle weight icon
@@ -106,20 +106,20 @@ namespace DrifterBossGrabMod.UI
                     var weightIconTransform = childLocator.FindChild("WeightIcon");
                     if (weightIconTransform)
                     {
-                        weightIconTransform.gameObject.SetActive(PluginConfig.Instance.BagUIShowWeight.Value);
+                        weightIconTransform.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowWeightIcon.Value);
                     }
                 }
 
                 // Toggle name label
                 if (baggedCardController.nameLabel)
                 {
-                    baggedCardController.nameLabel.gameObject.SetActive(PluginConfig.Instance.BagUIShowName.Value);
+                    baggedCardController.nameLabel.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowName.Value);
                 }
 
                 // Toggle health bar
                 if (baggedCardController.healthBar)
                 {
-                    baggedCardController.healthBar.gameObject.SetActive(PluginConfig.Instance.BagUIShowHealthBar.Value);
+                    baggedCardController.healthBar.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowHealthBar.Value);
                 }
             }
         }

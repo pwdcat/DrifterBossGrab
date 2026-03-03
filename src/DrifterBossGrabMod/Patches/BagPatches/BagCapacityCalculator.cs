@@ -48,9 +48,9 @@ namespace DrifterBossGrabMod.Patches
         // Gets maximum utility stock capacity for bag
         public static int GetUtilityMaxStock(DrifterBagController drifterBagController, GameObject? incomingObject = null)
         {
-            // If UncapCapacity is enabled AND EnableBalance is true, check mass capacity
+            // If AddedCapacity is INF AND EnableBalance is true, check mass capacity
             // The bag will rely purely on mass capacity instead of slot count
-            if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapCapacity.Value)
+            if (PluginConfig.Instance.BottomlessBagEnabled.Value && (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY"))
             {
                 // Check if we're at or would be at mass cap
                 int usedCapacity = GetCurrentBaggedCount(drifterBagController);
@@ -80,8 +80,12 @@ namespace DrifterBossGrabMod.Patches
             var body = drifterBagController.GetComponent<CharacterBody>();
             if (body && body.skillLocator && body.skillLocator.utility)
             {
-                int maxStock = body.skillLocator.utility.maxStock;
-                int baseSlots = maxStock + PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
+                int addedSlots = 0;
+                if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedAdded))
+                {
+                    addedSlots = parsedAdded;
+                }
+                int baseSlots = body.skillLocator.utility.maxStock + addedSlots;
 
                 int extraSlots = 0;
 
@@ -135,7 +139,11 @@ namespace DrifterBossGrabMod.Patches
 
                 return slotCapacity;
             }
-            return PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
+            if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedCapacity))
+            {
+                return parsedCapacity;
+            }
+            return 0;
         }
 
         // Checks if bag is at or above 200% mass capacity cap
@@ -192,8 +200,8 @@ namespace DrifterBossGrabMod.Patches
         {
             if (controller == null) return false;
 
-            // When UncapCapacity is enabled AND EnableBalance is true, check mass capacity instead of slot capacity
-            if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapCapacity.Value)
+            // When AddedCapacity is INF AND EnableBalance is true, check mass capacity instead of slot capacity
+            if (PluginConfig.Instance.BottomlessBagEnabled.Value && (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY"))
             {
                 // Calculate total mass
                 float totalMass = 0f;

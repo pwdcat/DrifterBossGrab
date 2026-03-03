@@ -288,10 +288,22 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Clamp or uncap based on config - only apply UncapMass when EnableBalance is true
-            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapMass.Value)
+            // Clamp or uncap based on config
+            bool isMassUncapped = false;
+            float maxMass = Constants.Limits.MaxMass;
+            
+            if (PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY")
             {
-                totalMass = Mathf.Clamp(totalMass, 0f, Constants.Limits.MaxMass);
+                isMassUncapped = true;
+            }
+            else if (float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
+            {
+                maxMass = parsedMassCap;
+            }
+
+            if (!isMassUncapped)
+            {
+                totalMass = Mathf.Clamp(totalMass, 0f, maxMass);
             }
             else
             {
@@ -325,9 +337,13 @@ namespace DrifterBossGrabMod.Patches
             UIPatches.UpdateMassCapacityUIOnCapacityChange(controller);
 
             // Update uncapped bag scale if enabled - only when EnableBalance is true
-            if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapBagScale.Value)
+            if (PluginConfig.Instance.EnableBalance.Value)
             {
-                UpdateUncappedBagScale(controller, totalMass);
+                bool isScaleUncapped = PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INFINITY";
+                if (isScaleUncapped || (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f))
+                {
+                    UpdateUncappedBagScale(controller, totalMass);
+                }
             }
 
             // Clear dirty flag after successful recalculation
@@ -349,9 +365,14 @@ namespace DrifterBossGrabMod.Patches
             // Calculate mass ratio for penalty interpolation
             float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
             float value = Mathf.Clamp(totalMass, Constants.Limits.MinimumMass, massCapacity);
-            // Only apply UncapMass when EnableBalance is true
-            if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapMass.Value)
+            // Only apply MassCap when EnableBalance is true
+            if (PluginConfig.Instance.EnableBalance.Value && (PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY"))
                 value = Mathf.Max(totalMass, Constants.Limits.MinimumMass);
+            else if (PluginConfig.Instance.EnableBalance.Value && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
+            {
+                float capToUse = PluginConfig.Instance.ToggleMassCapacity.Value ? Mathf.Max(massCapacity, parsedMassCap) : parsedMassCap;
+                value = Mathf.Clamp(totalMass, Constants.Limits.MinimumMass, capToUse);
+            }
 
             float t = Mathf.InverseLerp(Constants.Limits.MinimumMass, massCapacity, value);
             // Use config settings for penalty range instead of hardcoded values

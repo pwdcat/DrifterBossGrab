@@ -51,6 +51,15 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info("[UIPatches] MassCapacityUIController already exists on DrifterBody");
                     }
                 }
+
+                if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
+                {
+                    drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info("[UIPatches] Added BaggedObjectInfoUIController to DrifterBody");
+                    }
+                }
             }
             else
             {

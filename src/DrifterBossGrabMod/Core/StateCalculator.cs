@@ -291,8 +291,8 @@ namespace DrifterBossGrabMod.Core
         {
             float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
             float value = mass;
-            // Only apply UncapBagScale when EnableBalance is true
-            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapBagScale.Value)
+            // Only apply BagScaleCap when EnableBalance is true
+            if (!PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
             {
                 value = Mathf.Clamp(mass, 1f, maxCapacity);
             }

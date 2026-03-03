@@ -307,8 +307,8 @@ namespace DrifterBossGrabMod.UI
                 passengerToIndex[passengerList[pi]] = pi + 1; // 1-based
             }
 
-            float sideScaleVal = PluginConfig.Instance.CarouselSideScale.Value;
-            float sideOpacityVal = PluginConfig.Instance.CarouselSideOpacity.Value;
+            float sideScaleVal = PluginConfig.Instance.SideSlotScale.Value;
+            float sideOpacityVal = PluginConfig.Instance.SideSlotOpacity.Value;
 
             // 1. Identify which slots are still active and update their target states
             HashSet<GameObject> usedSlots = new();
@@ -429,6 +429,36 @@ namespace DrifterBossGrabMod.UI
             // Ensure Center is on top
             if (centerInstance) centerInstance.transform.SetAsLastSibling();
 
+            // Re-apply toggles for all active slots now that centerInstance is correctly set
+            foreach (var slot in _slots)
+            {
+                if (_slotToPassenger.TryGetValue(slot, out var slotPassenger) && slot.activeSelf)
+                {
+                    bool isCenter = slot == centerInstance;
+                    ToggleSlotElements(slot, isCenter);
+
+                    // Refresh damage preview overlay with correct isCenter
+                    var baggedCard = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
+                    if (baggedCard && baggedCard.healthBar)
+                    {
+                        bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
+                            (isCenter || PluginConfig.Instance.EnableAoESlamDamage.Value);
+                        var overlay = baggedCard.healthBar.GetComponent<DamagePreviewOverlay>();
+                        if (showPreview)
+                        {
+                            if (!overlay)
+                                overlay = baggedCard.healthBar.gameObject.AddComponent<DamagePreviewOverlay>();
+                            if (slotPassenger != null && slotPassenger != EmptySlotMarker)
+                                overlay.SetTarget(slotPassenger, bagController);
+                        }
+                        else if (overlay)
+                        {
+                            Destroy(overlay);
+                        }
+                    }
+                }
+            }
+
             // 4. Update slot number labels for ALL active slots (not just new ones)
             // This ensures labels refresh when the passenger list changes (e.g., after throwing)
             foreach (var slot in _slots)
@@ -463,14 +493,14 @@ namespace DrifterBossGrabMod.UI
 
         private (Vector2 pos, float scale, float opacity) GetStateParams(int state, int capacity)
         {
-            float centerY = capacity == 1 ? 0 : PluginConfig.Instance.CarouselCenterOffsetY.Value;
-            float centerX = PluginConfig.Instance.CarouselCenterOffsetX.Value;
-            float sideX = PluginConfig.Instance.CarouselSideOffsetX.Value;
-            float sideY = PluginConfig.Instance.CarouselSideOffsetY.Value;
+            float centerX = PluginConfig.Instance.CenterSlotX.Value;
+            float centerY = capacity == 1 ? 0 : PluginConfig.Instance.CenterSlotY.Value;
+            float sideX = PluginConfig.Instance.SideSlotX.Value;
+            float sideY = PluginConfig.Instance.SideSlotY.Value;
             float spacing = PluginConfig.Instance.CarouselSpacing.Value;
 
-            float scale = (state == 0) ? 1.0f : PluginConfig.Instance.CarouselSideScale.Value;
-            float opacity = (state == 0) ? 1.0f : PluginConfig.Instance.CarouselSideOpacity.Value;
+            float scale = (state == 0) ? PluginConfig.Instance.CenterSlotScale.Value : PluginConfig.Instance.SideSlotScale.Value;
+            float opacity = (state == 0) ? PluginConfig.Instance.CenterSlotOpacity.Value : PluginConfig.Instance.SideSlotOpacity.Value;
 
             if (Mathf.Abs(state) > 1) {
                 opacity = 0f; // Hidden states
@@ -778,12 +808,25 @@ namespace DrifterBossGrabMod.UI
                 // Normal passenger logic continues below... (removed redundant else)
 
                 // Damage preview overlay
-                if (baggedCardController.healthBar && PluginConfig.Instance.EnableDamagePreview.Value)
+                // If AoE slam damage is off, only show preview on the selected (center) slot.
+                // If AoE is on, show preview on all slots since damage is distributed.
+                bool isSelectedSlot = slot == centerInstance;
+                bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
+                    (isSelectedSlot || PluginConfig.Instance.EnableAoESlamDamage.Value);
+                if (baggedCardController.healthBar)
                 {
                     var overlay = baggedCardController.healthBar.GetComponent<DamagePreviewOverlay>();
-                    if (!overlay)
-                        overlay = baggedCardController.healthBar.gameObject.AddComponent<DamagePreviewOverlay>();
-                    if (passenger != null) overlay.SetTarget(passenger, bagController);
+                    if (showPreview)
+                    {
+                        if (!overlay)
+                            overlay = baggedCardController.healthBar.gameObject.AddComponent<DamagePreviewOverlay>();
+                        if (passenger != null) overlay.SetTarget(passenger, bagController);
+                    }
+                    else if (overlay)
+                    {
+                        // Disable overlay if it exists but shouldn't show
+                        Destroy(overlay);
+                    }
                 }
 
                 // Apply toggles
@@ -800,6 +843,13 @@ namespace DrifterBossGrabMod.UI
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)
             {
+                // Determine which slot type's config to read based on isCenter
+                bool showIcon = isCenter ? PluginConfig.Instance.CenterSlotShowIcon.Value : PluginConfig.Instance.SideSlotShowIcon.Value;
+                bool showWeight = isCenter ? PluginConfig.Instance.CenterSlotShowWeightIcon.Value : PluginConfig.Instance.SideSlotShowWeightIcon.Value;
+                bool showName = isCenter ? PluginConfig.Instance.CenterSlotShowName.Value : PluginConfig.Instance.SideSlotShowName.Value;
+                bool showHealthBar = isCenter ? PluginConfig.Instance.CenterSlotShowHealthBar.Value : PluginConfig.Instance.SideSlotShowHealthBar.Value;
+                bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
+
                 // Toggle portrait/icon
                 if (baggedCardController.portraitIconImage)
                 {
@@ -811,7 +861,7 @@ namespace DrifterBossGrabMod.UI
                 var layoutElement = baggedCardController.portraitIconImage?.GetComponent<UnityEngine.UI.LayoutElement>();
                 if (layoutElement)
                 {
-                    layoutElement.gameObject.SetActive(PluginConfig.Instance.BagUIShowIcon.Value);
+                    layoutElement.gameObject.SetActive(showIcon);
                 }
 
                 // Toggle weight
@@ -821,13 +871,13 @@ namespace DrifterBossGrabMod.UI
                     var weightIconTransform = childLocator.FindChild("WeightIcon");
                     if (weightIconTransform)
                     {
-                        weightIconTransform.gameObject.SetActive(PluginConfig.Instance.BagUIShowWeight.Value);
+                        weightIconTransform.gameObject.SetActive(showWeight);
 
                         // Toggle unit label.
                         var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
                         if (unitLabel)
                         {
-                            unitLabel.gameObject.SetActive(PluginConfig.Instance.BagUIShowWeight.Value &&
+                            unitLabel.gameObject.SetActive(showWeight &&
                                 PluginConfig.Instance.WeightDisplayMode.Value != DrifterBossGrabMod.WeightDisplayMode.None &&
                                 PluginConfig.Instance.WeightDisplayMode.Value != DrifterBossGrabMod.WeightDisplayMode.Multiplier);
                         }
@@ -837,13 +887,13 @@ namespace DrifterBossGrabMod.UI
                 // Toggle name
                 if (baggedCardController.nameLabel)
                 {
-                    baggedCardController.nameLabel.gameObject.SetActive(PluginConfig.Instance.BagUIShowName.Value);
+                    baggedCardController.nameLabel.gameObject.SetActive(showName);
                 }
 
                 // Toggle health bar
                 if (baggedCardController.healthBar)
                 {
-                    baggedCardController.healthBar.gameObject.SetActive(PluginConfig.Instance.BagUIShowHealthBar.Value);
+                    baggedCardController.healthBar.gameObject.SetActive(showHealthBar);
                 }
 
                 // Toggle slot number badge (parented to portrait icon)
@@ -852,7 +902,7 @@ namespace DrifterBossGrabMod.UI
                     var slotNumberBadge = baggedCardController.portraitIconImage.transform.Find("SlotNumberBadge");
                     if (slotNumberBadge)
                     {
-                        slotNumberBadge.gameObject.SetActive(PluginConfig.Instance.BagUIShowSlotNumber.Value);
+                        slotNumberBadge.gameObject.SetActive(showSlotNumber);
                     }
                 }
             }
@@ -926,7 +976,9 @@ namespace DrifterBossGrabMod.UI
                 if (slotIndex > 0)
                 {
                     slotNumberTmp.text = $"{slotIndex}";
-                    badgeTransform.gameObject.SetActive(PluginConfig.Instance.BagUIShowSlotNumber.Value);
+                    bool isCenter = slot == centerInstance;
+                    bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
+                    badgeTransform.gameObject.SetActive(showSlotNumber);
                 }
                 else
                 {

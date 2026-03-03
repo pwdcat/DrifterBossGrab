@@ -305,8 +305,8 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // When UncapCapacity is enabled AND EnableBalance is true, check mass capacity instead of slot capacity
-                if (PluginConfig.Instance.EnableBalance.Value && PluginConfig.Instance.UncapCapacity.Value && !isAlreadyTrackedByThisController)
+                // When AddedCapacity is INF AND EnableBalance is true, check mass capacity instead of slot capacity
+                if (PluginConfig.Instance.BottomlessBagEnabled.Value && (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY") && !isAlreadyTrackedByThisController)
                 {
                     // Calculate total mass including the incoming passenger
                     float totalMass = BagCapacityCalculator.CalculateTotalBagMass(__instance!, passengerObject);

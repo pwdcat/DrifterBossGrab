@@ -38,6 +38,8 @@ namespace DrifterBossGrabMod.Core
         public float damageStat;
         public float critStat;
         public float moveSpeedStat;
+        public float armorStat;
+        public float regenStat;
 
         // Breakout timer tracking properties
         public float breakoutTime = 10f;
@@ -74,6 +76,12 @@ namespace DrifterBossGrabMod.Core
                 damageStat = _damageStatField != null ? (float)_damageStatField.GetValue(state) : 0f;
                 critStat = _critStatField != null ? (float)_critStatField.GetValue(state) : 0f;
                 moveSpeedStat = _moveSpeedStatField != null ? (float)_moveSpeedStatField.GetValue(state) : 0f;
+
+                if (targetBody != null)
+                {
+                    armorStat = targetBody.armor;
+                    regenStat = targetBody.regen;
+                }
                 
                 // Breakout timer tracking
                 var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
@@ -99,6 +107,37 @@ namespace DrifterBossGrabMod.Core
             catch (Exception ex)
             {
                 Log.Error($"[BaggedObjectStateData] Error capturing from BaggedObject: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // Extract only breakout timer fields from a BaggedObject instance
+        public void CaptureBreakoutStateFromBaggedObject(BaggedObject state)
+        {
+            if (state == null) return;
+
+            try
+            {
+                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
+                if (bTimeField != null) breakoutTime = (float)bTimeField.GetValue(state);
+
+                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
+                if (bAttemptsField != null) breakoutAttempts = (float)bAttemptsField.GetValue(state);
+
+                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                if (fixedAgeProp != null)
+                {
+                    elapsedBreakoutTime = (float)fixedAgeProp.GetValue(state);
+                }
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[BaggedObjectStateData] Captured breakout state for {targetObject?.name ?? "null"}: " +
+                            $"age={elapsedBreakoutTime}, breakoutTime={breakoutTime}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BaggedObjectStateData] Error capturing breakout state from BaggedObject: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
@@ -189,9 +228,13 @@ namespace DrifterBossGrabMod.Core
                 float massValue = baggedMass;
                 float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
                 
-                if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.UncapBagScale.Value)
+                if (!PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
                 {
-                    massValue = Mathf.Clamp(baggedMass, 1f, maxCapacity);
+                    float maxScale = 1f;
+                    if (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f) {
+                        maxScale = parsedBagScaleCap;
+                    }
+                    massValue = Mathf.Clamp(baggedMass, 1f, maxCapacity); // Scale itself handled natively if cap is exceeded
                 }
                 else
                 {
@@ -213,9 +256,11 @@ namespace DrifterBossGrabMod.Core
                 if (targetBody != null)
                 {
                     attackSpeedStat = targetBody.attackSpeed;
-                    damageStat = targetBody.baseDamage;
+                    damageStat = targetBody.baseDamage; // baseDamage is safe default if damage is obscured
                     critStat = targetBody.crit;
                     moveSpeedStat = targetBody.moveSpeed;
+                    armorStat = targetBody.armor;
+                    regenStat = targetBody.regen;
                 }
                 else
                 {
@@ -224,6 +269,8 @@ namespace DrifterBossGrabMod.Core
                     damageStat = 0f;
                     critStat = 0f;
                     moveSpeedStat = 0f;
+                    armorStat = 0f;
+                    regenStat = 0f;
                 }
 
                 // Breakout data - reset for new objects

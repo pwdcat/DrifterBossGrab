@@ -543,7 +543,7 @@ namespace DrifterBossGrabMod.UI
                 if (_bagController != null)
                 {
                     int capacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
-                    bool uncap = PluginConfig.Instance.UncapCapacity.Value && PluginConfig.Instance.EnableBalance.Value;
+                    bool uncap = (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY") && PluginConfig.Instance.BottomlessBagEnabled.Value;
 
                     int k = 1;
 
@@ -592,7 +592,8 @@ namespace DrifterBossGrabMod.UI
                     // If Capacity is capped, we want to pad the remaining space with static slot separators
                     if (!uncap && capacity > 1)
                     {
-                        for (int i = k; i < capacity; i++)
+                        int maxPads = Mathf.Min(capacity, 15);
+                        for (int i = k; i < maxPads; i++)
                         {
                             // Static slot location
                             float slotFrac = (float)i / capacity;
@@ -636,7 +637,8 @@ namespace DrifterBossGrabMod.UI
                 
                 if (capacity > 1) 
                 {
-                    for (int i = 1; i < capacity; i++)
+                    int maxSegments = Mathf.Min(capacity, 15);
+                    for (int i = 1; i < maxSegments; i++)
                     {
                         separatorFractions.Add((float)i / capacity); 
                     }

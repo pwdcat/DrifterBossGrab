@@ -48,7 +48,11 @@ namespace DrifterBossGrabMod.Balance
             }
 
             int utilityStocks = body.skillLocator.utility.maxStock;
-            int baseCapacity = PluginConfig.Instance.BottomlessBagBaseCapacity.Value;
+            int baseCapacity = 0;
+            if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedAddedCapacity))
+            {
+                baseCapacity = parsedAddedCapacity;
+            }
 
             return baseCapacity + utilityStocks;
         }

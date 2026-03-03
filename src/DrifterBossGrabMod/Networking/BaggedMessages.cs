@@ -197,17 +197,15 @@ namespace DrifterBossGrabMod.Networking
 
         // Bottomless Bag
         public bool BottomlessBagEnabled;
-        public int BottomlessBagBaseCapacity;
-        public bool UncapBagScale;
-        public bool UncapMass;
+        public string AddedCapacity = "0";
 
         // Balance - All toggle fields
         public bool EnableBalance;
         public bool EnableAoESlamDamage;
         public bool EnableOverencumbrance;
-        public bool UncapCapacity;
         public bool ToggleMassCapacity;
-        public bool StateCalculationModeEnabled;
+        public string BagScaleCap = "1";
+        public string MassCap = "700";
 
         public override void Serialize(NetworkWriter writer)
         {
@@ -233,17 +231,15 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(AutoGrabDelay);
 
             writer.Write(BottomlessBagEnabled);
-            writer.Write(BottomlessBagBaseCapacity);
+            writer.Write(AddedCapacity);
 
             // Balance
             writer.Write(EnableBalance);
             writer.Write(EnableAoESlamDamage);
             writer.Write(EnableOverencumbrance);
-            writer.Write(UncapCapacity);
             writer.Write(ToggleMassCapacity);
-            writer.Write(StateCalculationModeEnabled);
-            writer.Write(UncapBagScale);
-            writer.Write(UncapMass);
+            writer.Write(BagScaleCap);
+            writer.Write(MassCap);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -270,17 +266,15 @@ namespace DrifterBossGrabMod.Networking
             AutoGrabDelay = reader.ReadSingle();
 
             BottomlessBagEnabled = reader.ReadBoolean();
-            BottomlessBagBaseCapacity = reader.ReadInt32();
+            AddedCapacity = reader.ReadString();
 
             // Balance
             EnableBalance = reader.ReadBoolean();
             EnableAoESlamDamage = reader.ReadBoolean();
             EnableOverencumbrance = reader.ReadBoolean();
-            UncapCapacity = reader.ReadBoolean();
             ToggleMassCapacity = reader.ReadBoolean();
-            StateCalculationModeEnabled = reader.ReadBoolean();
-            UncapBagScale = reader.ReadBoolean();
-            UncapMass = reader.ReadBoolean();
+            BagScaleCap = reader.ReadString();
+            MassCap = reader.ReadString();
         }
     }
 }

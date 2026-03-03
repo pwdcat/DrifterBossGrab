@@ -52,7 +52,7 @@ namespace DrifterBossGrabMod.Networking
 
             // Bottomless Bag
             PluginConfig.Instance.BottomlessBagEnabled.Value = msg.BottomlessBagEnabled;
-            PluginConfig.Instance.BottomlessBagBaseCapacity.Value = msg.BottomlessBagBaseCapacity;
+            PluginConfig.Instance.AddedCapacity.Value = msg.AddedCapacity;
 
             // Persistence
             PluginConfig.Instance.EnableObjectPersistence.Value = msg.EnableObjectPersistence;
@@ -66,11 +66,9 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
             PluginConfig.Instance.EnableAoESlamDamage.Value = msg.EnableAoESlamDamage;
             PluginConfig.Instance.EnableOverencumbrance.Value = msg.EnableOverencumbrance;
-            PluginConfig.Instance.UncapCapacity.Value = msg.UncapCapacity;
             PluginConfig.Instance.ToggleMassCapacity.Value = msg.ToggleMassCapacity;
-            PluginConfig.Instance.StateCalculationModeEnabled.Value = msg.StateCalculationModeEnabled;
-            PluginConfig.Instance.UncapBagScale.Value = msg.UncapBagScale;
-            PluginConfig.Instance.UncapMass.Value = msg.UncapMass;
+            PluginConfig.Instance.BagScaleCap.Value = msg.BagScaleCap;
+            PluginConfig.Instance.MassCap.Value = msg.MassCap;
 
             // Trigger re-scan of grabbable objects to apply new settings to the current scene
             // This is crucial because objects might have already spawned with the old config
@@ -106,7 +104,7 @@ namespace DrifterBossGrabMod.Networking
 
                 // Bottomless Bag
                 BottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value,
-                BottomlessBagBaseCapacity = PluginConfig.Instance.BottomlessBagBaseCapacity.Value,
+                AddedCapacity = PluginConfig.Instance.AddedCapacity.Value,
 
                 // Persistence
                 EnableObjectPersistence = PluginConfig.Instance.EnableObjectPersistence.Value,
@@ -120,11 +118,9 @@ namespace DrifterBossGrabMod.Networking
                 EnableBalance = PluginConfig.Instance.EnableBalance.Value,
                 EnableAoESlamDamage = PluginConfig.Instance.EnableAoESlamDamage.Value,
                 EnableOverencumbrance = PluginConfig.Instance.EnableOverencumbrance.Value,
-                UncapCapacity = PluginConfig.Instance.UncapCapacity.Value,
                 ToggleMassCapacity = PluginConfig.Instance.ToggleMassCapacity.Value,
-                StateCalculationModeEnabled = PluginConfig.Instance.StateCalculationModeEnabled.Value,
-                UncapBagScale = PluginConfig.Instance.UncapBagScale.Value,
-                UncapMass = PluginConfig.Instance.UncapMass.Value,
+                BagScaleCap = PluginConfig.Instance.BagScaleCap.Value,
+                MassCap = PluginConfig.Instance.MassCap.Value,
             };
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)

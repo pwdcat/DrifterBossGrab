@@ -33,8 +33,9 @@ namespace DrifterBossGrabMod.Patches
                 var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, actualMainPassenger);
                 if (currentState != null)
                 {
-                    var stateData = new Core.BaggedObjectStateData();
-                    stateData.CaptureFromBaggedObject(currentState);
+                    var stateData = BaggedObjectPatches.LoadObjectState(bagController, actualMainPassenger) ?? new Core.BaggedObjectStateData();
+                    if (stateData.targetObject == null) stateData.CalculateFromObject(actualMainPassenger, bagController);
+                    stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                     BaggedObjectPatches.SaveObjectState(bagController, actualMainPassenger, stateData);
                     
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -173,8 +174,9 @@ namespace DrifterBossGrabMod.Patches
                     var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, currentObject);
                     if (currentState != null)
                     {
-                        var stateData = new Core.BaggedObjectStateData();
-                        stateData.CaptureFromBaggedObject(currentState);
+                        var stateData = BaggedObjectPatches.LoadObjectState(bagController, currentObject) ?? new Core.BaggedObjectStateData();
+                        if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
+                        stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                         BaggedObjectPatches.SaveObjectState(bagController, currentObject, stateData);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[DEBUG] [HandleObjectSwap] Saved state for {currentObject.name} before cycling away (server-side)");
@@ -326,8 +328,9 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[DEBUG] [HandleObjectSwap] Saved state for {currentObject.name} before cycling away (client-side)");
-                        var stateData = new Core.BaggedObjectStateData();
-                        stateData.CaptureFromBaggedObject(currentState);
+                        var stateData = BaggedObjectPatches.LoadObjectState(bagController, currentObject) ?? new Core.BaggedObjectStateData();
+                        if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
+                        stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                         BaggedObjectPatches.SaveObjectState(bagController, currentObject, stateData);
 
                     }

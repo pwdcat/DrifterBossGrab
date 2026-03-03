@@ -56,13 +56,15 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged += configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.BottomlessBagBaseCapacity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.AddedCapacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ScrollUpKeybind.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ScrollDownKeybind.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.CarouselSideScale.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.CarouselSideOpacity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotScale.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotOpacity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotScale.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotOpacity.SettingChanged += configChangedHandler;
         }
 
         public static void Cleanup()
@@ -88,13 +90,15 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.BottomlessBagBaseCapacity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.AddedCapacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ScrollUpKeybind.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ScrollDownKeybind.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.CarouselSideScale.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.CarouselSideOpacity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotScale.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotOpacity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotScale.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotOpacity.SettingChanged -= configChangedHandler;
         }
     }
 }

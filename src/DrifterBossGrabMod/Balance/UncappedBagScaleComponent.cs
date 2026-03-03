@@ -198,6 +198,14 @@ namespace DrifterBossGrabMod.Features
             // New formula: 1.0f + t, which gives floor of 1.0f and allows exceeding 1.0f
             float newScale = 1.0f + t;
 
+            if (PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
+            {
+                if (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float maxScale))
+                {
+                    newScale = Mathf.Min(newScale, maxScale);
+                }
+            }
+
             TargetScale = newScale;
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
