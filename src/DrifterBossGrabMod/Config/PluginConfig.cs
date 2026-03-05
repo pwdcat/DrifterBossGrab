@@ -576,7 +576,7 @@ namespace DrifterBossGrabMod
                 "Size multiplier for the UI element.");
             Instance.EnableSeparators = cfg.Bind("Hud", "EnableSeparators", true, "Enable dynamic separators (threshold pips) on the Mass Capacity UI.\n" +
                 "Shows boundaries for each slot, or dynamically based on mass.");
-            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 0.0f, "Intensity of the gradient color on the Mass Capacity UI.\n" +
+            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 1.0f, "Intensity of the gradient color on the Mass Capacity UI.\n" +
                 "0.0 is no gradient (solid mid color), 1.0 is full intensity.");
 
             Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.0f, 1.0f, 0.0f, 1.0f), "Start color (low mass) for standard capacity gradient.");

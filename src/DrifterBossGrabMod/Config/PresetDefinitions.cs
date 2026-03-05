@@ -71,7 +71,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.GradientIntensity"] = 0.0f,
+                ["Hud.GradientIntensity"] = 1.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
@@ -159,7 +159,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.GradientIntensity"] = 0.0f,
+                ["Hud.GradientIntensity"] = 1.0f,
                 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
@@ -247,7 +247,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.GradientIntensity"] = 0.0f,
+                ["Hud.GradientIntensity"] = 1.0f,
                 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
