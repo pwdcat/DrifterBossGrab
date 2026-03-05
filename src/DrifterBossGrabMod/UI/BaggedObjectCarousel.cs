@@ -788,19 +788,55 @@ namespace DrifterBossGrabMod.UI
                                 // Set color
                                 if (PluginConfig.Instance.ScaleWeightColor.Value)
                                 {
-                                    float capacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
-                                    float percentage = (capacity > 0) ? (mass / capacity) : 0f;
+                                    float percentage = 0f;
+                                    bool isOverencumbered = false;
 
-                                    if (percentage > 1.0f)
+                                    if (PluginConfig.Instance.EnableBalance.Value)
                                     {
-                                        // Calculate the fraction of overencumbrance we are currently at
-                                        // 1.0 = Start (0% over base)
-                                        // 1.0 + (Max / 100) = End (100% overencumbered)
-                                        float maxOverPercent = PluginConfig.Instance.EnableBalance.Value 
-                                            ? PluginConfig.Instance.OverencumbranceMax.Value / 100.0f 
-                                            : 0.01f; // Prevent div by zero
-                                            
-                                        float overencumbranceFraction = Mathf.Clamp01((percentage - 1.0f) / maxOverPercent);
+                                        float capacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
+                                        percentage = (capacity > 0) ? (mass / capacity) : 0f;
+                                        isOverencumbered = percentage > 1.0f;
+                                    }
+                                    else
+                                    {
+                                        bool isShowingTotal = isCenter && showTotal && isAllMode;
+                                        if (isShowingTotal)
+                                        {
+                                            int totalCapacitySlots = CapacityScalingSystem.GetTotalCapacity(bagController);
+                                            int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+                                            percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
+                                            isOverencumbered = currentSlots > totalCapacitySlots;
+                                        }
+                                        else
+                                        {
+                                            float maxMass = 700f;
+                                            string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
+                                            if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
+                                            {
+                                                maxMass = parsedMassCap;
+                                            }
+                                            percentage = maxMass > 0 ? (mass / maxMass) : 0f;
+                                            isOverencumbered = false;
+                                        }
+                                    }
+
+                                    if (isOverencumbered)
+                                    {
+                                        float overencumbranceFraction = 0f;
+                                        
+                                        if (PluginConfig.Instance.EnableBalance.Value)
+                                        {
+                                            float maxOverPercent = PluginConfig.Instance.OverencumbranceMax.Value / 100.0f;
+                                            if (maxOverPercent <= 0f) maxOverPercent = 0.01f;
+                                            overencumbranceFraction = Mathf.Clamp01((percentage - 1.0f) / maxOverPercent);
+                                        }
+                                        else
+                                        {
+                                            int totalCapacitySlots = CapacityScalingSystem.GetTotalCapacity(bagController);
+                                            int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+                                            float extraSlots = Mathf.Max(0, currentSlots - totalCapacitySlots);
+                                            overencumbranceFraction = Mathf.Clamp01(extraSlots / Mathf.Max(1f, totalCapacitySlots));
+                                        }
 
                                         // Use Overencumbrance Gradient for overencumbered display
                                         image.color = GetGradientColor(overencumbranceFraction,
@@ -811,7 +847,7 @@ namespace DrifterBossGrabMod.UI
                                     else
                                     {
                                         // Use Capacity Gradient for regular/multiplier display
-                                        image.color = GetGradientColor(percentage,
+                                        image.color = GetGradientColor(Mathf.Clamp01(percentage),
                                             PluginConfig.Instance.CapacityGradientColorStart.Value,
                                             PluginConfig.Instance.CapacityGradientColorMid.Value,
                                             PluginConfig.Instance.CapacityGradientColorEnd.Value);

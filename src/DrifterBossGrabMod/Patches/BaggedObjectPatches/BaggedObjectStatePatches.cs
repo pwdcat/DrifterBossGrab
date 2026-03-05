@@ -105,31 +105,25 @@ namespace DrifterBossGrabMod.Patches
                         var list = BagPatches.GetState(bagController).BaggedObjects;
                         bool isAlreadyTracked = list.Contains(targetObject);
 
-                        if (isAlreadyTracked)
+                        if (!isAlreadyTracked)
                         {
-                            if (!isAlreadyTracked)
-                            {
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for NEW GRAB of {targetObject.name} (capacity={effectiveCapacity}) but FLAGGING to block seat assignment");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for NEW GRAB of {targetObject.name} (capacity={effectiveCapacity}) but FLAGGING to block seat assignment");
 
-                                InitializingPassenger = targetObject;
+                            InitializingPassenger = targetObject;
 
-                                list.Add(targetObject);
-                                BagHelpers.AddTracker(bagController, targetObject);
-                                BagCarouselUpdater.UpdateCarousel(bagController);
-                                BagCarouselUpdater.UpdateNetworkBagState(bagController);
-                                BagPassengerManager.ForceRecalculateMass(bagController);
-                            }
-                            else
-                            {
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for CYCLING of {targetObject.name} (capacity={effectiveCapacity})");
-                            }
+                            list.Add(targetObject);
+                            BagHelpers.AddTracker(bagController, targetObject);
+                            BagCarouselUpdater.UpdateCarousel(bagController);
+                            BagCarouselUpdater.UpdateNetworkBagState(bagController);
+                            BagPassengerManager.ForceRecalculateMass(bagController);
                         }
                         else
                         {
-                             // Not tracked
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for CYCLING of {targetObject.name} (capacity={effectiveCapacity})");
                         }
+
 
                         return true;
                     }
@@ -203,6 +197,7 @@ namespace DrifterBossGrabMod.Patches
 
                 // Check if object is in an additional seat - this is used in multiple places
                 bool isInAdditionalSeat = BagHelpers.GetAdditionalSeat(bagController, targetObject) != null;
+                bool wasNewlyAddedToBag = false;
 
                 // Only populate if the network controller hasn't synced a null state (selectedIndex=-1)
                 if (bagController.hasAuthority && !NetworkServer.active)
@@ -241,6 +236,7 @@ namespace DrifterBossGrabMod.Patches
             if (list != null && !list.Contains(targetObject))
             {
                 list.Add(targetObject);
+                wasNewlyAddedToBag = true;
             }
                 }
 
@@ -268,18 +264,16 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                // Add to BaggedObjects list for skill grabs
+                // Ensure UI and networking are updated for new grabs
                 if (bagController != null && targetObject != null)
                 {
-                    var list = BagPatches.GetState(bagController).BaggedObjects;
-                    if (!list.Contains(targetObject))
-                    {
-                        list.Add(targetObject);
-
-                    }
                     BagCarouselUpdater.UpdateCarousel(bagController);
-                    // Sync to network so server knows about client grabs
-                    BagCarouselUpdater.UpdateNetworkBagState(bagController);
+                    
+                    // Sync to network so server knows about client grabs ONLY if it's a new grab
+                    if (wasNewlyAddedToBag && bagController.hasAuthority)
+                    {
+                        BagCarouselUpdater.UpdateNetworkBagState(bagController);
+                    }
                 }
                 else
                 {
@@ -1036,10 +1030,12 @@ namespace DrifterBossGrabMod.Patches
                 // Refined Logic (Safe-List):
                 // - Idle and Uninitialized are safe fallback states.
                 // - Main state is safe ONLY if we just transitioned from VehicleSeated (allows intentional cycling).
+                // - StunState is safe ONLY if we just transitioned from VehicleSeated (prevents breakout during cycling).
                 bool isIdleOrInit = newStateName.Contains("Idle") || newStateName.Contains("Uninitialized");
                 bool isMainSafe = isMainState && currentStateName.Contains("VehicleSeated");
+                bool isStunSafe = newStateName.Contains("StunState") && currentStateName.Contains("VehicleSeated");
                 
-                bool isSafeState = isIdleOrInit || isMainSafe;
+                bool isSafeState = isIdleOrInit || isMainSafe || isStunSafe;
 
                 if (isSafeState)
                 {

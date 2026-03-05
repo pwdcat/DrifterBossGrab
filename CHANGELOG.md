@@ -10,16 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - ScrollBagUp (D-Pad Up) and ScrollBagDown (D-Pad Down) keybinds
     - Credit: Controller input integration approach based on [ExtraSkillSlots](https://thunderstore.io/package/KingEnderBrine/ExtraSkillSlots/) by KingEnderBrine
 - Config subtabs
-- CharacterFlag Multiplier Selector
 - Presets
 - Separators for Capacity UI
 - FlagMultipliers for Tags
 - Health and Level Scaling
 - Toggle for animation playing when cycling
-- Bag Info UI
-- Formula Parsers, make your own formulas
+- Bag Info UI (still needs some tweaking)
+- Formula Parsers, make your own formulas (needs more testing)
 - Gradient color scaling for the Carousel UI when overencumbered past maximum capacity
-- Component Toggler
+- Component Toggler (WIP feature)
 
 ### Fixed
 - Mid air grab for capping your capacity
@@ -37,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed Skill Tab, moved maxsmacks and breakouttimer to balance
 - Replaced Risk of Options keybinds with Rewired controller+keyboard bindings
 - Replaced ComponentTypeDump with a Component Toggler
+
+### Note
+- Known Issues:
+    - Damage Preview is wrong sometimes
+    - Priority Seat doesn't work for the client
+    - Weight Label still looks off, probably gonna fix it next update
+    - No Balance multiplayer support yet, well not fully (Just did no testing on it)
+    - Harmless Error that shows up when you don't have Risk of Options installed
+    - Keybinds for controller showing different binds on initial launch
 
 ## [1.7.0]
 

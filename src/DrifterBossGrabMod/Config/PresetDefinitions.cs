@@ -255,7 +255,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MaxSmacks"] = 3,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.None,
                 ["Balance.SlotScalingFormula"] = "0",
-                ["Balance.MassCapacityFormula"] = "C * 100",
+                ["Balance.MassCapacityFormula"] = "0",
                 ["Balance.EliteFlagMultiplier"] = "1",
                 ["Balance.BossFlagMultiplier"] = "1",
                 ["Balance.ChampionFlagMultiplier"] = "1",
@@ -295,7 +295,7 @@ namespace DrifterBossGrabMod.Config
                 
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
-                ["BottomlessBag.AddedCapacity"] = "2",
+                ["BottomlessBag.AddedCapacity"] = "INF",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.CycleCooldown"] = 0.2f,
                 ["BottomlessBag.EnableMouseWheelScrolling"] = true,
@@ -335,7 +335,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.GradientIntensity"] = 0.0f,
+                ["Hud.GradientIntensity"] = 1.0f,
                 
                 // Balance settings
                 ["Balance.EnableBalance"] = true,
@@ -343,7 +343,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MaxSmacks"] = 3,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Split,
                 ["Balance.SlotScalingFormula"] = "floor(H/100) + floor(L/3)",
-                ["Balance.MassCapacityFormula"] = "100 * 1.5^(C-1)",
+                ["Balance.MassCapacityFormula"] = "700*C",
                 ["Balance.EliteFlagMultiplier"] = "1",
                 ["Balance.BossFlagMultiplier"] = "1",
                 ["Balance.ChampionFlagMultiplier"] = "1",
@@ -352,12 +352,12 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.DroneFlagMultiplier"] = "1",
                 ["Balance.MechanicalFlagMultiplier"] = "1",
                 ["Balance.VoidFlagMultiplier"] = "1",
-                ["Balance.AllFlagMultiplier"] = "1",
+                ["Balance.AllFlagMultiplier"] = "H/max(B,1)",
                 ["Balance.OverencumbranceMax"] = 100.0f,
                 ["Balance.StateCalculationMode"] = StateCalculationMode.All,
 
                 ["Balance.MovespeedPenaltyFormula"] = "clamp((T / M) * 0.5, 0, 0.8)",
-                ["Balance.BagScaleCap"] = "INF",
+                ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "INF",
             },
             

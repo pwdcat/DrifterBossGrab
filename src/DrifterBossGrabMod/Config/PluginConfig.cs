@@ -579,13 +579,13 @@ namespace DrifterBossGrabMod
             Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 0.0f, "Intensity of the gradient color on the Mass Capacity UI.\n" +
                 "0.0 is no gradient (solid mid color), 1.0 is full intensity.");
 
-            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.2f, 0.8f, 0.2f, 1.0f), "Start color (low mass) for standard capacity gradient.");
+            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.0f, 1.0f, 0.0f, 1.0f), "Start color (low mass) for standard capacity gradient.");
             Instance.CapacityGradientColorMid = cfg.Bind("Hud", "CapacityGradientColorMid", new Color(1.0f, 1.0f, 0.0f, 1.0f), "Mid color (medium mass) for standard capacity gradient.");
-            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.2f, 0.2f, 1.0f), "End color (high mass) for standard capacity gradient.");
+            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.0f, 0.0f, 1.0f), "End color (high mass) for standard capacity gradient.");
 
-            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0.2f, 0.8f, 1.0f, 1.0f), "Start color (low encumbrance) for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.1f, 0.4f, 1.0f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.1f, 0.8f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color (low encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 1.0f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
 
             // Balance configuration bindings
             Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable balance features (capacity scaling, elite mass bonus, overencumbrance).\n" +
@@ -602,12 +602,12 @@ namespace DrifterBossGrabMod
                 "Examples: 'H/100 + L' = 1 slot per 100 HP + 1 per level, 'floor(H/200) + floor(L/3)' = discrete steps\n" +
                 "Set to '0' to disable extra slot scaling.");
 
-            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * 100",
+            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC",
                 "Formula for mass capacity limit.\n" +
                 "Variables: H = max health, L = level, C = utility stocks, MC = mass cap, S = current stage\n" +
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
-                "Examples: 'C * 100' = linear 100 per stock, '100 * 1.5^(C-1)' = exponential\n" +
+                "Examples: 'C * MC' = linear 100 per stock, 'MC * 1.5^(C-1)' = exponential\n" +
                 "Use 'INF' for unlimited mass capacity.");
 
 

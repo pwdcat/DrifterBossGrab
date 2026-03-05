@@ -32,7 +32,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagUp",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_UP",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 7  // D-Pad Up
+                DefaultJoystickKey = 16  // D-Pad Up (Gamepad Template element 16)
             };
 
             ScrollBagDown = new RewiredActions
@@ -41,7 +41,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagDown",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_DOWN",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 8  // D-Pad Down
+                DefaultJoystickKey = 18  // D-Pad Down (Gamepad Template element 18)
             };
         }
 

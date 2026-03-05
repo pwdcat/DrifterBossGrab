@@ -81,9 +81,8 @@ namespace DrifterBossGrabMod.UI
 
                 if (showInfo)
                 {
-                    // When ALL mode, show only Bag Totals; when Current mode, show per-object stats + totals
-                    bool showPerObjectStats = PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All;
-                    UpdateStatsDisplay(showFullStats: showPerObjectStats);
+                    // Always show per-object stats (for the main seat object) + bag totals
+                    UpdateStatsDisplay(showFullStats: true);
                     SetUIVisible(true);
                 }
                 else

@@ -16,6 +16,7 @@ using DrifterBossGrabMod.Config;
 namespace DrifterBossGrabMod
 {
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
+    [BepInDependency("com.rune580.riskofoptions", BepInDependency.DependencyFlags.SoftDependency)]
     public class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
         // Constants for timing delays in coroutines.
@@ -173,11 +174,14 @@ namespace DrifterBossGrabMod
             ConfigChangeNotifier.Init();
             ConfigChangeNotifier.AddObserver(this);
             SetupConfigurationEventHandlers();
-
-            // Apply preset if manually modified in config file before UI loads
+            SetupFeatureToggleHandlers();
+            
             PresetManager.CheckAndApplyPresetOnStartup();
 
-            SetupFeatureToggleHandlers();
+            // Re-sync _was* tracking variables to match the now-applied config
+            // so that subsequent runtime toggles compare against the correct state.
+            SyncFeatureTrackingState();
+
             RegisterGameEvents();
 
             // Initialize networking
@@ -235,6 +239,14 @@ namespace DrifterBossGrabMod
                 StopCoroutine(_grabbableComponentTypesUpdateCoroutine);
                 _grabbableComponentTypesUpdateCoroutine = null;
             }
+        }
+
+        private void SyncFeatureTrackingState()
+        {
+            _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
+            _wasPersistenceEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
+            _wasBalanceEnabled = PluginConfig.Instance.EnableBalance.Value;
+            _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
         }
 
         private void SetupFeatureToggleHandlers()
@@ -667,6 +679,7 @@ namespace DrifterBossGrabMod
         }
 
         // Refreshes the FloatField UI to display the current ConfigEntry value.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshFloatFieldUI(ConfigEntry<float> configEntry)
         {
             if (!RooInstalled) return;
@@ -752,6 +765,7 @@ namespace DrifterBossGrabMod
         }
 
         // Refreshes the StringInputField UI to display the current ConfigEntry value.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
         {
             if (!RooInstalled) return;
@@ -792,6 +806,7 @@ namespace DrifterBossGrabMod
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshCheckBoxUI(ConfigEntry<bool> configEntry)
         {
             if (!RooInstalled) return;
@@ -818,6 +833,7 @@ namespace DrifterBossGrabMod
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateHudSubTabVisibility()
         {
             if (!RooInstalled) return;
@@ -880,6 +896,7 @@ namespace DrifterBossGrabMod
         }
 
         // Updates the visibility of Balance settings based on the selected sub-tab.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateBalanceSubTabVisibility()
         {
             if (!RooInstalled) return;
@@ -1110,6 +1127,7 @@ namespace DrifterBossGrabMod
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void SetupRiskOfOptions()
         {
             if (!RooInstalled) return;
@@ -1135,6 +1153,7 @@ namespace DrifterBossGrabMod
             SetupRiskOfOptionsEvents();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void AddConfigurationOptions()
         {
             if (!RooInstalled) return;

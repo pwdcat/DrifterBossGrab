@@ -153,7 +153,7 @@ namespace DrifterBossGrabMod.Config
             RefreshAllRiskOfOptionsUIInternal();
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
+        [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshAllRiskOfOptionsUIInternal()
         {
             // Find all ModSetting components in the scene
@@ -195,7 +195,7 @@ namespace DrifterBossGrabMod.Config
             RefreshPresetDropdownUIInternal();
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
+        [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshPresetDropdownUIInternal()
         {
             // Find all ModSetting components in scene
