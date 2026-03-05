@@ -58,7 +58,7 @@ namespace DrifterBossGrabMod.Patches
                 
                 // Calculate mass capacity with overencumbrance limit
                 float massCapacity = CapacityScalingSystem.CalculateMassCapacity(drifterBagController);
-                float overencumbranceMultiplier = Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor);
+                float overencumbranceMultiplier = Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor);
                 float maxMassCapacity = massCapacity * overencumbranceMultiplier;
                 
                 // Check if we're at or would be at 200% mass cap
@@ -89,32 +89,24 @@ namespace DrifterBossGrabMod.Patches
 
                 int extraSlots = 0;
 
-                // Add Capacity slots using new formula (Health and Level sliders)
+                // Add Capacity slots using formula-based scaling
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    float healthSlots = 0;
-                    float levelSlots = 0;
-
-                    float healthPerSlot = PluginConfig.Instance.HealthPerExtraSlot.Value;
-                    if (healthPerSlot > 0)
+                    var vars = new System.Collections.Generic.Dictionary<string, float>
                     {
-                        float health = body.maxHealth;
-                        healthSlots = Mathf.Floor(health / healthPerSlot);
-                    }
-
-                    int levelsPerSlot = PluginConfig.Instance.LevelsPerExtraSlot.Value;
-                    if (levelsPerSlot > 0)
-                    {
-                        levelSlots = Mathf.Floor((body.level - 1f) / levelsPerSlot);
-                    }
-
-                    extraSlots = (int)healthSlots + (int)levelSlots;
+                        ["H"] = body.maxHealth,
+                        ["L"] = body.level,
+                        ["C"] = body.skillLocator.utility.maxStock,
+                        ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
+                    };
+                    extraSlots = Balance.FormulaParser.EvaluateInt(
+                        PluginConfig.Instance.SlotScalingFormula.Value, vars);
                 }
 
                 int slotCapacity = baseSlots + extraSlots;
 
-                // If overencumbrance is enabled, check if we're at 200% mass cap
-                if (PluginConfig.Instance.EnableOverencumbrance.Value && PluginConfig.Instance.EnableBalance.Value)
+                // If overencumbrance is enabled (OverencumbranceMax > 0), check if we're at mass cap
+                if (PluginConfig.Instance.OverencumbranceMax.Value > 0 && PluginConfig.Instance.EnableBalance.Value)
                 {
                     // Predictive capacity calculation: Check if we WOULD be at mass cap after adding incoming object
                     int usedCapacity = GetCurrentBaggedCount(drifterBagController);
@@ -124,7 +116,7 @@ namespace DrifterBossGrabMod.Patches
                     float massCapacity = CapacityScalingSystem.CalculateMassCapacity(drifterBagController);
                     // Only apply overencumbrance settings when EnableBalance is true
                     float overencumbranceMultiplier = PluginConfig.Instance.EnableBalance.Value
-                        ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor)
+                        ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
                         : Constants.Multipliers.DefaultMassMultiplier;
                     float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 
@@ -155,7 +147,7 @@ namespace DrifterBossGrabMod.Patches
             float massCapacity = CapacityScalingSystem.CalculateMassCapacity(drifterBagController);
             // Only apply overencumbrance settings when EnableBalance is true
             float overencumbranceMultiplier = PluginConfig.Instance.EnableBalance.Value
-                ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor)
+                ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
                 : Constants.Multipliers.DefaultMassMultiplier;
             float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 
@@ -221,7 +213,7 @@ namespace DrifterBossGrabMod.Patches
                 float massCapacity = CapacityScalingSystem.CalculateMassCapacity(controller);
                 // Only apply overencumbrance settings when EnableBalance is true
                 float overencumbranceMultiplier = PluginConfig.Instance.EnableBalance.Value
-                    ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor)
+                    ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
                     : Constants.Multipliers.DefaultMassMultiplier;
                 float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 

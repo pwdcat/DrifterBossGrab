@@ -1033,27 +1033,22 @@ namespace DrifterBossGrabMod.Patches
                 var mainStateType = __instance.mainStateType.stateType;
                 bool isMainState = (newStateType != null && mainStateType != null && newStateType == mainStateType) || newStateName == "GenericCharacterMain";
 
-                // Refined Logic:
-                // - FrolicAway is always an escape
-                // - Main state is an escape only if we weren't just Seated (allows cycling VehicleSeated -> Main)
-                bool isFrolic = newStateName == "FrolicAway";
-                bool isMainEscape = isMainState && !currentStateName.Contains("VehicleSeated");
+                // Refined Logic (Safe-List):
+                // - Idle and Uninitialized are safe fallback states.
+                // - Main state is safe ONLY if we just transitioned from VehicleSeated (allows intentional cycling).
+                bool isIdleOrInit = newStateName.Contains("Idle") || newStateName.Contains("Uninitialized");
+                bool isMainSafe = isMainState && currentStateName.Contains("VehicleSeated");
+                
+                bool isSafeState = isIdleOrInit || isMainSafe;
 
-                bool isKnownEscapeState = isFrolic || isMainEscape;
-
-                if (!isKnownEscapeState)
+                if (isSafeState)
                 {
-                    // Log non-escape
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[EntityStateMachine_SetState] Tracked object {obj.name}: unknown non-safe state '{newStateName}' — NOT cleaning up (add to escape list if this causes ghost tracking)");
-                    }
-                    return;
+                    return; // Safe transition inside the bag, do not clean up
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[EntityStateMachine_SetState] Bagged object {obj.name} ESM '{__instance.customName}' transitioning {currentStateName} → {newStateName} — cleaning up bag tracking");
+                    Log.Info($"[EntityStateMachine_SetState] Bagged object {obj.name} ESM '{__instance.customName}' transitioning {currentStateName} → {newStateName} (UNAUTHORIZED) — treating as escape and cleaning up bag tracking");
                 }
 
                 // Clean up

@@ -6,14 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.1]
 
 ### Added
+- Controller support
+    - ScrollBagUp (D-Pad Up) and ScrollBagDown (D-Pad Down) keybinds
+    - Credit: Controller input integration approach based on [ExtraSkillSlots](https://thunderstore.io/package/KingEnderBrine/ExtraSkillSlots/) by KingEnderBrine
 - Config subtabs
 - CharacterFlag Multiplier Selector
 - Presets
 - Separators for Capacity UI
-- FlagMultipliers For Tags
+- FlagMultipliers for Tags
 - Health and Level Scaling
 - Toggle for animation playing when cycling
 - Bag Info UI
+- Formula Parsers, make your own formulas
+- Gradient color scaling for the Carousel UI when overencumbered past maximum capacity
+- Component Toggler
 
 ### Fixed
 - Mid air grab for capping your capacity
@@ -21,12 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UncapCapacity + MassCapacity not capping correctly
 - Additionalseat enemies breakout
 - X when grabbing object if the previous was destroyed
+- Animation for mass capacity when mass ratio is 1 >=
+- Logic for handling bagged object escapes, uses safe-list instead of a blacklist of states, fixing ghost tracking objects
+- Animation opacity for the carousel slots
 
 ### Changed
-- Toggles ungrabbable flag for npcs, uses old logic as a fallback
-- Damage preview now only shows on the selected slot (unless aoe slam is enabled)
+- Damage preview now only shows on the selected slot
 - Carousel slot and cap configs
 - Removed Skill Tab, moved maxsmacks and breakouttimer to balance
+- Replaced Risk of Options keybinds with Rewired controller+keyboard bindings
+- Replaced ComponentTypeDump with a Component Toggler
 
 ## [1.7.0]
 

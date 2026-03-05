@@ -21,7 +21,7 @@ namespace DrifterBossGrabMod.Patches
             if (!NetworkServer.active) return;
             // Only apply AoE slam damage when EnableBalance is true
             if (!PluginConfig.Instance.EnableBalance.Value) return;
-            if (!PluginConfig.Instance.EnableAoESlamDamage.Value) return;
+            if (PluginConfig.Instance.AoEDamageDistribution.Value == DrifterBossGrabMod.AoEDamageMode.None) return;
             // Only active in 'All' mode as per requirements
             if (PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All) return;
 
@@ -54,7 +54,7 @@ namespace DrifterBossGrabMod.Patches
             if (!NetworkServer.active) return;
             // Only apply AoE slam damage when EnableBalance is true
             if (!PluginConfig.Instance.EnableBalance.Value) return;
-            if (!PluginConfig.Instance.EnableAoESlamDamage.Value) return;
+            if (PluginConfig.Instance.AoEDamageDistribution.Value == DrifterBossGrabMod.AoEDamageMode.None) return;
             if (PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All) return;
 
             var bagState = BagPatches.GetState(__instance);

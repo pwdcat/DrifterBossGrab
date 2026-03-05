@@ -14,6 +14,13 @@ namespace DrifterBossGrabMod.UI
         private DrifterBagController _bagController = null!;
         private HUD _hud = null!;
 
+        // Cached reflection metadata (resolved once, reused every frame)
+        private System.Reflection.PropertyInfo? _cachedInputPlayerProperty;
+        private System.Reflection.FieldInfo? _cachedInputPlayerField;
+        private System.Reflection.MethodInfo? _cachedGetButtonMethod;
+        private bool _reflectionCacheInitialized;
+        private static readonly object[] _getButtonArgs = new object[] { "info" };
+
         private void Start()
         {
             _body = GetComponent<CharacterBody>();
@@ -48,31 +55,35 @@ namespace DrifterBossGrabMod.UI
                 bool showInfo = false;
                 if (_hud.localUserViewer != null)
                 {
-                    var propInfo = _hud.localUserViewer.GetType().GetProperty("inputPlayer");
-                    object? inputPlayer = null;
-                    if (propInfo != null)
+                    // Cache reflection metadata on first use
+                    if (!_reflectionCacheInitialized)
                     {
-                        inputPlayer = propInfo.GetValue(_hud.localUserViewer);
+                        var viewerType = _hud.localUserViewer.GetType();
+                        _cachedInputPlayerProperty = viewerType.GetProperty("inputPlayer");
+                        if (_cachedInputPlayerProperty == null)
+                            _cachedInputPlayerField = viewerType.GetField("inputPlayer");
+                        _reflectionCacheInitialized = true;
                     }
-                    else
-                    {
-                        var fieldInfo = _hud.localUserViewer.GetType().GetField("inputPlayer");
-                        if (fieldInfo != null) inputPlayer = fieldInfo.GetValue(_hud.localUserViewer);
-                    }
+
+                    // Get the input player value (still per-frame, but metadata lookup is cached)
+                    object? inputPlayer = _cachedInputPlayerProperty?.GetValue(_hud.localUserViewer)
+                                       ?? _cachedInputPlayerField?.GetValue(_hud.localUserViewer);
                     
                     if (inputPlayer != null)
                     {
-                        var getButtonMethod = inputPlayer.GetType().GetMethod("GetButton", new[] { typeof(string) });
-                        if (getButtonMethod != null)
+                        _cachedGetButtonMethod ??= inputPlayer.GetType().GetMethod("GetButton", new[] { typeof(string) });
+                        if (_cachedGetButtonMethod != null)
                         {
-                            showInfo = (bool)getButtonMethod.Invoke(inputPlayer, new object[] { "info" });
+                            showInfo = (bool)_cachedGetButtonMethod.Invoke(inputPlayer, _getButtonArgs);
                         }
                     }
                 }
 
                 if (showInfo)
                 {
-                    UpdateStatsDisplay();
+                    // When ALL mode, show only Bag Totals; when Current mode, show per-object stats + totals
+                    bool showPerObjectStats = PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All;
+                    UpdateStatsDisplay(showFullStats: showPerObjectStats);
                     SetUIVisible(true);
                 }
                 else
@@ -125,7 +136,7 @@ namespace DrifterBossGrabMod.UI
             rectTransform.sizeDelta = new Vector2(500, 400); // Fixed size for info
         }
 
-        private void UpdateStatsDisplay()
+        private void UpdateStatsDisplay(bool showFullStats = true)
         {
             if (_statsText == null || _uiPanel == null) return;
 
@@ -136,17 +147,35 @@ namespace DrifterBossGrabMod.UI
                 _statsText.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
             }
 
+            var aggregateState = StateCalculator.GetAggregateState(_bagController);
+            float totalMass = aggregateState.baggedMass;
+            float penalty = aggregateState.movespeedPenalty * 100f;
+            float massCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
+            string capacityStr = massCapacity >= 100000f ? "INF" : massCapacity.ToString("F0");
+
+            string totalsSection = $"<size=20><b>Bag Totals</b></size>\n" +
+                              $"<color=#bbbbbb>Total Mass:</color> {totalMass:F0} / {capacityStr}\n" +
+                              $"<color=#ff6666>Speed Penalty:</color> -{penalty:F1}%\n";
+
+            if (!showFullStats)
+            {
+                // Only show bag totals
+                _statsText.text = totalsSection;
+                return;
+            }
+
+            // Full stats mode: show per-object stats + bag totals
             var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
             if (mainSeatObject == null)
             {
-                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Empty</color>";
+                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Empty</color>\n\n" + totalsSection;
                 return;
             }
 
             var state = BaggedObjectStateStorage.LoadObjectState(_bagController, mainSeatObject);
             if (state == null)
             {
-                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Loading stats...</color>";
+                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Loading stats...</color>\n\n" + totalsSection;
                 return;
             }
 
@@ -164,12 +193,6 @@ namespace DrifterBossGrabMod.UI
             float regen = state.regenStat;
             float mass = state.baggedMass;
 
-            var aggregateState = StateCalculator.GetAggregateState(_bagController);
-            float totalMass = aggregateState.baggedMass;
-            float penalty = aggregateState.movespeedPenalty * 100f;
-            float massCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
-            string capacityStr = massCapacity >= 100000f ? "INF" : massCapacity.ToString("F0");
-
             _statsText.text = $"<size=24><b>{name}</b></size>\n" +
                               $"<color=#bbbbbb>Mass:</color> {mass:F1}\n" +
                               $"<color=#ff4444>Damage:</color> {dmg:F1}\n" +
@@ -178,9 +201,7 @@ namespace DrifterBossGrabMod.UI
                               $"<color=#44ccff>Armor:</color> {armor:F1}\n" +
                               $"<color=#44ff44>Regenerate:</color> {regen:F2} HP/s\n" +
                               $"<color=#ffffaa>Move Speed:</color> {move:F1}\n\n" +
-                              $"<size=20><b>Bag Totals</b></size>\n" +
-                              $"<color=#bbbbbb>Total Mass:</color> {totalMass:F0} / {capacityStr}\n" +
-                              $"<color=#ff6666>Speed Penalty:</color> -{penalty:F1}%\n";
+                              totalsSection;
         }
 
         private void SetUIVisible(bool visible)

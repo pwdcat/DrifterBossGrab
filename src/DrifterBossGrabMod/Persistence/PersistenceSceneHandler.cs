@@ -473,18 +473,21 @@ namespace DrifterBossGrabMod
 
                 // Try to find the NetworkUser associated with this player id
                 // NetworkUserId doesn't have ToString() override, so we need to manually serialize it for comparison
-                var users = NetworkUser.readOnlyInstancesList
-                    .Where(nu =>
-                    {
-                        var id = nu.id;
-                        var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-                        return idString == _ownerPlayerId;
-                    })
-                    .ToList();
-
-                if (users.Count > 0)
+                NetworkUser? matchedUser = null;
+                foreach (var nu in NetworkUser.readOnlyInstancesList)
                 {
-                    var targetBody = users[0].master?.GetBody();
+                    var id = nu.id;
+                    var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                    if (idString == _ownerPlayerId)
+                    {
+                        matchedUser = nu;
+                        break;
+                    }
+                }
+
+                if (matchedUser != null)
+                {
+                    var targetBody = matchedUser.master?.GetBody();
                     if (targetBody != null)
                     {
                         // Found owner body! Teleport.
@@ -521,17 +524,20 @@ namespace DrifterBossGrabMod
             if (!string.IsNullOrEmpty(ownerPlayerId))
             {
                 // Find the NetworkUser associated with this player id using all network users
-                var users = NetworkUser.readOnlyInstancesList
-                    .Where(nu =>
-                    {
-                        var id = nu.id;
-                        var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-                        return idString == ownerPlayerId;
-                    })
-                    .ToList();
-                if (users.Count > 0)
+                NetworkUser? matchedUser = null;
+                foreach (var nu in NetworkUser.readOnlyInstancesList)
                 {
-                    targetBody = users[0].master?.GetBody();
+                    var id = nu.id;
+                    var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                    if (idString == ownerPlayerId)
+                    {
+                        matchedUser = nu;
+                        break;
+                    }
+                }
+                if (matchedUser != null)
+                {
+                    targetBody = matchedUser.master?.GetBody();
                     if (targetBody != null) ownerFound = true;
                 }
             }

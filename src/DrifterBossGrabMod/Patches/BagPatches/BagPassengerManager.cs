@@ -9,6 +9,7 @@ using DrifterBossGrabMod;
 using DrifterBossGrabMod.Core;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Features;
+using DrifterBossGrabMod.Balance;
 using EntityStates;
 using EntityStates.Drifter.Bag;
 
@@ -265,10 +266,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Apply All mode mass multiplier
-                totalMass *= PluginConfig.Instance.AllModeMassMultiplier.Value;
-
-                Log.Debug($"[ForceRecalculateMass] All Mode: Aggregated mass {totalMass} for {controller.name} (Objects: {(list?.Count ?? 0)}, Multiplier: {PluginConfig.Instance.AllModeMassMultiplier.Value})");
+                Log.Debug($"[ForceRecalculateMass] All Mode: Aggregated mass {totalMass} for {controller.name} (Objects: {(list?.Count ?? 0)})");
             }
             else
             {
@@ -313,7 +311,7 @@ namespace DrifterBossGrabMod.Patches
             if (_baggedMassField != null)
             {
                 _baggedMassField.SetValue(controller, totalMass);
-                Log.Debug($"[ForceRecalculateMass] Set final baggedMass to {totalMass} for {controller.name} (Mode: {PluginConfig.Instance.StateCalculationMode.Value})");
+                Log.Info($"[ForceRecalculateMass] Set final baggedMass to {totalMass} for {controller.name} (Mode: {PluginConfig.Instance.StateCalculationMode.Value})");
 
                 controller.GetComponent<CharacterBody>()?.RecalculateStats();
 
@@ -357,29 +355,44 @@ namespace DrifterBossGrabMod.Patches
             var motor = controller.GetComponent<CharacterMotor>();
             if (motor == null) return;
 
-            // Calculate penalty using config settings
-            // Only apply balance penalty settings when EnableBalance is true
-            var minPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MinMovespeedPenalty.Value : 0f;
-            var maxPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MaxMovespeedPenalty.Value : 0f;
-            var finalLimit = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.FinalMovespeedPenaltyLimit.Value : 0f;
-            // Calculate mass ratio for penalty interpolation
-            float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
-            float value = Mathf.Clamp(totalMass, Constants.Limits.MinimumMass, massCapacity);
-            // Only apply MassCap when EnableBalance is true
-            if (PluginConfig.Instance.EnableBalance.Value && (PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY"))
-                value = Mathf.Max(totalMass, Constants.Limits.MinimumMass);
-            else if (PluginConfig.Instance.EnableBalance.Value && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
+            // Calculate penalty using formula when EnableBalance is true
+            float penalty = 0f;
+            if (PluginConfig.Instance.EnableBalance.Value)
             {
-                float capToUse = PluginConfig.Instance.ToggleMassCapacity.Value ? Mathf.Max(massCapacity, parsedMassCap) : parsedMassCap;
-                value = Mathf.Clamp(totalMass, Constants.Limits.MinimumMass, capToUse);
+                var body = controller.GetComponent<CharacterBody>();
+                float health = body != null ? body.maxHealth : 0f;
+                float level = body != null ? body.level : 1f;
+                float stocks = body != null && body.skillLocator != null && body.skillLocator.utility != null
+                    ? body.skillLocator.utility.maxStock : 1f;
+                float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
+                float totalCapacity = CapacityScalingSystem.GetTotalCapacity(controller);
+
+                // Parse MassCap value (supports "INF" or "Infinity" for unlimited)
+                float massCap = 700f; // Default value
+                string massCapStr = PluginConfig.Instance.MassCap.Value;
+                if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
+                {
+                    massCap = float.MaxValue;
+                }
+                else if (!float.TryParse(massCapStr, out massCap))
+                {
+                    massCap = 700f; // Fallback to default if parsing fails
+                }
+
+                var penaltyVars = new Dictionary<string, float>
+                {
+                    ["T"] = totalMass,
+                    ["M"] = massCapacity,
+                    ["C"] = totalCapacity,
+                    ["H"] = health,
+                    ["L"] = level,
+                    ["MC"] = massCap,
+                    ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
+                };
+
+                penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);
             }
-
-            float t = Mathf.InverseLerp(Constants.Limits.MinimumMass, massCapacity, value);
-            // Use config settings for penalty range instead of hardcoded values
-            float penalty = Mathf.Lerp(minPenalty, maxPenalty, t);
-
-            // Clamp to final limit
-            penalty = Mathf.Min(penalty, finalLimit);
 
             if (totalMass <= 0f || penalty <= 0f)
             {

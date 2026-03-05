@@ -1,5 +1,6 @@
 using UnityEngine;
 using RoR2;
+using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod.UI
 {
@@ -14,29 +15,34 @@ namespace DrifterBossGrabMod.UI
 
         private void Start()
         {
-            Debug.Log($"[BaggedObjectUIController] Start: slotPrefab={slotPrefab}");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[BaggedObjectUIController] Start: slotPrefab={slotPrefab}");
             if (slotPrefab)
             {
                 // Check if this body is Drifter
                 var body = GetComponent<CharacterBody>();
                 if (body == null || !body.name.StartsWith("DrifterBody") || !body.hasAuthority)
                 {
-                    Debug.Log($"[BaggedObjectUIController] Not attached to DrifterBody or no authority");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[BaggedObjectUIController] Not attached to DrifterBody or no authority");
                     return;
                 }
                 var localUser = RoR2.LocalUserManager.GetFirstLocalUser();
                 if (localUser == null)
                 {
-                    Debug.Log($"[BaggedObjectUIController] No local user found");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[BaggedObjectUIController] No local user found");
                     return;
                 }
                 var hud = localUser.cameraRigController?.hud;
-                Debug.Log($"[BaggedObjectUIController] HUD instance: {hud}");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[BaggedObjectUIController] HUD instance: {hud}");
                 if (hud && hud.mainContainer)
                 {
                     // Find the DisplayRoot transform in the HUD hierarchy
                     var displayRoot = FindDeepChild(hud.mainContainer.transform, "DisplayRoot");
-                    Debug.Log($"[BaggedObjectUIController] displayRoot: {displayRoot}");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[BaggedObjectUIController] displayRoot: {displayRoot}");
                     if (displayRoot)
                     {
                         // Create the carousel GameObject at runtime
@@ -67,7 +73,8 @@ namespace DrifterBossGrabMod.UI
                         BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance);
                         BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance);
 
-                        Debug.Log($"[BaggedObjectUIController] Created carousel in HUD");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[BaggedObjectUIController] Created carousel in HUD");
                     }
                 }
             }

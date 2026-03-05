@@ -1,5 +1,6 @@
 using RoR2;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace DrifterBossGrabMod.Balance
 {
@@ -19,67 +20,52 @@ namespace DrifterBossGrabMod.Balance
                 return baseMass;
 
             // Check each flag and collect multipliers
-            float highestMassBonusPercent = 0f;
-            float highestHealthMultiplier = 0f;
-            float highestLevelMultiplier = 0f;
+            float highestMassBonusPercent = 1f;
 
-            void CheckFlag(bool condition, float massBonus, float healthMult, float levelMult)
+            // Prepare variables for formula parsing
+            var formulaVars = new Dictionary<string, float>
+            {
+                { "H", characterBody.maxHealth },
+                { "BH", characterBody.baseMaxHealth },
+                { "L", characterBody.level },
+                { "B", baseMass },
+                { "S", RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1 }
+            };
+
+            void CheckFlag(bool condition, string flagMultiplierFormula)
             {
                 if (condition)
                 {
-                    highestMassBonusPercent = Mathf.Max(highestMassBonusPercent, massBonus);
-                    highestHealthMultiplier = Mathf.Max(highestHealthMultiplier, healthMult);
-                    highestLevelMultiplier = Mathf.Max(highestLevelMultiplier, levelMult);
+                    // Parse and evaluate the formula-based flag multiplier
+                    float flagMultiplier = FormulaParser.Evaluate(flagMultiplierFormula, formulaVars);
+                    if (flagMultiplier > 0f)
+                    {
+                        highestMassBonusPercent = Mathf.Max(highestMassBonusPercent, flagMultiplier);
+                    }
                 }
             }
 
             var cfg = PluginConfig.Instance;
 
-            CheckFlag(characterBody.isElite, 
-                cfg.EliteMassBonusPercent.Value, cfg.EliteBaseHealthMassMultiplier.Value, cfg.EliteLevelMassMultiplier.Value);
-
-            CheckFlag(characterBody.isBoss, 
-                cfg.BossMassBonusPercent.Value, cfg.BossBaseHealthMassMultiplier.Value, cfg.BossLevelMassMultiplier.Value);
-
-            CheckFlag(characterBody.isChampion, 
-                cfg.ChampionMassBonusPercent.Value, cfg.ChampionBaseHealthMassMultiplier.Value, cfg.ChampionLevelMassMultiplier.Value);
-
-            CheckFlag(characterBody.isPlayerControlled, 
-                cfg.PlayerMassBonusPercent.Value, cfg.PlayerBaseHealthMassMultiplier.Value, cfg.PlayerLevelMassMultiplier.Value);
-
-            CheckFlag(characterBody.master != null && characterBody.master.minionOwnership != null, 
-                cfg.MinionMassBonusPercent.Value, cfg.MinionBaseHealthMassMultiplier.Value, cfg.MinionLevelMassMultiplier.Value);
-
-            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Drone) != 0, 
-                cfg.DroneMassBonusPercent.Value, cfg.DroneBaseHealthMassMultiplier.Value, cfg.DroneLevelMassMultiplier.Value);
-
-            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0, 
-                cfg.MechanicalMassBonusPercent.Value, cfg.MechanicalBaseHealthMassMultiplier.Value, cfg.MechanicalLevelMassMultiplier.Value);
-
-            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Void) != 0, 
-                cfg.VoidMassBonusPercent.Value, cfg.VoidBaseHealthMassMultiplier.Value, cfg.VoidLevelMassMultiplier.Value);
+            CheckFlag(characterBody.isElite, cfg.EliteFlagMultiplier.Value);
+            CheckFlag(characterBody.isBoss, cfg.BossFlagMultiplier.Value);
+            CheckFlag(characterBody.isChampion, cfg.ChampionFlagMultiplier.Value);
+            CheckFlag(characterBody.isPlayerControlled, cfg.PlayerFlagMultiplier.Value);
+            CheckFlag(characterBody.master != null && characterBody.master.minionOwnership != null, cfg.MinionFlagMultiplier.Value);
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Drone) != 0, cfg.DroneFlagMultiplier.Value);
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0, cfg.MechanicalFlagMultiplier.Value);
+            CheckFlag((characterBody.bodyFlags & CharacterBody.BodyFlags.Void) != 0, cfg.VoidFlagMultiplier.Value);
 
             float totalMass = baseMass;
 
-            // Apply Base Health Mass (additive)
-            if (highestHealthMultiplier > 0f)
-            {
-                float baseHealth = characterBody.baseMaxHealth;
-                totalMass += baseHealth * highestHealthMultiplier;
-            }
+            // Apply ALL flag multiplier (universal multiplier that applies to ALL enemies)
+            float allFlagMultiplier = FormulaParser.Evaluate(cfg.AllFlagMultiplier.Value, formulaVars);
 
-            // Apply flag multiplier directly
-            if (highestMassBonusPercent != 0f)
+            // Apply flag multiplier directly (multiplicative stacking with ALL flag)
+            if (highestMassBonusPercent != 1f || allFlagMultiplier != 1f)
             {
-                totalMass *= highestMassBonusPercent;
-            }
-
-            // Apply Level Multiplier
-            if (highestLevelMultiplier > 0f)
-            {
-                // RoR2 considers base stats to be level 1, so additional levels are level - 1
-                float levelScaling = Mathf.Max(0, characterBody.level - 1f);
-                totalMass *= (1f + levelScaling * highestLevelMultiplier);
+                // The ALL flag stacks multiplicatively with the highest specific flag
+                totalMass *= allFlagMultiplier * highestMassBonusPercent;
             }
 
             return totalMass;

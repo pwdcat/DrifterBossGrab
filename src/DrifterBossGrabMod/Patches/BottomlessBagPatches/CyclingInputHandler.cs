@@ -46,7 +46,7 @@ namespace DrifterBossGrabMod.Patches
                 // 1. Handle Mouse Wheel with Thresholding
                 if (PluginConfig.Instance.EnableMouseWheelScrolling.Value)
                 {
-                    float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
+                    float scrollDelta = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
                     if (scrollDelta != 0f)
                     {
                         if (_scrollAccumulator != 0f && Mathf.Sign(scrollDelta) != Mathf.Sign(_scrollAccumulator))
@@ -82,26 +82,22 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // 2. Handle Keybinds (Always overrides/adds to threshold if pressed)
+                // 2. Handle Rewired Keybinds (keyboard + controller)
                 if (Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
                 {
-                    if (PluginConfig.Instance.ScrollUpKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollUpKeybind.Value.MainKey))
+                    var inputLocalUser = LocalUserManager.GetFirstLocalUser();
+                    if (inputLocalUser?.inputPlayer != null)
                     {
-                        bool modifiersPressed = true;
-                        foreach (var modifier in PluginConfig.Instance.ScrollUpKeybind.Value.Modifiers)
+                        if (inputLocalUser.inputPlayer.GetButtonDown(DrifterBossGrabMod.Input.RewiredActions.ScrollBagUp.ActionId))
                         {
-                            if (!Input.GetKey(modifier)) { modifiersPressed = false; break; }
+                            cycleAmount--;
+                            _lastCycleTime = Time.time;
                         }
-                        if (modifiersPressed) { cycleAmount++; _lastCycleTime = Time.time; }
-                    }
-                    if (PluginConfig.Instance.ScrollDownKeybind.Value.MainKey != KeyCode.None && Input.GetKeyDown(PluginConfig.Instance.ScrollDownKeybind.Value.MainKey))
-                    {
-                        bool modifiersPressed = true;
-                        foreach (var modifier in PluginConfig.Instance.ScrollDownKeybind.Value.Modifiers)
+                        if (inputLocalUser.inputPlayer.GetButtonDown(DrifterBossGrabMod.Input.RewiredActions.ScrollBagDown.ActionId))
                         {
-                            if (!Input.GetKey(modifier)) { modifiersPressed = false; break; }
+                            cycleAmount++;
+                            _lastCycleTime = Time.time;
                         }
-                        if (modifiersPressed) { cycleAmount--; _lastCycleTime = Time.time; }
                     }
                 }
 

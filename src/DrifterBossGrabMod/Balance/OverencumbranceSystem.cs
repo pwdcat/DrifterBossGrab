@@ -22,7 +22,7 @@ namespace DrifterBossGrabMod.Balance
             float capacityRatio = totalMass / massCapacity;
             // Only apply overencumbrance settings when EnableBalance is true
             float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
-                ? PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor
+                ? PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor
                 : 0f;
             float overencumbrancePercent = Mathf.Clamp(capacityRatio - Constants.Multipliers.CapacityRatioThreshold, 0f, maxOverencumbrancePercent);
 
@@ -193,7 +193,7 @@ namespace DrifterBossGrabMod.Balance
             float overencumbrancePercent = CalculateOverencumbrancePercent(newTotalMass, massCapacity);
             // Only apply overencumbrance settings when EnableBalance is true
             float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
-                ? PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor
+                ? PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor
                 : 0f;
 
             // Check if would exceed max overencumbrance

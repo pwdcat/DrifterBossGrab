@@ -15,9 +15,6 @@ namespace DrifterBossGrabMod
         {
             Log.Info($"[{FeatureName}] Applying balance patches...");
 
-            // Capacity Scaling Patches
-            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.DrifterBagController_CalculateBaggedObjectMass_Patch)).Patch();
-
             // Overencumbrance Patches
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_RecalculateStats_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_OnDestroy_Patch)).Patch();

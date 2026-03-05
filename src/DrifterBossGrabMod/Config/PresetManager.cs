@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using UnityEngine;
-using RiskOfOptions.Components.Options;
 using DrifterBossGrabMod.Balance;
 using RoR2;
 
@@ -119,6 +119,7 @@ namespace DrifterBossGrabMod.Config
 
                 // Update the preset dropdown
                 PluginConfig.Instance.SelectedPreset.Value = presetType;
+                PluginConfig.Instance.LastSelectedPreset.Value = presetType;
 
                 // Force refresh of all bag controllers to apply changes
                 RefreshAllBagControllers();
@@ -132,12 +133,29 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
+        public static void CheckAndApplyPresetOnStartup()
+        {
+            var selected = PluginConfig.Instance.SelectedPreset.Value;
+            var lastSelected = PluginConfig.Instance.LastSelectedPreset.Value;
+
+            if (selected != lastSelected)
+            {
+                Log.Info($"[PresetManager] Detected preset change in config file: {lastSelected} -> {selected}. Applying new preset.");
+                ApplyPreset(selected);
+            }
+        }
+
         // Refresh all RiskOfOptions UI components to show updated config values.
         // Forces re-rendering by deactivating and reactivating all settings.
         private static void RefreshAllRiskOfOptionsUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
+            RefreshAllRiskOfOptionsUIInternal();
+        }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RefreshAllRiskOfOptionsUIInternal()
+        {
             // Find all ModSetting components in the scene
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
 
@@ -174,7 +192,12 @@ namespace DrifterBossGrabMod.Config
         public static void RefreshPresetDropdownUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
+            RefreshPresetDropdownUIInternal();
+        }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RefreshPresetDropdownUIInternal()
+        {
             // Find all ModSetting components in scene
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
 
@@ -229,7 +252,6 @@ namespace DrifterBossGrabMod.Config
                 "EnableLockedObjectGrabbing" => instance.EnableLockedObjectGrabbing,
                 "ProjectileGrabbingMode" => instance.ProjectileGrabbingMode,
                 "EnableDebugLogs" => instance.EnableDebugLogs,
-                "EnableComponentAnalysisLogs" => instance.EnableComponentAnalysisLogs,
                 "EnableConfigSync" => instance.EnableConfigSync,
                 _ => null
             };
@@ -263,6 +285,7 @@ namespace DrifterBossGrabMod.Config
                 "EnableMouseWheelScrolling" => instance.EnableMouseWheelScrolling,
                 "InverseMouseWheelScrolling" => instance.InverseMouseWheelScrolling,
                 "AutoPromoteMainSeat" => instance.AutoPromoteMainSeat,
+                "PrioritizeMainSeat" => instance.PrioritizeMainSeat,
                 _ => null
             };
         }
@@ -298,12 +321,12 @@ namespace DrifterBossGrabMod.Config
                 "UseNewWeightIcon" => instance.UseNewWeightIcon,
                 "WeightDisplayMode" => instance.WeightDisplayMode,
                 "ScaleWeightColor" => instance.ScaleWeightColor,
+                "ShowTotalMassOnWeightIcon" => instance.ShowTotalMassOnWeightIcon,
                 "EnableMassCapacityUI" => instance.EnableMassCapacityUI,
                 "MassCapacityUIPositionX" => instance.MassCapacityUIPositionX,
                 "MassCapacityUIPositionY" => instance.MassCapacityUIPositionY,
                 "MassCapacityUIScale" => instance.MassCapacityUIScale,
                 "EnableSeparators" => instance.EnableSeparators,
-                "EnableGradient" => instance.EnableGradient,
                 "GradientIntensity" => instance.GradientIntensity,
                 "CapacityGradientColorStart" => instance.CapacityGradientColorStart,
                 "CapacityGradientColorMid" => instance.CapacityGradientColorMid,
@@ -322,46 +345,22 @@ namespace DrifterBossGrabMod.Config
             {
                 "EnableBalance" => instance.EnableBalance,
                 "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
-                "MaxSmacks" => instance.MaxSmacks,
-                "EnableAoESlamDamage" => instance.EnableAoESlamDamage,
+                 "MaxSmacks" => instance.MaxSmacks,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
-                "CapacityScalingMode" => instance.CapacityScalingMode,
-                "CapacityScalingType" => instance.CapacityScalingType,
-                "CapacityScalingBonusPerCapacity" => instance.CapacityScalingBonusPerCapacity,
-                "HealthPerExtraSlot" => instance.HealthPerExtraSlot,
-                "LevelsPerExtraSlot" => instance.LevelsPerExtraSlot,
-                "EliteMassBonusPercent" => instance.EliteMassBonusPercent,
-                "EliteBaseHealthMassMultiplier" => instance.EliteBaseHealthMassMultiplier,
-                "EliteLevelMassMultiplier" => instance.EliteLevelMassMultiplier,
-                "BossMassBonusPercent" => instance.BossMassBonusPercent,
-                "BossBaseHealthMassMultiplier" => instance.BossBaseHealthMassMultiplier,
-                "BossLevelMassMultiplier" => instance.BossLevelMassMultiplier,
-                "ChampionMassBonusPercent" => instance.ChampionMassBonusPercent,
-                "ChampionBaseHealthMassMultiplier" => instance.ChampionBaseHealthMassMultiplier,
-                "ChampionLevelMassMultiplier" => instance.ChampionLevelMassMultiplier,
-                "PlayerMassBonusPercent" => instance.PlayerMassBonusPercent,
-                "PlayerBaseHealthMassMultiplier" => instance.PlayerBaseHealthMassMultiplier,
-                "PlayerLevelMassMultiplier" => instance.PlayerLevelMassMultiplier,
-                "MinionMassBonusPercent" => instance.MinionMassBonusPercent,
-                "MinionBaseHealthMassMultiplier" => instance.MinionBaseHealthMassMultiplier,
-                "MinionLevelMassMultiplier" => instance.MinionLevelMassMultiplier,
-                "DroneMassBonusPercent" => instance.DroneMassBonusPercent,
-                "DroneBaseHealthMassMultiplier" => instance.DroneBaseHealthMassMultiplier,
-                "DroneLevelMassMultiplier" => instance.DroneLevelMassMultiplier,
-                "MechanicalMassBonusPercent" => instance.MechanicalMassBonusPercent,
-                "MechanicalBaseHealthMassMultiplier" => instance.MechanicalBaseHealthMassMultiplier,
-                "MechanicalLevelMassMultiplier" => instance.MechanicalLevelMassMultiplier,
-                "VoidMassBonusPercent" => instance.VoidMassBonusPercent,
-                "VoidBaseHealthMassMultiplier" => instance.VoidBaseHealthMassMultiplier,
-                "VoidLevelMassMultiplier" => instance.VoidLevelMassMultiplier,
-                "EnableOverencumbrance" => instance.EnableOverencumbrance,
-                "OverencumbranceMaxPercent" => instance.OverencumbranceMaxPercent,
-                "ToggleMassCapacity" => instance.ToggleMassCapacity,
+                "SlotScalingFormula" => instance.SlotScalingFormula,
+                "MassCapacityFormula" => instance.MassCapacityFormula,
+                "EliteFlagMultiplier" => instance.EliteFlagMultiplier,
+                "BossFlagMultiplier" => instance.BossFlagMultiplier,
+                "ChampionFlagMultiplier" => instance.ChampionFlagMultiplier,
+                "PlayerFlagMultiplier" => instance.PlayerFlagMultiplier,
+                "MinionFlagMultiplier" => instance.MinionFlagMultiplier,
+                "DroneFlagMultiplier" => instance.DroneFlagMultiplier,
+                "MechanicalFlagMultiplier" => instance.MechanicalFlagMultiplier,
+                "VoidFlagMultiplier" => instance.VoidFlagMultiplier,
+                "OverencumbranceMax" => instance.OverencumbranceMax,
                 "StateCalculationMode" => instance.StateCalculationMode,
-                "AllModeMassMultiplier" => instance.AllModeMassMultiplier,
-                "MinMovespeedPenalty" => instance.MinMovespeedPenalty,
-                "MaxMovespeedPenalty" => instance.MaxMovespeedPenalty,
-                "FinalMovespeedPenaltyLimit" => instance.FinalMovespeedPenaltyLimit,
+
+                "MovespeedPenaltyFormula" => instance.MovespeedPenaltyFormula,
                 "BagScaleCap" => instance.BagScaleCap,
                 "MassCap" => instance.MassCap,
                 _ => null

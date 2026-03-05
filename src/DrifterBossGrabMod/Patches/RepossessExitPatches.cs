@@ -23,6 +23,7 @@ namespace DrifterBossGrabMod.Patches
                 if (chosenTarget == null)
                 {
                     Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
+                    originalChosenTarget = null;
                     return true;
                 }
                 originalChosenTarget = chosenTarget;
@@ -44,7 +45,7 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 var traverse = Traverse.Create(__instance);
                 var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
-                if (chosenTarget == null)
+                if (chosenTarget == null && originalChosenTarget == null)
                 {
                     Log.Warning($"[RepossessExit Postfix] chosenTarget is null from {__instance.GetType().Name}");
                     return;
@@ -73,12 +74,20 @@ namespace DrifterBossGrabMod.Patches
                         bool isBoss = component2.isBoss || component2.isChampion;
                         bool isElite = component2.isElite;
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
+                        
+                        // Vanilla rejects targets missing a Rigidbody or ModelLocator.
+                        // If it's a standard NPC that vanilla rejected, allow it if NPC grabbing is enabled.
+                        bool isStandardNPCRejectedByVanilla = !isBoss && !isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value;
+
                         bool canGrab = (PluginConfig.Instance.EnableBossGrabbing.Value && isBoss) ||
-                                        (PluginConfig.Instance.EnableNPCGrabbing.Value && isUngrabbable);
+                                        (PluginConfig.Instance.EnableNPCGrabbing.Value && isUngrabbable) ||
+                                        isStandardNPCRejectedByVanilla ||
+                                        PluginConfig.Instance.EnableLockedObjectGrabbing.Value;
+
                         bool isBlacklisted = PluginConfig.IsBlacklisted(component2.name);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
+                            Log.Info($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, isStandardRejected={isStandardNPCRejectedByVanilla}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
                         }
                         if (canGrab && !isBlacklisted)
                         {
@@ -164,42 +173,6 @@ namespace DrifterBossGrabMod.Patches
                 catch (Exception ex)
                 {
                     Log.Error($" Error in BaggedObject.OnExit restoration: {ex.Message}");
-                }
-            }
-        }
-        
-        [HarmonyPatch(typeof(CharacterBody), "Start")]
-        public class CharacterBody_Start_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(CharacterBody __instance)
-            {
-                if (__instance == null) return;
-                
-                // Only modify flags if our grabbing features are enabled
-                if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
-                    return;
-
-                bool isBoss = __instance.isBoss || __instance.isChampion;
-                bool isUngrabbable = __instance.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
-                bool isBlacklisted = PluginConfig.IsBlacklisted(__instance.name);
-
-                bool shouldModify = false;
-
-                // Clearing Ungrabbable
-                if (isBoss && PluginConfig.Instance.EnableBossGrabbing.Value && !isBlacklisted)
-                    shouldModify = true;
-                
-                if (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value && !isBlacklisted)
-                    shouldModify = true;
-
-                if (shouldModify)
-                {
-                    __instance.bodyFlags &= ~CharacterBody.BodyFlags.Ungrabbable;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[CharacterBody_Start_Patch] Removed Ungrabbable flag from {__instance.name}");
-                    }
                 }
             }
         }

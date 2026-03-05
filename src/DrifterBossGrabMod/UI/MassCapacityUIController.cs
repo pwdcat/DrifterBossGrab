@@ -199,6 +199,7 @@ namespace DrifterBossGrabMod.UI
 
             if (_fillBarImage != null)
             {
+                _fillBarImage.color = PluginConfig.Instance.CapacityGradientColorMid.Value;
                 _gradientEffect = _fillBarImage.gameObject.AddComponent<CapacityUIGradient>();
                 
                 // Grab one of the original Thresholds and save it as an exact blueprint clone, delete the rest
@@ -288,8 +289,8 @@ namespace DrifterBossGrabMod.UI
             _overencumbranceFillImage.useSpriteMesh = _fillBarImage.useSpriteMesh;
             _overencumbranceFillImage.pixelsPerUnitMultiplier = _fillBarImage.pixelsPerUnitMultiplier;
 
-            // Set the color to white so the vertex gradient handles the colors pure without muddying
-            _overencumbranceFillImage.color = Color.white;
+            // Set the color to the mid color (this ensures it looks right even without a gradient)
+            _overencumbranceFillImage.color = PluginConfig.Instance.OverencumbranceGradientColorMid.Value;
 
             // Set the sprite to match the fill bar
             if (_fillBarImage.sprite != null)
@@ -414,8 +415,8 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            // Check if overencumbrance is enabled in config
-            if (!PluginConfig.Instance.EnableOverencumbrance.Value)
+            // Check if overencumbrance is enabled in config (OverencumbranceMax > 0)
+            if (PluginConfig.Instance.OverencumbranceMax.Value <= 0)
             {
                 _overencumbranceFillImage.gameObject.SetActive(false);
                 return;
@@ -429,7 +430,7 @@ namespace DrifterBossGrabMod.UI
                 // Calculate how much over capacity we are as a fraction of max overencumbrance
                 // Only apply overencumbrance settings when EnableBalance is true
                 float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
-                    ? PluginConfig.Instance.OverencumbranceMaxPercent.Value / 100.0f
+                    ? PluginConfig.Instance.OverencumbranceMax.Value / 100.0f
                     : 0f;
                 float overencumbranceAmount = currentPercentage - 1.0f;
                 overencumbranceFraction = Mathf.Clamp01(overencumbranceAmount / maxOverencumbrancePercent);
@@ -498,16 +499,24 @@ namespace DrifterBossGrabMod.UI
 
         private void UpdateGradient(float percentage)
         {
+            if (_fillBarImage != null)
+            {
+                _fillBarImage.color = PluginConfig.Instance.CapacityGradientColorMid.Value;
+            }
+
+            if (_overencumbranceFillImage != null)
+            {
+                _overencumbranceFillImage.color = PluginConfig.Instance.OverencumbranceGradientColorMid.Value;
+            }
+
             if (_gradientEffect != null && _fillBarImage != null)
             {
-                _gradientEffect.Enabled = PluginConfig.Instance.EnableGradient.Value;
                 _gradientEffect.Intensity = PluginConfig.Instance.GradientIntensity.Value;
                 _fillBarImage.SetVerticesDirty();
             }
 
             if (_overencumbranceGradientEffect != null && _overencumbranceFillImage != null)
             {
-                _overencumbranceGradientEffect.Enabled = PluginConfig.Instance.EnableGradient.Value;
                 _overencumbranceGradientEffect.Intensity = PluginConfig.Instance.GradientIntensity.Value;
                 _overencumbranceFillImage.SetVerticesDirty();
             }
@@ -609,10 +618,10 @@ namespace DrifterBossGrabMod.UI
                 }
 
                 // --- Overencumbrance Separator Remapping ---
-                if (PluginConfig.Instance.EnableOverencumbrance.Value)
+                if (PluginConfig.Instance.OverencumbranceMax.Value > 0)
                 {
-                    float maxOverencumbrancePercent = PluginConfig.Instance.OverencumbranceMaxPercent.Value / 100.0f;
-                    if (maxOverencumbrancePercent > 0 && cumulativeMass > _currentCapacity)
+                    float maxOverencumbrancePercent = PluginConfig.Instance.OverencumbranceMax.Value / 100.0f;
+                    if (cumulativeMass > _currentCapacity)
                     {
                         List<float> remappedFractions = new List<float>();
                         foreach (float originalFrac in separatorFractions)
@@ -708,12 +717,11 @@ namespace DrifterBossGrabMod.UI
 
     public class CapacityUIGradient : UnityEngine.UI.BaseMeshEffect
     {
-        public bool Enabled = true;
         public float Intensity = 1f;
 
         public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
         {
-            if (!IsActive() || !Enabled) return;
+            if (!IsActive()) return;
 
             List<UIVertex> vertices = new List<UIVertex>();
             vh.GetUIVertexStream(vertices);
@@ -740,7 +748,9 @@ namespace DrifterBossGrabMod.UI
                 else
                     targetColor = Color.Lerp(colorMid, colorStart, (normalizedX - 0.5f) * 2f);
 
-                vertex.color = Color.Lerp(vertex.color, vertex.color * targetColor, Intensity);
+                Color gradientColor = targetColor;
+                gradientColor.a *= vertex.color.a;
+                vertex.color = Color.Lerp(vertex.color, gradientColor, Intensity);
                 vertices[i] = vertex;
             }
 
@@ -751,12 +761,11 @@ namespace DrifterBossGrabMod.UI
 
     public class OverencumbranceUIGradient : UnityEngine.UI.BaseMeshEffect
     {
-        public bool Enabled = true;
         public float Intensity = 1f;
 
         public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
         {
-            if (!IsActive() || !Enabled) return;
+            if (!IsActive()) return;
 
             List<UIVertex> vertices = new List<UIVertex>();
             vh.GetUIVertexStream(vertices);
@@ -783,7 +792,9 @@ namespace DrifterBossGrabMod.UI
                 else
                     targetColor = Color.Lerp(colorMid, colorStart, (normalizedX - 0.5f) * 2f);
 
-                vertex.color = Color.Lerp(vertex.color, vertex.color * targetColor, Intensity);
+                Color gradientColor = targetColor;
+                gradientColor.a *= vertex.color.a;
+                vertex.color = Color.Lerp(vertex.color, gradientColor, Intensity);
                 vertices[i] = vertex;
             }
 

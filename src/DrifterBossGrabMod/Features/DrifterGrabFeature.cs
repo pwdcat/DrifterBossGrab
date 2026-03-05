@@ -31,7 +31,6 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.BaggedObject_OnEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.BaggedObject_OnExit_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.CharacterBody_Start_Patch)).Patch();
 
             // Explicitly register all nested patches for RepossessPatches
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.DrifterBagController_CalculateBaggedObjectMass_Patch)).Patch();

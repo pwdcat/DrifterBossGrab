@@ -173,12 +173,19 @@ namespace DrifterBossGrabMod
             ConfigChangeNotifier.Init();
             ConfigChangeNotifier.AddObserver(this);
             SetupConfigurationEventHandlers();
+
+            // Apply preset if manually modified in config file before UI loads
+            PresetManager.CheckAndApplyPresetOnStartup();
+
             SetupFeatureToggleHandlers();
             RegisterGameEvents();
 
             // Initialize networking
             Networking.BagStateSync.Init(new Harmony(Constants.PluginGuid + ".networking"));
             Networking.ConfigSyncHandler.Init();
+
+            // Initialize Rewired input actions for controller support
+            Input.InputSetup.Init();
         }
 
         private void RemoveConfigurationEventHandlers()
@@ -451,49 +458,36 @@ namespace DrifterBossGrabMod
 
         private void SetupCharacterFlagMultiplierHandlers()
         {
-            // When dropdown changes, update float fields to show current values for that flag
+            // When dropdown changes, update string field to show current formula for that flag
             PluginConfig.Instance.SelectedFlag.SettingChanged += (sender, args) =>
             {
                 var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
 
                 var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
-                PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value;
-                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
-
-                var healthConfig = PluginConfig.GetFlagBaseHealthMultiplierConfig(selectedFlag);
-                PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.Value = healthConfig.Value;
-                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagBaseHealthMultiplier);
-
-                var levelConfig = PluginConfig.GetFlagLevelMultiplierConfig(selectedFlag);
-                PluginConfig.Instance.SelectedFlagLevelMultiplier.Value = levelConfig.Value;
-                RefreshFloatFieldUI(PluginConfig.Instance.SelectedFlagLevelMultiplier);
+                PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value.ToString();
+                RefreshStringInputFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
             };
 
-            // When float fields change, update the multiplier for the currently selected flag
+            // When formula field changes, validate and trigger recalculation
             PluginConfig.Instance.SelectedFlagMultiplier.SettingChanged += (sender, args) =>
             {
                 var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
-                var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
-                flagConfig.Value = PluginConfig.Instance.SelectedFlagMultiplier.Value;
+                var formulaString = PluginConfig.Instance.SelectedFlagMultiplier.Value;
+
+                // Validate the formula
+                var error = Balance.FormulaParser.Validate(formulaString);
+                if (error != null)
+                {
+                    Log.Warning($"[PluginConfig] Invalid FlagMultiplier formula for {selectedFlag}: {error}");
+                    return;
+                }
+
                 // Trigger mass recalculation for all bag controllers
                 RecalculateAllBaggedMasses();
             };
 
-            PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.SettingChanged += (sender, args) =>
+            PluginConfig.Instance.AllFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
-                var healthConfig = PluginConfig.GetFlagBaseHealthMultiplierConfig(selectedFlag);
-                healthConfig.Value = PluginConfig.Instance.SelectedFlagBaseHealthMultiplier.Value;
-                // Trigger mass recalculation for all bag controllers
-                RecalculateAllBaggedMasses();
-            };
-
-            PluginConfig.Instance.SelectedFlagLevelMultiplier.SettingChanged += (sender, args) =>
-            {
-                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
-                var levelConfig = PluginConfig.GetFlagLevelMultiplierConfig(selectedFlag);
-                levelConfig.Value = PluginConfig.Instance.SelectedFlagLevelMultiplier.Value;
-                // Trigger mass recalculation for all bag controllers
                 RecalculateAllBaggedMasses();
             };
         }
@@ -527,6 +521,7 @@ namespace DrifterBossGrabMod
             {
                 var selectedPreset = PluginConfig.Instance.SelectedPreset.Value;
                 Log.Info($"[SelectedPreset.SettingChanged] Preset changed to: {selectedPreset}");
+                PluginConfig.Instance.LastSelectedPreset.Value = selectedPreset; // Sync hidden tracker
                 PresetManager.ApplyPreset(selectedPreset);
 
                 // Toggle DrifterGrabFeature based on preset (enabled when not Vanilla)
@@ -577,11 +572,8 @@ namespace DrifterBossGrabMod
                 PresetManager.OnSettingModified();
                 PresetManager.RefreshPresetDropdownUI();
             };
-            PluginConfig.Instance.EnableComponentAnalysisLogs.SettingChanged += (sender, args) =>
-            {
-                PresetManager.OnSettingModified();
-                PresetManager.RefreshPresetDropdownUI();
-            };
+
+
             PluginConfig.Instance.EnableConfigSync.SettingChanged += (sender, args) =>
             {
                 PresetManager.OnSettingModified();
@@ -608,6 +600,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.InverseMouseWheelScrolling.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.AutoPromoteMainSeat.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PrioritizeMainSeat.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
 
             // HUD settings
             PluginConfig.Instance.EnableCarouselHUD.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
@@ -637,12 +630,12 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.UseNewWeightIcon.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.WeightDisplayMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.ScaleWeightColor.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ShowTotalMassOnWeightIcon.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.EnableMassCapacityUI.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityUIPositionY.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityUIScale.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.EnableSeparators.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.EnableGradient.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.GradientIntensity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.CapacityGradientColorStart.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.CapacityGradientColorMid.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
@@ -654,34 +647,21 @@ namespace DrifterBossGrabMod
 
             // Balance settings
             PluginConfig.Instance.EnableBalance.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.EnableAoESlamDamage.SettingChanged += (sender, args) => 
-            {
-                if (PluginConfig.Instance.EnableAoESlamDamage.Value && PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All)
-                {
-                    PluginConfig.Instance.StateCalculationMode.Value = StateCalculationMode.All;
-                }
-                PresetManager.OnSettingModified();
-            };
             PluginConfig.Instance.AoEDamageDistribution.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.CapacityScalingMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.CapacityScalingType.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.CapacityScalingBonusPerCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.EliteMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.BossMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.ChampionMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.PlayerMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.MinionMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.DroneMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.MechanicalMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.VoidMassBonusPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.EnableOverencumbrance.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.OverencumbranceMaxPercent.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.ToggleMassCapacity.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.SlotScalingFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MassCapacityFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+
+            PluginConfig.Instance.EliteFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.BossFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.ChampionFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.PlayerFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MinionFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.DroneFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MechanicalFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.VoidFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.OverencumbranceMax.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.StateCalculationMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.AllModeMassMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.MinMovespeedPenalty.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.MaxMovespeedPenalty.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
-            PluginConfig.Instance.FinalMovespeedPenaltyLimit.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.MovespeedPenaltyFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BagScaleCap.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCap.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
         }
@@ -771,6 +751,47 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // Refreshes the StringInputField UI to display the current ConfigEntry value.
+        private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
+        {
+            if (!RooInstalled) return;
+
+            // Build the setting token from the config entry's definition
+            string expectedToken = $"{Constants.PluginGuid}.{configEntry.Definition.Section}.{configEntry.Definition.Key}.STRING_INPUT_FIELD".Replace(" ", "_").ToUpper();
+
+            Log.Info($"[RefreshStringInputFieldUI] Attempting to refresh StringInputField UI");
+            Log.Info($"[RefreshStringInputFieldUI] Expected token: {expectedToken}");
+
+            // Find all ModSetting components in the scene
+            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            Log.Info($"[RefreshStringInputFieldUI] Found {allSettings.Length} ModSetting components");
+
+            bool found = false;
+            foreach (var setting in allSettings)
+            {
+                Log.Info($"[RefreshStringInputFieldUI] Checking ModSetting with token: {setting.settingToken}");
+                // Check if this setting matches our setting token
+                if (setting.settingToken == expectedToken)
+                {
+                    Log.Info($"[RefreshStringInputFieldUI] Found matching StringInputField! Forcing re-render.");
+                    var go = setting.gameObject;
+                    if (go != null && go.activeSelf)
+                    {
+                        go.SetActive(false);
+                        go.SetActive(true);
+                    }
+
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                Log.Warning($"[RefreshStringInputFieldUI] Could not find StringInputField with token: {expectedToken}");
+            }
+        }
+
         private void RefreshCheckBoxUI(ConfigEntry<bool> configEntry)
         {
             if (!RooInstalled) return;
@@ -815,7 +836,7 @@ namespace DrifterBossGrabMod
             foreach (var setting in allSettings)
             {
                 // Check if this setting belongs to HUD category
-                if (PluginConfig.HudSettingToSubTab.TryGetValue(setting.settingToken, out var subTabs))
+                if (!string.IsNullOrEmpty(setting.settingToken) && PluginConfig.HudSettingToSubTab.TryGetValue(setting.settingToken, out var subTabs))
                 {
                     bool shouldShow = selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0;
 
@@ -877,7 +898,7 @@ namespace DrifterBossGrabMod
             foreach (var setting in allSettings)
             {
                 // Check if this setting belongs to Balance category
-                if (PluginConfig.BalanceSettingToSubTab.TryGetValue(setting.settingToken, out var subTab))
+                if (!string.IsNullOrEmpty(setting.settingToken) && PluginConfig.BalanceSettingToSubTab.TryGetValue(setting.settingToken, out var subTab))
                 {
                     bool shouldShow = subTab == selectedSubTab || selectedSubTab == BalanceSubTabType.All;
 
@@ -917,7 +938,7 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            Log.Info($"[UpdateBalanceSubTabVisibility] === SUMMARY === Show: {shownCount}, Hide: {hiddenCount}, Not in mapping: {notFoundCount}");
+            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[UpdateBalanceSubTabVisibility] === SUMMARY === Show: {shownCount}, Hide: {hiddenCount}, Not in mapping: {notFoundCount}");
         }
         private void RegisterGameEvents()
         {
@@ -1041,6 +1062,54 @@ namespace DrifterBossGrabMod
                 DrifterBossGrabPlugin.Instance.UpdateBalanceSubTabVisibility();
             }
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
+        private void SetupRiskOfOptionsEvents()
+        {
+            if (!RooInstalled) return;
+            try
+            {
+                var harmony = new Harmony(Constants.PluginGuid + ".roo_ui");
+                var targetMethod = AccessTools.Method(typeof(RiskOfOptions.Components.Panel.ModOptionPanelController), "LoadOptionListFromCategory");
+                if (targetMethod != null)
+                {
+                    var postfixMethod = AccessTools.Method(typeof(DrifterBossGrabPlugin), nameof(OnRooCategoryLoaded));
+                    harmony.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
+                    Log.Info("[SetupRiskOfOptionsEvents] Successfully patched RiskOfOptions category loaded event.");
+                }
+                else
+                {
+                    Log.Warning("[SetupRiskOfOptionsEvents] Failed to find LoadOptionListFromCategory method in RiskOfOptions.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[SetupRiskOfOptionsEvents] Exception while patching RiskOfOptions: {ex}");
+            }
+        }
+
+        private static void OnRooCategoryLoaded(string modGuid)
+        {
+            if (modGuid == Constants.PluginGuid && Instance != null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[OnRooCategoryLoaded] Risk of options category loaded for our mod. Triggering delayed visibility update.");
+                }
+                Instance.StartCoroutine(DelayedUpdateRooVisibility());
+            }
+        }
+
+        private static System.Collections.IEnumerator DelayedUpdateRooVisibility()
+        {
+            yield return new UnityEngine.WaitForEndOfFrame();
+            if (Instance != null)
+            {
+                Instance.UpdateHudSubTabVisibility();
+                Instance.UpdateBalanceSubTabVisibility();
+            }
+        }
+
         private void SetupRiskOfOptions()
         {
             if (!RooInstalled) return;
@@ -1062,12 +1131,14 @@ namespace DrifterBossGrabMod
             StartCoroutine(DelayedUpdateHudSubTabVisibility());
             // Initialize Balance sub-tab visibility after options are added
             StartCoroutine(DelayedUpdateBalanceSubTabVisibility());
+
+            SetupRiskOfOptionsEvents();
         }
 
         private void AddConfigurationOptions()
         {
             if (!RooInstalled) return;
-            // Preset selection dropdown (at the top of General category)
+            // Preset selection dropdown
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedPreset));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBossGrabbing));
@@ -1084,11 +1155,13 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.AutoGrabDelay, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 10f, increment = 0.1f }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.ComponentChooserOption(PluginConfig.Instance.ComponentChooserDummyEntry, "Component Chooser", "Click to load and toggle components in the GrabbableComponentTypes list."));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.ComponentChooserSortModeEntry));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableComponentAnalysisLogs));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableConfigSync));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.AddedCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping));
@@ -1096,17 +1169,32 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PlayAnimationOnCycle));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.InverseMouseWheelScrolling));
-            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollUpKeybind));
-            ModSettingsManager.AddOption(new KeyBindOption(PluginConfig.Instance.ScrollDownKeybind));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PrioritizeMainSeat));
+
+            // Balance configuration options
+            // Balance sub-tab selection dropdown (at the top of Balance category)
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab));
+
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlotScalingFormula));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMax));
+
+            // Character flag multiplier UI options
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SelectedFlagMultiplier));
+
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap));
 
             // HUD element selector and configs
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedHudElement));
-
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBaggedObjectInfo));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoX));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoY));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoScale));
-            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.BaggedObjectInfoColor));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselHUD));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing));
@@ -1131,18 +1219,20 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowName));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowHealthBar));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowSlotNumber));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDamagePreview));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.DamagePreviewColor));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.UseNewWeightIcon));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.WeightDisplayMode));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ScaleWeightColor));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowTotalMassOnWeightIcon));
+
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMassCapacityUI));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionX));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionY));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIScale));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSeparators));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableGradient));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.GradientIntensity, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 1f, increment = 0.05f }));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.CapacityGradientColorStart));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.CapacityGradientColorMid));
@@ -1151,38 +1241,11 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorMid));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorEnd));
 
-            // Balance configuration options
-            // Balance sub-tab selection dropdown (at the top of Balance category)
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab));
-
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ToggleMassCapacity));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingMode));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CapacityScalingType));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CapacityScalingBonusPerCapacity));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableOverencumbrance));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMaxPercent));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableAoESlamDamage));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.AllModeMassMultiplier));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MinMovespeedPenalty));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MaxMovespeedPenalty));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.FinalMovespeedPenaltyLimit));
-
-            // Health Scaling options
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.HealthPerExtraSlot));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.LevelsPerExtraSlot, new RiskOfOptions.OptionConfigs.IntSliderConfig { min = 0, max = 20 }));
-
-            // Character flag multiplier UI options
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagMultiplier));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagBaseHealthMultiplier));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SelectedFlagLevelMultiplier));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBaggedObjectInfo));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoX));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoY));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoScale));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.BaggedObjectInfoColor));
         }
     }
 }

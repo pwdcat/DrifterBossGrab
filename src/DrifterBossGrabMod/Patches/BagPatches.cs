@@ -313,7 +313,7 @@ namespace DrifterBossGrabMod.Patches
 
                     // Calculate mass capacity with overencumbrance limit
                     float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance!);
-                    float overencumbranceMultiplier = Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMaxPercent.Value / Constants.Multipliers.PercentageDivisor);
+                    float overencumbranceMultiplier = Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor);
                     float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 
                     // Check if we would exceed mass capacity
@@ -342,7 +342,10 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                if (TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
+                // When PrioritizeMainSeat is enabled, skip additional seat assignment
+                // and let the object go straight to the main seat
+                if (!PluginConfig.Instance.PrioritizeMainSeat.Value &&
+                    TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
                 {
                     return false;
                 }
@@ -394,7 +397,7 @@ namespace DrifterBossGrabMod.Patches
                         list.Add(passengerObject);
 
                         // Initialize state storage on first grab.
-                        if (PluginConfig.Instance.EnableBalance.Value)
+                        if (PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BottomlessBagEnabled.Value)
                         {
                             var newState = new BaggedObjectStateData();
                             newState.CalculateFromObject(passengerObject, __instance);

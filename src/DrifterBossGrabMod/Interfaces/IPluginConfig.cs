@@ -19,7 +19,6 @@ namespace DrifterBossGrabMod
         ConfigEntry<string> RecoveryObjectBlacklist { get; }
         ConfigEntry<string> GrabbableComponentTypes { get; }
         ConfigEntry<string> GrabbableKeywordBlacklist { get; }
-        ConfigEntry<bool> EnableComponentAnalysisLogs { get; }
         ConfigEntry<bool> EnableObjectPersistence { get; }
         ConfigEntry<bool> EnableAutoGrab { get; }
         ConfigEntry<bool> PersistBaggedBosses { get; }
@@ -29,8 +28,6 @@ namespace DrifterBossGrabMod
         ConfigEntry<bool> BottomlessBagEnabled { get; }
         ConfigEntry<string> AddedCapacity { get; }
         ConfigEntry<bool> EnableMouseWheelScrolling { get; }
-        ConfigEntry<KeyboardShortcut> ScrollUpKeybind { get; }
-        ConfigEntry<KeyboardShortcut> ScrollDownKeybind { get; }
 
         bool IsBlacklisted(string? name);
         bool IsRecoveryBlacklisted(string? name);

@@ -33,7 +33,7 @@ namespace DrifterBossGrabMod.Core
 
             // Apply AoE distribution mode if enabled
             if (PluginConfig.Instance.EnableBalance.Value &&
-                PluginConfig.Instance.EnableAoESlamDamage.Value &&
+                PluginConfig.Instance.AoEDamageDistribution.Value != DrifterBossGrabMod.AoEDamageMode.None &&
                 PluginConfig.Instance.StateCalculationMode.Value == StateCalculationMode.All &&
                 PluginConfig.Instance.AoEDamageDistribution.Value == AoEDamageMode.Split)
             {

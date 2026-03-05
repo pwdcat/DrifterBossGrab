@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
+using DrifterBossGrabMod.Balance;
 using EntityStates.Drifter.Bag;
 using EntityStates;
 
@@ -243,14 +245,44 @@ namespace DrifterBossGrabMod.Core
                 float t = (massValue - 1f) / (maxCapacity - 1f);
                 bagScale01 = 0.5f + 0.5f * t;
 
-                // Calculate movespeedPenalty
-                // Only apply balance penalty settings when EnableBalance is true
-                var minPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MinMovespeedPenalty.Value : 0f;
-                var maxPenalty = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MaxMovespeedPenalty.Value : 0f;
-                var finalLimit = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.FinalMovespeedPenaltyLimit.Value : 0f;
-                float massRatio = Mathf.Clamp01(baggedMass / maxCapacity);
-                movespeedPenalty = Mathf.Lerp(minPenalty, maxPenalty, massRatio);
-                movespeedPenalty = Mathf.Min(movespeedPenalty, finalLimit);
+                // Calculate movespeedPenalty using formula when EnableBalance is true
+                float penalty = 0f;
+                if (PluginConfig.Instance.EnableBalance.Value && controller != null)
+                {
+                    var body = controller.GetComponent<CharacterBody>();
+                    float health = body != null ? body.maxHealth : 0f;
+                    float level = body != null ? body.level : 1f;
+                    float stocks = body != null && body.skillLocator != null && body.skillLocator.utility != null
+                        ? body.skillLocator.utility.maxStock : 1f;
+                    float massCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
+                    float totalCapacity = controller != null ? Balance.CapacityScalingSystem.GetTotalCapacity(controller) : 1f;
+
+                    // Parse MassCap value (supports "INF" or "Infinity" for unlimited)
+                    float massCap = 700f; // Default value
+                    string massCapStr = PluginConfig.Instance.MassCap.Value;
+                    if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
+                    {
+                        massCap = float.MaxValue;
+                    }
+                    else if (!float.TryParse(massCapStr, out massCap))
+                    {
+                        massCap = 700f; // Fallback to default if parsing fails
+                    }
+
+                    var penaltyVars = new Dictionary<string, float>
+                    {
+                        ["T"] = baggedMass,
+                        ["M"] = massCapacity,
+                        ["C"] = totalCapacity,
+                        ["H"] = health,
+                        ["L"] = level,
+                        ["MC"] = massCap
+                    };
+
+                    penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);
+                }
+                movespeedPenalty = penalty;
 
                 // Stats - capture from CharacterBody if available
                 if (targetBody != null)

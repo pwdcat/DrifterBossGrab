@@ -26,42 +26,62 @@ namespace DrifterBossGrabMod.Patches
                 {
                     __result = 0f;
                     return false;
-                 }
+                }
 
-                  float mass = Constants.Multipliers.DefaultMassMultiplier;
-                  if (targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
+                float mass = 0f;
+                if (targetObject.TryGetComponent<CharacterBody>(out var body))
+                {
+                    GameObject prefab = BodyCatalog.FindBodyPrefab(body.baseNameToken) ?? targetObject; 
+                    if (prefab.TryGetComponent<IPhysMotor>(out var prePM))
+                    {
+                        mass = prePM.mass;
+                    }
+                }
+
+                if (mass <= 0f && targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
                 {
                     mass = physMotor.mass;
                 }
-                else if (targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
+                
+                if (mass <= 0f && targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
                 {
-                     mass = specialObjectAttributes.massOverride;
-                 }
+                    mass = specialObjectAttributes.massOverride;
+                }
 
-                  // Clamp mass
-                  bool isInf = PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY";
-                  if (!isInf)
-                  {
-                      float massCapValue = float.MaxValue;
-                      if (float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
-                      {
-                          massCapValue = parsedMassCap;
-                      }
+                if (mass <= 0f) mass = Constants.Multipliers.DefaultMassMultiplier;
 
-                      if (PluginConfig.Instance.EnableBalance.Value)
-                      {
-                          float computedCap = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance);
-                          if (PluginConfig.Instance.ToggleMassCapacity.Value)
-                              massCapValue = Mathf.Max(computedCap, massCapValue);
-                      }
-                      
-                      __result = Mathf.Clamp(mass, 0f, massCapValue);
-                  }
-                  else
-                  {
-                      // When MassCap is INF, use vanilla mass (no clamping)
-                      __result = Mathf.Max(mass, 0f);
-                  }
+                // Apply character flag mass bonus using the new system (BEFORE clamping to MassCap)
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    mass = Balance.CharacterFlagMassBonus.ApplyFlagBonus(targetObject, mass);
+                }
+
+                // Clamp mass
+                bool isInf = PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY";
+                if (!isInf)
+                {
+                    float massCapValue = float.MaxValue;
+                    if (float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
+                    {
+                        massCapValue = parsedMassCap;
+                    }
+
+                    if (PluginConfig.Instance.EnableBalance.Value)
+                    {
+                        float computedCap = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance);
+                        // If mass capacity is disabled (formula evaluates to 0), use massCapValue directly
+                        // Otherwise, use max of computedCap and massCapValue
+                        if (computedCap != float.MaxValue)
+                            massCapValue = computedCap > massCapValue ? computedCap : massCapValue;
+                    }
+                    
+                    __result = Mathf.Clamp(mass, 0f, massCapValue);
+                }
+                else
+                {
+                    // When MassCap is INF, use vanilla mass (no clamping)
+                    __result = Mathf.Max(mass, 0f);
+                }
 
                   return false;
             }

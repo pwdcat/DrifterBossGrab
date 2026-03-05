@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using DrifterBossGrabMod.Balance;
 
 namespace DrifterBossGrabMod.Config
 {
@@ -19,7 +18,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableLockedObjectGrabbing"] = false,
                 ["General.ProjectileGrabbingMode"] = ProjectileGrabbingMode.None,
                 ["General.EnableDebugLogs"] = false,
-                ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
 
                 // Persistence settings
@@ -38,6 +36,7 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.EnableMouseWheelScrolling"] = true,
                 ["BottomlessBag.InverseMouseWheelScrolling"] = false,
                 ["BottomlessBag.AutoPromoteMainSeat"] = true,
+                ["BottomlessBag.PrioritizeMainSeat"] = false,
 
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
@@ -66,37 +65,38 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.UseNewWeightIcon"] = false,
                 ["Hud.WeightDisplayMode"] = WeightDisplayMode.Multiplier,
                 ["Hud.ScaleWeightColor"] = true,
+                ["Hud.ShowTotalMassOnWeightIcon"] = false,
                 ["Hud.EnableMassCapacityUI"] = false,
                 ["Hud.MassCapacityUIPositionX"] = -20.0f,
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.EnableGradient"] = true,
-                ["Hud.GradientIntensity"] = 1.0f,
+                ["Hud.GradientIntensity"] = 0.0f,
 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
-                ["Balance.EnableAoESlamDamage"] = false,
-                ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
-                ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
-                ["Balance.CapacityScalingType"] = ScalingType.Exponential,
-                ["Balance.CapacityScalingBonusPerCapacity"] = 100.0f,
-                ["Balance.HealthPerExtraSlot"] = 0.0f,
-                ["Balance.LevelsPerExtraSlot"] = 0,
-                ["Balance.EnableOverencumbrance"] = true,
-                ["Balance.OverencumbranceMaxPercent"] = 100.0f,
-                ["Balance.ToggleMassCapacity"] = true,
+                ["Balance.AoEDamageDistribution"] = AoEDamageMode.None,
+                ["Balance.SlotScalingFormula"] = "0",
+                ["Balance.MassCapacityFormula"] = "S * 100",
+                ["Balance.EliteFlagMultiplier"] = "1",
+                ["Balance.BossFlagMultiplier"] = "1",
+                ["Balance.ChampionFlagMultiplier"] = "1",
+                ["Balance.PlayerFlagMultiplier"] = "1",
+                ["Balance.MinionFlagMultiplier"] = "1",
+                ["Balance.DroneFlagMultiplier"] = "1",
+                ["Balance.MechanicalFlagMultiplier"] = "1",
+                ["Balance.VoidFlagMultiplier"] = "1",
+                ["Balance.AllFlagMultiplier"] = "1",
+                ["Balance.OverencumbranceMax"] = 100.0f,
                 ["Balance.StateCalculationMode"] = StateCalculationMode.Current,
-                ["Balance.AllModeMassMultiplier"] = 1.0f,
-                ["Balance.MinMovespeedPenalty"] = 0.0f,
-                ["Balance.MaxMovespeedPenalty"] = 0.5f,
-                ["Balance.FinalMovespeedPenaltyLimit"] = 0.8f,
+
+                ["Balance.MovespeedPenaltyFormula"] = "0",
                 ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "700",
             },
-
+            
             // Intended: Boss grab only
             [PresetType.Intended] = new Dictionary<string, object>
             {
@@ -107,9 +107,8 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableLockedObjectGrabbing"] = false,
                 ["General.ProjectileGrabbingMode"] = ProjectileGrabbingMode.None,
                 ["General.EnableDebugLogs"] = false,
-                ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-
+                
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.EnableAutoGrab"] = false,
@@ -117,7 +116,7 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedNPCs"] = true,
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.AutoGrabDelay"] = 1.0f,
-
+                
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = false,
                 ["BottomlessBag.AddedCapacity"] = "0",
@@ -126,7 +125,8 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.EnableMouseWheelScrolling"] = true,
                 ["BottomlessBag.InverseMouseWheelScrolling"] = false,
                 ["BottomlessBag.AutoPromoteMainSeat"] = true,
-
+                ["BottomlessBag.PrioritizeMainSeat"] = false,
+                
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.CarouselSpacing"] = 45.0f,
@@ -159,32 +159,32 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.EnableGradient"] = true,
-                ["Hud.GradientIntensity"] = 1.0f,
-
+                ["Hud.GradientIntensity"] = 0.0f,
+                
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
-                ["Balance.EnableAoESlamDamage"] = false,
-                ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
-                ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
-                ["Balance.CapacityScalingType"] = ScalingType.Exponential,
-                ["Balance.CapacityScalingBonusPerCapacity"] = 100.0f,
-                ["Balance.HealthPerExtraSlot"] = 0.0f,
-                ["Balance.LevelsPerExtraSlot"] = 0,
-                ["Balance.EnableOverencumbrance"] = true,
-                ["Balance.OverencumbranceMaxPercent"] = 100.0f,
-                ["Balance.ToggleMassCapacity"] = true,
+                ["Balance.AoEDamageDistribution"] = AoEDamageMode.None,
+                ["Balance.SlotScalingFormula"] = "0",
+                ["Balance.MassCapacityFormula"] = "S * 100",
+                ["Balance.EliteFlagMultiplier"] = "1",
+                ["Balance.BossFlagMultiplier"] = "1",
+                ["Balance.ChampionFlagMultiplier"] = "1",
+                ["Balance.PlayerFlagMultiplier"] = "1",
+                ["Balance.MinionFlagMultiplier"] = "1",
+                ["Balance.DroneFlagMultiplier"] = "1",
+                ["Balance.MechanicalFlagMultiplier"] = "1",
+                ["Balance.VoidFlagMultiplier"] = "1",
+                ["Balance.AllFlagMultiplier"] = "1",
+                ["Balance.OverencumbranceMax"] = 100.0f,
                 ["Balance.StateCalculationMode"] = StateCalculationMode.Current,
-                ["Balance.AllModeMassMultiplier"] = 1.0f,
-                ["Balance.MinMovespeedPenalty"] = 0.0f,
-                ["Balance.MaxMovespeedPenalty"] = 0.5f,
-                ["Balance.FinalMovespeedPenaltyLimit"] = 0.8f,
+
+                ["Balance.MovespeedPenaltyFormula"] = "0",
                 ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "700",
             },
-
+            
             // Default: All features in DrifterGrabFeature + bottomless bag and persistence
             [PresetType.Default] = new Dictionary<string, object>
             {
@@ -195,9 +195,8 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableLockedObjectGrabbing"] = true,
                 ["General.ProjectileGrabbingMode"] = ProjectileGrabbingMode.SurvivorOnly,
                 ["General.EnableDebugLogs"] = false,
-                ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-
+                
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
@@ -205,7 +204,7 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedNPCs"] = true,
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.AutoGrabDelay"] = 1.0f,
-
+                
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
                 ["BottomlessBag.AddedCapacity"] = "2",
@@ -214,7 +213,8 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.EnableMouseWheelScrolling"] = true,
                 ["BottomlessBag.InverseMouseWheelScrolling"] = false,
                 ["BottomlessBag.AutoPromoteMainSeat"] = true,
-
+                ["BottomlessBag.PrioritizeMainSeat"] = false,
+                
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.CarouselSpacing"] = 45.0f,
@@ -247,32 +247,32 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.EnableGradient"] = true,
-                ["Hud.GradientIntensity"] = 1.0f,
-
+                ["Hud.GradientIntensity"] = 0.0f,
+                
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
-                ["Balance.EnableAoESlamDamage"] = false,
-                ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
-                ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
-                ["Balance.CapacityScalingType"] = ScalingType.Exponential,
-                ["Balance.CapacityScalingBonusPerCapacity"] = 100.0f,
-                ["Balance.HealthPerExtraSlot"] = 0.0f,
-                ["Balance.LevelsPerExtraSlot"] = 0,
-                ["Balance.EnableOverencumbrance"] = true,
-                ["Balance.OverencumbranceMaxPercent"] = 100.0f,
-                ["Balance.ToggleMassCapacity"] = true,
+                ["Balance.AoEDamageDistribution"] = AoEDamageMode.None,
+                ["Balance.SlotScalingFormula"] = "0",
+                ["Balance.MassCapacityFormula"] = "C * 100",
+                ["Balance.EliteFlagMultiplier"] = "1",
+                ["Balance.BossFlagMultiplier"] = "1",
+                ["Balance.ChampionFlagMultiplier"] = "1",
+                ["Balance.PlayerFlagMultiplier"] = "1",
+                ["Balance.MinionFlagMultiplier"] = "1",
+                ["Balance.DroneFlagMultiplier"] = "1",
+                ["Balance.MechanicalFlagMultiplier"] = "1",
+                ["Balance.VoidFlagMultiplier"] = "1",
+                ["Balance.AllFlagMultiplier"] = "1",
+                ["Balance.OverencumbranceMax"] = 100.0f,
                 ["Balance.StateCalculationMode"] = StateCalculationMode.Current,
-                ["Balance.AllModeMassMultiplier"] = 1.0f,
-                ["Balance.MinMovespeedPenalty"] = 0.0f,
-                ["Balance.MaxMovespeedPenalty"] = 0.5f,
-                ["Balance.FinalMovespeedPenaltyLimit"] = 0.8f,
+
+                ["Balance.MovespeedPenaltyFormula"] = "0",
                 ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "700",
             },
-
+            
             // Balance: Default + balance features
             [PresetType.Balance] = new Dictionary<string, object>
             {
@@ -283,9 +283,8 @@ namespace DrifterBossGrabMod.Config
                 ["General.EnableLockedObjectGrabbing"] = true,
                 ["General.ProjectileGrabbingMode"] = ProjectileGrabbingMode.SurvivorOnly,
                 ["General.EnableDebugLogs"] = false,
-                ["General.EnableComponentAnalysisLogs"] = false,
                 ["General.EnableConfigSync"] = true,
-
+                
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
@@ -293,7 +292,7 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedNPCs"] = true,
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.AutoGrabDelay"] = 1.0f,
-
+                
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
                 ["BottomlessBag.AddedCapacity"] = "2",
@@ -302,7 +301,8 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.EnableMouseWheelScrolling"] = true,
                 ["BottomlessBag.InverseMouseWheelScrolling"] = false,
                 ["BottomlessBag.AutoPromoteMainSeat"] = true,
-
+                ["BottomlessBag.PrioritizeMainSeat"] = false,
+                
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.CarouselSpacing"] = 45.0f,
@@ -335,32 +335,32 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.MassCapacityUIPositionY"] = 0.0f,
                 ["Hud.MassCapacityUIScale"] = 0.8f,
                 ["Hud.EnableSeparators"] = true,
-                ["Hud.EnableGradient"] = true,
-                ["Hud.GradientIntensity"] = 1.0f,
-
+                ["Hud.GradientIntensity"] = 0.0f,
+                
                 // Balance settings
                 ["Balance.EnableBalance"] = true,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
-                ["Balance.EnableAoESlamDamage"] = true,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Split,
-                ["Balance.CapacityScalingMode"] = CapacityScalingMode.IncreaseCapacity,
-                ["Balance.CapacityScalingType"] = ScalingType.Exponential,
-                ["Balance.CapacityScalingBonusPerCapacity"] = 100.0f,
-                ["Balance.HealthPerExtraSlot"] = 100.0f,
-                ["Balance.LevelsPerExtraSlot"] = 3,
-                ["Balance.EnableOverencumbrance"] = true,
-                ["Balance.OverencumbranceMaxPercent"] = 100.0f,
-                ["Balance.ToggleMassCapacity"] = true,
+                ["Balance.SlotScalingFormula"] = "floor(H/100) + floor(L/3)",
+                ["Balance.MassCapacityFormula"] = "100 * 1.5^(C-1)",
+                ["Balance.EliteFlagMultiplier"] = "1",
+                ["Balance.BossFlagMultiplier"] = "1",
+                ["Balance.ChampionFlagMultiplier"] = "1",
+                ["Balance.PlayerFlagMultiplier"] = "1",
+                ["Balance.MinionFlagMultiplier"] = "1",
+                ["Balance.DroneFlagMultiplier"] = "1",
+                ["Balance.MechanicalFlagMultiplier"] = "1",
+                ["Balance.VoidFlagMultiplier"] = "1",
+                ["Balance.AllFlagMultiplier"] = "1",
+                ["Balance.OverencumbranceMax"] = 100.0f,
                 ["Balance.StateCalculationMode"] = StateCalculationMode.All,
-                ["Balance.AllModeMassMultiplier"] = 1.0f,
-                ["Balance.MinMovespeedPenalty"] = 0.0f,
-                ["Balance.MaxMovespeedPenalty"] = 0.5f,
-                ["Balance.FinalMovespeedPenaltyLimit"] = 0.8f,
+
+                ["Balance.MovespeedPenaltyFormula"] = "clamp((T / M) * 0.5, 0, 0.8)",
                 ["Balance.BagScaleCap"] = "INF",
                 ["Balance.MassCap"] = "INF",
             },
-
+            
             // Custom: Placeholder for user-modified settings
             [PresetType.Custom] = new Dictionary<string, object>(),
         };

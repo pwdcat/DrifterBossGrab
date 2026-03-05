@@ -48,7 +48,6 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.GrabbableComponentTypes.SettingChanged += configChangedHandler;
             PluginConfig.Instance.GrabbableKeywordBlacklist.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.EnableComponentAnalysisLogs.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableAutoGrab.SettingChanged += configChangedHandler;
             PluginConfig.Instance.PersistBaggedBosses.SettingChanged += configChangedHandler;
@@ -58,8 +57,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += configChangedHandler;
             PluginConfig.Instance.AddedCapacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.ScrollUpKeybind.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.ScrollDownKeybind.SettingChanged += configChangedHandler;
+
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged += configChangedHandler;
@@ -82,7 +80,6 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.GrabbableComponentTypes.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.GrabbableKeywordBlacklist.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.EnableComponentAnalysisLogs.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableAutoGrab.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.PersistBaggedBosses.SettingChanged -= configChangedHandler;
@@ -92,8 +89,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.AddedCapacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.ScrollUpKeybind.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.ScrollDownKeybind.SettingChanged -= configChangedHandler;
+
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged -= configChangedHandler;

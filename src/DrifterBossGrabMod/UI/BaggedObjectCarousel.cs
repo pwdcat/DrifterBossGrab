@@ -9,6 +9,7 @@ using System.Reflection;
 using System.IO;
 using System.Collections;
 using System.Linq;
+using DrifterBossGrabMod.Balance;
 
 namespace DrifterBossGrabMod.UI
 {
@@ -29,11 +30,11 @@ namespace DrifterBossGrabMod.UI
         private static Texture2D? LoadWeightIconTexture()
         {
             var assembly = Assembly.GetExecutingAssembly();
-            using (var stream = assembly.GetManifestResourceStream("DrifterBossGrabMod.weighticon.png"))
+            using (var stream = assembly.GetManifestResourceStream("DrifterBossGrabMod.WeightIcon.png"))
             {
                 if (stream == null)
                 {
-                    Debug.LogError("Could not find embedded resource: DrifterBossGrabMod.weighticon.png");
+                    Debug.LogError("Could not find embedded resource: DrifterBossGrabMod.WeightIcon.png");
                     return null;
                 }
                 var bytes = new byte[stream.Length];
@@ -122,6 +123,54 @@ namespace DrifterBossGrabMod.UI
             // No valid controller found
             _cachedBagController = null;
             return null;
+        }
+
+        // Gets the actual slot capacity for animation decisions (not mass-cap-limited)
+        // This ensures animations play normally even when at mass capacity
+        private int GetAnimationCapacity(DrifterBagController bagController)
+        {
+            if (bagController == null) return 1;
+
+            var body = bagController.GetComponent<CharacterBody>();
+            if (body && body.skillLocator && body.skillLocator.utility)
+            {
+                int addedSlots = 0;
+                if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedAdded))
+                {
+                    addedSlots = parsedAdded;
+                }
+                int baseSlots = body.skillLocator.utility.maxStock + addedSlots;
+
+                int extraSlots = 0;
+
+                // Add Capacity slots using formula-based scaling
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    var vars = new System.Collections.Generic.Dictionary<string, float>
+                    {
+                        ["H"] = body.maxHealth,
+                        ["L"] = body.level,
+                        ["C"] = body.skillLocator.utility.maxStock,
+                        ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
+                    };
+                    extraSlots = Balance.FormulaParser.EvaluateInt(
+                        PluginConfig.Instance.SlotScalingFormula.Value, vars);
+                }
+
+                int slotCapacity = baseSlots + extraSlots;
+
+                // If BottomlessBag is enabled with INF capacity, return a large value
+                if (PluginConfig.Instance.BottomlessBagEnabled.Value &&
+                    (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" ||
+                     PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY"))
+                {
+                    return int.MaxValue;
+                }
+
+                return slotCapacity;
+            }
+
+            return 1;
         }
 
         // Sentinel for empty slot.
@@ -235,6 +284,10 @@ namespace DrifterBossGrabMod.UI
             int capacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
             bool isBagFull = passengerList.Count >= capacity;
 
+            // Get actual slot capacity for animation decisions (not mass-cap-limited)
+            // This ensures animations play normally even when at mass capacity
+            int animationCapacity = GetAnimationCapacity(bagController);
+
             if (mainPassenger == null)
             {
                 // Current is Empty
@@ -330,7 +383,17 @@ namespace DrifterBossGrabMod.UI
                 if (newState != -99 && !foundPassengers.Contains(passenger))
                 {
                     // Still in window and not yet assigned to another slot in this update
-                    AnimateToState(slot, newState, capacity, bagController);
+                    int slotIndex = (passenger != null && passenger != EmptySlotMarker && passengerToIndex.TryGetValue(passenger, out int idx)) ? idx : -1;
+                    
+                    // Preserve current alpha so SetSlotData doesn't disrupt in-progress animations or starting opacity
+                    var cg = slot.GetComponent<CanvasGroup>();
+                    float savedAlpha = cg != null ? cg.alpha : 1f;
+                    
+                    SetSlotData(slot, passenger, bagController, newState == 0, slotIndex, passengerList.Count);
+                    
+                    if (cg != null) cg.alpha = savedAlpha;
+
+                    AnimateToState(slot, newState, animationCapacity, bagController);
                     usedSlots.Add(slot);
                     foundPassengers.Add(passenger);
                 }
@@ -340,7 +403,7 @@ namespace DrifterBossGrabMod.UI
                     int exitState = (direction > 0) ? -2 : 2; // Move down if next, up if prev
                     if (direction == 0) exitState = -2; // Default
 
-                    AnimateToState(slot, exitState, capacity, bagController, true); // Hide after
+                    AnimateToState(slot, exitState, animationCapacity, bagController, true); // Hide after
                 }
             }
 
@@ -381,17 +444,17 @@ namespace DrifterBossGrabMod.UI
                     _slotToPassenger[freeSlot] = targetP;
                     int slotIndex = (targetP != null && targetP != EmptySlotMarker && passengerToIndex.TryGetValue(targetP, out int idx)) ? idx : -1;
                     _slotToIndex[freeSlot] = slotIndex;
-                    SetSlotData(freeSlot, targetP, bagController, slotIndex, passengerList.Count);
+                    SetSlotData(freeSlot, targetP, bagController, state == 0, slotIndex, passengerList.Count);
 
                     // Set initial position based on where it's coming from
                     int startState = (direction > 0) ? state + 1 : state - 1;
                     if (direction == 0) startState = state; // Snap if no direction
 
-                    var startParams = GetStateParams(startState, capacity);
+                    var startParams = GetStateParams(startState, animationCapacity);
                     SetSlotInitialState(freeSlot, startParams.pos.x, startParams.pos.y, startParams.scale, 0f);
                     freeSlot.SetActive(true);
 
-                    AnimateToState(freeSlot, state, capacity, bagController);
+                    AnimateToState(freeSlot, state, animationCapacity, bagController);
                     usedSlots.Add(freeSlot);
                     foundPassengers.Add(targetP);
                 }
@@ -442,7 +505,7 @@ namespace DrifterBossGrabMod.UI
                     if (baggedCard && baggedCard.healthBar)
                     {
                         bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
-                            (isCenter || PluginConfig.Instance.EnableAoESlamDamage.Value);
+                            (isCenter || PluginConfig.Instance.AoEDamageDistribution.Value != DrifterBossGrabMod.AoEDamageMode.None);
                         var overlay = baggedCard.healthBar.GetComponent<DamagePreviewOverlay>();
                         if (showPreview)
                         {
@@ -494,7 +557,7 @@ namespace DrifterBossGrabMod.UI
         private (Vector2 pos, float scale, float opacity) GetStateParams(int state, int capacity)
         {
             float centerX = PluginConfig.Instance.CenterSlotX.Value;
-            float centerY = capacity == 1 ? 0 : PluginConfig.Instance.CenterSlotY.Value;
+            float centerY = PluginConfig.Instance.CenterSlotY.Value;
             float sideX = PluginConfig.Instance.SideSlotX.Value;
             float sideY = PluginConfig.Instance.SideSlotY.Value;
             float spacing = PluginConfig.Instance.CarouselSpacing.Value;
@@ -614,13 +677,14 @@ namespace DrifterBossGrabMod.UI
             _activeCoroutines.Remove(slot);
         }
 
-        private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController, int slotIndex = -1, int totalCount = 0)
+        private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController, bool isCenter, int slotIndex = -1, int totalCount = 0)
         {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[Carousel] SetSlotData called for passenger: {(passenger != null ? passenger.name : "null")}, isCenter: {isCenter}, slotIndex: {slotIndex}");
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)
             {
                 var canvasGroup = slot.GetComponent<CanvasGroup>();
-                if (canvasGroup) canvasGroup.alpha = 1f;
 
                 // Check for empty slot marker first
                 if (passenger == EmptySlotMarker || passenger == null)
@@ -673,7 +737,28 @@ namespace DrifterBossGrabMod.UI
                     }
 
                     // Set weight icon
+                    // Calculate individual mass for the passenger
                     float mass = (bagController == passenger) ? bagController.baggedMass : bagController.CalculateBaggedObjectMass(passenger);
+                    float baseMass = mass;
+
+                    // Override with total bag mass ONLY for center slot when toggle is ON and mode is ALL
+                    bool showTotal = PluginConfig.Instance.ShowTotalMassOnWeightIcon.Value;
+                    bool isAllMode = PluginConfig.Instance.StateCalculationMode.Value == StateCalculationMode.All;
+                    
+                    if (isCenter && showTotal && isAllMode)
+                    {
+                        // Use calculated total mass rather than bagController.baggedMass, 
+                        // as bagController.baggedMass is physically clamped by massCap!
+                        mass = BagCapacityCalculator.GetBaggedObjectMass(bagController);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Carousel] Center slot mass overridden to total: {mass} (individual: {baseMass})");
+                    }
+                    else if (isCenter)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Carousel] Center slot mass NOT overridden. ShowTotal: {showTotal}, AllMode: {isAllMode}, Individual: {mass}, BaggedMass: {bagController.baggedMass}");
+                    }
+
                     var childLocator = slot.GetComponent<ChildLocator>();
                     if (childLocator)
                     {
@@ -703,27 +788,38 @@ namespace DrifterBossGrabMod.UI
                                 // Set color
                                 if (PluginConfig.Instance.ScaleWeightColor.Value)
                                 {
-                                    UnityEngine.Color color;
-                                    if (mass <= 100f)
+                                    float capacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
+                                    float percentage = (capacity > 0) ? (mass / capacity) : 0f;
+
+                                    if (percentage > 1.0f)
                                     {
-                                        float num = mass / 100f;
-                                        color = new UnityEngine.Color(1f - num, 1f, 1f - num);
-                                    }
-                                    else if (mass <= 350f)
-                                    {
-                                        float r = (mass - 100f) / 250f;
-                                        color = new UnityEngine.Color(r, 1f, 0f);
+                                        // Calculate the fraction of overencumbrance we are currently at
+                                        // 1.0 = Start (0% over base)
+                                        // 1.0 + (Max / 100) = End (100% overencumbered)
+                                        float maxOverPercent = PluginConfig.Instance.EnableBalance.Value 
+                                            ? PluginConfig.Instance.OverencumbranceMax.Value / 100.0f 
+                                            : 0.01f; // Prevent div by zero
+                                            
+                                        float overencumbranceFraction = Mathf.Clamp01((percentage - 1.0f) / maxOverPercent);
+
+                                        // Use Overencumbrance Gradient for overencumbered display
+                                        image.color = GetGradientColor(overencumbranceFraction,
+                                            PluginConfig.Instance.OverencumbranceGradientColorStart.Value,
+                                            PluginConfig.Instance.OverencumbranceGradientColorMid.Value,
+                                            PluginConfig.Instance.OverencumbranceGradientColorEnd.Value);
                                     }
                                     else
                                     {
-                                        float num2 = (mass - 350f) / 350f;
-                                        color = new UnityEngine.Color(1f, 1f - num2, 0f);
+                                        // Use Capacity Gradient for regular/multiplier display
+                                        image.color = GetGradientColor(percentage,
+                                            PluginConfig.Instance.CapacityGradientColorStart.Value,
+                                            PluginConfig.Instance.CapacityGradientColorMid.Value,
+                                            PluginConfig.Instance.CapacityGradientColorEnd.Value);
                                     }
-                                    image.color = color;
                                 }
                                 else
                                 {
-                                    image.color = Color.white;
+                                    image.color = UnityEngine.Color.white;
                                 }
 
                                     // Set text
@@ -810,9 +906,8 @@ namespace DrifterBossGrabMod.UI
                 // Damage preview overlay
                 // If AoE slam damage is off, only show preview on the selected (center) slot.
                 // If AoE is on, show preview on all slots since damage is distributed.
-                bool isSelectedSlot = slot == centerInstance;
                 bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
-                    (isSelectedSlot || PluginConfig.Instance.EnableAoESlamDamage.Value);
+                    (isCenter || PluginConfig.Instance.AoEDamageDistribution.Value != DrifterBossGrabMod.AoEDamageMode.None);
                 if (baggedCardController.healthBar)
                 {
                     var overlay = baggedCardController.healthBar.GetComponent<DamagePreviewOverlay>();
@@ -830,7 +925,6 @@ namespace DrifterBossGrabMod.UI
                 }
 
                 // Apply toggles
-                bool isCenter = slot == centerInstance;
                 ToggleSlotElements(slot, isCenter);
 
                 // Set slot number label
@@ -1070,6 +1164,14 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
             }
+        }
+        private static Color GetGradientColor(float percentage, Color start, Color mid, Color end)
+        {
+            percentage = Mathf.Clamp01(percentage);
+            if (percentage <= 0.5f)
+                return Color.Lerp(start, mid, percentage * 2f);
+            else
+                return Color.Lerp(mid, end, (percentage - 0.5f) * 2f);
         }
     }
 }

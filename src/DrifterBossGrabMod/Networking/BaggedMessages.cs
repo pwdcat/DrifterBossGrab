@@ -201,9 +201,6 @@ namespace DrifterBossGrabMod.Networking
 
         // Balance - All toggle fields
         public bool EnableBalance;
-        public bool EnableAoESlamDamage;
-        public bool EnableOverencumbrance;
-        public bool ToggleMassCapacity;
         public string BagScaleCap = "1";
         public string MassCap = "700";
 
@@ -235,9 +232,6 @@ namespace DrifterBossGrabMod.Networking
 
             // Balance
             writer.Write(EnableBalance);
-            writer.Write(EnableAoESlamDamage);
-            writer.Write(EnableOverencumbrance);
-            writer.Write(ToggleMassCapacity);
             writer.Write(BagScaleCap);
             writer.Write(MassCap);
         }
@@ -270,9 +264,6 @@ namespace DrifterBossGrabMod.Networking
 
             // Balance
             EnableBalance = reader.ReadBoolean();
-            EnableAoESlamDamage = reader.ReadBoolean();
-            EnableOverencumbrance = reader.ReadBoolean();
-            ToggleMassCapacity = reader.ReadBoolean();
             BagScaleCap = reader.ReadString();
             MassCap = reader.ReadString();
         }
