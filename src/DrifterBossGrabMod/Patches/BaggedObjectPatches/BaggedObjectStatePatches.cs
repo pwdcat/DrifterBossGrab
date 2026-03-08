@@ -752,6 +752,17 @@ namespace DrifterBossGrabMod.Patches
                     if (bagController != null && __instance.targetObject != null)
                     {
                         BagPassengerManager.RemoveBaggedObject(bagController, __instance.targetObject);
+                        
+                        // Clean up disabled collider tracking when object is removed from bag
+                        var bagState = BagPatches.GetState(bagController);
+                        if (bagState != null && bagState.DisabledCollidersByObject.ContainsKey(__instance.targetObject))
+                        {
+                            bagState.DisabledCollidersByObject.TryRemove(__instance.targetObject, out _);
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[BaggedObject_OnExit.Postfix] Cleaned up disabled collider tracking for {__instance.targetObject.name}");
+                            }
+                        }
                     }
                 }
                 else if (hasAuthority)

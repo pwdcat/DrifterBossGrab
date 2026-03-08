@@ -183,6 +183,7 @@ namespace DrifterBossGrabMod.Core
 
             // Aggregate stats with multiplier
             float totalDamage = 0f, totalAttackSpeed = 0f, totalCrit = 0f, totalMoveSpeed = 0f;
+            int totalJunkCount = 0;
             int statObjectCount = 0;
 
             foreach (var obj in baggedObjects)
@@ -196,6 +197,7 @@ namespace DrifterBossGrabMod.Core
                         totalAttackSpeed += objState.attackSpeedStat;
                         totalCrit += objState.critStat;
                         totalMoveSpeed += objState.moveSpeedStat;
+                        totalJunkCount += objState.junkSpawnCount;
                         statObjectCount++;
                     }
                 }
@@ -207,6 +209,7 @@ namespace DrifterBossGrabMod.Core
                 aggregateState.attackSpeedStat = totalAttackSpeed / statObjectCount;
                 aggregateState.critStat = totalCrit / statObjectCount;
                 aggregateState.moveSpeedStat = totalMoveSpeed / statObjectCount;
+                aggregateState.junkSpawnCount = totalJunkCount;
             }
 
             // Calculate movement penalty from total mass

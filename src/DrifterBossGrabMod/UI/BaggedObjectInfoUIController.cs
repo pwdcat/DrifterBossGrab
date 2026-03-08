@@ -1,8 +1,10 @@
+using System;
 using UnityEngine;
 using RoR2;
 using RoR2.UI;
 using DrifterBossGrabMod.Core;
 using DrifterBossGrabMod.Patches;
+using DrifterBossGrabMod.Balance;
 
 namespace DrifterBossGrabMod.UI
 {
@@ -149,12 +151,143 @@ namespace DrifterBossGrabMod.UI
             var aggregateState = StateCalculator.GetAggregateState(_bagController);
             float totalMass = aggregateState.baggedMass;
             float penalty = aggregateState.movespeedPenalty * 100f;
-            float massCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
-            string capacityStr = massCapacity >= 100000f ? "INF" : massCapacity.ToString("F0");
+            
+            // Calculate mass capacity for damage calculations (always needed)
+            float massCapacity = DrifterBagController.maxMass;
+            
+            // Calculate display mass capacity (may differ from damage capacity based on Balance setting)
+            float displayMassCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
+            
+            // Check if we should use slot-based display (when balance is off OR MassCapacityFormula is 0)
+            bool useSlotBasedDisplay = !PluginConfig.Instance.EnableBalance.Value || 
+                PluginConfig.Instance.MassCapacityFormula.Value.Trim() == "0";
+            
+            // Check if bottomless bag is enabled with INF capacity
+            bool isBottomlessBag = PluginConfig.Instance.BottomlessBagEnabled.Value &&
+                (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || 
+                 PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY");
+            
+            string capacityStr;
+            if (useSlotBasedDisplay)
+            {
+                // Use slot-based display format: "current/total"
+                int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(_bagController);
+                int slotCapacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
+                
+                // For bottomless bag with INF, show as "current/∞" (unlimited capacity)
+                if (isBottomlessBag)
+                {
+                    capacityStr = $"{currentCount}/∞";
+                }
+                else
+                {
+                    // For normal slot-based display, clamp slot capacity to at least 1
+                    int displayCapacity = Math.Max(1, slotCapacity);
+                    capacityStr = $"{currentCount}/{displayCapacity}";
+                }
+            }
+            else
+            {
+                // Use mass-based display format
+                capacityStr = displayMassCapacity >= 100000f ? "INF" : displayMassCapacity.ToString("F0");
+            }
 
-            string totalsSection = $"<size=20><b>Bag Totals</b></size>\n" +
-                              $"<color=#bbbbbb>Total Mass:</color> {totalMass:F0} / {capacityStr}\n" +
-                              $"<color=#ff6666>Speed Penalty:</color> -{penalty:F1}%\n";
+            // Get the main seat object for per-object stats display
+            var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
+
+            // Calculate damage coefficient dynamically based on current total bag mass
+            float massFraction = massCapacity > 0 ? (totalMass / massCapacity) : 0f;
+            float damageCoef = 2.8f + (5.0f * massFraction);
+
+            float baseDamage = _body.damage * damageCoef;
+
+            // Apply item damage modifiers (Delicate Watch, Nearby Damage Bonus, etc.)
+            float itemDamageMultiplier = GetItemDamageMultiplier();
+            float damageWithItems = baseDamage * itemDamageMultiplier;
+
+            // Calculate actual damage considering crit chance
+            // Only show crit damage if crit chance is 100% or higher
+            float actualDamage = damageWithItems;
+            if (_body.crit >= 100f)
+            {
+                actualDamage = damageWithItems * _body.critMultiplier;
+            }
+
+            // Calculate damage to bagged object (might differ due to armor or special damage type)
+            float baggedObjectDamage = actualDamage;
+            float baggedObjectArmor = 0f;
+            if (mainSeatObject != null)
+            {
+                var baggedBody = mainSeatObject.GetComponent<CharacterBody>();
+                var junkCubeController = mainSeatObject.GetComponent<JunkCubeController>();
+                var soa = mainSeatObject.GetComponent<SpecialObjectAttributes>();
+
+                // Priority 1: JunkCubeController (decrements ActivationCount by 1 per hit)
+                if (junkCubeController != null && junkCubeController.ActivationCount > 0)
+                {
+                    // Show decrement amount (1 per hit)
+                    baggedObjectDamage = 1f;
+                }
+                // Priority 2: CharacterBody with armor
+                else if (baggedBody != null)
+                {
+                    baggedObjectArmor = baggedBody.armor;
+
+                    // Recalculate damage with Crowbar since we know the target's health
+                    float damageWithCrowbar = baseDamage * GetItemDamageMultiplier(baggedBody);
+
+                    // Apply crit if applicable
+                    if (_body.crit >= 100f)
+                    {
+                        damageWithCrowbar *= _body.critMultiplier;
+                    }
+
+                    // Calculate armor reduction
+                    float armorFactor = baggedObjectArmor >= 0 ? (100f / (100f + baggedObjectArmor)) : (2f - (100f / (100f - baggedObjectArmor)));
+                    baggedObjectDamage = damageWithCrowbar * armorFactor;
+                }
+                // Priority 3: SpecialObjectAttributes with durability (environmental objects like chests)
+                else if (soa != null && soa.maxDurability > 0)
+                {
+                    // Show decrement amount (1 per hit for SOA objects)
+                    baggedObjectDamage = 1f;
+                }
+            }
+
+            // Debug logging to diagnose damage calculation
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[BaggedObjectInfoUI] Damage Calculation Debug:");
+                Log.Info($"  Body Damage: {_body.damage:F2}");
+                Log.Info($"  Total Mass: {totalMass:F2}");
+                Log.Info($"  Mass Capacity: {massCapacity:F2}");
+                Log.Info($"  Mass Fraction: {massFraction:F2}");
+                Log.Info($"  Damage Coef (calculated): {damageCoef:F2}");
+                Log.Info($"  Base Damage: {baseDamage:F2}");
+                Log.Info($"  Crit Chance: {_body.crit:F1}%");
+                Log.Info($"  Crit Multiplier: {_body.critMultiplier:F2}");
+                Log.Info($"  Actual Damage (to enemies): {actualDamage:F2}");
+                Log.Info($"  Bagged Object Armor: {baggedObjectArmor:F2}");
+                Log.Info($"  Bagged Object Damage: {baggedObjectDamage:F2}");
+            }
+
+            string totalsSection = $"<size=20><b>Bag Totals</b></size>\n";
+            
+            // Show different label based on display mode
+            if (useSlotBasedDisplay)
+            {
+                // Slot-based display: show "Capacity: X/Y"
+                totalsSection += $"<color=#D1D1D1>Capacity:</color> {capacityStr}\n";
+            }
+            else
+            {
+                // Mass-based display: show "Total Mass: X / Y"
+                totalsSection += $"<color=#D1D1D1>Total Mass:</color> {totalMass:F0} / {capacityStr}\n";
+            }
+            
+            totalsSection += $"<color=#FF4D4D>Speed Penalty:</color> {penalty:F1}%\n" +
+                              $"<color=#EFD27F>Damage Coef:</color> {damageCoef:F2} ({actualDamage:F0})\n" +
+                              $"<color=#FF4D4D>To Bagged Obj:</color> {baggedObjectDamage:F0}\n";
 
             if (!showFullStats)
             {
@@ -164,15 +297,15 @@ namespace DrifterBossGrabMod.UI
             }
 
             // Full stats mode: show per-object stats + bag totals
-            var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
             if (mainSeatObject == null)
             {
                 _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Empty</color>\n\n" + totalsSection;
                 return;
             }
 
-            var state = BaggedObjectStateStorage.LoadObjectState(_bagController, mainSeatObject);
-            if (state == null)
+            // Use StateCalculator to get live state (reads from current BaggedObject state machine)
+            var state = StateCalculator.GetIndividualObjectState(_bagController, mainSeatObject);
+            if (state == null || state.targetObject == null)
             {
                 _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Loading stats...</color>\n\n" + totalsSection;
                 return;
@@ -184,22 +317,47 @@ namespace DrifterBossGrabMod.UI
                 name = state.targetBody.GetDisplayName();
             }
 
-            float dmg = state.damageStat;
-            float aspd = state.attackSpeedStat;
-            float move = state.moveSpeedStat;
-            float crit = state.critStat;
-            float armor = state.armorStat;
-            float regen = state.regenStat;
             float mass = state.baggedMass;
+            int junkCount = state.junkSpawnCount;
+
+            // Format breakout timer - state.elapsedBreakoutTime is now live from StateCalculator
+            string breakoutStr = "N/A";
+            float breakoutTime = state.breakoutTime;
+            float elapsedBreakoutTime = state.elapsedBreakoutTime;
+            float breakoutAttempts = state.breakoutAttempts;
+
+            // Check if object can actually breakout - objects like junk cubes cannot breakout
+            if (!AdditionalSeatBreakoutTimer.CanBreakout(mainSeatObject))
+            {
+                breakoutTime = 0f;
+            }
+
+            if (breakoutTime > 0)
+            {
+                // Reset elapsed time for UI display when it exceeds breakout time (after breakout attempt)
+                if (elapsedBreakoutTime >= breakoutTime)
+                {
+                    elapsedBreakoutTime = elapsedBreakoutTime % breakoutTime;
+                }
+
+                float remaining = breakoutTime - elapsedBreakoutTime;
+                breakoutStr = $"{remaining:F1} / {breakoutTime:F1}s";
+                if (breakoutAttempts > 0)
+                {
+                    breakoutStr += $" ({breakoutAttempts:F0})";
+                }
+            }
 
             _statsText.text = $"<size=24><b>{name}</b></size>\n" +
-                              $"<color=#bbbbbb>Mass:</color> {mass:F1}\n" +
-                              $"<color=#ff4444>Damage:</color> {dmg:F1}\n" +
-                              $"<color=#ffaa00>Attack Speed:</color> {aspd:F2}\n" +
-                              $"<color=#ffcc00>Crit Chance:</color> {crit:F1}%\n" +
-                              $"<color=#44ccff>Armor:</color> {armor:F1}\n" +
-                              $"<color=#44ff44>Regenerate:</color> {regen:F2} HP/s\n" +
-                              $"<color=#ffffaa>Move Speed:</color> {move:F1}\n\n" +
+                              $"<color=#D1D1D1>Mass:</color> {mass:F1}\n" +
+                              $"<color=#B87BFF>Junk on Drop:</color> {junkCount} cubes\n" +
+                              $"<color=#FF8C00>Breakout:</color> {breakoutStr}\n" +
+                              $"<color=#EFD27F>AtkSpd:</color> {state.attackSpeedStat:F2}\n" +
+                              $"<color=#EFD27F>Dmg:</color> {state.damageStat:F2}\n" +
+                              $"<color=#EFD27F>Crit:</color> {state.critStat:F2}%\n" +
+                              $"<color=#4DBFFF>MvSpd:</color> {state.moveSpeedStat:F2}\n" +
+                              $"<color=#FFFF00>Armor:</color> {state.armorStat:F2}\n" +
+                              $"<color=#7BFC3A>Regen:</color> {state.regenStat:F2}\n\n" +
                               totalsSection;
         }
 
@@ -209,6 +367,46 @@ namespace DrifterBossGrabMod.UI
             {
                 _uiPanel.SetActive(visible);
             }
+        }
+
+        // Gets the item damage multiplier from the attacker's inventory
+        // This is used to calculate damage with items like Delicate Watch
+        private float GetItemDamageMultiplier(CharacterBody? targetBody = null)
+        {
+            if (_body == null || _body.inventory == null)
+                return 1f;
+
+            float itemDamageMultiplier = 1f;
+
+            // Delicate Watch (FragileDamageBonus) - +20% per stack
+            int fragileStacks = _body.inventory.GetItemCountEffective(DLC1Content.Items.FragileDamageBonus);
+            if (fragileStacks > 0)
+            {
+                itemDamageMultiplier *= 1f + fragileStacks * 0.2f;
+            }
+
+            // Nearby Damage Bonus - +20% per stack when within 13m
+            int nearbyDamageStacks = _body.inventory.GetItemCountEffective(RoR2Content.Items.NearbyDamageBonus);
+            if (nearbyDamageStacks > 0)
+            {
+                itemDamageMultiplier *= 1f + nearbyDamageStacks * 0.2f;
+            }
+
+            // Crowbar - +75% per stack when target >= 90% health
+            if (targetBody != null && targetBody.healthComponent != null)
+            {
+                float targetHealthFraction = targetBody.healthComponent.combinedHealth / targetBody.healthComponent.fullCombinedHealth;
+                if (targetHealthFraction >= 0.9f)
+                {
+                    int crowbarStacks = _body.inventory.GetItemCountEffective(RoR2Content.Items.Crowbar);
+                    if (crowbarStacks > 0)
+                    {
+                        itemDamageMultiplier *= 1f + 0.75f * crowbarStacks;
+                    }
+                }
+            }
+
+            return itemDamageMultiplier;
         }
 
         private void OnDestroy()

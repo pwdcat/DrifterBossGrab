@@ -27,6 +27,27 @@ namespace DrifterBossGrabMod.UI
         private static Sprite? _oldWeightIconSprite;
         private static Sprite OldWeightIconSprite => _oldWeightIconSprite ??= Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/texMovespeedBuffIcon.tif").WaitForCompletion();
 
+        private static Sprite? _overencumbranceIconSprite;
+        private static Sprite? OverencumbranceIconSprite => _overencumbranceIconSprite ??= LoadOverencumbranceIconSprite();
+
+        private static Sprite? LoadOverencumbranceIconSprite()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using (var stream = assembly.GetManifestResourceStream("DrifterBossGrabMod.Resources.Arrow.png"))
+            {
+                if (stream == null)
+                {
+                    Debug.LogError("Could not find embedded resource: DrifterBossGrabMod.Resources.Arrow.png");
+                    return null;
+                }
+                var bytes = new byte[stream.Length];
+                stream.Read(bytes, 0, bytes.Length);
+                var texture = new Texture2D(2, 2);
+                texture.LoadImage(bytes);
+                return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            }
+        }
+
         private static Texture2D? LoadWeightIconTexture()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -785,40 +806,56 @@ namespace DrifterBossGrabMod.UI
                                 }
                                 ApplyWeightIconTransform(slot);
 
-                                // Set color
-                                if (PluginConfig.Instance.ScaleWeightColor.Value)
-                                {
-                                    float percentage = 0f;
-                                    bool isOverencumbered = false;
+                                // Calculate overencumbrance state first, used by both color and icon replacement
+                                float percentage = 0f;
+                                bool isOverencumbered = false;
 
-                                    if (PluginConfig.Instance.EnableBalance.Value)
+                                if (PluginConfig.Instance.EnableBalance.Value)
+                                {
+                                    float capacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
+                                    if (capacity >= 1000000f)
                                     {
-                                        float capacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
-                                        percentage = (capacity > 0) ? (mass / capacity) : 0f;
-                                        isOverencumbered = percentage > 1.0f;
+                                        float maxMass = 700f;
+                                        string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
+                                        if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
+                                        {
+                                            maxMass = parsedMassCap;
+                                        }
+                                        percentage = maxMass > 0 ? (mass / maxMass) : 0f;
+                                        isOverencumbered = false;
                                     }
                                     else
                                     {
-                                        bool isShowingTotal = isCenter && showTotal && isAllMode;
-                                        if (isShowingTotal)
-                                        {
-                                            int totalCapacitySlots = CapacityScalingSystem.GetTotalCapacity(bagController);
-                                            int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                                            percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
-                                            isOverencumbered = currentSlots > totalCapacitySlots;
-                                        }
-                                        else
-                                        {
-                                            float maxMass = 700f;
-                                            string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
-                                            if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
-                                            {
-                                                maxMass = parsedMassCap;
-                                            }
-                                            percentage = maxMass > 0 ? (mass / maxMass) : 0f;
-                                            isOverencumbered = false;
-                                        }
+                                        percentage = (capacity > 0) ? (mass / capacity) : 0f;
+                                        isOverencumbered = (isCenter && showTotal) && percentage > 1.0f;
                                     }
+                                }
+                                else
+                                {
+                                    bool isShowingTotal = isCenter && showTotal && isAllMode;
+                                    if (isShowingTotal)
+                                    {
+                                        int totalCapacitySlots = CapacityScalingSystem.GetTotalCapacity(bagController);
+                                        int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+                                        percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
+                                        isOverencumbered = currentSlots > totalCapacitySlots;
+                                    }
+                                    else
+                                    {
+                                        float maxMass = 700f;
+                                        string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
+                                        if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
+                                        {
+                                            maxMass = parsedMassCap;
+                                        }
+                                        percentage = maxMass > 0 ? (mass / maxMass) : 0f;
+                                        isOverencumbered = false;
+                                    }
+                                }
+
+                                // Set color
+                                if (PluginConfig.Instance.ScaleWeightColor.Value)
+                                {
 
                                     if (isOverencumbered)
                                     {
@@ -860,87 +897,131 @@ namespace DrifterBossGrabMod.UI
 
                                     // Set text
                                     var weightDisplayMode = PluginConfig.Instance.WeightDisplayMode.Value;
-                                    if (weightDisplayMode != DrifterBossGrabMod.WeightDisplayMode.None)
-                                    {
-                                        // Find the WeightText specifically (not any TextMeshProUGUI child)
-                                        var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
-                                        var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
+                                    bool showOverencumbranceIcon = isOverencumbered && PluginConfig.Instance.UseNewWeightIcon.Value && PluginConfig.Instance.ShowOverencumberIcon.Value && PluginConfig.Instance.ShowTotalMassOnWeightIcon.Value;
 
-                                    if (!tmp)
+                                    var overIconObj = weightIconTransform.Find("OverencumbranceIcon");
+
+                                    if (showOverencumbranceIcon)
                                     {
-                                        var textObj = new GameObject("WeightText");
-                                        textObj.transform.SetParent(weightIconTransform, false);
-                                        tmp = textObj.AddComponent<TextMeshProUGUI>();
-                                        tmp.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
-                                        tmp.fontSize = 12;
-                                        tmp.alignment = TextAlignmentOptions.Center;
-                                        tmp.color = Color.white;
-                                    }
-                                    var tmpRectTransform = tmp.GetComponent<RectTransform>();
-                                    if (tmpRectTransform)
-                                    {
-                                        tmpRectTransform.sizeDelta = new Vector2(50, 20);
-                                        tmpRectTransform.localRotation = Quaternion.identity;
-                                        if (PluginConfig.Instance.UseNewWeightIcon.Value)
+                                        if (!overIconObj)
                                         {
-                                            tmpRectTransform.anchoredPosition = new Vector2(0f, 2.4f);
-                                            tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
-                                            tmp.fontSize = 8.5f;
-                                            tmp.characterSpacing = 0f;
-                                            tmpRectTransform.localRotation = Quaternion.identity;
+                                            var newObj = new GameObject("OverencumbranceIcon", typeof(RectTransform), typeof(UnityEngine.CanvasRenderer), typeof(UnityEngine.UI.Image));
+                                            newObj.transform.SetParent(weightIconTransform, false);
+                                            overIconObj = newObj.transform;
+
+                                            var img = newObj.GetComponent<UnityEngine.UI.Image>();
+                                            img.sprite = OverencumbranceIconSprite;
+                                            img.color = new Color(0.8f, 0.9f, 1f, 1f);
+                                        }
+
+                                        var overImg = overIconObj.GetComponent<UnityEngine.UI.Image>();
+                                        if (overImg && OverencumbranceIconSprite)
+                                        {
+                                            overImg.sprite = OverencumbranceIconSprite;
+                                            overImg.color = new Color(0.8f, 0.9f, 1f, 1f);
+                                        }
+
+                                        var rect = overIconObj.GetComponent<RectTransform>();
+                                        if (rect)
+                                        {
+                                            // Center it in the parent
+                                            rect.anchorMin = new Vector2(0.5f, 0.5f);
+                                            rect.anchorMax = new Vector2(0.5f, 0.5f);
+                                            rect.pivot = new Vector2(0.5f, 0.5f);
+                                            rect.anchoredPosition = new Vector2(0f, -4f);
+                                            rect.sizeDelta = new Vector2(7.5f, 7.5f);
+                                        }
+                                        overIconObj.gameObject.SetActive(true);
+                                        
+                                        var tmpTextObj = weightIconTransform.Find("WeightText");
+                                        if (tmpTextObj) tmpTextObj.gameObject.SetActive(false);
+                                        
+                                        var unitLabelObj = weightIconTransform.Find("WeightUnitLabel");
+                                        if (unitLabelObj) unitLabelObj.gameObject.SetActive(false);
+                                    }
+                                    else
+                                    {
+                                        if (overIconObj) overIconObj.gameObject.SetActive(false);
+
+                                        if (weightDisplayMode != DrifterBossGrabMod.WeightDisplayMode.None)
+                                        {
+                                            var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
+                                            var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
+
+                                            if (!tmp)
+                                            {
+                                                var textObj = new GameObject("WeightText");
+                                                textObj.transform.SetParent(weightIconTransform, false);
+                                                tmp = textObj.AddComponent<TextMeshProUGUI>();
+                                                tmp.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
+                                                tmp.fontSize = 12;
+                                                tmp.alignment = TextAlignmentOptions.Center;
+                                                tmp.color = Color.white;
+                                                tmp.richText = true;
+                                            }
+                                            var tmpRectTransform = tmp.GetComponent<RectTransform>();
+                                            if (tmpRectTransform)
+                                            {
+                                                tmpRectTransform.sizeDelta = new Vector2(50, 20);
+                                                tmpRectTransform.localRotation = Quaternion.identity;
+                                                if (PluginConfig.Instance.UseNewWeightIcon.Value)
+                                                {
+                                                    tmpRectTransform.anchoredPosition = new Vector2(0f, 2.4f);
+                                                    tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
+                                                    tmp.fontSize = 8.5f;
+                                                    tmp.characterSpacing = 0f;
+                                                    tmpRectTransform.localRotation = Quaternion.identity;
+                                                }
+                                                else
+                                                {
+                                                    tmpRectTransform.anchoredPosition = new Vector2(0f, 0f);
+                                                    tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
+                                                    tmp.fontSize = 12f;
+                                                    tmp.characterSpacing = 0f;
+                                                    tmpRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
+                                                }
+                                            }
+
+                                            // Handle different display modes
+                                            switch (weightDisplayMode)
+                                            {
+                                                case DrifterBossGrabMod.WeightDisplayMode.Multiplier:
+                                                    int multiplier = Mathf.CeilToInt(mass / 100f);
+                                                    tmp.text = multiplier + "x";
+                                                    if (unitLabel) unitLabel.gameObject.SetActive(false);
+                                                    break;
+
+                                                case DrifterBossGrabMod.WeightDisplayMode.Pounds:
+                                                    int pounds = Mathf.FloorToInt(mass / 10f);
+                                                    tmp.text = $"<alpha=#00><size=40%><voffset=-0.2em>lb</voffset></size><space=-0.2em><alpha=#FF>{pounds}<space=-0.2em><size=40%><voffset=-0.2em>lb</voffset></size>";
+                                                    if (unitLabel) unitLabel.gameObject.SetActive(false);
+                                                    break;
+
+                                                case DrifterBossGrabMod.WeightDisplayMode.KiloGrams:
+                                                    int kiloGrams = Mathf.FloorToInt(mass / 10f);
+                                                    tmp.text = $"<alpha=#00><size=40%><voffset=-0.2em>kg</voffset></size><space=-0.2em><alpha=#FF>{kiloGrams}<space=-0.2em><size=40%><voffset=-0.2em>kg</voffset></size>";
+                                                    if (unitLabel) unitLabel.gameObject.SetActive(false);
+                                                    break;
+                                            }
+
+                                            tmp.gameObject.SetActive(true);
                                         }
                                         else
                                         {
-                                            tmpRectTransform.anchoredPosition = new Vector2(0f, 0f);
-                                            tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
-                                            tmp.fontSize = 12f;
-                                            tmp.characterSpacing = 0f;
-                                            tmpRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
+                                            var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
+                                            if (tmp) tmp.gameObject.SetActive(false);
+
+                                            var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
+                                            if (unitLabel) unitLabel.gameObject.SetActive(false);
                                         }
                                     }
-
-                                    // Handle different display modes
-                                    switch (weightDisplayMode)
-                                    {
-                                        case DrifterBossGrabMod.WeightDisplayMode.Multiplier:
-                                            int multiplier = Mathf.CeilToInt(mass / 100f);
-                                            tmp.text = multiplier + "x";
-                                            if (unitLabel) unitLabel.gameObject.SetActive(false);
-                                            break;
-
-                                        case DrifterBossGrabMod.WeightDisplayMode.Pounds:
-                                            int pounds = Mathf.FloorToInt(mass / 10f);
-                                            tmp.text = pounds.ToString();
-                                            if (unitLabel) unitLabel.gameObject.SetActive(true);
-                                            else CreateUnitLabel(weightIconTransform, "lb");
-                                            break;
-
-                                        case DrifterBossGrabMod.WeightDisplayMode.KiloGrams:
-                                            int kiloGrams = Mathf.FloorToInt(mass / 10f);
-                                            tmp.text = kiloGrams.ToString();
-                                            if (unitLabel) unitLabel.gameObject.SetActive(true);
-                                            else CreateUnitLabel(weightIconTransform, "kg");
-                                            break;
-                                    }
-
-                                    tmp.gameObject.SetActive(true);
-                                }
-                                else
-                                {
-                                    var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
-                                    if (tmp) tmp.gameObject.SetActive(false);
-
-                                    var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
-                                    if (unitLabel) unitLabel.gameObject.SetActive(false);
-                                }
                             }
                         }
                     }
                 }
-                // Normal passenger logic continues below... (removed redundant else)
 
                 // Damage preview overlay
-                // If AoE slam damage is off, only show preview on the selected (center) slot.
+                // If AoE slam damage is off, only sho w preview on the selected (center) slot.
                 // If AoE is on, show preview on all slots since damage is distributed.
                 bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
                     (isCenter || PluginConfig.Instance.AoEDamageDistribution.Value != DrifterBossGrabMod.AoEDamageMode.None);
@@ -1003,13 +1084,11 @@ namespace DrifterBossGrabMod.UI
                     {
                         weightIconTransform.gameObject.SetActive(showWeight);
 
-                        // Toggle unit label.
+                        // Toggle unit label. (No longer in use as we use rich text, but we ensure it stays hidden if it still exists)
                         var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
                         if (unitLabel)
                         {
-                            unitLabel.gameObject.SetActive(showWeight &&
-                                PluginConfig.Instance.WeightDisplayMode.Value != DrifterBossGrabMod.WeightDisplayMode.None &&
-                                PluginConfig.Instance.WeightDisplayMode.Value != DrifterBossGrabMod.WeightDisplayMode.Multiplier);
+                            unitLabel.gameObject.SetActive(false);
                         }
                     }
                 }
@@ -1113,37 +1192,6 @@ namespace DrifterBossGrabMod.UI
                 else
                 {
                     badgeTransform.gameObject.SetActive(false);
-                }
-            }
-        }
-
-        private static void CreateUnitLabel(Transform weightIconTransform, string unitText)
-        {
-            var unitLabelObj = new GameObject("WeightUnitLabel");
-            unitLabelObj.transform.SetParent(weightIconTransform, false);
-            var unitLabel = unitLabelObj.AddComponent<TextMeshProUGUI>();
-            unitLabel.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
-            unitLabel.text = unitText;
-            unitLabel.color = Color.white;
-            unitLabel.alignment = TextAlignmentOptions.BottomRight;
-            unitLabel.characterSpacing = -6;
-            unitLabel.fontSize = 3.5f;
-
-            var unitRectTransform = unitLabel.GetComponent<RectTransform>();
-            if (unitRectTransform)
-            {
-                unitRectTransform.sizeDelta = new Vector2(30, 10);
-
-                // Position unit label at bottom-right of value
-                if (PluginConfig.Instance.UseNewWeightIcon.Value)
-                {
-                    unitRectTransform.anchoredPosition = new Vector2(-10.3f, -2.2f);
-                    unitRectTransform.localRotation = Quaternion.identity;
-                }
-                else
-                {
-                    unitRectTransform.anchoredPosition = new Vector2(0f, -10f);
-                    unitRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
                 }
             }
         }

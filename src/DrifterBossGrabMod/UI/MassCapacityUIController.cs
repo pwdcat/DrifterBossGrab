@@ -402,7 +402,8 @@ namespace DrifterBossGrabMod.UI
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[MassCapacityUIController] Updated UI: mass={_currentUsedCapacity}/{_currentCapacity} ({massPercentage:P1}), slot={slotPercentage:P1}, final={percentage:P1}");
+                string capacityDisplay = _currentCapacity >= float.MaxValue ? "∞" : _currentCapacity.ToString("F0");
+                Log.Info($"[MassCapacityUIController] Updated UI: mass={_currentUsedCapacity}/{capacityDisplay} ({massPercentage:P1}), slot={slotPercentage:P1}, final={percentage:P1})");
             }
         }
 
@@ -601,11 +602,12 @@ namespace DrifterBossGrabMod.UI
                     // If Capacity is capped, we want to pad the remaining space with static slot separators
                     if (!uncap && capacity > 1)
                     {
-                        int maxPads = Mathf.Min(capacity, 15);
+                        int displayCapacity = Mathf.Min(capacity, 15);
+                        int maxPads = displayCapacity;
                         for (int i = k; i < maxPads; i++)
                         {
-                            // Static slot location
-                            float slotFrac = (float)i / capacity;
+                            // Static slot location - use displayCapacity for even distribution
+                            float slotFrac = (float)i / displayCapacity;
                             
                             // Only draw this static slot pip if we haven't already filled past it with mass
                             float currentMassFrac = cumulativeMass / _currentCapacity;
@@ -646,10 +648,11 @@ namespace DrifterBossGrabMod.UI
                 
                 if (capacity > 1) 
                 {
-                    int maxSegments = Mathf.Min(capacity, 15);
+                    int displayCapacity = Mathf.Min(capacity, 15);
+                    int maxSegments = displayCapacity;
                     for (int i = 1; i < maxSegments; i++)
                     {
-                        separatorFractions.Add((float)i / capacity); 
+                        separatorFractions.Add((float)i / displayCapacity); 
                     }
                 }
             }

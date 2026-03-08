@@ -207,27 +207,54 @@ namespace DrifterBossGrabMod.Patches
             }
 
             if (controller == null) return;
-            CharacterBody? controllerBody = controller.GetComponent<CharacterBody>();
-            if (controllerBody == null) return;
 
+            // Use the enemy's own character direction, not the controller's
             Vector3 forward = Vector3.up;
-            if (controllerBody.characterDirection != null)
+            if (body != null && body.characterDirection != null)
             {
-                forward = Quaternion.AngleAxis((UnityEngine.Random.value < 0.5f) ? 45f : -45f, -controllerBody.characterDirection.forward) * Vector3.up;
+                forward = Quaternion.AngleAxis((UnityEngine.Random.value < 0.5f) ? 45f : -45f, -body.characterDirection.forward) * Vector3.up;
             }
             
             float mass = controller.CalculateBaggedObjectMass(gameObject);
             float speed = Mathf.Max(10f, 30f * mass / DrifterBagController.maxMass);
+            
+            // Apply max launch speed cap if configured
+            string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
+            if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed))
+            {
+                speed = Mathf.Min(speed, maxLaunchSpeed);
+            }
             
             if (_cachedProjectilePrefab == null)
             {
                 _cachedProjectilePrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/ThrownObjectProjectileNoStun.prefab").WaitForCompletion();
             }
 
+            // Try to find the exit transform on the enemy's model
+            Transform? exitTransform = null;
+            if (body != null && body.modelLocator != null && body.modelLocator.modelTransform != null)
+            {
+                var modelAnimator = body.modelLocator.modelTransform.GetComponent<Animator>();
+                if (modelAnimator != null)
+                {
+                    // Look for an exit transform on the enemy's model
+                    // This matches the vanilla BaggedObject behavior
+                    var childTransforms = body.modelLocator.modelTransform.GetComponentsInChildren<Transform>();
+                    foreach (var child in childTransforms)
+                    {
+                        if (child.name.Contains("Exit") || child.name.Contains("Muzzle") || child.name.Contains("Throw"))
+                        {
+                            exitTransform = child;
+                            break;
+                        }
+                    }
+                }
+            }
+
             FireProjectileInfo fireProjectileInfo = new FireProjectileInfo
             {
                 projectilePrefab = _cachedProjectilePrefab,
-                position = controller.transform.position,
+                position = (exitTransform != null) ? exitTransform.position : ((body != null) ? body.transform.position : controller.transform.position),
                 rotation = Util.QuaternionSafeLookRotation(forward),
                 owner = controller.gameObject,
                 damage = 0f,

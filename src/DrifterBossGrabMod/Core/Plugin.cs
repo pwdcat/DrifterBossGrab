@@ -506,7 +506,7 @@ namespace DrifterBossGrabMod
 
         private void SetupHudSubTabHandlers()
         {
-            // When HUD sub-tab changes, update visibility of settings
+            // When HUD element changes, update visibility of settings
             PluginConfig.Instance.SelectedHudElement.SettingChanged += (sender, args) =>
             {
                 var selectedSubTab = PluginConfig.Instance.SelectedHudElement.Value;
@@ -675,6 +675,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.StateCalculationMode.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MovespeedPenaltyFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BagScaleCap.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.SearchRadiusMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCap.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
         }
 
@@ -1184,6 +1185,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.AddedCapacity));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSuccessiveGrabStockRefresh));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CycleCooldown, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 0f, max = 1f, increment = 0.01f }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PlayAnimationOnCycle));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling));
@@ -1207,8 +1209,10 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SelectedFlagMultiplier));
 
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRadiusMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { min = 1f, max = 100f, increment = 0.1f }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier));
             ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MaxLaunchSpeed));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap));
 
@@ -1246,6 +1250,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.WeightDisplayMode));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ScaleWeightColor));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowTotalMassOnWeightIcon));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowOverencumberIcon));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMassCapacityUI));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionX));

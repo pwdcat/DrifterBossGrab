@@ -117,6 +117,36 @@ namespace DrifterBossGrabMod.Config.UI
                         
                     _cachedComponentNames.AddRange(componentTypes);
                 }
+                else if (sortMode == ComponentChooserSortMode.ByRaycast)
+                {
+                    Camera? cam = Camera.main;
+                    if (cam != null)
+                    {
+                        Ray ray = new Ray(cam.transform.position, cam.transform.forward);
+                        var hits = Physics.RaycastAll(ray, 1000f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+                        
+                        var componentTypes = hits
+                            .Where(h => h.collider != null)
+                            .SelectMany(h => h.collider.GetComponentsInParent<Component>().Select(c => new { 
+                                Component = c, 
+                                Distance = h.distance,
+                                GameObjectName = c.gameObject.name
+                            }))
+                            .Where(x => x.Component != null && x.Component.GetType().Name != "Transform" && x.Component.GetType().Name != "MeshRenderer" && x.Component.GetType().Name != "MeshFilter") 
+                            .GroupBy(x => new { Name = x.Component.GetType().Name, GameObjectName = x.GameObjectName })
+                            .Select(g => new { 
+                                Name = g.Key.Name, 
+                                GameObjectName = g.Key.GameObjectName,
+                                MinDistance = g.Min(x => x.Distance) 
+                            })
+                            .OrderBy(x => x.MinDistance)
+                            .Take(500)
+                            .Select(x => $"{x.Name} ({x.GameObjectName} - {Mathf.RoundToInt(x.MinDistance)}m)")
+                            .ToList();
+                            
+                        _cachedComponentNames.AddRange(componentTypes);
+                    }
+                }
                 else
                 {
                     var componentTypes = allComponents

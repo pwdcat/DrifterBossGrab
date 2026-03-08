@@ -342,18 +342,18 @@ namespace DrifterBossGrabMod
                         }
                         else
                         {
-                             // Non-networked object (local visual?). Restore it.
-                             PositionNearPlayer(obj);
-                             var rb = obj.GetComponent<Rigidbody>();
-                             if (rb)
-                             {
-                                 rb.isKinematic = true;
-                                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RestorePersistedObjects] Enabled Kinematic Safety for local object {obj.name}");
-                             }
+                            // Non-networked object (local visual?). Restore it.
+                            PositionNearPlayer(obj);
+                            var rb = obj.GetComponent<Rigidbody>();
+                            if (rb)
+                            {
+                                rb.isKinematic = true;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RestorePersistedObjects] Enabled Kinematic Safety for local object {obj.name}");
+                            }
 
-                             var coroutineRunner = new GameObject("ClientSafetyFloatRunner_" + obj.name);
-                             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
-                             runner.StartCoroutine(ClientSafetyFloat(obj, runner));
+                            var coroutineRunner = new GameObject("ClientSafetyFloatRunner_" + obj.name);
+                            var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
+                            runner.StartCoroutine(ClientSafetyFloat(obj, runner));
                         }
                     }
 
@@ -427,16 +427,16 @@ namespace DrifterBossGrabMod
 
             if (obj != null)
             {
-                  var rb = obj.GetComponent<Rigidbody>();
-                  if (rb)
-                  {
-                      rb.isKinematic = false; // Re-enable physics
-                              rb.linearVelocity = Vector3.zero; // Reset velocity just in case
-                      if (PluginConfig.Instance.EnableDebugLogs.Value)
-                      {
-                         Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
-                      }
-                  }
+                   var rb = obj.GetComponent<Rigidbody>();
+                   if (rb)
+                   {
+                       rb.isKinematic = false; // Re-enable physics
+                               rb.linearVelocity = Vector3.zero; // Reset velocity just in case
+                       if (PluginConfig.Instance.EnableDebugLogs.Value)
+                       {
+                          Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
+                       }
+                   }
             }
 
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
@@ -501,11 +501,11 @@ namespace DrifterBossGrabMod
                         transform.position = targetPos;
                         transform.rotation = Quaternion.identity;
 
-                         if (TryGetComponent<Rigidbody>(out var rb))
-                         {
-                             rb.linearVelocity = Vector3.zero;
-                             rb.angularVelocity = Vector3.zero;
-                         }
+                        if (TryGetComponent<Rigidbody>(out var rb))
+                        {
+                            rb.linearVelocity = Vector3.zero;
+                            rb.angularVelocity = Vector3.zero;
+                        }
 
                         Destroy(this);
                     }
@@ -1164,17 +1164,17 @@ namespace DrifterBossGrabMod
                     {
                          if (!dictionary.ContainsKey(networkIdentity.netId))
                          {
-                             dictionary.Add(networkIdentity.netId, networkIdentity);
-                             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via fallback Reflection.");
+                            dictionary.Add(networkIdentity.netId, networkIdentity);
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via fallback Reflection.");
                          }
                          else
                          {
-                             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
                          }
                     }
                     else
                     {
-                         if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Warning($"[RegisterLocalObjectReflectively] Field found but value is null or not IDictionary<NetworkInstanceId, NetworkIdentity>");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Warning($"[RegisterLocalObjectReflectively] Field found but value is null or not IDictionary<NetworkInstanceId, NetworkIdentity>");
                     }
                 }
             });

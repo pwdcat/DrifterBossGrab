@@ -38,6 +38,8 @@ namespace DrifterBossGrabMod
             {
                 var netId = message.baggedObjectNetIds[i];
                 string? ownerPlayerId = null;
+                bool collidersDisabled = false;
+                
                 if (i < message.ownerPlayerIds.Count)
                 {
                     ownerPlayerId = message.ownerPlayerIds[i];
@@ -53,6 +55,15 @@ namespace DrifterBossGrabMod
                         Log.Info($"[HandleBaggedObjectsPersistenceMessage] No owner ID available for netId {netId.Value} (index {i} >= ownerPlayerIds.Count {message.ownerPlayerIds.Count})");
                     }
                  }
+
+                if (i < message.collidersDisabled.Count)
+                {
+                    collidersDisabled = message.collidersDisabled[i];
+                    if (PluginConfig.Instance.EnableDebugLogs.Value && collidersDisabled)
+                    {
+                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] Object at index {i} has colliders disabled - will apply on client");
+                    }
+                }
 
                    GameObject? obj = FindObjectByNetIdWithRetry(netId, maxRetries: 3, retryDelay: 0.1f);
 
@@ -126,9 +137,46 @@ namespace DrifterBossGrabMod
                    {
                        Log.Info($"[HandleBaggedObjectsPersistenceMessage] SKIPPING ModelStatePreserver for {obj.name} - Persistence is DISABLED");
                    }
-                   PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
+                    PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
 
-                   if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
+                    // Apply collider disabled state if needed
+                    if (collidersDisabled && !NetworkServer.active)
+                    {
+                        // Find the controller for this object
+                        DrifterBagController? controller = null;
+                        foreach (var ctrl in Patches.BagPatches.GetAllControllers())
+                        {
+                            var list = Patches.BagPatches.GetState(ctrl).BaggedObjects;
+                            if (list != null && list.Contains(obj))
+                            {
+                                controller = ctrl;
+                                break;
+                            }
+                        }
+
+                        if (controller != null)
+                        {
+                            var bagState = Patches.BagPatches.GetState(controller);
+                            if (bagState != null)
+                            {
+                                if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
+                                {
+                                    bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
+                                }
+                                var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
+                                
+                                // Disable colliders on client side
+                                StateManagement.DisableMovementColliders(obj, objectDisabledStates);
+                                
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[HandleBaggedObjectsPersistenceMessage] Applied collider disabled state for {obj.name} on client (disabled {objectDisabledStates.Count} colliders)");
+                                }
+                            }
+                        }
+                    }
+
+                    if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
                    {
                        modelLocator.autoUpdateModelTransform = true;
                    }
@@ -177,14 +225,30 @@ namespace DrifterBossGrabMod
                                 message.ownerPlayerIds.Add(string.Empty);
                             }
                         }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        else
                         {
-                            Log.Info($"[SendBaggedObjectsPersistenceMessage] Owner is null for {obj.name}");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[SendBaggedObjectsPersistenceMessage] Owner is null for {obj.name}");
+                            }
+                            message.ownerPlayerIds.Add(string.Empty);
                         }
-                        message.ownerPlayerIds.Add(string.Empty);
+
+                        // Check if colliders are disabled for this object
+                        bool collidersDisabled = false;
+                        if (owner != null)
+                        {
+                            var bagState = Patches.BagPatches.GetState(owner);
+                            if (bagState != null && bagState.DisabledCollidersByObject != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                            {
+                                collidersDisabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                            }
+                        }
+                        message.collidersDisabled.Add(collidersDisabled);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value && collidersDisabled)
+                        {
+                            Log.Info($"[SendBaggedObjectsPersistenceMessage] Object {obj.name} has colliders disabled - syncing to clients");
+                        }
                     }
                 }
             }
@@ -282,9 +346,54 @@ namespace DrifterBossGrabMod
                         }
 
                          if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
-                        {
-                            modelLocator.autoUpdateModelTransform = true;
-                        }
+                         {
+                             modelLocator.autoUpdateModelTransform = true;
+                         }
+
+                         // Apply collider disabled state if needed
+                         int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
+                         if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
+                         {
+                             var bagState = Patches.BagPatches.GetState(netController.GetComponent<DrifterBagController>());
+                             if (bagState != null)
+                             {
+                                 if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
+                                 {
+                                     bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
+                                 }
+                                 var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
+                                 
+                                 // Disable colliders on client side
+                                 StateManagement.DisableMovementColliders(obj, objectDisabledStates);
+                                 
+                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                 {
+                                     Log.Info($"[HandleUpdateBagStateMessage] Applied collider disabled state for {obj.name} on client (disabled {objectDisabledStates.Count} colliders)");
+                                 }
+                             }
+                         }
+                         else if (objIndex >= 0 && !NetworkServer.active)
+                         {
+                             // For ALL bagged objects on client, ensure colliders are disabled
+                             // This prevents collision issues for regular objects too
+                             var bagState = Patches.BagPatches.GetState(netController.GetComponent<DrifterBagController>());
+                             if (bagState != null)
+                             {
+                                 if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
+                                 {
+                                     bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
+                                 }
+                                 var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
+                                 
+                                 // Disable colliders on client side for ALL bagged objects
+                                 StateManagement.DisableMovementColliders(obj, objectDisabledStates);
+                                 
+                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                 {
+                                     Log.Info($"[HandleUpdateBagStateMessage] Disabled colliders for {obj.name} on client (disabled {objectDisabledStates.Count} colliders) - universal fix");
+                                 }
+                             }
+                         }
                      }
                  }
              }

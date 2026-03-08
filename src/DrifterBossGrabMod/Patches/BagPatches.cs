@@ -237,7 +237,6 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 CharacterBody? body = null;
-                var localDisabledStates = new Dictionary<GameObject, bool>();
                 var modelLocator = passengerObject.GetComponent<ModelLocator>();
                 if (modelLocator != null)
                 {
@@ -270,7 +269,21 @@ namespace DrifterBossGrabMod.Patches
                 }
                 if (body != null && body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable))
                 {
-                    StateManagement.DisableMovementColliders(passengerObject, localDisabledStates);
+                    // Get or create the state dictionary for this object
+                    var bagState = GetState(__instance);
+                    if (!bagState.DisabledCollidersByObject.ContainsKey(passengerObject))
+                    {
+                        bagState.DisabledCollidersByObject[passengerObject] = new Dictionary<GameObject, bool>();
+                    }
+                    var objectDisabledStates = bagState.DisabledCollidersByObject[passengerObject];
+                    
+                    // Disable colliders and store states persistently
+                    StateManagement.DisableMovementColliders(passengerObject, objectDisabledStates);
+                    
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[AssignPassenger] Disabled {objectDisabledStates.Count} colliders for ungrabbable enemy {passengerObject.name}");
+                    }
                 }
                 var teleporterInteraction = passengerObject.GetComponent<RoR2.TeleporterInteraction>();
                 if (teleporterInteraction != null)
@@ -395,15 +408,15 @@ namespace DrifterBossGrabMod.Patches
                     if (!alreadyTracked)
                     {
                         list.Add(passengerObject);
+                    }
 
-                        // Initialize state storage on first grab.
-                        if (PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BottomlessBagEnabled.Value)
-                        {
-                            var newState = new BaggedObjectStateData();
-                            newState.CalculateFromObject(passengerObject, __instance);
-                            BaggedObjectPatches.SaveObjectState(__instance, passengerObject, newState);
-
-                        }
+                    // Always ensure state exists for the info panel UI (BaggedObjectInfoUIController)
+                    // Uses ensure-if-null to avoid overwriting preserved breakout timer state
+                    if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
+                    {
+                        var newState = new BaggedObjectStateData();
+                        newState.CalculateFromObject(passengerObject, __instance);
+                        BaggedObjectPatches.SaveObjectState(__instance, passengerObject, newState);
                     }
                     if (UnityEngine.Networking.NetworkServer.active)
                     {
@@ -498,6 +511,14 @@ namespace DrifterBossGrabMod.Patches
                      list.Add(passengerObject);
                  }
 
+                 // Ensure state exists for the info panel UI
+                 if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
+                 {
+                     var infoState = new BaggedObjectStateData();
+                     infoState.CalculateFromObject(passengerObject, __instance);
+                     BaggedObjectPatches.SaveObjectState(__instance, passengerObject, infoState);
+                 }
+
                  if (NetworkServer.active)
                  {
                      PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
@@ -529,6 +550,14 @@ namespace DrifterBossGrabMod.Patches
                  if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
                  {
                      list.Add(passengerObject);
+                 }
+
+                 // Ensure state exists for the info panel UI
+                 if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
+                 {
+                     var infoState = new BaggedObjectStateData();
+                     infoState.CalculateFromObject(passengerObject, __instance);
+                     BaggedObjectPatches.SaveObjectState(__instance, passengerObject, infoState);
                  }
 
                  BagCarouselUpdater.UpdateCarousel(__instance);

@@ -5,6 +5,7 @@ using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
 using EntityStates.Drifter;
+using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Networking;
 namespace DrifterBossGrabMod.Patches
 {
@@ -115,6 +116,111 @@ namespace DrifterBossGrabMod.Patches
                             CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
                         }
                     }
+                }
+            }
+        }
+        [HarmonyPatch(typeof(RepossessExit), "OnExit")]
+        public class RepossessExit_OnExit_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(RepossessExit __instance)
+            {
+                if (!PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value)
+                {
+                    return;
+                }
+
+                var traverse = Traverse.Create(__instance);
+                var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                if (chosenTarget == null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[SuccessiveGrab] Skipping stock refresh - chosenTarget is null (grab unsuccessful)");
+                    return;
+                }
+
+                // Get bag controller
+                var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+                if (bagController == null) return;
+
+                // Get character body and skill locator
+                var body = bagController.GetComponent<CharacterBody>();
+                if (body == null || body.skillLocator == null) return;
+
+                var utilitySkill = body.skillLocator.utility;
+                if (utilitySkill == null) return;
+
+                // Only refresh stock if it's 0
+                if (utilitySkill.stock == 0)
+                {
+                    // When PrioritizeMainSeat is enabled, the skill is overridden with the bagged object's skill
+                    // We need to temporarily remove the override, refresh the stock, and reapply it
+                    if (PluginConfig.Instance.PrioritizeMainSeat.Value)
+                    {
+                        // Find the BaggedObject state machine
+                        var stateMachines = bagController.GetComponents<EntityStateMachine>();
+                        BaggedObject? baggedObject = null;
+                        foreach (var esm in stateMachines)
+                        {
+                            if (esm.customName == "Bag" && esm.state is BaggedObject bo)
+                            {
+                                baggedObject = bo;
+                                break;
+                            }
+                        }
+
+                        if (baggedObject != null)
+                        {
+                            // Get the override fields
+                            var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
+                            var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
+
+                            var overriddenUtility = overriddenUtilityField?.GetValue(baggedObject) as GenericSkill;
+                            var utilityOverride = utilityOverrideField?.GetValue(baggedObject) as RoR2.Skills.SkillDef;
+
+                            // Temporarily remove the override
+                            if (overriddenUtility != null && utilityOverride != null && overriddenUtilityField != null)
+                            {
+                                overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                                overriddenUtilityField.SetValue(baggedObject, null);
+
+                                // Refresh the stock
+                                utilitySkill.stock = 1;
+
+                                // Reapply the override
+                                baggedObject.TryOverrideUtility(utilitySkill);
+
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (with PrioritizeMainSeat - override temporarily removed)");
+                            }
+                            else
+                            {
+                                // No override found, just refresh the stock
+                                utilitySkill.stock = 1;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat enabled but no override found)");
+                            }
+                        }
+                        else
+                        {
+                            // No BaggedObject state found, just refresh the stock
+                            utilitySkill.stock = 1;
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat enabled but no BaggedObject state found)");
+                        }
+                    }
+                    else
+                    {
+                        // PrioritizeMainSeat is disabled, just refresh the stock normally
+                        utilitySkill.stock = 1;
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat disabled)");
+                    }
+                }
+                else
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[SuccessiveGrab] Skipping stock refresh - stock is {utilitySkill.stock} (not 0)");
                 }
             }
         }

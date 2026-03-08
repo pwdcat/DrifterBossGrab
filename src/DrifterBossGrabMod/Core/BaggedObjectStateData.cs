@@ -42,6 +42,8 @@ namespace DrifterBossGrabMod.Core
         public float moveSpeedStat;
         public float armorStat;
         public float regenStat;
+        public int junkSpawnCount;
+        public float slamDamageCoefficient; // Stores the damage coefficient calculated when object was bagged
 
         // Breakout timer tracking properties
         public float breakoutTime = 10f;
@@ -310,11 +312,20 @@ namespace DrifterBossGrabMod.Core
                 breakoutAttempts = 0f;
                 elapsedBreakoutTime = 0f; // Reset elapsed time for new objects
 
+                // Calculate junk spawn count
+                junkSpawnCount = CalculateJunkSpawnCount(baggedMass);
+
+                // Calculate and store slam damage coefficient based on this object's mass
+                float slamMaxCapacity = RoR2.DrifterBagController.maxMass;
+                float massFraction = baggedMass / slamMaxCapacity;
+                slamDamageCoefficient = 2.8f + (5.0f * massFraction);
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[BaggedObjectStateData] Calculated state for {targetObject.name}: " +
                             $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
-                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
+                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}, " +
+                            $"slamDamageCoef={slamDamageCoefficient:F2}");
                 }
             }
             catch (Exception ex)
@@ -327,15 +338,22 @@ namespace DrifterBossGrabMod.Core
         public void CaptureFromAdditionalTimer(Patches.AdditionalSeatBreakoutTimer timer)
         {
             if (timer == null) return;
-            
+
             this.breakoutTime = timer.breakoutTime;
             this.breakoutAttempts = timer.breakoutAttempts;
             this.elapsedBreakoutTime = timer.GetElapsedBreakoutTime();
-            
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[BaggedObjectStateData] Captured timer state from AdditionalSeat: age={elapsedBreakoutTime}, attempts={breakoutAttempts}");
             }
+        }
+
+        // Calculate junk spawn count based on mass
+        private static int CalculateJunkSpawnCount(float mass)
+        {
+            // Formula: 1 junk cube per 100 mass, minimum 1
+            return Mathf.Max(1, Mathf.CeilToInt(mass / 100f));
         }
     }
 }

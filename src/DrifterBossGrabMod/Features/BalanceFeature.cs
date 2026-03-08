@@ -19,6 +19,10 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_RecalculateStats_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_OnDestroy_Patch)).Patch();
 
+            // Launch Speed Cap Patches
+            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_ModifyProjectile_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.ProjectileManager_FireProjectile_Patch)).Patch();
+
             // State Calculation Patches
             harmony.CreateClassProcessor(typeof(StateCalculationPatches)).Patch();
             harmony.CreateClassProcessor(typeof(CmdDamageBaggedObject_AoE)).Patch();

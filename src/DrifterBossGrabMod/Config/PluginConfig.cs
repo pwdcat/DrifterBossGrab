@@ -55,6 +55,7 @@ namespace DrifterBossGrabMod
         All,
         SelectedSlot,
         AdjacentSlot,
+        WeightDisplay,
         DamagePreview,
         CapacityUI,
         BaggedObjectInfo
@@ -73,8 +74,11 @@ namespace DrifterBossGrabMod
     {
         Vanilla,       // All features disabled, vanilla behavior
         Intended,      // Boss grab only
+        Minimal,       // Basic grabbing (boss + NPC + environment) without extra features
         Default,       // All features in DrifterGrabFeature + bottomless bag and persistence
         Balance,       // Default + balance features
+        Hardcore,      // Boss grab with strict balance (limited capacity, no persistence)
+        Caveman,       // INF capacity, balance on, most broken settings, able to grab everything
         Custom         // User has modified settings
     }
 
@@ -123,7 +127,7 @@ namespace DrifterBossGrabMod
     }
     // Dummy enum for RiskOfOptions ChoiceOption
     public enum ComponentChooserDummy { SelectToToggle }
-    public enum ComponentChooserSortMode { ByFrequency, ByProximity }
+    public enum ComponentChooserSortMode { ByFrequency, ByProximity, ByRaycast }
 
     public class PluginConfig
     {
@@ -140,6 +144,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> RecoveryObjectBlacklist { get; private set; } = null!;
         public ConfigEntry<string> GrabbableComponentTypes { get; private set; } = null!;
         public ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; } = null!;
+        public ConfigEntry<float> SearchRadiusMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
         public ConfigEntry<ComponentChooserSortMode> ComponentChooserSortModeEntry { get; private set; } = null!;
         public ConfigEntry<ComponentChooserDummy> ComponentChooserDummyEntry { get; private set; } = null!;
@@ -151,6 +156,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
+        public ConfigEntry<bool> EnableSuccessiveGrabStockRefresh { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
         public ConfigEntry<bool> PlayAnimationOnCycle { get; private set; } = null!;
         public ConfigEntry<bool> EnableMouseWheelScrolling { get; private set; } = null!;
@@ -205,6 +211,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<WeightDisplayMode> WeightDisplayMode { get; private set; } = null!;
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         public ConfigEntry<bool> ShowTotalMassOnWeightIcon { get; private set; } = null!;
+        public ConfigEntry<bool> ShowOverencumberIcon { get; private set; } = null!;
         public ConfigEntry<bool> EnableDamagePreview { get; private set; } = null!;
         public ConfigEntry<Color> DamagePreviewColor { get; private set; } = null!;
         public ConfigEntry<bool> EnableMassCapacityUI { get; private set; } = null!;
@@ -227,6 +234,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<int> MaxSmacks { get; private set; } = null!;
         public ConfigEntry<string> BagScaleCap { get; private set; } = null!;
         public ConfigEntry<string> MassCap { get; private set; } = null!;
+        public ConfigEntry<string> MaxLaunchSpeed { get; private set; } = null!;
 
         // Balance - Mathematics & State Tracking
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
@@ -248,7 +256,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<CharacterFlagType> SelectedFlag { get; private set; } = null!;
         public ConfigEntry<string> SelectedFlagMultiplier { get; private set; } = null!;
         public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
-        // Mapping of setting tokens to HUD sub-tabs
+        // Mapping of setting tokens to HUD sub-tabs (for element-specific settings)
         public static readonly Dictionary<string, HudElementType[]> HudSettingToSubTab = new()
         {
             // Carousel settings (shared)
@@ -257,6 +265,7 @@ namespace DrifterBossGrabMod
                 HudElementType.All, 
                 HudElementType.SelectedSlot, 
                 HudElementType.AdjacentSlot, 
+                HudElementType.WeightDisplay,
                 HudElementType.DamagePreview, 
                 HudElementType.CapacityUI, 
                 HudElementType.BaggedObjectInfo 
@@ -288,10 +297,11 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDESLOTSHOWSLOTNUMBER.CHECKBOX"] = new[] { HudElementType.AdjacentSlot },
 
             // Weight icon and display settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALEWEIGHTCOLOR.CHECKBOX"] = new[] { HudElementType.SelectedSlot, HudElementType.AdjacentSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOWTOTALMASSONWEIGHTICON.CHECKBOX"] = new[] { HudElementType.SelectedSlot },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USENEWWEIGHTICON.CHECKBOX"] = new[] { HudElementType.WeightDisplay },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHTDISPLAYMODE.CHOICE"] = new[] { HudElementType.WeightDisplay },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALEWEIGHTCOLOR.CHECKBOX"] = new[] { HudElementType.WeightDisplay },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOWTOTALMASSONWEIGHTICON.CHECKBOX"] = new[] { HudElementType.WeightDisplay },
+            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOWOLDWEIGHTICONOVERNEW.CHECKBOX"] = new[] { HudElementType.WeightDisplay },
 
             // Capacity UI settings
             ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLEMASSCAPACITYUI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
@@ -344,8 +354,10 @@ namespace DrifterBossGrabMod
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGSCALECAP.STRING_INPUT_FIELD"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASSCAP.STRING_INPUT_FIELD"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOEDAMAGEDISTRIBUTION.CHOICE"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SEARCHRADIUSMULTIPLIER.STEP_SLIDER"] = BalanceSubTabType.Other,
             ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUTTIMEMULTIPLIER.STEP_SLIDER"] = BalanceSubTabType.Other,
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXSMACKS.INT_SLIDER"] = BalanceSubTabType.Other
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXSMACKS.INT_SLIDER"] = BalanceSubTabType.Other,
+            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAXLAUNCHSPEED.STRING_INPUT_FIELD"] = BalanceSubTabType.Other
         };
 
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
@@ -420,11 +432,13 @@ namespace DrifterBossGrabMod
         {
             Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out.\nFormula: FinalBreakoutTime = BaseBreakoutTime × BreakoutTimeMultiplier");
             Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out.\nBagged enemies will break out after receiving this many hits.", new AcceptableValueRange<int>(1, 100)));
+            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for broken-out enemies.\nUse 'INF' or 'INFINITY' for no cap.\nUseful when uncapping mass to prevent enemies from launching across the map.");
             Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies.\nWhen disabled, boss enemies cannot be repossessed.");
             Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag.\nWhen enabled, allows grabbing NPCs that are normally marked as ungrabbable.");
             Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines.\nWhen enabled, allows repossessing interactable world objects.");
             Instance.EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Enable grabbing of locked objects.\nWhen enabled, allows grabbing objects that are currently locked (e.g., locked chests).");
             Instance.ProjectileGrabbingMode = cfg.Bind("General", "ProjectileGrabbingMode", DrifterBossGrabMod.ProjectileGrabbingMode.None, "Mode for projectile grabbing:\n- None: Cannot grab projectiles\n- SurvivorOnly: Can only grab survivor projectiles\n- AllProjectiles: Can grab all projectiles");
+            Instance.SearchRadiusMultiplier = cfg.Bind("Balance", "SearchRadiusMultiplier", 1.0f, "Multiplier for the grab reach distance.\nIncrease this to more easily grab large objects like rocks and teleporters.");
             Instance.EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging.\nWhen enabled, logs detailed information about grabbing mechanics for debugging.");
             Instance.BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,ThrownObjectProjectile,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,MultiShopEquipmentTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike,LunarNeedleProjectile,StickyBomb,RocketProjectile,StunAndPierceBoomerang",
                 "Comma-separated list of body and projectile names to never grab.\n" +
@@ -436,7 +450,7 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
-            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction",
+            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
                 "Comma-separated list of component type names that make objects grabbable.\n" +
                 "Objects must have at least one of these components to be grabbable.\n" +
                 "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
@@ -449,12 +463,15 @@ namespace DrifterBossGrabMod
             Instance.ComponentChooserSortModeEntry = cfg.Bind("General", "ComponentChooserSortMode", ComponentChooserSortMode.ByFrequency,
                 "How to sort the components when clicking the Component Chooser.\n" +
                 "ByFrequency: Sorts by how many times the component appears in the scene.\n" +
-                "ByProximity: Sorts by how close the component's GameObject is to the player's camera.");
+                "ByProximity: Sorts by how close the component's GameObject is to the player's camera.\n" +
+                "ByRaycast: Sorts by components hit directly by looking at them (raycast).");
             Instance.ComponentChooserDummyEntry = cfg.Bind("General", "ComponentChooserDummy", ComponentChooserDummy.SelectToToggle,
                 "Dummy setting for the Component Chooser UI.");
             Instance.EnableConfigSync = cfg.Bind("General", "EnableConfigSync", true,
-                "Enable synchronization of configuration settings from host to new clients.\n" +
-                "When enabled, clients joining a game will receive the host's configuration settings.");
+                "Enable synchronization of configuration settings.\n" +
+                "Host: When enabled, sends config to clients when they join.\n" +
+                "Client: When enabled, receives and applies config from the host.\n" +
+                "When disabled, keeps your local configuration settings.");
             Instance.EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence",
                 false,
                 "Enable persistence of grabbed objects across stage transitions.\n" +
@@ -492,6 +509,9 @@ namespace DrifterBossGrabMod
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items.\n" +
                 "Formula: RefreshedStocks = MaxStocks - BaggedItemCount\n" +
                 "Prevents refreshing more stocks than available slots.");
+            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "When enabled, utility stock only refreshes after a successful grab if stock is 0.\n" +
+                "This allows successive grabs to refresh your stock.\n" +
+                "When disabled, stock refreshes normally based on recharge timer.");
             Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles (seconds).\n" +
                 "Minimum time between scroll wheel cycles to prevent rapid switching.");
             Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "When enabled, plays the bag grab animation when cycling to a new passenger.\n" +
@@ -535,12 +555,16 @@ namespace DrifterBossGrabMod
             Instance.SelectedHudElement = cfg.Bind("Hud", "SelectedHudElement", HudElementType.All,
                 "Select which HUD element group to configure (UI only).\n" +
                 "- SelectedSlot: Center slot settings\n" +
-                "- AdjacentSlot: Side slot settings");
+                "- AdjacentSlot: Side slot settings\n" +
+                "- WeightDisplay: Weight icon and display settings\n" +
+                "- DamagePreview: Damage preview overlay settings\n" +
+                "- CapacityUI: Mass capacity bar and gradient settings\n" +
+                "- BaggedObjectInfo: Bagged object info panel settings");
             Instance.SelectedHudElement.Value = HudElementType.All;
 
-            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", true, "Enable the Bagged Object Info stats panel on the Info Screen (Tab).");
+            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel on the Info Screen (Tab).");
             Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for the Bagged Object Info panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", -200.0f, "Y position offset for the Bagged Object Info panel.");
+            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 0.0f, "Y position offset for the Bagged Object Info panel.");
             Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale value for the Bagged Object Info panel.");
             Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Main text color for the Bagged Object Info panel.");
             Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show a damage preview overlay on bagged object health bars.\n" +
@@ -559,7 +583,10 @@ namespace DrifterBossGrabMod
             Instance.ShowTotalMassOnWeightIcon = cfg.Bind("Hud", "ShowTotalMassOnWeightIcon", false, "Show total bag mass on the center slot weight icon.\n" +
                 "When enabled, the center slot displays total bag mass instead of the selected object's mass.\n" +
                 "The icon color uses the overencumbrance gradient based on capacity percentage.");
-            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", true, "Automatically promote the next object in the bag to the main seat when the current main object is removed.\n" +
+            Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show the overencumbrance icon over the new weight icon when overencumbered.\n" +
+                "Replaces the weight text with a scaled down version of the custom arrow icon.\n" +
+                "Only applies when ShowTotalMassOnWeightIcon is enabled.");
+            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Automatically promote the next object in the bag to the main seat when the current main object is removed.\n" +
                 "When enabled, cycling through the bag automatically updates the main seat.");
             Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "When enabled, newly grabbed objects are placed in the main seat first instead of additional seats.\n" +
                 "When disabled (default), new objects go directly to additional seats.");
@@ -584,7 +611,7 @@ namespace DrifterBossGrabMod
             Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.0f, 0.0f, 1.0f), "End color (high mass) for standard capacity gradient.");
 
             Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color (low encumbrance) for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 1.0f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
 
             // Balance configuration bindings
@@ -690,9 +717,9 @@ namespace DrifterBossGrabMod
             );
 
             // Risk of Options UI controls (not saved to config file, used for UI only)
-            Instance.SelectedFlag = cfg.Bind("Balance", "SelectedFlag", CharacterFlagType.Elite,
+            Instance.SelectedFlag = cfg.Bind("Balance", "SelectedFlag", CharacterFlagType.All,
                 "Select which flag to modify (UI only)");
-            Instance.SelectedFlag.Value = CharacterFlagType.Elite; // Set default
+            Instance.SelectedFlag.Value = CharacterFlagType.All; // Set default
             Instance.SelectedFlagMultiplier = cfg.Bind("Balance", "FlagMultiplier", "1",
                 "Mass Multiplier for selected flag (UI only).\n" +
                                 "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
@@ -700,8 +727,6 @@ namespace DrifterBossGrabMod
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
             Instance.SelectedFlagMultiplier.Value = "1"; // Initialize with default
-
-
 
             // Balance sub-tab selection
             Instance.SelectedBalanceSubTab = cfg.Bind("Balance", "SelectedBalanceSubTab", BalanceSubTabType.All,
@@ -766,6 +791,7 @@ namespace DrifterBossGrabMod
             Instance.WeightDisplayMode.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.ScaleWeightColor.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.ShowTotalMassOnWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.ShowOverencumberIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.DamagePreviewColor.SettingChanged += (sender, args) => UpdateDamagePreviewColors();
             Instance.EnableMassCapacityUI.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
             Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
@@ -1140,6 +1166,15 @@ namespace DrifterBossGrabMod
         }
         public static void ClearGrabbableKeywordBlacklistCache()
         {
+            Instance._grabbableKeywordBlacklistCache.Invalidate();
+        }
+        public static void InvalidateAllCaches()
+        {
+            Instance._blacklistCache.Invalidate();
+            Instance._blacklistCacheWithClones.Invalidate();
+            Instance._recoveryBlacklistCache.Invalidate();
+            Instance._recoveryBlacklistCacheWithClones.Invalidate();
+            Instance._grabbableComponentTypesCache.Invalidate();
             Instance._grabbableKeywordBlacklistCache.Invalidate();
         }
 

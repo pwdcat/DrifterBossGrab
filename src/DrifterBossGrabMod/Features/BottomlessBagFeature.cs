@@ -35,10 +35,11 @@ namespace DrifterBossGrabMod
             // Bag transition/cleanup patches
             harmony.CreateClassProcessor(typeof(Patches.VehicleSeat_AssignPassenger_Postfix)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GlobalEventManager_OnCharacterDeath)).Patch();
-
-            harmony.CreateClassProcessor(typeof(Patches.SkillPatches.GenericSkill_RestockSteplike)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.SkillPatches.GenericSkill_Reset)).Patch();
+            
             harmony.CreateClassProcessor(typeof(Patches.SkillPatches.GenericSkill_RunRecharge)).Patch();
+
+            // Successive grab stock refresh patch
+            harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnExit_Patch)).Patch();
 
             Log.Info($"[{FeatureName}] Patches applied successfully.");
         }

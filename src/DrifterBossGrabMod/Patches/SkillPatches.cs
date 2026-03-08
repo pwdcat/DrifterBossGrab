@@ -8,83 +8,7 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class SkillPatches
     {
-        [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.RestockSteplike))]
-        public class GenericSkill_RestockSteplike
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(GenericSkill __instance)
-            {
-                if (!PluginConfig.Instance.BottomlessBagEnabled.Value || !PluginConfig.Instance.EnableStockRefreshClamping.Value)
-                {
-                    return true;
-                }
-
-                // Check if this is Drifter's utility skill
-                if (__instance.characterBody && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody") && __instance.characterBody.skillLocator && __instance.characterBody.skillLocator.utility == __instance)
-                {
-                    // Get the bag controller
-                    var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
-                    if (bagController != null)
-                    {
-                        int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                        int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
-                        if (__instance.stock >= clampedMax)
-                        {
-                            // Skip the restock - stock is already at or above clamped max
-
-                            return false;
-                        }
-                    }
-                }
-                return true;
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(GenericSkill __instance)
-            {
-                ClampDrifterUtilityStock(__instance);
-            }
-        }
-
-        [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.Reset))]
-        public class GenericSkill_Reset
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(GenericSkill __instance)
-            {
-                if (!PluginConfig.Instance.BottomlessBagEnabled.Value || !PluginConfig.Instance.EnableStockRefreshClamping.Value)
-                {
-                    return true;
-                }
-
-                // Check if this is Drifter's utility skill
-                if (__instance.characterBody && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody") && __instance.characterBody.skillLocator && __instance.characterBody.skillLocator.utility == __instance)
-                {
-                    // Get the bag controller
-                    var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
-                    if (bagController != null)
-                    {
-                        int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                        int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
-                        if (__instance.stock >= clampedMax)
-                        {
-                            // Skip the reset - stock is already at or above clamped max
-
-                            return false;
-                        }
-                    }
-                }
-                return true;
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(GenericSkill __instance)
-            {
-                ClampDrifterUtilityStock(__instance);
-            }
-        }
-
-        [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.RunRecharge))]
+        [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.RunRecharge), new Type[] { typeof(float) })]
         public class GenericSkill_RunRecharge
         {
             [HarmonyPrefix]
@@ -95,53 +19,24 @@ namespace DrifterBossGrabMod.Patches
                     return true;
                 }
 
-                // Check if this is Drifter's utility skill
                 if (__instance.characterBody && __instance.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody") && __instance.characterBody.skillLocator && __instance.characterBody.skillLocator.utility == __instance)
                 {
-                    // Get the bag controller
                     var bagController = __instance.characterBody.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
                         int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                         int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
+                        
+                        // If stock is GEQ clamped max, prevent RunRecharge from incrementing the stopwatch
+                        // and prevent it from ever reaching RestockSteplike
                         if (__instance.stock >= clampedMax)
                         {
-                            __instance.rechargeStopwatch = 0f; // Reset timer when at max
-                            return false; // Skip recharging
+                            __instance.rechargeStopwatch = 0f;
+                            return false; // Skip the original RunRecharge
                         }
                     }
                 }
                 return true;
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(GenericSkill __instance)
-            {
-                ClampDrifterUtilityStock(__instance);
-            }
-        }
-
-        private static void ClampDrifterUtilityStock(GenericSkill skill)
-        {
-            if (!PluginConfig.Instance.BottomlessBagEnabled.Value || !PluginConfig.Instance.EnableStockRefreshClamping.Value)
-            {
-                return;
-            }
-
-            // Check if this is Drifter's utility skill
-            if (skill.characterBody && skill.characterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody") && skill.characterBody.skillLocator && skill.characterBody.skillLocator.utility == skill)
-            {
-                // Get the bag controller
-                var bagController = skill.characterBody.GetComponent<DrifterBagController>();
-                if (bagController != null)
-                {
-                    int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                    int maxAllowedStock = skill.maxStock - baggedCount;
-                    if (skill.stock > maxAllowedStock)
-                    {
-                        skill.stock = Mathf.Max(1, maxAllowedStock);
-                    }
-                }
             }
         }
     }

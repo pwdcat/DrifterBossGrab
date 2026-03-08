@@ -42,6 +42,8 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.RepossessBullseyeSearch_HurtBoxPassesRequirements)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.SpecialObjectAttributes_AvoidCapture)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.Repossess_OnExit_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.AimRepossess_OnEnter_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.Repossess_OnEnter_Patch)).Patch();
 
             // CharacterMaster_OnBodyStart handles both AutoGrab (core) and UI (bottomless bag)
             harmony.CreateClassProcessor(typeof(Patches.CharacterSpawnPatches.CharacterMaster_OnBodyStart)).Patch();

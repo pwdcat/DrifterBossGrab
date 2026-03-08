@@ -64,14 +64,36 @@ namespace DrifterBossGrabMod.Networking
 
                 Log.Debug($"[BottomlessBagNetworkController] Server sending UpdateBagStateMessage. index={index}, objects={baggedIds.Count}");
 
-                 var msg = new UpdateBagStateMessage
+                // Build collider disabled array
+                List<bool> collidersDisabled = new List<bool>();
+                var controller = GetComponent<DrifterBagController>();
+                if (controller != null)
                 {
-                    controllerNetId = GetComponent<NetworkIdentity>().netId,
-                    selectedIndex = index,
-                    baggedIds = baggedIds.ToArray(),
-                    seatIds = seatIds.ToArray(),
-                    scrollDirection = direction
-                };
+                    var bagState = Patches.BagPatches.GetState(controller);
+                    if (bagState != null && bagState.DisabledCollidersByObject != null)
+                    {
+                        foreach (var id in baggedIds)
+                        {
+                            var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
+                            bool disabled = false;
+                            if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                            {
+                                disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                            }
+                            collidersDisabled.Add(disabled);
+                        }
+                    }
+                }
+
+                 var msg = new UpdateBagStateMessage
+                 {
+                     controllerNetId = GetComponent<NetworkIdentity>().netId,
+                     selectedIndex = index,
+                     baggedIds = baggedIds.ToArray(),
+                     seatIds = seatIds.ToArray(),
+                     scrollDirection = direction,
+                     collidersDisabled = collidersDisabled.ToArray()
+                 };
 
                 NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
 
@@ -152,13 +174,34 @@ namespace DrifterBossGrabMod.Networking
                 TryFixNullTargetState(controller, new List<uint>(baggedIds));
             }
 
+            // Build collider disabled array
+            List<bool> collidersDisabled = new List<bool>();
+            if (controller != null)
+            {
+                var bagState = Patches.BagPatches.GetState(controller);
+                if (bagState != null && bagState.DisabledCollidersByObject != null)
+                {
+                    foreach (var id in baggedIds)
+                    {
+                        var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
+                        bool disabled = false;
+                        if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                        {
+                            disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                        }
+                        collidersDisabled.Add(disabled);
+                    }
+                }
+            }
+
             var msg = new UpdateBagStateMessage
             {
                 controllerNetId = GetComponent<NetworkIdentity>().netId,
                 selectedIndex = index,
                 baggedIds = baggedIds,
                 seatIds = seatIds,
-                scrollDirection = 0
+                scrollDirection = 0,
+                collidersDisabled = collidersDisabled.ToArray()
             };
                 NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
         }
@@ -260,13 +303,34 @@ namespace DrifterBossGrabMod.Networking
                 }
             }
 
+            // Build collider disabled array
+            List<bool> collidersDisabled = new List<bool>();
+            if (controller != null)
+            {
+                var bagState = Patches.BagPatches.GetState(controller);
+                if (bagState != null && bagState.DisabledCollidersByObject != null)
+                {
+                    foreach (var id in baggedIds)
+                    {
+                        var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
+                        bool disabled = false;
+                        if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                        {
+                            disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                        }
+                        collidersDisabled.Add(disabled);
+                    }
+                }
+            }
+
             var msg = new UpdateBagStateMessage
             {
                 controllerNetId = GetComponent<NetworkIdentity>().netId,
                 selectedIndex = correctedIndex,
                 baggedIds = baggedIds,
                 seatIds = actualSeatIds,
-                scrollDirection = 0
+                scrollDirection = 0,
+                collidersDisabled = collidersDisabled.ToArray()
             };
                 NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
 
@@ -442,31 +506,31 @@ namespace DrifterBossGrabMod.Networking
                 var allChildSeats = controller!.GetComponentsInChildren<VehicleSeat>(true);
                 foreach (var childSeat in allChildSeats)
                 {
-                     if (childSeat == controller.vehicleSeat) continue;
+                    if (childSeat == controller.vehicleSeat) continue;
 
-                      bool isSynced = false;
-                      if (seats != null)
-                      {
-                          foreach (var syncedSeat in seats)
-                          {
-                              if (syncedSeat == childSeat)
-                              {
-                                  isSynced = true;
-                                  break;
-                              }
-                          }
-                      }
-                      if (isSynced) continue;
-                       var ni = childSeat.GetComponent<NetworkIdentity>();
-                       bool isLocalSeat = ni == null || ni.netId.Value == 0;
+                    bool isSynced = false;
+                    if (seats != null)
+                    {
+                        foreach (var syncedSeat in seats)
+                        {
+                            if (syncedSeat == childSeat)
+                            {
+                                isSynced = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isSynced) continue;
+                    var ni = childSeat.GetComponent<NetworkIdentity>();
+                    bool isLocalSeat = ni == null || ni.netId.Value == 0;
 
-                     if (isLocalSeat)
-                     {
-                         if (!childSeat.hasPassenger)
-                         {
-                             UnityEngine.Object.Destroy(childSeat.gameObject);
-                         }
-                     }
+                    if (isLocalSeat)
+                    {
+                        if (!childSeat.hasPassenger)
+                        {
+                            UnityEngine.Object.Destroy(childSeat.gameObject);
+                        }
+                    }
                 }
             }
 

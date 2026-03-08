@@ -251,6 +251,13 @@ namespace DrifterBossGrabMod.Config
                 "EnableEnvironmentGrabbing" => instance.EnableEnvironmentGrabbing,
                 "EnableLockedObjectGrabbing" => instance.EnableLockedObjectGrabbing,
                 "ProjectileGrabbingMode" => instance.ProjectileGrabbingMode,
+                "SearchRadiusMultiplier" => instance.SearchRadiusMultiplier,
+                "BodyBlacklist" => instance.BodyBlacklist,
+                "RecoveryObjectBlacklist" => instance.RecoveryObjectBlacklist,
+                "GrabbableComponentTypes" => instance.GrabbableComponentTypes,
+                "GrabbableKeywordBlacklist" => instance.GrabbableKeywordBlacklist,
+                "ComponentChooserSortMode" => instance.ComponentChooserSortModeEntry,
+                "ComponentChooserDummy" => instance.ComponentChooserDummyEntry,
                 "EnableDebugLogs" => instance.EnableDebugLogs,
                 "EnableConfigSync" => instance.EnableConfigSync,
                 _ => null
@@ -268,6 +275,7 @@ namespace DrifterBossGrabMod.Config
                 "PersistBaggedBosses" => instance.PersistBaggedBosses,
                 "PersistBaggedNPCs" => instance.PersistBaggedNPCs,
                 "PersistBaggedEnvironmentObjects" => instance.PersistBaggedEnvironmentObjects,
+                "PersistenceBlacklist" => instance.PersistenceBlacklist,
                 "AutoGrabDelay" => instance.AutoGrabDelay,
                 _ => null
             };
@@ -281,7 +289,9 @@ namespace DrifterBossGrabMod.Config
                 "EnableBottomlessBag" => instance.BottomlessBagEnabled,
                 "AddedCapacity" => instance.AddedCapacity,
                 "EnableStockRefreshClamping" => instance.EnableStockRefreshClamping,
+                "EnableSuccessiveGrabStockRefresh" => instance.EnableSuccessiveGrabStockRefresh,
                 "CycleCooldown" => instance.CycleCooldown,
+                "PlayAnimationOnCycle" => instance.PlayAnimationOnCycle,
                 "EnableMouseWheelScrolling" => instance.EnableMouseWheelScrolling,
                 "InverseMouseWheelScrolling" => instance.InverseMouseWheelScrolling,
                 "AutoPromoteMainSeat" => instance.AutoPromoteMainSeat,
@@ -298,6 +308,7 @@ namespace DrifterBossGrabMod.Config
                 "EnableCarouselHUD" => instance.EnableCarouselHUD,
                 "CarouselSpacing" => instance.CarouselSpacing,
                 "CarouselAnimationDuration" => instance.CarouselAnimationDuration,
+                "SelectedHudElement" => instance.SelectedHudElement,
                 "CenterSlotX" => instance.CenterSlotX,
                 "CenterSlotY" => instance.CenterSlotY,
                 "CenterSlotScale" => instance.CenterSlotScale,
@@ -322,6 +333,7 @@ namespace DrifterBossGrabMod.Config
                 "WeightDisplayMode" => instance.WeightDisplayMode,
                 "ScaleWeightColor" => instance.ScaleWeightColor,
                 "ShowTotalMassOnWeightIcon" => instance.ShowTotalMassOnWeightIcon,
+                "ShowOverencumberIcon" => instance.ShowOverencumberIcon,
                 "EnableMassCapacityUI" => instance.EnableMassCapacityUI,
                 "MassCapacityUIPositionX" => instance.MassCapacityUIPositionX,
                 "MassCapacityUIPositionY" => instance.MassCapacityUIPositionY,
@@ -334,6 +346,11 @@ namespace DrifterBossGrabMod.Config
                 "OverencumbranceGradientColorStart" => instance.OverencumbranceGradientColorStart,
                 "OverencumbranceGradientColorMid" => instance.OverencumbranceGradientColorMid,
                 "OverencumbranceGradientColorEnd" => instance.OverencumbranceGradientColorEnd,
+                "EnableBaggedObjectInfo" => instance.EnableBaggedObjectInfo,
+                "BaggedObjectInfoX" => instance.BaggedObjectInfoX,
+                "BaggedObjectInfoY" => instance.BaggedObjectInfoY,
+                "BaggedObjectInfoScale" => instance.BaggedObjectInfoScale,
+                "BaggedObjectInfoColor" => instance.BaggedObjectInfoColor,
                 _ => null
             };
         }
@@ -345,7 +362,7 @@ namespace DrifterBossGrabMod.Config
             {
                 "EnableBalance" => instance.EnableBalance,
                 "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
-                 "MaxSmacks" => instance.MaxSmacks,
+                "MaxSmacks" => instance.MaxSmacks,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
                 "SlotScalingFormula" => instance.SlotScalingFormula,
                 "MassCapacityFormula" => instance.MassCapacityFormula,
@@ -357,12 +374,16 @@ namespace DrifterBossGrabMod.Config
                 "DroneFlagMultiplier" => instance.DroneFlagMultiplier,
                 "MechanicalFlagMultiplier" => instance.MechanicalFlagMultiplier,
                 "VoidFlagMultiplier" => instance.VoidFlagMultiplier,
+                "AllFlagMultiplier" => instance.AllFlagMultiplier,
+                "SelectedFlag" => instance.SelectedFlag,
+                "SelectedFlagMultiplier" => instance.SelectedFlagMultiplier,
+                "SelectedBalanceSubTab" => instance.SelectedBalanceSubTab,
                 "OverencumbranceMax" => instance.OverencumbranceMax,
                 "StateCalculationMode" => instance.StateCalculationMode,
-
                 "MovespeedPenaltyFormula" => instance.MovespeedPenaltyFormula,
                 "BagScaleCap" => instance.BagScaleCap,
                 "MassCap" => instance.MassCap,
+                "MaxLaunchSpeed" => instance.MaxLaunchSpeed,
                 _ => null
             };
         }

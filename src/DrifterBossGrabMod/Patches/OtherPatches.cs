@@ -473,6 +473,29 @@ namespace DrifterBossGrabMod.Patches
                         rb.detectCollisions = true;
                     }
 
+                    // Restore any disabled colliders for ungrabbable enemies
+                    if (passenger != null)
+                    {
+                        var projController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
+                        if (projController != null && projController.owner != null)
+                        {
+                            var bagController = projController.owner.GetComponent<DrifterBagController>();
+                            if (bagController != null)
+                            {
+                                var bagState = Patches.BagPatches.GetState(bagController);
+                                if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(passenger, out var disabledStates))
+                                {
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    {
+                                        Log.Info($" [ImpactBehavior] Restoring {disabledStates.Count} disabled colliders for {passenger.name}");
+                                    }
+                                    StateManagement.RestoreMovementColliders(disabledStates);
+                                    bagState.DisabledCollidersByObject.TryRemove(passenger, out _);
+                                }
+                            }
+                        }
+                    }
+
                     var specialAttrs = passenger?.GetComponent<SpecialObjectAttributes>();
                     if (specialAttrs != null)
                     {

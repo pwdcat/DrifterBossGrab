@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using RoR2;
+using RoR2.Projectile;
 using UnityEngine;
 
 namespace DrifterBossGrabMod.Patches
@@ -32,15 +33,20 @@ namespace DrifterBossGrabMod.Patches
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
                 var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
-                if (drifterBagController != null && drifterBagController.hasAuthority)
+                if (drifterBagController != null)
                 {
-                    // Update UI if slot scaling formula is active (not "0" or empty)
-                    string slotFormula = PluginConfig.Instance.SlotScalingFormula.Value?.Trim() ?? "";
-                    if (!string.IsNullOrEmpty(slotFormula) && slotFormula != "0")
+                    // Update UI only if we have authority (local player)
+                    if (drifterBagController.hasAuthority)
                     {
-                        UIPatches.UpdateMassCapacityUIOnCapacityChange(drifterBagController);
+                        string slotFormula = PluginConfig.Instance.SlotScalingFormula.Value?.Trim() ?? "";
+                        if (!string.IsNullOrEmpty(slotFormula) && slotFormula != "0")
+                        {
+                            UIPatches.UpdateMassCapacityUIOnCapacityChange(drifterBagController);
+                        }
                     }
 
+                    // Apply overencumbrance to all players (host and clients)
+                    // Each player's debuff is based on their own bag's state
                     if (PluginConfig.Instance.OverencumbranceMax.Value > 0)
                     {
                         Balance.OverencumbranceSystem.ApplyOverencumbrance(__instance, drifterBagController);
@@ -56,6 +62,38 @@ namespace DrifterBossGrabMod.Patches
             public static void Prefix(CharacterBody __instance)
             {
                 Balance.OverencumbranceSystem.CleanupCharacterBody(__instance);
+            }
+        }
+
+        // Patch to cap throw speed from EmptyBag state
+        [HarmonyPatch(typeof(EntityStates.Drifter.EmptyBag), "ModifyProjectile")]
+        public class EmptyBag_ModifyProjectile_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(EntityStates.Drifter.EmptyBag __instance, ref FireProjectileInfo fireProjectileInfo)
+            {
+                // Apply max launch speed cap if configured
+                string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
+                if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed))
+                {
+                    fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
+                }
+            }
+        }
+
+        // Patch to cap launch speed for all projectiles (covers both throw and breakout)
+        [HarmonyPatch(typeof(ProjectileManager), "FireProjectile", new Type[] { typeof(FireProjectileInfo) })]
+        public class ProjectileManager_FireProjectile_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(ref FireProjectileInfo fireProjectileInfo)
+            {
+                // Apply max launch speed cap if configured
+                string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
+                if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)
+                {
+                    fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
+                }
             }
         }
     }

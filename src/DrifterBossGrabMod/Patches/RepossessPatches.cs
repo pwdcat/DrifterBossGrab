@@ -295,6 +295,26 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        [HarmonyPatch(typeof(EntityStates.Drifter.AimRepossess), "OnEnter")]
+        public class AimRepossess_OnEnter_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(EntityStates.Drifter.AimRepossess __instance)
+            {
+                __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+            }
+        }
+
+        [HarmonyPatch(typeof(EntityStates.Drifter.Repossess), "OnEnter")]
+        public class Repossess_OnEnter_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(EntityStates.Drifter.Repossess __instance)
+            {
+                __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+            }
+        }
+
         public static bool HasPassengerOverride(VehicleSeat seat)
         {
             if (seat == null) return false;

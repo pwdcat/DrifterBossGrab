@@ -36,6 +36,16 @@ namespace DrifterBossGrabMod.Networking
         [NetworkMessageHandler(msgType = MSG_SYNC_CONFIG, client = true)]
         public static void OnClientReceiveConfig(NetworkMessage netMsg)
         {
+            // Check if client has config sync enabled
+            if (!PluginConfig.Instance.EnableConfigSync.Value)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info("[ConfigSyncHandler] Config sync disabled by client setting. Ignoring config from host.");
+                }
+                return;
+            }
+
             var msg = netMsg.ReadMessage<SyncConfigMessage>();
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -49,10 +59,19 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.EnableEnvironmentGrabbing.Value = msg.EnableEnvironmentGrabbing;
             PluginConfig.Instance.EnableLockedObjectGrabbing.Value = msg.EnableLockedObjectGrabbing;
             PluginConfig.Instance.ProjectileGrabbingMode.Value = msg.ProjectileGrabbingMode;
+            PluginConfig.Instance.SearchRadiusMultiplier.Value = msg.SearchRadiusMultiplier;
+            PluginConfig.Instance.ComponentChooserSortModeEntry.Value = msg.ComponentChooserSortMode;
 
-            // Bottomless Bag
-            PluginConfig.Instance.BottomlessBagEnabled.Value = msg.BottomlessBagEnabled;
-            PluginConfig.Instance.AddedCapacity.Value = msg.AddedCapacity;
+            // Skill Scalars
+            PluginConfig.Instance.BreakoutTimeMultiplier.Value = msg.BreakoutTimeMultiplier;
+            PluginConfig.Instance.MaxSmacks.Value = msg.MaxSmacks;
+            PluginConfig.Instance.MaxLaunchSpeed.Value = msg.MaxLaunchSpeed;
+
+            // Blacklists & Component Types
+            PluginConfig.Instance.BodyBlacklist.Value = msg.BodyBlacklist;
+            PluginConfig.Instance.RecoveryObjectBlacklist.Value = msg.RecoveryObjectBlacklist;
+            PluginConfig.Instance.GrabbableComponentTypes.Value = msg.GrabbableComponentTypes;
+            PluginConfig.Instance.GrabbableKeywordBlacklist.Value = msg.GrabbableKeywordBlacklist;
 
             // Persistence
             PluginConfig.Instance.EnableObjectPersistence.Value = msg.EnableObjectPersistence;
@@ -60,12 +79,45 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.PersistBaggedBosses.Value = msg.PersistBaggedBosses;
             PluginConfig.Instance.PersistBaggedNPCs.Value = msg.PersistBaggedNPCs;
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.Value = msg.PersistBaggedEnvironmentObjects;
+            PluginConfig.Instance.PersistenceBlacklist.Value = msg.PersistenceBlacklist;
             PluginConfig.Instance.AutoGrabDelay.Value = msg.AutoGrabDelay;
 
-            // Balance - All toggle fields
+            // Bottomless Bag
+            PluginConfig.Instance.BottomlessBagEnabled.Value = msg.BottomlessBagEnabled;
+            PluginConfig.Instance.AddedCapacity.Value = msg.AddedCapacity;
+            PluginConfig.Instance.EnableStockRefreshClamping.Value = msg.EnableStockRefreshClamping;
+            PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value = msg.EnableSuccessiveGrabStockRefresh;
+            PluginConfig.Instance.CycleCooldown.Value = msg.CycleCooldown;
+            PluginConfig.Instance.PlayAnimationOnCycle.Value = msg.PlayAnimationOnCycle;
+            PluginConfig.Instance.EnableMouseWheelScrolling.Value = msg.EnableMouseWheelScrolling;
+            PluginConfig.Instance.InverseMouseWheelScrolling.Value = msg.InverseMouseWheelScrolling;
+            PluginConfig.Instance.AutoPromoteMainSeat.Value = msg.AutoPromoteMainSeat;
+            PluginConfig.Instance.PrioritizeMainSeat.Value = msg.PrioritizeMainSeat;
+
+            // Balance
             PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
+            PluginConfig.Instance.AoEDamageDistribution.Value = msg.AoEDamageDistribution;
             PluginConfig.Instance.BagScaleCap.Value = msg.BagScaleCap;
             PluginConfig.Instance.MassCap.Value = msg.MassCap;
+            PluginConfig.Instance.StateCalculationMode.Value = msg.StateCalculationMode;
+            PluginConfig.Instance.OverencumbranceMax.Value = msg.OverencumbranceMax;
+            PluginConfig.Instance.SlotScalingFormula.Value = msg.SlotScalingFormula;
+            PluginConfig.Instance.MassCapacityFormula.Value = msg.MassCapacityFormula;
+            PluginConfig.Instance.MovespeedPenaltyFormula.Value = msg.MovespeedPenaltyFormula;
+
+            // Balance - Flag Multipliers
+            PluginConfig.Instance.EliteFlagMultiplier.Value = msg.EliteFlagMultiplier;
+            PluginConfig.Instance.BossFlagMultiplier.Value = msg.BossFlagMultiplier;
+            PluginConfig.Instance.ChampionFlagMultiplier.Value = msg.ChampionFlagMultiplier;
+            PluginConfig.Instance.PlayerFlagMultiplier.Value = msg.PlayerFlagMultiplier;
+            PluginConfig.Instance.MinionFlagMultiplier.Value = msg.MinionFlagMultiplier;
+            PluginConfig.Instance.DroneFlagMultiplier.Value = msg.DroneFlagMultiplier;
+            PluginConfig.Instance.MechanicalFlagMultiplier.Value = msg.MechanicalFlagMultiplier;
+            PluginConfig.Instance.VoidFlagMultiplier.Value = msg.VoidFlagMultiplier;
+            PluginConfig.Instance.AllFlagMultiplier.Value = msg.AllFlagMultiplier;
+
+            // Invalidate caches to ensure new blacklist/component type values are used
+            PluginConfig.InvalidateAllCaches();
 
             // Trigger re-scan of grabbable objects to apply new settings to the current scene
             // This is crucial because objects might have already spawned with the old config
@@ -98,10 +150,19 @@ namespace DrifterBossGrabMod.Networking
                 EnableEnvironmentGrabbing = PluginConfig.Instance.EnableEnvironmentGrabbing.Value,
                 EnableLockedObjectGrabbing = PluginConfig.Instance.EnableLockedObjectGrabbing.Value,
                 ProjectileGrabbingMode = PluginConfig.Instance.ProjectileGrabbingMode.Value,
+                SearchRadiusMultiplier = PluginConfig.Instance.SearchRadiusMultiplier.Value,
+                ComponentChooserSortMode = PluginConfig.Instance.ComponentChooserSortModeEntry.Value,
 
-                // Bottomless Bag
-                BottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value,
-                AddedCapacity = PluginConfig.Instance.AddedCapacity.Value,
+                // Skill Scalars
+                BreakoutTimeMultiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value,
+                MaxSmacks = PluginConfig.Instance.MaxSmacks.Value,
+                MaxLaunchSpeed = PluginConfig.Instance.MaxLaunchSpeed.Value,
+
+                // Blacklists & Component Types
+                BodyBlacklist = PluginConfig.Instance.BodyBlacklist.Value,
+                RecoveryObjectBlacklist = PluginConfig.Instance.RecoveryObjectBlacklist.Value,
+                GrabbableComponentTypes = PluginConfig.Instance.GrabbableComponentTypes.Value,
+                GrabbableKeywordBlacklist = PluginConfig.Instance.GrabbableKeywordBlacklist.Value,
 
                 // Persistence
                 EnableObjectPersistence = PluginConfig.Instance.EnableObjectPersistence.Value,
@@ -109,12 +170,42 @@ namespace DrifterBossGrabMod.Networking
                 PersistBaggedBosses = PluginConfig.Instance.PersistBaggedBosses.Value,
                 PersistBaggedNPCs = PluginConfig.Instance.PersistBaggedNPCs.Value,
                 PersistBaggedEnvironmentObjects = PluginConfig.Instance.PersistBaggedEnvironmentObjects.Value,
+                PersistenceBlacklist = PluginConfig.Instance.PersistenceBlacklist.Value,
                 AutoGrabDelay = PluginConfig.Instance.AutoGrabDelay.Value,
+
+                // Bottomless Bag
+                BottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value,
+                AddedCapacity = PluginConfig.Instance.AddedCapacity.Value,
+                EnableStockRefreshClamping = PluginConfig.Instance.EnableStockRefreshClamping.Value,
+                EnableSuccessiveGrabStockRefresh = PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value,
+                CycleCooldown = PluginConfig.Instance.CycleCooldown.Value,
+                PlayAnimationOnCycle = PluginConfig.Instance.PlayAnimationOnCycle.Value,
+                EnableMouseWheelScrolling = PluginConfig.Instance.EnableMouseWheelScrolling.Value,
+                InverseMouseWheelScrolling = PluginConfig.Instance.InverseMouseWheelScrolling.Value,
+                AutoPromoteMainSeat = PluginConfig.Instance.AutoPromoteMainSeat.Value,
+                PrioritizeMainSeat = PluginConfig.Instance.PrioritizeMainSeat.Value,
 
                 // Balance
                 EnableBalance = PluginConfig.Instance.EnableBalance.Value,
+                AoEDamageDistribution = PluginConfig.Instance.AoEDamageDistribution.Value,
                 BagScaleCap = PluginConfig.Instance.BagScaleCap.Value,
                 MassCap = PluginConfig.Instance.MassCap.Value,
+                StateCalculationMode = PluginConfig.Instance.StateCalculationMode.Value,
+                OverencumbranceMax = PluginConfig.Instance.OverencumbranceMax.Value,
+                SlotScalingFormula = PluginConfig.Instance.SlotScalingFormula.Value,
+                MassCapacityFormula = PluginConfig.Instance.MassCapacityFormula.Value,
+                MovespeedPenaltyFormula = PluginConfig.Instance.MovespeedPenaltyFormula.Value,
+
+                // Balance - Flag Multipliers
+                EliteFlagMultiplier = PluginConfig.Instance.EliteFlagMultiplier.Value,
+                BossFlagMultiplier = PluginConfig.Instance.BossFlagMultiplier.Value,
+                ChampionFlagMultiplier = PluginConfig.Instance.ChampionFlagMultiplier.Value,
+                PlayerFlagMultiplier = PluginConfig.Instance.PlayerFlagMultiplier.Value,
+                MinionFlagMultiplier = PluginConfig.Instance.MinionFlagMultiplier.Value,
+                DroneFlagMultiplier = PluginConfig.Instance.DroneFlagMultiplier.Value,
+                MechanicalFlagMultiplier = PluginConfig.Instance.MechanicalFlagMultiplier.Value,
+                VoidFlagMultiplier = PluginConfig.Instance.VoidFlagMultiplier.Value,
+                AllFlagMultiplier = PluginConfig.Instance.AllFlagMultiplier.Value,
             };
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)

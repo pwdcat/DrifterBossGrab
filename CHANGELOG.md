@@ -3,6 +3,33 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2]
+
+### Added
+- Bagged Object Info UI Values
+- Successive Grab Stock Refresh, from the clamp bug (kinda liked it)
+- Readded search range config
+- Raycast component chooser type
+- Overencumberance Icon
+
+### Fixed
+- Bag UI updates correctly when you don't have bottomless bag on
+- DamagePreview damage calculation
+- UI gradient when mass capacity is off
+- Seperators capped correctly to act like capacity 15
+- Clamp with repossess refresh again, cleaned it up and should be finialized
+- Additional Seat Breakout
+- Collider disabled state sync after bagging for clients
+- Updated ConfigSync
+    - Clients can choose to not sync configs
+    - Added more sync settings
+
+### Changed
+- Defaults and Presets
+    - Less Invasive
+    - Vanilla acts as a reset to default
+- Weight label icon format
+
 ## [1.7.1]
 
 ### Added
@@ -15,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FlagMultipliers for Tags
 - Health and Level Scaling
 - Toggle for animation playing when cycling
-- Bag Info UI (still needs some tweaking)
+- Bag Info UI
 - Formula Parsers, make your own formulas (needs more testing)
 - Gradient color scaling for the Carousel UI when overencumbered past maximum capacity
 - Component Toggler (WIP feature)
@@ -27,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Additionalseat enemies breakout
 - X when grabbing object if the previous was destroyed
 - Animation for mass capacity when mass ratio is 1 >=
-- Logic for handling bagged object escapes, uses safe-list instead of a blacklist of states, fixing ghost tracking objects
+- Logic for handling bagged object escapes, uses safe-list instead of a blacklist of states, fixing ghost tracking objects, does need testing for edge cases
 - Animation opacity for the carousel slots
 
 ### Changed
@@ -45,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No Balance multiplayer support yet, well not fully (Just did no testing on it)
     - Harmless Error that shows up when you don't have Risk of Options installed
     - Keybinds for controller showing different binds on initial launch
+    - Bag Info UI has issues with updating on grab
 
 ## [1.7.0]
 

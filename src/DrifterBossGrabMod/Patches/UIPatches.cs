@@ -19,19 +19,29 @@ namespace DrifterBossGrabMod.Patches
                 Log.Info("[UIPatches] InitializeMassCapacityUI() called");
             }
 
-            if (!PluginConfig.Instance.EnableMassCapacityUI.Value)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[UIPatches] MassCapacityUI is disabled in config, skipping initialization");
-                }
-                return;
-            }
-
             // Find the local player's Drifter body
             var drifterBody = UnityEngine.Object.FindFirstObjectByType<CharacterBody>();
             if (drifterBody != null && drifterBody.bodyIndex == BodyCatalog.FindBodyIndex("DrifterBody"))
             {
+                // Always add BaggedObjectInfoUIController
+                if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
+                {
+                    drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info("[UIPatches] Added BaggedObjectInfoUIController to DrifterBody");
+                    }
+                }
+
+                if (!PluginConfig.Instance.EnableMassCapacityUI.Value)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info("[UIPatches] MassCapacityUI is disabled in config, skipping capacity bar initialization");
+                    }
+                    return;
+                }
+
                 // Add MassCapacityUIController directly to DrifterBody (like BaggedObjectUIController)
                 var existingController = drifterBody.GetComponent<MassCapacityUIController>();
                 if (existingController == null)
@@ -51,21 +61,12 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info("[UIPatches] MassCapacityUIController already exists on DrifterBody");
                     }
                 }
-
-                if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
-                {
-                    drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info("[UIPatches] Added BaggedObjectInfoUIController to DrifterBody");
-                    }
-                }
             }
             else
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info("[UIPatches] DrifterBody not found, skipping MassCapacityUI initialization");
+                    Log.Info("[UIPatches] DrifterBody not found, skipping UI initialization");
                 }
             }
         }

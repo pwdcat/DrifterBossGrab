@@ -149,6 +149,15 @@ namespace DrifterBossGrabMod.Patches
             // 3. Apply balance mode
             if (PluginConfig.Instance.EnableBalance.Value && targetObject != null)
             {
+                // Ensure individual state is calculated and saved properly.
+                // Doing this prevents 'All' mode aggregate from overwriting the pure state of the individual object.
+                var individualState = StateCalculator.CalculateState(bagController, targetObject, StateCalculationMode.Current);
+                if (individualState != null)
+                {
+                    BaggedObjectStateStorage.SaveObjectState(bagController, targetObject, individualState);
+                }
+
+                // THEN calculate the state intended for the physical BaggedObject (which could be the aggregate)
                 var calculatedState = StateCalculator.CalculateState(
                     bagController,
                     targetObject,
@@ -156,12 +165,6 @@ namespace DrifterBossGrabMod.Patches
 
                 if (calculatedState != null)
                 {
-                    // Save individual object state if in Current mode
-                    if (PluginConfig.Instance.StateCalculationMode.Value == StateCalculationMode.Current && targetObject != null)
-                    {
-                        BaggedObjectStateStorage.SaveObjectState(bagController, targetObject, calculatedState);
-                    }
-
                     // Apply to BaggedObject state if it exists
                     if (baggedObject != null)
                     {

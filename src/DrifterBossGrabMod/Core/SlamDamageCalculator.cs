@@ -10,8 +10,8 @@ namespace DrifterBossGrabMod.Core
 {
     // Calculates predicted slam damage for the damage preview overlay
     // Uses the SuffocateSlam damage formula:
-    //   effectiveCoef = baseDamageCoef + (massScaling * baggedMass / maxCapacity)
-    //   damage = drifterBody.damage * effectiveCoef
+    // effectiveCoef = baseDamageCoef + (massScaling * baggedMass / maxCapacity)
+    // damage = drifterBody.damage * effectiveCoef
     public static class SlamDamageCalculator
     {
         public const float DefaultBaseDamageCoef = 2.8f;
@@ -51,7 +51,9 @@ namespace DrifterBossGrabMod.Core
             if (targetBody == null)
             {
                 // Fallback for non-CharacterBody targets
-                return baseDamage;
+                // Still apply item damage modifiers (e.g., Delicate Watch) even without a CharacterBody target
+                float itemDamageMultiplier = GetItemDamageMultiplier(drifterBody);
+                return baseDamage * itemDamageMultiplier;
             }
 
             // Use dry run calculation to get accurate damage including item modifiers
@@ -118,6 +120,12 @@ namespace DrifterBossGrabMod.Core
                         // So if we find the state, the coefficient is ALREADY scaled.
                         baseDamageCoef = slamState.damageCoefficient;
                         foundState = true;
+
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[SlamDamageCalculator] Found SuffocateSlam state, using its damageCoefficient: {baseDamageCoef:F2}");
+                        }
+
                         break;
                     }
                 }
@@ -126,12 +134,52 @@ namespace DrifterBossGrabMod.Core
             // Only apply mass scaling if we didn't read the already-scaled value from the state
             if (!foundState)
             {
-                float maxCapacity = bagController ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+                float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
                 float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
-                return baseDamageCoef + (massScaling * massFraction);
+                float calculatedCoef = baseDamageCoef + (massScaling * massFraction);
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[SlamDamageCalculator] No SuffocateSlam state found, calculating from mass:");
+                    Log.Info($"  Base Coef: {baseDamageCoef:F2}");
+                    Log.Info($"  Mass Scaling: {massScaling:F2}");
+                    Log.Info($"  Bagged Mass: {bagController?.baggedMass:F2}");
+                    Log.Info($"  Max Capacity: {maxCapacity:F2}");
+                    Log.Info($"  Mass Fraction: {massFraction:F2}");
+                    Log.Info($"  Calculated Coef: {calculatedCoef:F2}");
+                }
+
+                return calculatedCoef;
             }
 
             return baseDamageCoef;
+        }
+
+        // Gets the item damage multiplier from the attacker's inventory
+        // This is used for targets without a CharacterBody
+        private static float GetItemDamageMultiplier(CharacterBody attackerBody)
+        {
+            if (attackerBody == null || attackerBody.inventory == null)
+                return 1f;
+
+            float itemDamageMultiplier = 1f;
+
+            // Delicate Watch (FragileDamageBonus) - +20% per stack
+            int fragileStacks = attackerBody.inventory.GetItemCountEffective(DLC1Content.Items.FragileDamageBonus);
+            if (fragileStacks > 0)
+            {
+                itemDamageMultiplier *= 1f + fragileStacks * 0.2f;
+            }
+
+            // Nearby Damage Bonus - +20% per stack when within 13m
+            // Note: Can't check distance without a target, so we assume it applies
+            int nearbyDamageStacks = attackerBody.inventory.GetItemCountEffective(RoR2Content.Items.NearbyDamageBonus);
+            if (nearbyDamageStacks > 0)
+            {
+                itemDamageMultiplier *= 1f + nearbyDamageStacks * 0.2f;
+            }
+
+            return itemDamageMultiplier;
         }
 
         // Logs the detailed damage calculation for debugging.
@@ -160,7 +208,7 @@ namespace DrifterBossGrabMod.Core
 
             // Calculation logic matching GetEffectiveCoefficient
             float mass = bagController ? bagController.baggedMass : 0f;
-            float maxCapacity = bagController ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+            float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
             float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
             float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
 
@@ -184,22 +232,6 @@ namespace DrifterBossGrabMod.Core
                 float dryRunBaseDamage = damageStat * effectiveCoef;
                 dryRunResult = DryRunDamageCalculator.CalculateDamage(drifterBody, targetBody, dryRunBaseDamage);
             }
-
-            // Log.Info($"[SlamCalcs] Target: {target.name}");
-            // Log.Info($"  Components: Coef={baseDamageCoef} (StateFound={foundState}) MassScaling={massScaling} (Only applied if !StateFound)");
-            // Log.Info($"  Mass: {mass}/{maxCapacity} (Frac={massFraction:F2})");
-            // Log.Info($"  EffectiveCoef: {effectiveCoef:F2}");
-            // Log.Info($"  Damage: {damageStat} * {effectiveCoef:F2} = {baseDamage:F1}");
-            // Log.Info($"  Mitigation: Armor={armor} -> Factor={armorFactor:F2} -> Mitigated={mitigatedDamage:F1}");
-
-            // if (dryRunResult.activeModifiers != null && dryRunResult.activeModifiers.Count > 0)
-            // {
-            //     Log.Info($"  DryRun Modifiers: {string.Join(", ", dryRunResult.activeModifiers)}");
-            //     Log.Info($"  DryRun Result: Base={dryRunResult.baseDamage:F1} -> Modified={dryRunResult.modifiedDamage:F1} -> Mitigated={dryRunResult.mitigatedDamage:F1} -> Final={dryRunResult.finalDamage:F1}");
-            //     Log.Info($"  ItemMultiplier: {dryRunResult.itemDamageMultiplier:F2}");
-            //     Log.Info($"  Crit: {(dryRunResult.wouldCrit ? $"YES (x{dryRunResult.critMultiplier:F2})" : "NO")}");
-            // }
-            // Log.Info($"  FinalDamage (preview): {finalDamage:F1}");
 
             // Priority 0: JunkCubeController
             var junkController = target.GetComponent<JunkCubeController>();
