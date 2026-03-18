@@ -12,12 +12,12 @@ namespace DrifterBossGrabMod.Config.UI
         private string _customDescription;
         private string _customCategory;
 
-        public ComponentChooserOption(ConfigEntryBase configEntry, string name, string description) 
+        public ComponentChooserOption(ConfigEntryBase configEntry, string name, string description, string category = "General") 
             : base(configEntry)
         {
             _customName = name;
             _customDescription = description;
-            _customCategory = "General";
+            _customCategory = category;
         }
 
         public override BaseOptionConfig GetConfig()

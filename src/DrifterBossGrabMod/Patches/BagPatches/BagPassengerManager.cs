@@ -172,65 +172,44 @@ namespace DrifterBossGrabMod.Patches
                 BagCarouselUpdater.UpdateNetworkBagState(controller, direction);
             }
 
-            if (controller != null && !skipStateReset)
-            {
-                var stateMachines = controller.GetComponents<EntityStateMachine>();
-                foreach (var esm in stateMachines)
-                {
-                    if (esm.customName == "Bag")
-                    {
-                        Log.Debug($"[RemoveBaggedObject] Updating Bag state machine for {(controller ? controller.name : "null")}");
-
+             if (controller != null && !skipStateReset)
+             {
+                 var stateMachines = controller.GetComponents<EntityStateMachine>();
+                 foreach (var esm in stateMachines)
+                 {
+                     if (esm.customName == "Bag")
+                     {
                          var currentMain = controller != null ? BagPatches.GetMainSeatObject(controller) : null;
                          if (currentMain != null)
                          {
-                              Log.Debug($"[RemoveBaggedObject] Transitioning Bag state machine to BaggedObject for {(currentMain ? currentMain.name : "null")}");
-                              var newState = new BaggedObject();
-                              newState.targetObject = currentMain;
-                              esm.SetNextState(newState);
+                             var newState = new BaggedObject();
+                             newState.targetObject = currentMain;
+                             esm.SetNextState(newState);
                          }
                          else
                          {
-                              Log.Debug($"[RemoveBaggedObject] Resetting Bag state machine to Main (Idle)");
-                              esm.SetNextStateToMain();
+                             esm.SetNextStateToMain();
                          }
-                        break;
-                    }
-                }
-            }
-            else if (controller != null && skipStateReset)
-            {
-                Log.Debug($"[RemoveBaggedObject] Skipping Bag state machine reset (skipStateReset=true) - delayed promotion will handle state transition");
-            }
+                         break;
+                     }
+                 }
+             }
             if (controller != null)
             {
                 // Mark mass as dirty.
                 MarkMassDirty(controller);
             }
 
-            if (obj != null && !isDestroying && !isThrowing)
-            {
-                var preserver = obj.GetComponent<ModelStatePreserver>();
-                if (preserver != null)
-                {
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] === REMOVING BAGGED OBJECT ===");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] Object: {obj.name}");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] Found ModelStatePreserver on {obj.name}");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] Restoring original model state for {obj.name}");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] isDestroying: {isDestroying}, isThrowing: {isThrowing}");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] ================================");
-
-                    preserver.RestoreOriginalState(false);
-                    UnityEngine.Object.Destroy(preserver);
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] >>> DESTROYED ModelStatePreserver on {obj.name}");
-                }
-                else
-                {
-                    Log.Debug($"[BagPatches.RemoveBaggedObject] >>> NO ModelStatePreserver found on {obj.name}");
-                }
-            }
-        }
+             if (obj != null && !isDestroying && !isThrowing)
+             {
+                 var preserver = obj.GetComponent<ModelStatePreserver>();
+                 if (preserver != null)
+                 {
+                     preserver.RestoreOriginalState(false);
+                     UnityEngine.Object.Destroy(preserver);
+                 }
+             }
+         }
 
         // Forces recalculation of the bag's mass.
         public static void ForceRecalculateMass(DrifterBagController controller)

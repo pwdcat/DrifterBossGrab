@@ -28,7 +28,6 @@ namespace DrifterBossGrabMod.Networking
         public override void OnStartClient()
         {
             base.OnStartClient();
-            Log.Debug($"[BottomlessBagNetworkController] OnStartClient called. Triggering initial sync.");
             OnBagStateChanged();
         }
         private void Awake()
@@ -58,11 +57,13 @@ namespace DrifterBossGrabMod.Networking
             {
                 if (CycleNetworkHandler.SuppressBroadcasts)
                 {
-                    Log.Debug($"[BottomlessBagNetworkController] Suppressing broadcast during auto-grab phase");
                     return;
                 }
 
-                Log.Debug($"[BottomlessBagNetworkController] Server sending UpdateBagStateMessage. index={index}, objects={baggedIds.Count}");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Debug($"[BottomlessBagNetworkController] Sending state update: index={index}, objects={baggedIds.Count}");
+                }
 
                 // Build collider disabled array
                 List<bool> collidersDisabled = new List<bool>();
@@ -101,7 +102,6 @@ namespace DrifterBossGrabMod.Networking
             }
             else if (hasAuthority)
             {
-                Log.Debug($"[BottomlessBagNetworkController] Client sending bag state via message for {gameObject.name}");
                 var controller = GetComponent<DrifterBagController>();
                 if (controller != null)
                 {
@@ -113,16 +113,14 @@ namespace DrifterBossGrabMod.Networking
         }
         public void ApplyStateFromMessage(int index, uint[] baggedIds, uint[] seatIds, int direction = 0)
         {
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] === APPLY STATE FROM MESSAGE ===");
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] index={index}, objects={baggedIds.Length}, direction={direction}");
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] NetworkServer.active: {NetworkServer.active}");
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] hasAuthority: {hasAuthority}");
-             Log.Debug($"[BottomlessBagNetworkController.ApplyStateFromMessage] =======================================");
-
              _lastScrollDirection = direction;
 
              var ctrl = GetComponent<DrifterBagController>();
+
+             if (PluginConfig.Instance.EnableDebugLogs.Value)
+             {
+                 Log.Debug($"[BottomlessBagNetworkController] Applying state: index={index}, objects={baggedIds.Length}, direction={direction}");
+             }
 
              UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
@@ -131,7 +129,6 @@ namespace DrifterBossGrabMod.Networking
         {
             if (!NetworkServer.active) return;
 
-            Log.Debug($"[BottomlessBagNetworkController] Server received CmdCycle for {gameObject.name} with amount {amount}");
             var controller = GetComponent<DrifterBagController>();
             if (controller)
             {
@@ -141,8 +138,6 @@ namespace DrifterBossGrabMod.Networking
         [Command]
         private void CmdUpdateBagState(int index, uint[] baggedIds, uint[] seatIds)
         {
-            Log.Debug($"[BottomlessBagNetworkController] Server received CmdUpdateBagState for {gameObject.name}. Objects: {baggedIds.Length}");
-
             var controller = GetComponent<DrifterBagController>();
             if (controller != null)
             {
@@ -155,13 +150,12 @@ namespace DrifterBossGrabMod.Networking
 
                         if (!isInAnySeat)
                         {
-                            Log.Debug($"[BottomlessBagNetworkController] Server auto-grabbing {obj.name} for client (from CmdUpdateBagState)");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Debug($"[BottomlessBagNetworkController] Auto-grabbing {obj.name} for client");
+                            }
 
                             controller.AssignPassenger(obj);
-                        }
-                        else
-                        {
-                            Log.Debug($"[BottomlessBagNetworkController] Object {obj.name} already in a seat, skipping auto-grab");
                         }
                     }
                 }
@@ -353,7 +347,6 @@ namespace DrifterBossGrabMod.Networking
                     var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(baggedIds[0]));
                     if (obj != null)
                     {
-                        Log.Debug($"[TryFixNullTargetState] Late-fixing null target to {obj.name}");
                         baggedState.targetObject = obj;
                         BagPatches.SetMainSeatObject(controller, obj);
                     }
@@ -413,16 +406,13 @@ namespace DrifterBossGrabMod.Networking
             var controller = GetComponent<DrifterBagController>();
             if (!controller) yield break;
 
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] === SYNC STATE COROUTINE START ===");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] Controller: {controller.name}");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] Bagged IDs: {_baggedObjectNetIdsTarget.Count}, Seat IDs: {_additionalSeatNetIdsTarget.Count}");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] NetworkServer.active: {NetworkServer.active}");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] hasAuthority: {hasAuthority}");
-            Log.Debug($"[BottomlessBagNetworkController.SyncStateCoroutine] ======================================");
-
             float timeout = Constants.Timeouts.SyncStateTimeout;
             float elapsed = 0f;
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Debug($"[BottomlessBagNetworkController] Starting state sync for {controller.name}");
+            }
 
             while (elapsed < timeout)
             {
@@ -434,7 +424,6 @@ namespace DrifterBossGrabMod.Networking
                     var foundObj = ClientScene.FindLocalObject(new NetworkInstanceId(idValue)) ?? NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
                     if (foundObj == null)
                     {
-                        Log.Debug($"[SyncStateCoroutine] Waiting for Bagged Object ID {idValue}...");
                         allFound = false;
                         break;
                     }
@@ -446,60 +435,50 @@ namespace DrifterBossGrabMod.Networking
                     {
                         if (idValue == 0) continue;
                         var foundObj = ClientScene.FindLocalObject(new NetworkInstanceId(idValue)) ?? NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
-                        if (foundObj == null)
-                        {
-                            Log.Debug($"[SyncStateCoroutine] Waiting for Additional Seat ID {idValue}...");
-                            allFound = false;
-                            break;
-                        }
-                    }
-                }
+                 if (foundObj == null)
+                         {
+                             allFound = false;
+                             break;
+                         }
+                     }
+                 }
 
-                if (allFound)
-                {
-                    Log.Debug($"[SyncStateCoroutine] All objects found after {elapsed:F2}s");
-                    Log.Debug($"[SyncStateCoroutine] IsSwappingPassengers at DoSync time: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-                    break;
-                }
+                 if (allFound)
+                 {
+                     break;
+                 }
 
-                yield return new WaitForSeconds(Constants.Timeouts.SyncWaitIncrement);
-                elapsed += Constants.Timeouts.SyncWaitIncrement;
-            }
+                 yield return new WaitForSeconds(Constants.Timeouts.SyncWaitIncrement);
+                 elapsed += Constants.Timeouts.SyncWaitIncrement;
+             }
 
-            if (elapsed >= timeout)
-            {
-                Log.Warning($"[SyncStateCoroutine] Timed out waiting for objects after {timeout:F2}s");
-                foreach (var idValue in _baggedObjectNetIdsTarget)
-                {
-                    if (idValue == 0) continue;
-                    var foundObj = ClientScene.FindLocalObject(new NetworkInstanceId(idValue)) ?? NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
-                    if (foundObj == null) Log.Warning($"[SyncStateCoroutine] Missing Bagged Object ID: {idValue}");
-                }
-            }
+             if (elapsed >= timeout)
+             {
+                 Log.Warning($"[SyncStateCoroutine] Timed out waiting for objects after {timeout:F2}s");
+             }
 
-            _baggedObjectNetIds = new List<uint>(_baggedObjectNetIdsTarget);
-            _additionalSeatNetIds = new List<uint>(_additionalSeatNetIdsTarget);
+             _baggedObjectNetIds = new List<uint>(_baggedObjectNetIdsTarget);
+             _additionalSeatNetIds = new List<uint>(_additionalSeatNetIdsTarget);
 
-            Log.Debug($"[SyncStateCoroutine] Calling DoSync with triggerUIUpdate=true");
-            Log.Debug($"[SyncStateCoroutine] IsSwappingPassengers at DoSync call: {DrifterBossGrabPlugin.IsSwappingPassengers}");
+             if (PluginConfig.Instance.EnableDebugLogs.Value)
+             {
+                 Log.Debug($"[BottomlessBagNetworkController] Calling DoSync with triggerUIUpdate=true");
+             }
 
             DoSync(controller, true, _lastScrollDirection);
             _syncCoroutine = null;
         }
         private void DoSync(DrifterBagController controller, bool triggerUIUpdate, int scrollDirection = 0)
         {
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] === DO SYNC CALLED ===");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] Controller: {controller?.name ?? "null"}");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] triggerUIUpdate: {triggerUIUpdate}, scrollDirection: {scrollDirection}");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] IsSwappingPassengers: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] NetworkServer.active: {NetworkServer.active}");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] hasAuthority: {hasAuthority}");
-            Log.Debug($"[BottomlessBagNetworkController.DoSync] =========================");
-
             GameObject? mainSeatObject = null;
             var syncedObjects = GetBaggedObjects();
             var seats = GetAdditionalSeats();
             var additionalSeatDict = new System.Collections.Concurrent.ConcurrentDictionary<GameObject, VehicleSeat>();
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Debug($"[BottomlessBagNetworkController] Syncing state for {controller.name}");
+            }
 
             if (!NetworkServer.active)
             {
@@ -612,30 +591,31 @@ namespace DrifterBossGrabMod.Networking
                     isActuallyInMainSeat = true;
                 }
 
-                if (isActuallyInMainSeat)
-                {
-                    mainSeatObject = potentialMainSeatObject;
-                    if (NetworkServer.active)
-                        Log.Debug($"[DoSync] Main seat object from selectedIndex {selectedIndex}: {mainSeatObject?.name ?? "null"} (InstanceID: {mainSeatObject?.GetInstanceID()}) - PHYSICALLY IN MAIN SEAT");
-                    else
-                        Log.Debug($"[DoSync] Main seat object from server selectedIndex {selectedIndex}: {mainSeatObject?.name ?? "null"} (InstanceID: {mainSeatObject?.GetInstanceID()}) - TRUSTING SERVER STATE");
+                 if (isActuallyInMainSeat)
+                 {
+                     mainSeatObject = potentialMainSeatObject;
+                     if (PluginConfig.Instance.EnableDebugLogs.Value)
+                     {
+                         Log.Debug($"[DoSync] Main seat: {mainSeatObject?.name ?? "null"}");
+                     }
 
-                    if (mainSeatObject != null && additionalSeatDict.ContainsKey(mainSeatObject))
-                    {
-                        Log.Debug($"[DoSync] Reconciling main seat object: removing {mainSeatObject.name} from additional seats dictionary");
-                        additionalSeatDict.TryRemove(mainSeatObject, out _);
-                    }
-                }
-                else
-                {
-                    mainSeatObject = null;
-                    Log.Debug($"[DoSync] Ignoring selectedIndex {selectedIndex} - object {potentialMainSeatObject?.name} is in additional seat, not main seat (InstanceID: {potentialMainSeatObject?.GetInstanceID()})");
-                }
-            }
-            else
-            {
-                Log.Debug($"[DoSync] No main seat object (selectedIndex={selectedIndex}, syncedObjects count={syncedObjects!.Count})");
-            }
+                     if (mainSeatObject != null && additionalSeatDict.ContainsKey(mainSeatObject))
+                     {
+                         additionalSeatDict.TryRemove(mainSeatObject, out _);
+                     }
+                 }
+                 else
+                 {
+                     mainSeatObject = null;
+                 }
+             }
+             else
+             {
+                 if (PluginConfig.Instance.EnableDebugLogs.Value)
+                 {
+                     Log.Debug($"[DoSync] No main seat object (selectedIndex={selectedIndex}, syncedObjects count={syncedObjects?.Count ?? 0})");
+                 }
+             }
             if (controller != null)
             {
                 BagPatches.GetState(controller).AdditionalSeats = additionalSeatDict;
@@ -653,25 +633,18 @@ namespace DrifterBossGrabMod.Networking
                     Log.Debug($"[DoSync] Client: Transitioning from null to {mainSeatObject.name}, restoring state");
 
                     // Load stored state.
-                    if (controller != null)
-                    {
-                        var storedState = BaggedObjectPatches.LoadObjectState(controller, mainSeatObject);
-                        if (storedState != null)
-                        {
-                            Log.Debug($"[DoSync] Client: Applying stored state to {mainSeatObject.name}");
-
-                            // Find or create state.
-                            var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(controller, mainSeatObject);
-                            if (baggedState != null)
-                            {
-                                storedState.ApplyToBaggedObject(baggedState);
-                            }
-                        }
-                        else
-                        {
-                            Log.Debug($"[DoSync] Client: No stored state found for {mainSeatObject.name}");
-                        }
-                    }
+                     if (controller != null)
+                     {
+                         var storedState = BaggedObjectPatches.LoadObjectState(controller, mainSeatObject);
+                         if (storedState != null)
+                         {
+                             var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(controller, mainSeatObject);
+                             if (baggedState != null)
+                             {
+                                 storedState.ApplyToBaggedObject(baggedState);
+                             }
+                         }
+                     }
                 }
             }
 
@@ -705,30 +678,28 @@ namespace DrifterBossGrabMod.Networking
             if (controller != null) BagPassengerManager.ForceRecalculateMass(controller);
             if (syncedObjects != null)
             {
-            if (controller != null) BagPassengerManager.MarkMassDirty(controller);
-                if (controller != null) BagPatches.GetState(controller).BaggedObjects = syncedObjects;
-            }
-            if (triggerUIUpdate)
-            {
-                if (controller != null) BagCarouselUpdater.UpdateCarousel(controller, scrollDirection);
+             if (controller != null) BagPassengerManager.MarkMassDirty(controller);
+                 if (controller != null) BagPatches.GetState(controller).BaggedObjects = syncedObjects;
+             }
+             if (triggerUIUpdate)
+             {
+                 if (controller != null) BagCarouselUpdater.UpdateCarousel(controller, scrollDirection);
 
-                // Refresh UI if main seat changed.
-                if (controller != null)
-                {
-                    bool mainSeatChanged = (mainSeatObject != BagPatches.GetMainSeatObject(controller));
-                    if (mainSeatChanged && mainSeatObject != null)
-                    {
-                        Log.Debug($"[DoSync] Main seat object changed to {mainSeatObject.name}, refreshing UI");
-                        BaggedObjectPatches.RefreshUIOverlayForMainSeat(controller, mainSeatObject);
-                    }
-                    else if (mainSeatObject == null)
-                    {
-                        Log.Debug($"[DoSync] Main seat object is null, removing UI overlay");
-                        BaggedObjectPatches.RemoveUIOverlayForNullState(controller);
-                    }
-                }
-            }
-        }
+                 // Refresh UI if main seat changed.
+                 if (controller != null)
+                 {
+                     bool mainSeatChanged = (mainSeatObject != BagPatches.GetMainSeatObject(controller));
+                     if (mainSeatChanged && mainSeatObject != null)
+                     {
+                         BaggedObjectPatches.RefreshUIOverlayForMainSeat(controller, mainSeatObject);
+                     }
+                     else if (mainSeatObject == null)
+                     {
+                         BaggedObjectPatches.RemoveUIOverlayForNullState(controller);
+                     }
+                 }
+             }
+         }
         public List<GameObject> GetBaggedObjects()
         {
             if (_netIdCache.Count == 0)

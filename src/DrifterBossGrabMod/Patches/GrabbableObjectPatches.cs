@@ -727,7 +727,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-        private static string GetIconPathForObject(string lowerCaseName)
+        public static string GetIconPathForObject(string lowerCaseName)
         {
             // Lunar objects (lunar, newt)
             if (lowerCaseName.Contains("lunar") || lowerCaseName.Contains("newt") || lowerCaseName.Contains("portalshop") || lowerCaseName.Contains("portalms"))

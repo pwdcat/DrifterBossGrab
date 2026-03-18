@@ -14,7 +14,7 @@ namespace DrifterBossGrabMod.UI
         private HGTextMeshProUGUI _statsText = null!;
         private CharacterBody _body = null!;
         private DrifterBagController _bagController = null!;
-        private HUD _hud = null!;
+        private HUD? _hud;
 
         // Cached reflection metadata (resolved once, reused every frame)
         private System.Reflection.PropertyInfo? _cachedInputPlayerProperty;
@@ -38,12 +38,19 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
+            // Re-verify HUD connection
+            if (_hud != null && _hud.targetBodyObject != _body.gameObject)
+            {
+                SetUIVisible(false);
+                _hud = null;
+            }
+
             if (_hud == null)
             {
                 // Find HUD for this character body
                 foreach (var hud in HUD.readOnlyInstanceList)
                 {
-                    if (hud.targetBodyObject == _body.gameObject)
+                    if (hud && hud.targetBodyObject == _body.gameObject)
                     {
                         _hud = hud;
                         InitializeUI(hud.mainContainer);
