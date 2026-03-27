@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
@@ -88,11 +89,7 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.EnableStockRefreshClamping.Value = msg.EnableStockRefreshClamping;
             PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value = msg.EnableSuccessiveGrabStockRefresh;
             PluginConfig.Instance.CycleCooldown.Value = msg.CycleCooldown;
-            PluginConfig.Instance.PlayAnimationOnCycle.Value = msg.PlayAnimationOnCycle;
-            PluginConfig.Instance.EnableMouseWheelScrolling.Value = msg.EnableMouseWheelScrolling;
-            PluginConfig.Instance.InverseMouseWheelScrolling.Value = msg.InverseMouseWheelScrolling;
-            PluginConfig.Instance.AutoPromoteMainSeat.Value = msg.AutoPromoteMainSeat;
-            PluginConfig.Instance.PrioritizeMainSeat.Value = msg.PrioritizeMainSeat;
+            // Balance
 
             // Balance
             PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
@@ -179,11 +176,7 @@ namespace DrifterBossGrabMod.Networking
                 EnableStockRefreshClamping = PluginConfig.Instance.EnableStockRefreshClamping.Value,
                 EnableSuccessiveGrabStockRefresh = PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value,
                 CycleCooldown = PluginConfig.Instance.CycleCooldown.Value,
-                PlayAnimationOnCycle = PluginConfig.Instance.PlayAnimationOnCycle.Value,
-                EnableMouseWheelScrolling = PluginConfig.Instance.EnableMouseWheelScrolling.Value,
-                InverseMouseWheelScrolling = PluginConfig.Instance.InverseMouseWheelScrolling.Value,
-                AutoPromoteMainSeat = PluginConfig.Instance.AutoPromoteMainSeat.Value,
-                PrioritizeMainSeat = PluginConfig.Instance.PrioritizeMainSeat.Value,
+                // Balance
 
                 // Balance
                 EnableBalance = PluginConfig.Instance.EnableBalance.Value,
@@ -214,6 +207,50 @@ namespace DrifterBossGrabMod.Networking
             }
 
             conn.Send(MSG_SYNC_CONFIG, msg);
+        }
+
+        private static bool _isBroadcastPending = false;
+
+        public static void BroadcastConfigToClients()
+        {
+            if (!NetworkServer.active) return;
+
+            if (_isBroadcastPending) return;
+
+            _isBroadcastPending = true;
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(DelayBroadcast());
+            }
+        }
+
+        private static System.Collections.IEnumerator DelayBroadcast()
+        {
+            // Wait until potentially multiple configuration changes in the same frame have completed (e.g. PresetManager)
+            yield return new WaitForEndOfFrame();
+            _isBroadcastPending = false;
+
+            if (!NetworkServer.active) yield break;
+
+            if (!PluginConfig.Instance.EnableConfigSync.Value)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ConfigSyncHandler] Sync disabled by host config. Skipping broadcast.");
+                }
+                yield break;
+            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ConfigSyncHandler] Broadcasting updated config to all connected clients.");
+            }
+
+            foreach (var conn in NetworkServer.connections)
+            {
+                if (conn == null || !conn.isReady) continue;
+                SendConfigToClient(conn);
+            }
         }
     }
 }

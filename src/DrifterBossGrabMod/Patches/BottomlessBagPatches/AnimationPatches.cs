@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using HarmonyLib;
 using EntityStates;
@@ -12,7 +13,16 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         public static bool PlayCrossfade_Prefix(EntityStates.EntityState __instance, string layerName, string animationStateName, string playbackRateParam, float duration, float crossfadeDuration)
         {
-            if (DrifterBossGrabPlugin.IsSwappingPassengers && !PluginConfig.Instance.PlayAnimationOnCycle.Value)
+            bool isCycling = DrifterBossGrabPlugin.IsSwappingPassengers;
+            if (!UnityEngine.Networking.NetworkServer.active)
+            {
+                if (UnityEngine.Time.time - DrifterBossGrabPlugin.LastCycleClientTime < 0.3f)
+                {
+                    isCycling = true;
+                }
+            }
+
+            if (isCycling && !PluginConfig.Instance.PlayAnimationOnCycle.Value)
             {
                 if (__instance is EntityStates.Drifter.Bag.BaggedObject)
                 {
@@ -30,7 +40,16 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         public static bool PlayCrossfadeShort_Prefix(EntityStates.EntityState __instance, string layerName, string animationStateName, float crossfadeDuration)
         {
-            if (DrifterBossGrabPlugin.IsSwappingPassengers && !PluginConfig.Instance.PlayAnimationOnCycle.Value)
+            bool isCycling = DrifterBossGrabPlugin.IsSwappingPassengers;
+            if (!UnityEngine.Networking.NetworkServer.active)
+            {
+                if (UnityEngine.Time.time - DrifterBossGrabPlugin.LastCycleClientTime < 0.3f)
+                {
+                    isCycling = true;
+                }
+            }
+
+            if (isCycling && !PluginConfig.Instance.PlayAnimationOnCycle.Value)
             {
                 if (__instance is EntityStates.Drifter.Bag.BaggedObject)
                 {

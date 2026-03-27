@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,7 +26,7 @@ namespace DrifterBossGrabMod.Core
         public UncappedBagScaleComponent? UncappedBagScale { get; set; }
 
         // Tracks disabled collider states for each bagged object (for Ungrabbable enemies)
-        public ConcurrentDictionary<GameObject, Dictionary<GameObject, bool>> DisabledCollidersByObject { get; set; } = new ConcurrentDictionary<GameObject, Dictionary<GameObject, bool>>();
+        public ConcurrentDictionary<GameObject, Dictionary<Collider, bool>> DisabledCollidersByObject { get; set; } = new ConcurrentDictionary<GameObject, Dictionary<Collider, bool>>();
 
         // Dirty flag to prevent redundant mass recalculations
         private bool _massDirty = true;

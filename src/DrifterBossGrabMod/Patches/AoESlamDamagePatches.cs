@@ -1,3 +1,4 @@
+#nullable enable
 using HarmonyLib;
 using RoR2;
 using DrifterBossGrabMod.Core;
@@ -155,12 +156,12 @@ namespace DrifterBossGrabMod.Patches
             var attributes = targetObject.GetComponent<SpecialObjectAttributes>();
             if (attributes)
             {
-                if (attributes.durability <= 1)
+                if (attributes.durability <= Constants.Limits.MinDurabilityThreshold)
                 {
                     var junkController = controller.GetComponent<JunkController>();
                     if (junkController)
                     {
-                        junkController.CallCmdGenerateJunkQuantity(attributes.transform.position, 4);
+                        junkController.CallCmdGenerateJunkQuantity(attributes.transform.position, Constants.Limits.DefaultJunkQuantity);
                     }
                     attributes.Networkdurability = 0;
                      NetworkServer.Destroy(targetObject);

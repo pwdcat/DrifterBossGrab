@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -242,6 +243,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> SlotScalingFormula { get; private set; } = null!;
         public ConfigEntry<string> MassCapacityFormula { get; private set; } = null!;
         public ConfigEntry<string> MovespeedPenaltyFormula { get; private set; } = null!;
+        public ConfigEntry<string> SlamDamageFormula { get; private set; } = null!;
 
         // Balance - Flag Multipliers
         public ConfigEntry<string> EliteFlagMultiplier { get; private set; } = null!;
@@ -657,6 +659,37 @@ namespace DrifterBossGrabMod
                 "Constants: pi, e, INF\n" +
                 "Examples: '0' = no penalty, 'clamp((T/M) * 0.5, 0, 0.8)' = 50% at full capacity, capped at 80%\n" +
                 "Set to '0' for no penalty.");
+            
+            Instance.SlamDamageFormula = cfg.Bind("Balance", "SlamDamageFormula",
+                "BASE_COEF + (MASS_SCALING * BM / MC)",
+                "Formula for slam damage coefficient.\n" +
+                "This formula determines how much damage the Drifter deals when slamming grabbed enemies.\n" +
+                "Final damage = Drifter's base damage × formula result.\n\n" +
+                "Local Variables (specific to slam damage):\n" +
+                "  BASE_COEF - Base damage coefficient (default: 2.8)\n" +
+                "  MASS_SCALING - Mass scaling factor (default: 5.0)\n" +
+                "  BM - Current bagged mass (total mass of grabbed objects)\n" +
+                "  MC - Max mass capacity (dynamic based on utility stocks)\n\n" +
+                "Global Variables (available in all formulas):\n" +
+                "  H - Drifter's max health\n" +
+                "  L - Drifter's level\n" +
+                "  C - Utility stock count\n" +
+                "  S - Current stage number\n" +
+                "  MC - Mass cap configuration value\n" +
+                "  BH - Base max health\n" +
+                "  B - Base mass\n\n" +
+                "Available Functions:\n" +
+                "  floor, ceil, round, abs, sqrt, log, ln, min, max, clamp, sin, cos, tan, sign, pow\n\n" +
+                "Available Constants:\n" +
+                "  pi, e, inf, infinity\n\n" +
+                "Examples:\n" +
+                "  'BASE_COEF + (MASS_SCALING * BM / MC)' - Default formula (scales with bagged mass)\n" +
+                "  'BASE_COEF + (MASS_SCALING * clamp(BM/MC, 0, 1))' - Capped scaling at 100% capacity\n" +
+                "  'BASE_COEF + (MASS_SCALING * min(BM/MC, 0.5))' - Scaling capped at 50% capacity\n" +
+                "  '0.8' - Fixed coefficient (no mass scaling)\n" +
+                "  'H / 1000' - Health-based damage (ignores bagged mass)\n" +
+                "  'L * 0.1 + 0.5' - Level-based damage\n" +
+                "  'clamp(BASE_COEF + (MASS_SCALING * BM / MC), 0, 5.0)' - Capped between 0 and 5.0");
             Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "Mode for calculating bagged object state:\n" +
                 "- Current: Only the currently selected object affects Drifter's stats\n" +
                 "- All: All bagged objects are aggregated for stat calculation.");
@@ -995,6 +1028,23 @@ namespace DrifterBossGrabMod
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
+                }
+            };
+
+            Instance.SlamDamageFormula.SettingChanged += (sender, args) =>
+            {
+                // Validate the formula
+                var error = FormulaParser.Validate(Instance.SlamDamageFormula.Value);
+                if (error != null)
+                {
+                    Log.Warning($"[PluginConfig] Invalid SlamDamageFormula: {error}");
+                }
+                
+                // Update damage preview overlays in the scene
+                var overlays = UnityEngine.Object.FindObjectsByType<UI.DamagePreviewOverlay>(FindObjectsSortMode.None);
+                foreach (var overlay in overlays)
+                {
+                    overlay.InvalidateCache();
                 }
             };
 

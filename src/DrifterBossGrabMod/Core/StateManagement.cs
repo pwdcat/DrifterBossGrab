@@ -15,32 +15,53 @@ namespace DrifterBossGrabMod
         {
             cachedDebugLogsEnabled = debugLogsEnabled;
         }
-        public static void DisableMovementColliders(GameObject obj, Dictionary<GameObject, bool> originalStates)
+        public static void DisableMovementColliders(GameObject obj, Dictionary<Collider, bool> originalStates)
         {
-            var modelLocator = obj.GetComponent<ModelLocator>();
-            if (modelLocator && modelLocator.modelTransform)
+            IEnumerable<Collider> colliders;
+
+            // Use BodyColliderCache for CharacterBody objects to avoid expensive lookups
+            if (obj.GetComponent<CharacterBody>() != null)
             {
-                foreach (Transform child in modelLocator.modelTransform.GetComponentsInChildren<Transform>(true))
+                var cache = obj.GetComponent<BodyColliderCache>();
+                if (cache == null)
                 {
-                    var collider = child.GetComponent<Collider>();
-                    if (collider != null)
+                    cache = obj.AddComponent<BodyColliderCache>();
+                }
+                colliders = cache.GetColliders();
+            }
+            else
+            {
+                // Fallback for non-body objects (e.g. environment)
+                var modelLocator = obj.GetComponent<ModelLocator>();
+                if (modelLocator && modelLocator.modelTransform)
+                {
+                    colliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
+                }
+                else
+                {
+                    colliders = obj.GetComponentsInChildren<Collider>(true);
+                }
+            }
+
+            foreach (Collider collider in colliders)
+            {
+                if (collider != null && collider.enabled)
+                {
+                    if (!originalStates.ContainsKey(collider))
                     {
-                        if (!originalStates.ContainsKey(child.gameObject))
-                        {
-                            originalStates[child.gameObject] = child.gameObject.activeSelf;
-                        }
-                        child.gameObject.SetActive(false);
+                        originalStates[collider] = collider.enabled;
                     }
+                    collider.enabled = false;
                 }
             }
         }
-        public static void RestoreMovementColliders(Dictionary<GameObject, bool> originalStates)
+        public static void RestoreMovementColliders(Dictionary<Collider, bool> originalStates)
         {
             foreach (var kvp in originalStates)
             {
                 if (kvp.Key != null)
                 {
-                    kvp.Key.SetActive(kvp.Value);
+                    kvp.Key.enabled = kvp.Value;
                 }
             }
             originalStates.Clear();

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using RoR2;
 using RoR2.Projectile;

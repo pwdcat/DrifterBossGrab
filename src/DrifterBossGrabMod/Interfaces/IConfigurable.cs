@@ -1,3 +1,4 @@
+#nullable enable
 namespace DrifterBossGrabMod
 {
     // Interface for components that can be configured and require initialization/cleanup

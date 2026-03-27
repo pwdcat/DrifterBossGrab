@@ -1,3 +1,4 @@
+#nullable enable
 using BepInEx.Logging;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;

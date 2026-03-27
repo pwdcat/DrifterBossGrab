@@ -1,3 +1,4 @@
+#nullable enable
 using RoR2;
 using UnityEngine;
 using System.Collections.Generic;
@@ -22,22 +23,18 @@ namespace DrifterBossGrabMod.Balance
             // Check each flag and collect multipliers
             float highestMassBonusPercent = 1f;
 
-            // Prepare variables for formula parsing
-            var formulaVars = new Dictionary<string, float>
+            // Prepare local variables for base mass (B) and other specific ones if needed
+            var localVars = new Dictionary<string, float>
             {
-                { "H", characterBody.maxHealth },
-                { "BH", characterBody.baseMaxHealth },
-                { "L", characterBody.level },
-                { "B", baseMass },
-                { "S", RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1 }
+                { "B", baseMass }
             };
 
             void CheckFlag(bool condition, string flagMultiplierFormula)
             {
                 if (condition)
                 {
-                    // Parse and evaluate the formula-based flag multiplier
-                    float flagMultiplier = FormulaParser.Evaluate(flagMultiplierFormula, formulaVars);
+                    // Parse and evaluate the formula-based flag multiplier using FormulaRegistry
+                    float flagMultiplier = FormulaParser.Evaluate(flagMultiplierFormula, characterBody, localVars);
                     if (flagMultiplier > 0f)
                     {
                         highestMassBonusPercent = Mathf.Max(highestMassBonusPercent, flagMultiplier);
@@ -59,7 +56,7 @@ namespace DrifterBossGrabMod.Balance
             float totalMass = baseMass;
 
             // Apply ALL flag multiplier (universal multiplier that applies to ALL enemies)
-            float allFlagMultiplier = FormulaParser.Evaluate(cfg.AllFlagMultiplier.Value, formulaVars);
+            float allFlagMultiplier = FormulaParser.Evaluate(cfg.AllFlagMultiplier.Value, characterBody, localVars);
 
             // Apply flag multiplier directly (multiplicative stacking with ALL flag)
             if (highestMassBonusPercent != 1f || allFlagMultiplier != 1f)

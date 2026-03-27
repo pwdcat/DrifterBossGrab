@@ -1,3 +1,4 @@
+#nullable enable
 using HarmonyLib;
 
 namespace DrifterBossGrabMod.Interfaces

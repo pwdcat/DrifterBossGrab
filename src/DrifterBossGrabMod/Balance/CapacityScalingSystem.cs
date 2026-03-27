@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using DrifterBossGrabMod.Patches;
@@ -63,35 +64,9 @@ namespace DrifterBossGrabMod.Balance
 
             // Get character stats for formula variables
             var body = bagController.GetComponent<CharacterBody>();
-            float health = body != null ? body.maxHealth : 0f;
-            float level = body != null ? body.level : 1f;
-            float stocks = body != null && body.skillLocator != null && body.skillLocator.utility != null
-                ? body.skillLocator.utility.maxStock : 1f;
-
-            // Parse MassCap value (supports "INF" or "Infinity" for unlimited)
-            float massCap = 700f; // Default value
-            string massCapStr = PluginConfig.Instance.MassCap.Value;
-            if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
-            {
-                massCap = float.MaxValue;
-            }
-            else if (!float.TryParse(massCapStr, out massCap))
-            {
-                massCap = 700f; // Fallback to default if parsing fails
-            }
-
-            var variables = new Dictionary<string, float>
-            {
-                ["H"] = health,
-                ["L"] = level,
-                ["C"] = stocks,
-                ["MC"] = massCap,
-                ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
-            };
-
+            
             string formula = PluginConfig.Instance.MassCapacityFormula.Value;
-            float result = FormulaParser.Evaluate(formula, variables);
+            float result = FormulaParser.Evaluate(formula, body, null);
 
             // Validate result
             if (float.IsNaN(result))

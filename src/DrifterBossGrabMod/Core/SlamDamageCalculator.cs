@@ -1,7 +1,9 @@
+#nullable enable
 using RoR2;
 using UnityEngine;
 using DrifterBossGrabMod;
 using DrifterBossGrabMod.Patches;
+using DrifterBossGrabMod.Balance;
 
 using System.Reflection;
 using System.Collections.Generic;
@@ -14,8 +16,8 @@ namespace DrifterBossGrabMod.Core
     // damage = drifterBody.damage * effectiveCoef
     public static class SlamDamageCalculator
     {
-        public const float DefaultBaseDamageCoef = 2.8f;
-        public const float DefaultMassScaling = 5.0f;
+        public const float DefaultBaseDamageCoef = Constants.Multipliers.SlamBaseDamageCoef;
+        public const float DefaultMassScaling = Constants.Multipliers.SlamMassScaling;
 
         // Calculates predicted damage
         // Uses DryRunDamageCalculator
@@ -104,55 +106,40 @@ namespace DrifterBossGrabMod.Core
         // Gets the effective damage coefficient including mass scaling.
         public static float GetEffectiveCoefficient(DrifterBagController bagController)
         {
-            float baseDamageCoef = DefaultBaseDamageCoef;
-            float massScaling = DefaultMassScaling;
-            bool foundState = false;
+            var body = bagController?.GetComponent<CharacterBody>();
+            float baggedMass = bagController?.baggedMass ?? 0f;
+            float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
 
-            // Try to read from the actual entity state if available
-            if (bagController)
+            // Create local variables specific to slam damage
+            var localVars = new Dictionary<string, float>
             {
-                var stateMachines = bagController.GetComponents<EntityStateMachine>();
-                foreach (var esm in stateMachines)
-                {
-                    if (esm.state is EntityStates.Drifter.SuffocateSlam slamState)
-                    {
-                        // SuffocateSlam.OnEnter modifies damageCoefficient in-place!
-                        // So if we find the state, the coefficient is ALREADY scaled.
-                        baseDamageCoef = slamState.damageCoefficient;
-                        foundState = true;
+                { "BASE_COEF", DefaultBaseDamageCoef },
+                { "MASS_SCALING", DefaultMassScaling },
+                { "BM", baggedMass },
+                { "MC", maxCapacity }
+            };
 
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[SlamDamageCalculator] Found SuffocateSlam state, using its damageCoefficient: {baseDamageCoef:F2}");
-                        }
+            string formula = PluginConfig.Instance.SlamDamageFormula.Value;
+            float result = FormulaParser.Evaluate(formula, body, localVars);
 
-                        break;
-                    }
-                }
+            // Validate result
+            if (float.IsNaN(result))
+            {
+                Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned NaN. Using default calculation.");
+                result = DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / maxCapacity);
+            }
+            else if (float.IsInfinity(result))
+            {
+                Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned Infinity. Using default calculation.");
+                result = DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / maxCapacity);
             }
 
-            // Only apply mass scaling if we didn't read the already-scaled value from the state
-            if (!foundState)
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
-                float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
-                float calculatedCoef = baseDamageCoef + (massScaling * massFraction);
-
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SlamDamageCalculator] No SuffocateSlam state found, calculating from mass:");
-                    Log.Info($"  Base Coef: {baseDamageCoef:F2}");
-                    Log.Info($"  Mass Scaling: {massScaling:F2}");
-                    Log.Info($"  Bagged Mass: {bagController?.baggedMass:F2}");
-                    Log.Info($"  Max Capacity: {maxCapacity:F2}");
-                    Log.Info($"  Mass Fraction: {massFraction:F2}");
-                    Log.Info($"  Calculated Coef: {calculatedCoef:F2}");
-                }
-
-                return calculatedCoef;
+                Log.Info($"[SlamDamageCalculator] Formula '{formula}' = {result:F2} (BM={baggedMass:F1}, MC={maxCapacity:F1})");
             }
 
-            return baseDamageCoef;
+            return result;
         }
 
         // Gets the item damage multiplier from the attacker's inventory
@@ -168,7 +155,7 @@ namespace DrifterBossGrabMod.Core
             int fragileStacks = attackerBody.inventory.GetItemCountEffective(DLC1Content.Items.FragileDamageBonus);
             if (fragileStacks > 0)
             {
-                itemDamageMultiplier *= 1f + fragileStacks * 0.2f;
+                itemDamageMultiplier *= 1f + fragileStacks * Constants.Multipliers.DelicateWatchDamageBonus;
             }
 
             // Nearby Damage Bonus - +20% per stack when within 13m
@@ -176,7 +163,7 @@ namespace DrifterBossGrabMod.Core
             int nearbyDamageStacks = attackerBody.inventory.GetItemCountEffective(RoR2Content.Items.NearbyDamageBonus);
             if (nearbyDamageStacks > 0)
             {
-                itemDamageMultiplier *= 1f + nearbyDamageStacks * 0.2f;
+                itemDamageMultiplier *= 1f + nearbyDamageStacks * Constants.Multipliers.NearbyDamageBonus;
             }
 
             return itemDamageMultiplier;

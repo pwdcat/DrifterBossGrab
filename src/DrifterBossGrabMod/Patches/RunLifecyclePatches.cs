@@ -1,3 +1,4 @@
+#nullable enable
 using RoR2;
 namespace DrifterBossGrabMod.Patches
 {

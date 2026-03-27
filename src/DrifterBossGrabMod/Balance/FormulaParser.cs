@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -113,10 +114,29 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
+        public static float Evaluate(string formula, RoR2.CharacterBody? body, Dictionary<string, float>? localVars = null)
+        {
+            var variables = FormulaRegistry.GetVariables(body, localVars);
+            return Evaluate(formula, variables);
+        }
+
         // Evaluate a formula string and return the result as an integer (auto-floored)
         public static int EvaluateInt(string formula, Dictionary<string, float> variables)
         {
             float result = Evaluate(formula, variables);
+
+            if (float.IsPositiveInfinity(result) || result >= int.MaxValue)
+                return int.MaxValue;
+
+            if (float.IsNegativeInfinity(result) || result <= int.MinValue)
+                return int.MinValue;
+
+            return (int)Math.Floor(result);
+        }
+
+        public static int EvaluateInt(string formula, RoR2.CharacterBody? body, Dictionary<string, float>? localVars = null)
+        {
+            float result = Evaluate(formula, body, localVars);
 
             if (float.IsPositiveInfinity(result) || result >= int.MaxValue)
                 return int.MaxValue;
@@ -143,6 +163,11 @@ namespace DrifterBossGrabMod.Balance
             {
                 return ex.Message;
             }
+        }
+
+        public static IEnumerable<string> GetAvailableVariableNames()
+        {
+            return FormulaRegistry.GetRegisteredVariableNames();
         }
 
         #endregion
@@ -394,19 +419,14 @@ namespace DrifterBossGrabMod.Balance
 
                     case TokenType.Variable:
                     {
-                        // Case-insensitive variable lookup
-                        bool found = false;
-                        foreach (var kvp in variables)
+                        if (variables.TryGetValue(token.Value, out float value))
                         {
-                            if (string.Equals(kvp.Key, token.Value, StringComparison.OrdinalIgnoreCase))
-                            {
-                                stack.Push(kvp.Value);
-                                found = true;
-                                break;
-                            }
+                            stack.Push(value);
                         }
-                        if (!found)
+                        else
+                        {
                             throw new FormatException($"Unknown variable: '{token.Value}'");
+                        }
                         break;
                     }
 

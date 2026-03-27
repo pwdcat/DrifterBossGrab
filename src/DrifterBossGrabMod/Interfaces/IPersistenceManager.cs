@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine.SceneManagement;
 using RoR2;
 

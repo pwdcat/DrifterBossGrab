@@ -1,3 +1,4 @@
+#nullable enable
 namespace DrifterBossGrabMod
 {
     // Wrapper for PersistenceManager to implement IConfigurable

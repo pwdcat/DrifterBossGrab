@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
@@ -10,6 +11,7 @@ namespace DrifterBossGrabMod.Networking
         private const short MSG_CYCLE_REQUEST = 205;
         private const short MSG_CLIENT_UPDATE_BAG_STATE = 207;
         private const short MSG_GRAB_OBJECT = 208;
+        private const short MSG_CLIENT_PREFERENCES = 209;
 
         // Flag to suppress broadcasts during auto-grab phase to prevent intermediate state broadcasts
         public static bool SuppressBroadcasts = false;
@@ -21,7 +23,44 @@ namespace DrifterBossGrabMod.Networking
                 NetworkServer.RegisterHandler(MSG_CYCLE_REQUEST, OnServerReceiveCycleRequest);
                 NetworkServer.RegisterHandler(MSG_CLIENT_UPDATE_BAG_STATE, OnServerReceiveClientBagState);
                 NetworkServer.RegisterHandler(MSG_GRAB_OBJECT, OnServerReceiveGrabObject);
+                NetworkServer.RegisterHandler(MSG_CLIENT_PREFERENCES, OnServerReceiveClientPreferences);
             }
+        }
+
+        // Client sends its preferences to the server
+        public static void SendClientPreferences(NetworkIdentity controllerIdentity, bool autoPromote, bool prioritize)
+        {
+            if (!NetworkManager.singleton || NetworkManager.singleton.client == null) return;
+
+            var msg = new ClientPreferencesMessage
+            {
+                controllerNetId = controllerIdentity.netId,
+                autoPromoteMainSeat = autoPromote,
+                prioritizeMainSeat = prioritize
+            };
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[CycleNetworkHandler] Sending client preferences: netId={controllerIdentity.netId.Value}, autoPromote={autoPromote}, prioritize={prioritize}");
+            NetworkManager.singleton.client.Send(MSG_CLIENT_PREFERENCES, msg);
+        }
+
+        private static void OnServerReceiveClientPreferences(NetworkMessage netMsg)
+        {
+            var msg = netMsg.ReadMessage<ClientPreferencesMessage>();
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[CycleNetworkHandler] Server received client preferences: netId={msg.controllerNetId.Value}, autoPromote={msg.autoPromoteMainSeat}, prioritize={msg.prioritizeMainSeat}");
+
+            var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
+            if (!controllerObj) return;
+
+            var netController = controllerObj.GetComponent<BottomlessBagNetworkController>();
+            if (netController == null) return;
+
+            netController.autoPromoteMainSeat = msg.autoPromoteMainSeat;
+            netController.prioritizeMainSeat = msg.prioritizeMainSeat;
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[CycleNetworkHandler] Updated preferences for {controllerObj.name}: AutoPromote={msg.autoPromoteMainSeat}, Prioritize={msg.prioritizeMainSeat}");
         }
 
         public static void SendCycleRequest(DrifterBagController bagController, int amount)

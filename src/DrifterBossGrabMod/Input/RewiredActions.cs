@@ -1,3 +1,4 @@
+#nullable enable
 using Rewired;
 using RoR2;
 

@@ -1,3 +1,4 @@
+#nullable enable
 using RoR2;
 using UnityEngine;
 using System.Collections.Generic;

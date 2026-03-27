@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections.Generic;
 using UnityEngine.Networking;
 
@@ -225,11 +226,7 @@ namespace DrifterBossGrabMod.Networking
         public bool EnableStockRefreshClamping;
         public bool EnableSuccessiveGrabStockRefresh;
         public float CycleCooldown;
-        public bool PlayAnimationOnCycle;
-        public bool EnableMouseWheelScrolling;
-        public bool InverseMouseWheelScrolling;
-        public bool AutoPromoteMainSeat;
-        public bool PrioritizeMainSeat;
+        // Balance
 
         // Balance
         public bool EnableBalance;
@@ -289,11 +286,7 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableStockRefreshClamping);
             writer.Write(EnableSuccessiveGrabStockRefresh);
             writer.Write(CycleCooldown);
-            writer.Write(PlayAnimationOnCycle);
-            writer.Write(EnableMouseWheelScrolling);
-            writer.Write(InverseMouseWheelScrolling);
-            writer.Write(AutoPromoteMainSeat);
-            writer.Write(PrioritizeMainSeat);
+            // Balance
 
             // Balance
             writer.Write(EnableBalance);
@@ -354,11 +347,7 @@ namespace DrifterBossGrabMod.Networking
             EnableStockRefreshClamping = reader.ReadBoolean();
             EnableSuccessiveGrabStockRefresh = reader.ReadBoolean();
             CycleCooldown = reader.ReadSingle();
-            PlayAnimationOnCycle = reader.ReadBoolean();
-            EnableMouseWheelScrolling = reader.ReadBoolean();
-            InverseMouseWheelScrolling = reader.ReadBoolean();
-            AutoPromoteMainSeat = reader.ReadBoolean();
-            PrioritizeMainSeat = reader.ReadBoolean();
+            // Balance
 
             // Balance
             EnableBalance = reader.ReadBoolean();
@@ -381,6 +370,28 @@ namespace DrifterBossGrabMod.Networking
             MechanicalFlagMultiplier = reader.ReadString();
             VoidFlagMultiplier = reader.ReadString();
             AllFlagMultiplier = reader.ReadString();
+        }
+    }
+
+    // Network message for client preference sync (AutoPromote, PrioritizeMainSeat)
+    public class ClientPreferencesMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public bool autoPromoteMainSeat;
+        public bool prioritizeMainSeat;
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            writer.Write(autoPromoteMainSeat);
+            writer.Write(prioritizeMainSeat);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            autoPromoteMainSeat = reader.ReadBoolean();
+            prioritizeMainSeat = reader.ReadBoolean();
         }
     }
 }

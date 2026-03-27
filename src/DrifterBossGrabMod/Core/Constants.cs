@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 namespace DrifterBossGrabMod
 {
@@ -6,7 +7,7 @@ namespace DrifterBossGrabMod
     {
         public const string CloneSuffix = "(Clone)";
         // Version info
-        public const string PluginGuid = "pwdcat.DrifterBossGrab";
+        public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
         public const string PluginVersion = "1.7.3";
 
@@ -31,6 +32,8 @@ namespace DrifterBossGrabMod
             public const float CameraForwardOffset = 2f;
             public const float OriginYOffset = 1f;
             public const int SingleCapacity = 1;
+            public const int DefaultJunkQuantity = 4;
+            public const int MinDurabilityThreshold = 1;
         }
 
         // Multiplier values for scaling calculations
@@ -43,6 +46,14 @@ namespace DrifterBossGrabMod
             public const float PercentageDivisor = 100.0f;
             public const float CapacityRatioThreshold = 1f;
             public const float ScalingMultiplierBase = 1f;
+            
+            // Slam Damage
+            public const float SlamBaseDamageCoef = 2.8f;
+            public const float SlamMassScaling = 5.0f;
+            
+            // Item Bonuses
+            public const float DelicateWatchDamageBonus = 0.2f;
+            public const float NearbyDamageBonus = 0.2f;
         }
 
         // Network message types
@@ -50,6 +61,7 @@ namespace DrifterBossGrabMod
         {
             public const short UpdateBagStateMessageType = 206;
             public const short GrabObjectMessageType = 208;
+            public const short ClientPreferencesMessageType = 209;
         }
     }
 }

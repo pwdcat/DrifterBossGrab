@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
@@ -160,8 +161,20 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else if (_controller.hasAuthority)
                 {
+                    // Get previous main passenger before changing
+                    GameObject? previousMain = BagPatches.GetMainSeatObject(_controller);
                     BagPatches.SetMainSeatObject(_controller, _newMain);
 
+                    // Fire OnMainPassengerChanged event
+                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(_controller, previousMain, _newMain);
+                }
+                else if (NetworkServer.active)
+                {
+                    // Server-side: Get previous main passenger before changing
+                    GameObject? previousMain = BagPatches.GetMainSeatObject(_controller);
+
+                    // Fire OnMainPassengerChanged event after successful assignment
+                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(_controller, previousMain, _newMain);
                 }
             }
 
@@ -273,7 +286,7 @@ namespace DrifterBossGrabMod.Patches
                     var bagState = GetState(__instance);
                     if (!bagState.DisabledCollidersByObject.ContainsKey(passengerObject))
                     {
-                        bagState.DisabledCollidersByObject[passengerObject] = new Dictionary<GameObject, bool>();
+                        bagState.DisabledCollidersByObject[passengerObject] = new Dictionary<Collider, bool>();
                     }
                     var objectDisabledStates = bagState.DisabledCollidersByObject[passengerObject];
                     
@@ -357,7 +370,17 @@ namespace DrifterBossGrabMod.Patches
 
                 // When PrioritizeMainSeat is enabled, skip additional seat assignment
                 // and let the object go straight to the main seat
-                if (!PluginConfig.Instance.PrioritizeMainSeat.Value &&
+                bool prioritize = PluginConfig.Instance.PrioritizeMainSeat.Value;
+                if (NetworkServer.active && __instance != null)
+                {
+                    var netController = __instance.GetComponent<Networking.BottomlessBagNetworkController>();
+                    if (netController != null && !__instance.hasAuthority)
+                    {
+                        prioritize = netController.prioritizeMainSeat;
+                    }
+                }
+
+                if (!prioritize &&
                     TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
                 {
                     return false;
@@ -386,7 +409,13 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (!_usingAdditionalSeat)
                     {
+                        // Get previous main passenger before changing
+                        GameObject? previousMain = GetMainSeatObject(__instance);
                         SetMainSeatObject(__instance, passengerObject);
+
+                        // Fire OnMainPassengerChanged event
+                        API.DrifterBagAPI.InvokeOnMainPassengerChanged(__instance, previousMain, passengerObject);
+
                         var seatDict = GetState(__instance).AdditionalSeats;
                         if (seatDict != null)
                         {
@@ -408,6 +437,10 @@ namespace DrifterBossGrabMod.Patches
                     if (!alreadyTracked)
                     {
                         list.Add(passengerObject);
+
+                        // Fire OnObjectGrabbed event
+                        int slotIndex = _usingAdditionalSeat ? -1 : list.Count - 1;
+                        API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, slotIndex);
                     }
 
                     // Always ensure state exists for the info panel UI (BaggedObjectInfoUIController)
@@ -499,20 +532,24 @@ namespace DrifterBossGrabMod.Patches
                      }
                  }
 
-                 seatDict[passengerObject] = newSeat;
+                  seatDict[passengerObject] = newSeat;
 
-                 if (NetworkServer.active)
-                 {
-                     newSeat.AssignPassenger(passengerObject);
-                 }
+                  if (NetworkServer.active)
+                  {
+                      newSeat.AssignPassenger(passengerObject);
+                  }
 
-                 if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
-                 {
-                     list.Add(passengerObject);
-                 }
+                  if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
+                  {
+                      list.Add(passengerObject);
 
-                 // Ensure state exists for the info panel UI
-                 if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
+                      // Fire OnObjectGrabbed event
+                      int slotIndex = list.Count - 1;
+                      API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, slotIndex);
+                  }
+
+                  // Ensure state exists for the info panel UI
+                  if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
                  {
                      var infoState = new BaggedObjectStateData();
                      infoState.CalculateFromObject(passengerObject, __instance);
@@ -540,20 +577,24 @@ namespace DrifterBossGrabMod.Patches
                  BagPassengerManager.ForceRecalculateMass(__instance);
                  return true;
              }
-             else if (!UnityEngine.Networking.NetworkServer.active)
-             {
-                 _usingAdditionalSeat = true;
-                 BagHelpers.AddTracker(__instance, passengerObject);
+              else if (!UnityEngine.Networking.NetworkServer.active)
+              {
+                  _usingAdditionalSeat = true;
+                  BagHelpers.AddTracker(__instance, passengerObject);
 
-                 // Trust server to auto-grab and create seat
+                  // Trust server to auto-grab and create seat
 
-                 if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
-                 {
-                     list.Add(passengerObject);
-                 }
+                  if (!list.Any(o => o != null && o.GetInstanceID() == passengerInstanceId))
+                  {
+                      list.Add(passengerObject);
 
-                 // Ensure state exists for the info panel UI
-                 if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
+                      // Fire OnObjectGrabbed event
+                      int slotIndex = list.Count - 1;
+                      API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, slotIndex);
+                  }
+
+                  // Ensure state exists for the info panel UI
+                  if (BaggedObjectPatches.LoadObjectState(__instance, passengerObject) == null)
                  {
                      var infoState = new BaggedObjectStateData();
                      infoState.CalculateFromObject(passengerObject, __instance);

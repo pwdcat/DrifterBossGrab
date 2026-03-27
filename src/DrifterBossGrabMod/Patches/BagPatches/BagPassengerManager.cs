@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -117,7 +118,10 @@ namespace DrifterBossGrabMod.Patches
 
                     BagPatches.SetMainSeatObject(controller, null);
 
-                    if (PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller.hasAuthority)))
+                    // Fire OnMainPassengerChanged event when main passenger is cleared
+                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, mainPassengerBefore, null);
+
+                    if (controller != null && NetworkServer.active && !controller.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller.hasAuthority)))
                     {
                         var newMain = list[0];
                         if (newMain != null && !OtherPatches.IsInProjectileState(newMain))
@@ -125,7 +129,7 @@ namespace DrifterBossGrabMod.Patches
                             Log.Debug($"[RemoveBaggedObject] Auto-promoting {(newMain ? newMain.name : "null")} to Main Seat after removal of previous main.");
 
                             // Auto-promote immediately
-                            DelayedAutoPromote.Schedule(controller, newMain, 0.0f);
+                            DelayedAutoPromote.Schedule(controller!, newMain, 0.0f);
                         }
                     }
                 }
@@ -200,16 +204,22 @@ namespace DrifterBossGrabMod.Patches
                 MarkMassDirty(controller);
             }
 
-             if (obj != null && !isDestroying && !isThrowing)
-             {
-                 var preserver = obj.GetComponent<ModelStatePreserver>();
-                 if (preserver != null)
-                 {
-                     preserver.RestoreOriginalState(false);
-                     UnityEngine.Object.Destroy(preserver);
-                 }
-             }
-         }
+              if (obj != null && !isDestroying && !isThrowing)
+              {
+                  var preserver = obj.GetComponent<ModelStatePreserver>();
+                  if (preserver != null)
+                  {
+                      preserver.RestoreOriginalState(false);
+                      UnityEngine.Object.Destroy(preserver);
+                  }
+              }
+
+              // Fire OnObjectReleased event
+              if (obj != null && controller != null)
+              {
+                  API.DrifterBagAPI.InvokeOnObjectReleased(controller, obj, isDestroying);
+              }
+          }
 
         // Forces recalculation of the bag's mass.
         public static void ForceRecalculateMass(DrifterBagController controller)
@@ -222,6 +232,13 @@ namespace DrifterBossGrabMod.Patches
             {
                 Log.Debug($"[ForceRecalculateMass] Skipping recalculation for {controller.name} - mass is not dirty");
                 return;
+            }
+
+            // Store previous mass for event
+            float previousTotalMass = 0f;
+            if (_baggedMassField != null)
+            {
+                previousTotalMass = (float)_baggedMassField.GetValue(controller);
             }
 
             float totalMass;
@@ -325,6 +342,23 @@ namespace DrifterBossGrabMod.Patches
 
             // Clear dirty flag after successful recalculation
             state.ClearMassDirty();
+
+            // Fire OnMassRecalculated event
+            API.DrifterBagAPI.InvokeOnMassRecalculated(controller, totalMass, previousTotalMass);
+
+            // Fire OnOverencumbered event if mass ratio exceeds 1.0
+            if (PluginConfig.Instance.EnableBalance.Value)
+            {
+                float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
+                if (massCapacity > 0f)
+                {
+                    float massRatio = totalMass / massCapacity;
+                    if (massRatio > 1.0f)
+                    {
+                        API.DrifterBagAPI.InvokeOnOverencumbered(controller, massRatio);
+                    }
+                }
+            }
         }
 
         // Updates the mod-managed walk speed penalty based on aggregate baggedMass.

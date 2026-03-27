@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -161,7 +162,7 @@ namespace DrifterBossGrabMod
                             {
                                 if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
                                 {
-                                    bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
+                                    bagState.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
                                 }
                                 var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
                                 
@@ -359,7 +360,7 @@ namespace DrifterBossGrabMod
                              {
                                  if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
                                  {
-                                     bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
+                                     bagState.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
                                  }
                                  var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
                                  
@@ -374,24 +375,9 @@ namespace DrifterBossGrabMod
                          }
                          else if (objIndex >= 0 && !NetworkServer.active)
                          {
-                             // For ALL bagged objects on client, ensure colliders are disabled
-                             // This prevents collision issues for regular objects too
-                             var bagState = Patches.BagPatches.GetState(netController.GetComponent<DrifterBagController>());
-                             if (bagState != null)
+                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                              {
-                                 if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
-                                 {
-                                     bagState.DisabledCollidersByObject[obj] = new Dictionary<GameObject, bool>();
-                                 }
-                                 var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
-                                 
-                                 // Disable colliders on client side for ALL bagged objects
-                                 StateManagement.DisableMovementColliders(obj, objectDisabledStates);
-                                 
-                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                 {
-                                     Log.Info($"[HandleUpdateBagStateMessage] Disabled colliders for {obj.name} on client (disabled {objectDisabledStates.Count} colliders) - universal fix");
-                                 }
+                                 Log.Info($"[HandleUpdateBagStateMessage] Object {obj.name} (index {objIndex}) is grabbable - preserving colliders on client");
                              }
                          }
                      }

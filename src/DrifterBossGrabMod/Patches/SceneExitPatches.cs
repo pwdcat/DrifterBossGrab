@@ -1,3 +1,4 @@
+#nullable enable
 using HarmonyLib;
 using RoR2;
 using UnityEngine.Networking;

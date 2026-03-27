@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -100,7 +101,9 @@ namespace DrifterBossGrabMod.Patches
                 if (!NetworkServer.active && bagController.hasAuthority)
                 {
                     int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController, targetObject);
-                    if (effectiveCapacity > 1)
+                    bool prioritize = PluginConfig.Instance.PrioritizeMainSeat.Value;
+                    
+                    if (effectiveCapacity > 1 && !prioritize)
                     {
                         var list = BagPatches.GetState(bagController).BaggedObjects;
                         bool isAlreadyTracked = list.Contains(targetObject);
@@ -206,7 +209,9 @@ namespace DrifterBossGrabMod.Patches
                     // But do allow it during cycling
                     int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController, targetObject);
                     bool isAlreadyTracked = BagPatches.GetState(bagController).BaggedObjects.Contains(targetObject);
-                    if (effectiveCapacity > 1 && !isAlreadyTracked)
+                    bool prioritize = PluginConfig.Instance.PrioritizeMainSeat.Value;
+
+                    if (effectiveCapacity > 1 && !isAlreadyTracked && !prioritize)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[BaggedObject_OnEnter.Postfix] Client skipping main seat population for NEW GRAB of {targetObject.name} (capacity={effectiveCapacity})");
@@ -236,6 +241,7 @@ namespace DrifterBossGrabMod.Patches
             if (list != null && !list.Contains(targetObject))
             {
                 list.Add(targetObject);
+                BagHelpers.AddTracker(bagController, targetObject);
                 wasNewlyAddedToBag = true;
             }
                 }

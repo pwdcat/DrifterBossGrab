@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -375,6 +376,7 @@ namespace DrifterBossGrabMod.Config
                 "MechanicalFlagMultiplier" => instance.MechanicalFlagMultiplier,
                 "VoidFlagMultiplier" => instance.VoidFlagMultiplier,
                 "AllFlagMultiplier" => instance.AllFlagMultiplier,
+                "SlamDamageFormula" => instance.SlamDamageFormula,
                 "SelectedFlag" => instance.SelectedFlag,
                 "SelectedFlagMultiplier" => instance.SelectedFlagMultiplier,
                 "SelectedBalanceSubTab" => instance.SelectedBalanceSubTab,

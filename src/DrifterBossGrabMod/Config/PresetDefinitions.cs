@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -117,6 +118,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MovespeedPenaltyFormula"] = "0",
                 ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "700",
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
             
             // Intended: Boss grab only
@@ -152,6 +154,7 @@ namespace DrifterBossGrabMod.Config
                 
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
             
             // Default: All features in DrifterGrabFeature + bottomless bag and persistence
@@ -171,22 +174,16 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
-
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
                 ["Persistence.PersistBaggedBosses"] = true,
                 ["Persistence.PersistBaggedNPCs"] = true,
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.PersistenceBlacklist"] = "",
-                
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
                 ["BottomlessBag.AddedCapacity"] = "2",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
-
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableDamagePreview"] = true,
                 ["Hud.EnableMassCapacityUI"] = true,
@@ -194,9 +191,8 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.EnableBaggedObjectInfo"] = true,
                 ["Hud.ShowTotalMassOnWeightIcon"] = false,
                 ["Hud.ShowOverencumberIcon"] = false,
-                
-                // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
             
             // Balance: Default + balance features
@@ -271,6 +267,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.BreakoutTimeMultiplier"] = 1f,
                 ["Balance.SearchRadiusMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
             
             // Minimal: Basic grabbing (boss + NPC + environment) without extra features
@@ -290,22 +287,15 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
-
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
-
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = false,
-
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableDamagePreview"] = false,
                 ["Hud.EnableMassCapacityUI"] = false,
                 ["Hud.EnableBaggedObjectInfo"] = false,
-
-                // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
             // Hardcore: Boss grab with strict balance (limited capacity, no persistence)
@@ -366,6 +356,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MovespeedPenaltyFormula"] = "clamp((T/M) * 0.34, 0, 0.99)",
                 ["Balance.BagScaleCap"] = "1",
                 ["Balance.MassCap"] = "INF",
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
             // Caveman: INF capacity, balance on, most broken settings, able to grab everything
@@ -428,6 +419,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MovespeedPenaltyFormula"] = "0",
                 ["Balance.BagScaleCap"] = "INF",
                 ["Balance.MassCap"] = "INF",
+                ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
             // Custom: Placeholder for user-modified settings

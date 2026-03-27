@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,6 +74,7 @@ namespace DrifterBossGrabMod
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
         private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
         public static bool _isSwappingPassengers = false;
+        public static float LastCycleClientTime = 0f;
         public static bool IsSwappingPassengers => _isSwappingPassengers;
         public static bool IsDrifterPresent { get; set; } = false;
 
@@ -176,6 +178,10 @@ namespace DrifterBossGrabMod
             ConfigChangeNotifier.AddObserver(this);
             SetupConfigurationEventHandlers();
             SetupFeatureToggleHandlers();
+            SetupClientPreferenceHandlers();
+            InitializeFormulaVariables();
+            
+            Config.SettingChanged += OnConfigSettingChangedEvent;
             
             PresetManager.CheckAndApplyPresetOnStartup();
 
@@ -193,8 +199,17 @@ namespace DrifterBossGrabMod
             Input.InputSetup.Init();
         }
 
+        private void OnConfigSettingChangedEvent(object sender, BepInEx.Configuration.SettingChangedEventArgs args)
+        {
+            if (UnityEngine.Networking.NetworkServer.active)
+            {
+                Networking.ConfigSyncHandler.BroadcastConfigToClients();
+            }
+        }
+
         private void RemoveConfigurationEventHandlers()
         {
+            Config.SettingChanged -= OnConfigSettingChangedEvent;
             PluginConfig.RemoveEventHandlers(
                 debugLogsHandler ?? ((sender, args) => { }),
                 blacklistHandler ?? ((sender, args) => { }),
@@ -220,6 +235,48 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= bottomlessBagToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceToggleHandler;
             PluginConfig.Instance.EnableBalance.SettingChanged -= balanceToggleHandler;
+        }
+
+        private void SetupClientPreferenceHandlers()
+        {
+            PluginConfig.Instance.AutoPromoteMainSeat.SettingChanged += OnClientPreferenceSettingChanged;
+            PluginConfig.Instance.PrioritizeMainSeat.SettingChanged += OnClientPreferenceSettingChanged;
+        }
+
+        private void RemoveClientPreferenceHandlers()
+        {
+            PluginConfig.Instance.AutoPromoteMainSeat.SettingChanged -= OnClientPreferenceSettingChanged;
+            PluginConfig.Instance.PrioritizeMainSeat.SettingChanged -= OnClientPreferenceSettingChanged;
+        }
+
+        private void OnClientPreferenceSettingChanged(object sender, EventArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkClient.active) return;
+            
+            // Push our updated preferences to the server for any bags we own
+            foreach (var playerController in RoR2.PlayerCharacterMasterController.instances)
+            {
+                if (playerController.hasAuthority && playerController.master && playerController.master.GetBody())
+                {
+                    var controller = playerController.master.GetBody().GetComponent<DrifterBagController>();
+                    if (controller)
+                    {
+                        var netCtrl = controller.GetComponent<Networking.BottomlessBagNetworkController>();
+                        if (netCtrl && netCtrl.hasAuthority)
+                        {
+                            var ni = netCtrl.GetComponent<UnityEngine.Networking.NetworkIdentity>();
+                            if (ni != null)
+                            {
+                                Networking.CycleNetworkHandler.SendClientPreferences(
+                                    ni,
+                                    PluginConfig.Instance.AutoPromoteMainSeat.Value,
+                                    PluginConfig.Instance.PrioritizeMainSeat.Value
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private void CleanupConfigurationComposite()
@@ -306,6 +363,7 @@ namespace DrifterBossGrabMod
             RemoveConfigurationEventHandlers();
             RemovePersistenceEventHandlers();
             RemoveFeatureToggleHandlers();
+            RemoveClientPreferenceHandlers();
             CleanupConfigurationComposite();
             StopCoroutines();
             Patches.UIPatches.CleanupMassCapacityUI();
@@ -340,6 +398,50 @@ namespace DrifterBossGrabMod
             {
                 Patches.BagPassengerManager.ForceRecalculateMass(bagController);
             }
+        }
+
+        private static void InitializeFormulaVariables()
+        {
+            // Register default mass capacity variables
+            Balance.FormulaRegistry.RegisterVariable("H", 
+                (body) => body?.maxHealth ?? 0f,
+                "Character's max health");
+            
+            Balance.FormulaRegistry.RegisterVariable("L", 
+                (body) => body?.level ?? 1f,
+                "Character's level");
+            
+            Balance.FormulaRegistry.RegisterVariable("C", 
+                (body) => body != null && body.skillLocator != null && body.skillLocator.utility != null
+                    ? body.skillLocator.utility.maxStock : 1f,
+                "Utility stock count");
+            
+            Balance.FormulaRegistry.RegisterVariable("S", 
+                (body) => RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1,
+                "Current stage number");
+            
+            Balance.FormulaRegistry.RegisterVariable("MC", 
+                (body) => {
+                    string massCapStr = PluginConfig.Instance.MassCap.Value;
+                    if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return float.MaxValue;
+                    }
+                    return float.TryParse(massCapStr, out float massCap) ? massCap : 700f;
+                },
+                "Mass capacity limit (from config)");
+            
+            // Register flag multiplier specific variables
+            Balance.FormulaRegistry.RegisterVariable("BH", 
+                (body) => body?.baseMaxHealth ?? 0f,
+                "Character's base max health");
+            
+            Balance.FormulaRegistry.RegisterVariable("B", 
+                (body) => 0f, // Placeholder, will be overridden by local vars
+                "Base mass (for flag multipliers)");
+            
+            Log.Info("[FormulaRegistry] Default variables initialized");
         }
 
         private void SetupConfigurationEventHandlers()
@@ -670,6 +772,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.AoEDamageDistribution.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.SlotScalingFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.MassCapacityFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
+            PluginConfig.Instance.SlamDamageFormula.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
 
             PluginConfig.Instance.EliteFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
             PluginConfig.Instance.BossFlagMultiplier.SettingChanged += (sender, args) => PresetManager.OnSettingModified();
@@ -1209,6 +1312,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlotScalingFormula, new InputFieldConfig { name = "Slot Scaling Formula" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula, new InputFieldConfig { name = "Mass Capacity Formula" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlamDamageFormula, new InputFieldConfig { name = "Slam Damage Formula" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula, new InputFieldConfig { name = "Speed Penalty Formula" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode, new ChoiceConfig { name = "State Calculation" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution, new ChoiceConfig { name = "AoE Damage" }));

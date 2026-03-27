@@ -1,3 +1,4 @@
+#nullable enable
 namespace DrifterBossGrabMod
 {
     // Interface for patches that require initialization and cleanup

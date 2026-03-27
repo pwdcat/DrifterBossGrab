@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine;
 using RoR2;
 using DrifterBossGrabMod.Config;

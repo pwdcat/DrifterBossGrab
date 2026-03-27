@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using RoR2;
@@ -217,12 +218,22 @@ namespace DrifterBossGrabMod.Patches
                     : Constants.Multipliers.DefaultMassMultiplier;
                 float maxMassCapacity = massCapacity * overencumbranceMultiplier;
 
-                return totalMass < maxMassCapacity;
+                bool hasRoom = totalMass < maxMassCapacity;
+                if (!hasRoom)
+                {
+                    API.DrifterBagAPI.InvokeOnBagFull(controller);
+                }
+                return hasRoom;
             }
 
             int effectiveCapacity = GetUtilityMaxStock(controller, null);
             int currentCount = GetCurrentBaggedCount(controller);
-            return currentCount < effectiveCapacity;
+            bool hasRoomSlot = currentCount < effectiveCapacity;
+            if (!hasRoomSlot)
+            {
+                API.DrifterBagAPI.InvokeOnBagFull(controller);
+            }
+            return hasRoomSlot;
         }
 
         // Gets total mass of all bagged objects

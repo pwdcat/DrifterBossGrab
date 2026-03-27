@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;

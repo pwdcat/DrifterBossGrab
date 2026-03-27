@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Reflection;
 using HarmonyLib;
@@ -231,6 +232,13 @@ namespace DrifterBossGrabMod.Patches
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" [ProcessThrownObject] projectileStateObjects count: {projectileStateObjects.Count}");
+
+                var allColliders = passenger.GetComponentsInChildren<Collider>(true);
+                Log.Info($" [DEBUG] ProcessThrownObject: Printing {allColliders.Length} colliders for {passengerName} BEFORE RemoveBaggedObject:");
+                foreach (var col in allColliders)
+                {
+                    Log.Info($" [DEBUG]   Collider: {col.name} ({col.GetType().Name}), enabled={col.enabled}, gameObject.activeSelf={col.gameObject.activeSelf}");
+                }
             }
             // Get the DrifterBagController to remove from tracking
             var projectileController = Traverse.Create(__instance).Field("projectileController").GetValue<RoR2.Projectile.ProjectileController>();
@@ -245,19 +253,31 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = owner.GetComponent<DrifterBagController>();
                 if (bagController != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    if (NetworkServer.active)
                     {
-                        int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
-                        int currentCount = BagPatches.GetState(bagController).BaggedObjects?.Count ?? 0;
-                        Log.Info($" [ProcessThrownObject] Before RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
+                            int currentCount = BagPatches.GetState(bagController).BaggedObjects?.Count ?? 0;
+                            Log.Info($" [ProcessThrownObject] Before RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
+                        }
+                        // Remove from bag tracking - object is now airborne (server only)
+                        BagPassengerManager.RemoveBaggedObject(bagController, passenger);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
+                            int currentCount = BagPatches.GetState(bagController).BaggedObjects?.Count ?? 0;
+                            Log.Info($" [ProcessThrownObject] After RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
+                        }
                     }
-                    // Remove from bag tracking - object is now airborne
-                    BagPassengerManager.RemoveBaggedObject(bagController, passenger);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    else
                     {
-                        int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
-                        int currentCount = BagPatches.GetState(bagController).BaggedObjects?.Count ?? 0;
-                        Log.Info($" [ProcessThrownObject] After RemoveBaggedObject: bag has {currentCount} objects, capacity: {effectiveCapacity}");
+                        // Client: don't mutate bag state, let server drive it
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" [ProcessThrownObject] Client: Skipping RemoveBaggedObject for {passenger.name} - server will drive state");
+                        }
+                        BagCarouselUpdater.UpdateCarousel(bagController, 0);
                     }
                 }
             }
@@ -493,6 +513,15 @@ namespace DrifterBossGrabMod.Patches
                                     bagState.DisabledCollidersByObject.TryRemove(passenger, out _);
                                 }
                             }
+                        }
+                    }
+                    if (passenger != null && PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        var allColliders = passenger.GetComponentsInChildren<Collider>(true);
+                        Log.Info($" [DEBUG] ImpactBehavior: Printing {allColliders.Length} colliders for {passenger.name}:");
+                        foreach (var col in allColliders)
+                        {
+                            Log.Info($" [DEBUG]   Collider: {col.name} ({col.GetType().Name}), enabled={col.enabled}, gameObject.activeSelf={col.gameObject.activeSelf}");
                         }
                     }
 
