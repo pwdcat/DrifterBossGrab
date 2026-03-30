@@ -308,7 +308,7 @@ namespace DrifterBossGrabMod.Core
                 junkSpawnCount = CalculateJunkSpawnCount(baggedMass);
 
                 // Calculate and store slam damage coefficient based on this object's mass
-                float slamMaxCapacity = RoR2.DrifterBagController.maxMass;
+                float slamMaxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : RoR2.DrifterBagController.maxMass;
                 float massFraction = baggedMass / slamMaxCapacity;
                 slamDamageCoefficient = 2.8f + (5.0f * massFraction);
 

@@ -60,14 +60,15 @@ namespace DrifterBossGrabMod.Patches
 
         private void FixedUpdate()
         {
-            if (!_hasPlayedRustle && controller != null && NetworkServer.active)
+            var currentController = controller;
+            if (!_hasPlayedRustle && currentController != null && NetworkServer.active)
             {
                 _hasPlayedRustle = true;
                 PlayBagAnimation("Bag, Rumble", "Rustle", "Rumble.playbackRate", 1f, 0.1f);
-                AddWiggleLoop(controller.gameObject);
+                AddWiggleLoop(currentController.gameObject);
             }
 
-            if (controller == null)
+            if (currentController == null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: controller is null");
@@ -89,7 +90,7 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // If not in additional seat anymore, stop timer
-                if (BagHelpers.GetAdditionalSeat(controller, gameObject) == null)
+                if (BagHelpers.GetAdditionalSeat(currentController, gameObject) == null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Info($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: no longer in an additional seat");
@@ -135,7 +136,7 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Info($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} successfully broke out from the additional seat!");
                     Breakout();
-                    Patches.BagPassengerManager.RemoveBaggedObject(controller, gameObject, true);
+                    Patches.BagPassengerManager.RemoveBaggedObject(currentController, gameObject, true);
                     return;
                 }
                 
@@ -145,9 +146,10 @@ namespace DrifterBossGrabMod.Patches
 
         private void OnDestroy()
         {
-            if (_hasPlayedRustle && controller != null && controller.gameObject != null)
+            var currentController = controller;
+            if (_hasPlayedRustle && currentController != null && currentController.gameObject != null)
             {
-                RemoveWiggleLoop(controller.gameObject);
+                RemoveWiggleLoop(currentController.gameObject);
                 PlayBagAnimation("Bag, Rumble", "Empty", "Rumble.playbackRate", 1f, 0.1f);
             }
         }
@@ -185,8 +187,9 @@ namespace DrifterBossGrabMod.Patches
         {
             try
             {
-                if (controller == null) return;
-                var esm = EntityStateMachine.FindByCustomName(controller.gameObject, "Bag");
+                var currentController = controller;
+                if (currentController == null) return;
+                var esm = EntityStateMachine.FindByCustomName(currentController.gameObject, "Bag");
                 if (esm != null && esm.state != null)
                 {
                     if (_cachedPlayCrossfadeMethod != null)
@@ -213,7 +216,8 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            if (controller == null) return;
+            var currentController = controller;
+            if (currentController == null) return;
 
             // Use the enemy's own character direction, not the controller's
             Vector3 forward = Vector3.up;
@@ -222,8 +226,8 @@ namespace DrifterBossGrabMod.Patches
                 forward = Quaternion.AngleAxis((UnityEngine.Random.value < 0.5f) ? 45f : -45f, -body.characterDirection.forward) * Vector3.up;
             }
             
-            float mass = controller.CalculateBaggedObjectMass(gameObject);
-            float speed = Mathf.Max(10f, 30f * mass / DrifterBagController.maxMass);
+            float mass = currentController.CalculateBaggedObjectMass(gameObject);
+            float speed = Mathf.Max(10f, 30f * mass / DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(currentController));
             
             // Apply max launch speed cap if configured
             if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite)
@@ -260,9 +264,9 @@ namespace DrifterBossGrabMod.Patches
             FireProjectileInfo fireProjectileInfo = new FireProjectileInfo
             {
                 projectilePrefab = _cachedProjectilePrefab,
-                position = (exitTransform != null) ? exitTransform.position : ((body != null) ? body.transform.position : controller.transform.position),
+                position = (exitTransform != null) ? exitTransform.position : ((body != null) ? body.transform.position : currentController.transform.position),
                 rotation = Util.QuaternionSafeLookRotation(forward),
-                owner = controller.gameObject,
+                owner = currentController.gameObject,
                 damage = 0f,
                 speedOverride = speed,
                 force = 20f,

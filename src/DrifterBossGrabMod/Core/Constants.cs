@@ -34,7 +34,7 @@ namespace DrifterBossGrabMod
             public const int SingleCapacity = 1;
             public const int DefaultJunkQuantity = 4;
             public const int MinDurabilityThreshold = 1;
-            public const float DefaultMassPerStock = 100f;
+            public const float DefaultMassPerStock = 700f;
         }
 
         // Multiplier values for scaling calculations

@@ -161,7 +161,7 @@ namespace DrifterBossGrabMod.UI
             float penalty = aggregateState.movespeedPenalty * 100f;
             
             // Calculate mass capacity for damage calculations (always needed)
-            float massCapacity = DrifterBagController.maxMass;
+            float massCapacity = CapacityScalingSystem.CalculateMassCapacity(_bagController);
             
             // Calculate display mass capacity (may differ from damage capacity based on Balance setting)
             float displayMassCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
@@ -202,9 +202,9 @@ namespace DrifterBossGrabMod.UI
             // Get the main seat object for per-object stats display
             var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
 
-            // Calculate damage coefficient dynamically based on current total bag mass
+            // Calculate damage coefficient using the same formula as actual slam damage
             float massFraction = massCapacity > 0 ? (totalMass / massCapacity) : 0f;
-            float damageCoef = 2.8f + (5.0f * massFraction);
+            float damageCoef = SlamDamageCalculator.GetEffectiveCoefficient(_bagController);
 
             float baseDamage = _body.damage * damageCoef;
 

@@ -1,5 +1,4 @@
 using HarmonyLib;
-using UnityEngine;
 using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod
@@ -26,6 +25,12 @@ namespace DrifterBossGrabMod
             // State Calculation Patches
             harmony.CreateClassProcessor(typeof(StateCalculationPatches)).Patch();
             harmony.CreateClassProcessor(typeof(CmdDamageBaggedObject_AoE)).Patch();
+
+            // Patch SuffocateSlam.OnEnter
+            harmony.CreateClassProcessor(typeof(Patches.StateCalculationPatches.SuffocateSlam_OnEnter_UseDynamicCapacity)).Patch();
+
+            // Patch BluntForceHit3.OnEnter for bludgeon damage formula
+            harmony.CreateClassProcessor(typeof(Patches.StateCalculationPatches.BluntForceHit3_OnEnter_UseFormula)).Patch();
 
             // Movement Penalty Fix Patch
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_UpdateBaggedObjectMass)).Patch();

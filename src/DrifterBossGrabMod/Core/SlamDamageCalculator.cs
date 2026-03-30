@@ -106,9 +106,16 @@ namespace DrifterBossGrabMod.Core
         // Gets the effective damage coefficient including mass scaling.
         public static float GetEffectiveCoefficient(DrifterBagController bagController)
         {
-            var body = bagController?.GetComponent<CharacterBody>();
             float baggedMass = bagController?.baggedMass ?? 0f;
-            float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
+
+            // When balance is off, use vanilla formula: 2.8 + (5.0 * baggedMass / 700)
+            if (!PluginConfig.Instance.EnableBalance.Value)
+            {
+                return DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / DrifterBagController.maxMass);
+            }
+
+            var body = bagController?.GetComponent<CharacterBody>();
+            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
 
             // Create local variables specific to slam damage
             var localVars = new Dictionary<string, float>
@@ -195,7 +202,7 @@ namespace DrifterBossGrabMod.Core
 
             // Calculation logic matching GetEffectiveCoefficient
             float mass = bagController ? bagController.baggedMass : 0f;
-            float maxCapacity = bagController ? DrifterBagController.maxMass : DrifterBagController.maxMass;
+            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
             float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
             float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
 

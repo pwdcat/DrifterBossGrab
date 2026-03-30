@@ -6,6 +6,7 @@ using EntityStates.Drifter.Bag;
 using EntityStates.Drifter;
 using DrifterBossGrabMod;
 using DrifterBossGrabMod.Balance;
+using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -33,29 +34,48 @@ namespace DrifterBossGrabMod.Patches
 
 
 
-        // Patch SuffocateSlam.OnEnter to use dynamic capacity from balance feature instead of hardcoded maxMass
+        // Patch BluntForceHit3.OnEnter to apply the configured slam damage formula to bludgeon hits
+        [HarmonyPatch(typeof(BluntForceHit3), "OnEnter")]
+        public class BluntForceHit3_OnEnter_UseFormula
+        {
+            [HarmonyPostfix]
+            public static void Postfix(BluntForceHit3 __instance)
+            {
+                if (!PluginConfig.Instance.EnableBalance.Value) return;
+
+                var bagController = __instance.GetComponent<DrifterBagController>();
+                if (bagController == null) return;
+
+                // Apply formula-based coefficient to bludgeon damage
+                __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {__instance.damageCoefficient:F2}");
+                }
+            }
+        }
+
+        // Patch SuffocateSlam.OnEnter to use the configured slam damage formula
         [HarmonyPatch(typeof(SuffocateSlam), "OnEnter")]
         public class SuffocateSlam_OnEnter_UseDynamicCapacity
         {
             [HarmonyPostfix]
             public static void Postfix(SuffocateSlam __instance)
             {
-                // Only apply if balance feature is enabled
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
-                float damageCapacity = DrifterBagController.maxMass;
+                // Apply formula-based coefficient from SlamDamageCalculator (respects user's configured formula)
+                __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
-                float massFraction = bagController.baggedMass / damageCapacity;
-                float baseCoef = __instance.damageCoefficient - (__instance.damageCoefficientIncreaseWithMass * (bagController.baggedMass / DrifterBagController.maxMass));
-                __instance.damageCoefficient = baseCoef + (__instance.damageCoefficientIncreaseWithMass * massFraction);
-
-                // Also recalculate duration scaling using dynamic capacity
-                // The original code does: baseDuration += durationIncreaseWithMass * num
-                // We need to undo the original and recalculate
+                // Recalculate duration scaling using dynamic capacity
+                float damageCapacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
                 float originalMassFraction = bagController.baggedMass / DrifterBagController.maxMass;
+                float massFraction = bagController.baggedMass / damageCapacity;
+
                 float originalDurationIncrease = __instance.durationIncreaseWithMass * originalMassFraction;
                 __instance.baseDuration -= originalDurationIncrease; // Undo original
                 __instance.baseDuration += __instance.durationIncreaseWithMass * massFraction; // Apply new
@@ -66,13 +86,40 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[SuffocateSlam_OnEnter] Recalculated using base mass capacity:");
-                    Log.Info($"  Bagged Mass: {bagController.baggedMass:F2}");
-                    Log.Info($"  Damage Capacity: {damageCapacity:F2} (vs maxMass: {DrifterBagController.maxMass:F2})");
-                    Log.Info($"  Mass Fraction: {massFraction:F2} (vs original: {originalMassFraction:F2})");
-                    Log.Info($"  Base Coef: {baseCoef:F2}");
-                    Log.Info($"  Final Coef: {__instance.damageCoefficient:F2}");
+                    Log.Info($"[SuffocateSlam_OnEnter] Applied formula-based damage:");
+                    Log.Info($"  Damage Coef: {__instance.damageCoefficient:F2} (mass={bagController.baggedMass:F1}, capacity={damageCapacity:F1})");
                     Log.Info($"  Base Duration: {__instance.baseDuration:F2}s");
+                }
+            }
+        }
+
+        // Patch SuffocateSlam.AuthorityModifyOverlapAttack to apply custom damage formula
+        [HarmonyPatch(typeof(SuffocateSlam), "AuthorityModifyOverlapAttack")]
+        public class SuffocateSlam_AuthorityModifyOverlapAttack_ApplyCustomDamage
+        {
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.First)]
+            public static void Prefix(SuffocateSlam __instance, OverlapAttack overlapAttack)
+            {
+                if (!PluginConfig.Instance.EnableBalance.Value) return;
+
+                var bagController = __instance.GetComponent<DrifterBagController>();
+                if (bagController == null) return;
+
+                // Use SlamDamageCalculator to get custom damage coefficient
+                float effectiveCoef = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
+                var drifterBody = __instance.characterBody;
+
+                if (drifterBody != null)
+                {
+                    // Apply custom damage to the OverlapAttack
+                    overlapAttack.damage = drifterBody.damage * effectiveCoef;
+
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
+                        Log.Info($"  OverlapAttack Damage: {overlapAttack.damage:F2} (coef={effectiveCoef:F2}, baseDamage={drifterBody.damage:F2})");
+                    }
                 }
             }
         }
