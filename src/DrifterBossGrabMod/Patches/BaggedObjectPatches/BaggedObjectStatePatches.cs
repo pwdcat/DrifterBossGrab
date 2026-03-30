@@ -635,7 +635,7 @@ namespace DrifterBossGrabMod.Patches
                 if (!skill) return;
                 try
                 {
-                    // skill.skillOverrides is private List<GenericSkill.SkillOverride>
+                    if (ReflectionCache.GenericSkill.SkillOverrides == null || _skillOverrideSourceField == null) return;
                     var overridesList = (System.Collections.IList)ReflectionCache.GenericSkill.SkillOverrides.GetValue(skill);
                     if (overridesList == null) return;
 

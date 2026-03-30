@@ -63,34 +63,34 @@ namespace DrifterBossGrabMod
         // SpecialObjectAttributes members
         public static class SpecialObjectAttributes
         {
-            public static readonly FieldInfo CollisionToDisable = typeof(SpecialObjectAttributes).GetField("collisionToDisable", BindingFlags.Public | BindingFlags.Instance);
-            public static readonly FieldInfo TargetObject = typeof(SpecialObjectAttributes).GetField("targetObject", BindingFlags.Public | BindingFlags.Instance);
-            public static readonly FieldInfo CollidersToDisable = typeof(SpecialObjectAttributes).GetField("collidersToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
-            public static readonly FieldInfo BehavioursToDisable = typeof(SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+            public static readonly FieldInfo CollisionToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collisionToDisable", BindingFlags.Public | BindingFlags.Instance);
+            public static readonly FieldInfo TargetObject = typeof(RoR2.SpecialObjectAttributes).GetField("targetObject", BindingFlags.Public | BindingFlags.Instance);
+            public static readonly FieldInfo CollidersToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collidersToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+            public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
         }
         
         // HackingMainState members
         public static class HackingMainState
         {
-            public static readonly FieldInfo SphereSearch = typeof(HackingMainState).GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
+            public static readonly FieldInfo SphereSearch = typeof(EntityStates.CaptainSupplyDrop.HackingMainState).GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
         }
         
         // EntityState members
         public static class EntityState
         {
-            public static readonly PropertyInfo FixedAge = AccessTools.Property(typeof(EntityState), "fixedAge");
+            public static readonly PropertyInfo FixedAge = AccessTools.Property(typeof(EntityStates.EntityState), "fixedAge");
         }
         
         // GenericSkill members
         public static class GenericSkill
         {
-            public static readonly FieldInfo SkillOverrides = AccessTools.Field(typeof(GenericSkill), "skillOverrides");
+            public static readonly FieldInfo SkillOverrides = AccessTools.Field(typeof(RoR2.GenericSkill), "skillOverrides");
         }
         
         // BaggedObject (duplicate entries for different patches - these are the same as above but I'll keep them for now)
         public static class Misc
         {
-            public static readonly MethodInfo OnUIOverlayInstanceRemove = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
+            public static readonly MethodInfo OnUIOverlayInstanceRemove = AccessTools.Method(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnUIOverlayInstanceRemove");
         }
 
         // Additional BaggedObject fields not listed above but used in the codebase
