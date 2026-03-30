@@ -52,27 +52,24 @@ namespace DrifterBossGrabMod.Core
             float preservedElapsedBreakoutTime = 0f;
             bool shouldPreserve = false;
 
-            var currentBaggedObject = GetCurrentBaggedObjectState(controller);
-            if (currentBaggedObject != null && currentBaggedObject.targetObject == targetObject)
-            {
-                shouldPreserve = true;
-                var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
+                var currentBaggedObject = GetCurrentBaggedObjectState(controller);
+                if (currentBaggedObject != null && currentBaggedObject.targetObject == targetObject)
+                {
+                    shouldPreserve = true;
 
-                if (breakoutTimeField != null)
-                {
-                    preservedBreakoutTime = (float)breakoutTimeField.GetValue(currentBaggedObject);
+                    if (ReflectionCache.BaggedObject.BreakoutTime != null)
+                    {
+                        preservedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(currentBaggedObject);
+                    }
+                    if (ReflectionCache.BaggedObject.BreakoutAttempts != null)
+                    {
+                        preservedBreakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(currentBaggedObject);
+                    }
+                    if (ReflectionCache.EntityState.FixedAge != null)
+                    {
+                        preservedElapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(currentBaggedObject);
+                    }
                 }
-                if (breakoutAttemptsField != null)
-                {
-                    preservedBreakoutAttempts = (float)breakoutAttemptsField.GetValue(currentBaggedObject);
-                }
-                if (fixedAgeProp != null)
-                {
-                    preservedElapsedBreakoutTime = (float)fixedAgeProp.GetValue(currentBaggedObject);
-                }
-            }
 
             BaggedObjectStateData state;
 
@@ -128,21 +125,17 @@ namespace DrifterBossGrabMod.Core
             var currentBaggedObject = GetCurrentBaggedObjectState(controller);
             if (currentBaggedObject != null)
             {
-                var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-
-                if (breakoutTimeField != null)
+                if (ReflectionCache.BaggedObject.BreakoutTime != null)
                 {
-                    preservedBreakoutTime = (float)breakoutTimeField.GetValue(currentBaggedObject);
+                    preservedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(currentBaggedObject);
                 }
-                if (breakoutAttemptsField != null)
+                if (ReflectionCache.BaggedObject.BreakoutAttempts != null)
                 {
-                    preservedBreakoutAttempts = (float)breakoutAttemptsField.GetValue(currentBaggedObject);
+                    preservedBreakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(currentBaggedObject);
                 }
-                if (fixedAgeProp != null)
+                if (ReflectionCache.EntityState.FixedAge != null)
                 {
-                    preservedElapsedBreakoutTime = (float)fixedAgeProp.GetValue(currentBaggedObject);
+                    preservedElapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(currentBaggedObject);
                 }
 
                 if (currentBaggedObject.targetObject != null)
@@ -163,7 +156,7 @@ namespace DrifterBossGrabMod.Core
 
             foreach (var obj in baggedObjects)
             {
-                if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                 {
                     var objState = BaggedObjectPatches.LoadObjectState(controller, obj);
                     if (objState != null)
@@ -189,7 +182,7 @@ namespace DrifterBossGrabMod.Core
 
             foreach (var obj in baggedObjects)
             {
-                if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                 {
                     var objState = BaggedObjectPatches.LoadObjectState(controller, obj);
                     if (objState != null)
@@ -322,7 +315,7 @@ namespace DrifterBossGrabMod.Core
             float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
             float value = mass;
             // Only apply BagScaleCap when EnableBalance is true
-            if (!PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
+            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
             {
                 value = Mathf.Clamp(mass, 1f, maxCapacity);
             }

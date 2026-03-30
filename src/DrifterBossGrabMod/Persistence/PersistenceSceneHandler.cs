@@ -15,9 +15,9 @@ using HarmonyLib;
 
 namespace DrifterBossGrabMod
 {
-    public class PersistenceSceneHandler : IPersistenceManager
+    public class PersistenceSceneHandler
     {
-        public static IPersistenceManager Instance { get; } = new PersistenceSceneHandler();
+        public static PersistenceSceneHandler Instance { get; } = new PersistenceSceneHandler();
         private static List<RoR2.TeleporterInteraction> _cachedTeleporters = new();
         private static bool _teleportersDirty = true;
         private static readonly System.Reflection.FieldInfo _clientSceneObjectsField =

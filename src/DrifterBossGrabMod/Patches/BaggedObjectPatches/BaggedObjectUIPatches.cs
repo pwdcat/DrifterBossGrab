@@ -16,13 +16,14 @@ namespace DrifterBossGrabMod.Patches
     // Helper class for managing UI overlays related to bagged objects - provides methods to refresh, remove, and handle UI overlays for main seat and null states
     public static class BaggedObjectUIPatches
     {
-        // Reflection Cache
-        private static readonly FieldInfo _uiOverlayControllerField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-        private static readonly FieldInfo _overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
-        private static readonly FieldInfo _overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
-        private static readonly FieldInfo _utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
-        private static readonly FieldInfo _primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
+        // Reflection Cache - using centralized ReflectionCache
+        private static readonly FieldInfo _uiOverlayControllerField = ReflectionCache.BaggedObject.UIOverlayController;
+        private static readonly FieldInfo _overriddenUtilityField = ReflectionCache.BaggedObject.OverriddenUtility;
+        private static readonly FieldInfo _overriddenPrimaryField = ReflectionCache.BaggedObject.OverriddenPrimary;
+        private static readonly FieldInfo _utilityOverrideField = ReflectionCache.BaggedObject.UtilityOverride;
+        private static readonly FieldInfo _primaryOverrideField = ReflectionCache.BaggedObject.PrimaryOverride;
         private static readonly PropertyInfo _instancesListProperty = typeof(OverlayController).GetProperty("instancesList", BindingFlags.Public | BindingFlags.Instance);
+        private static readonly MethodInfo _onUIOverlayInstanceRemoveMethod = ReflectionCache.Misc.OnUIOverlayInstanceRemove;
 
         // Refreshes the UI overlay for the main seat occupant of a bag controller
         // bagController: The bag controller to refresh the UI for
@@ -81,13 +82,6 @@ namespace DrifterBossGrabMod.Patches
             if (isInAdditionalSeat)
             {
                 return;
-            }
-
-            // Update BaggedObject state
-            // Load stored state if cycling to a previously-bagged object
-            if (targetObject != null)
-            {
-                var storedState = BaggedObjectStateStorage.LoadObjectState(actualBagController, targetObject);
             }
 
             BaggedObjectPatches.SynchronizeBaggedObjectState(actualBagController, targetObject);
@@ -213,13 +207,10 @@ namespace DrifterBossGrabMod.Patches
                 if (overriddenUtility != null)
                 {
                     var utilityOverride = (SkillDef)_utilityOverrideField.GetValue(baggedObject);
-                    if (utilityOverride == null)
+                    if (utilityOverride != null)
                     {
-                        Log.Warning($"[RemoveUIOverlayForNullState] utilityOverride is null from {baggedObject.GetType().Name}");
-                        _overriddenUtilityField.SetValue(baggedObject, null);
-                        return;
+                        overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                     }
-                    overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                     _overriddenUtilityField.SetValue(baggedObject, null);
                 }
 
@@ -227,13 +218,10 @@ namespace DrifterBossGrabMod.Patches
                 if (overriddenPrimary != null)
                 {
                     var primaryOverride = (SkillDef)_primaryOverrideField.GetValue(baggedObject);
-                    if (primaryOverride == null)
+                    if (primaryOverride != null)
                     {
-                        Log.Warning($"[RemoveUIOverlayForNullState] primaryOverride is null from {baggedObject.GetType().Name}");
-                        _overriddenPrimaryField.SetValue(baggedObject, null);
-                        return;
+                        overriddenPrimary.UnsetSkillOverride(baggedObject, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                     }
-                    overriddenPrimary.UnsetSkillOverride(baggedObject, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                     _overriddenPrimaryField.SetValue(baggedObject, null);
                 }
             }
@@ -256,7 +244,7 @@ namespace DrifterBossGrabMod.Patches
                 try
                 {
                     // Get the OnUIOverlayInstanceRemove method
-                    var onUIOverlayInstanceRemoveMethod = AccessTools.Method(typeof(BaggedObject), "OnUIOverlayInstanceRemove");
+                    var onUIOverlayInstanceRemoveMethod = _onUIOverlayInstanceRemoveMethod;
                     if (onUIOverlayInstanceRemoveMethod != null && _instancesListProperty != null)
                     {
                         try

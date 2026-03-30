@@ -10,13 +10,6 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessPatches
     {
-        public static void Initialize()
-        {
-        }
-
-        public static void Cleanup()
-        {
-        }
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
@@ -58,7 +51,7 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Clamp mass
-                bool isInf = PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY";
+                bool isInf = PluginConfig.Instance.IsMassCapInfinite;
                 if (!isInf)
                 {
                     float massCapValue = float.MaxValue;
@@ -100,7 +93,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     foreach (GameObject gameObject in list)
                     {
-                        if (gameObject != null && !OtherPatches.IsInProjectileState(gameObject))
+                        if (gameObject != null && !ProjectileRecoveryPatches.IsInProjectileState(gameObject))
                         {
                             totalMass += __instance.CalculateBaggedObjectMass(gameObject);
                         }
@@ -109,7 +102,7 @@ namespace DrifterBossGrabMod.Patches
 
                   totalMass = Mathf.Clamp(totalMass, 0f, Constants.Limits.MaxMass);
 
-                  Traverse.Create(__instance).Field("baggedMass").SetValue(totalMass);
+                  ReflectionCache.DrifterBagController.BaggedMass.SetValue(__instance, totalMass);
 
                   var stateMachines = __instance.GetComponents<EntityStateMachine>();
                  foreach (var esm in stateMachines)
@@ -155,16 +148,15 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
             {
-                var traverse = Traverse.Create(__instance);
-                var targetObject = traverse.Field("targetObject").GetValue<GameObject>();
+                var targetObject = (GameObject)ReflectionCache.BaggedObject.TargetObject.GetValue(__instance);
 
                 if (targetObject == null)
                 {
 
                     return;
                 }
-                var currentBreakoutTime = traverse.Field("breakoutTime").GetValue<float>();
-                traverse.Field("breakoutTime").SetValue(currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
+                var currentBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance);
+                ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
                 {
                     var networkIdentity = targetObject.GetComponent<UnityEngine.Networking.NetworkIdentity>();
@@ -286,15 +278,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(EntityStates.Drifter.Repossess), "OnExit")]
-        public class Repossess_OnExit_Patch
-        {
-            [HarmonyPrefix]
-            public static void Prefix(EntityStates.Drifter.Repossess __instance)
-            {
 
-            }
-        }
 
         [HarmonyPatch(typeof(EntityStates.Drifter.AimRepossess), "OnEnter")]
         public class AimRepossess_OnEnter_Patch

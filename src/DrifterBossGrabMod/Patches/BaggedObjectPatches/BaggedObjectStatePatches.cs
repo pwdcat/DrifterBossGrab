@@ -23,20 +23,6 @@ namespace DrifterBossGrabMod.Patches
     public static class BaggedObjectStatePatches
     {
         private static string GetSafeName(UnityEngine.Object? obj) => obj ? obj.name : "null";
-        // Reflection Cache
-        private static readonly FieldInfo _targetObjectField = AccessTools.Field(typeof(BaggedObject), "targetObject");
-        private static readonly FieldInfo _targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
-        private static readonly FieldInfo _isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
-        private static readonly MethodInfo _holdsDeadBodyMethod = AccessTools.Method(typeof(BaggedObject), "HoldsDeadBody");
-        private static readonly FieldInfo _vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
-        private static readonly FieldInfo _baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
-        private static readonly FieldInfo _uiOverlayControllerField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-        private static readonly FieldInfo _drifterBagControllerField = AccessTools.Field(typeof(BaggedObject), "drifterBagController");
-        private static readonly FieldInfo _overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
-        private static readonly FieldInfo _overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
-        private static readonly FieldInfo _utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
-        private static readonly FieldInfo _primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
-        
         // GenericSkill.SkillOverride struct field cache
         private static readonly FieldInfo _skillOverrideSourceField = typeof(GenericSkill.SkillOverride).GetField("source", BindingFlags.Public | BindingFlags.Instance);
         private static readonly FieldInfo _skillOverrideSkillDefField = typeof(GenericSkill.SkillOverride).GetField("skillDef", BindingFlags.Public | BindingFlags.Instance);
@@ -45,16 +31,16 @@ namespace DrifterBossGrabMod.Patches
         // Track last processed object to prevent infinite re-entry during sync issues
         private static GameObject? _lastProcessedObject;
         private static float _lastProcessTime;
-
+ 
         // Harmony patch for BaggedObject.OnEnter.
-        // Handles initialization and state management when entering the bagged state.
+        // Handles initialization and state management when entering into bagged state.
         [HarmonyPatch(typeof(BaggedObject), "OnEnter")]
         public class BaggedObject_OnEnter
         {
-            // Flag to signal that we are currently initializing a BaggedObject on the client
+            // Flag to signal that we are currently initializing a BaggedObject on a client
             // This is used by VehicleSeat.AssignPassenger patch to block assignment
             public static GameObject? InitializingPassenger;
-
+  
             [HarmonyPrefix]
             public static bool Prefix(BaggedObject __instance)
             {
@@ -89,10 +75,10 @@ namespace DrifterBossGrabMod.Patches
                 var seatDict = BagPatches.GetState(bagController).AdditionalSeats;
                 if (seatDict != null && seatDict.TryGetValue(targetObject, out var additionalSeat))
                 {
-
+ 
                     // Assign to additional seat instead of main
                     additionalSeat.AssignPassenger(targetObject);
-                    // Don't call the original OnEnter logic
+                    // Don't call original OnEnter logic
                     return false;
                 }
 
@@ -173,10 +159,9 @@ namespace DrifterBossGrabMod.Patches
                     var savedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
                     if (savedState != null)
                     {
-                        var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-                        if (fixedAgeProp != null && savedState.elapsedBreakoutTime > 0f)
+                        if (ReflectionCache.EntityState.FixedAge != null && savedState.elapsedBreakoutTime > 0f)
                         {
-                            fixedAgeProp.SetValue(__instance, savedState.elapsedBreakoutTime);
+                            ReflectionCache.EntityState.FixedAge.SetValue(__instance, savedState.elapsedBreakoutTime);
                             
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
@@ -186,14 +171,12 @@ namespace DrifterBossGrabMod.Patches
 
                         if (savedState.breakoutTime > 0f)
                         {
-                            var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                            if (bTimeField != null) bTimeField.SetValue(__instance, savedState.breakoutTime);
+                            if (ReflectionCache.BaggedObject.BreakoutTime != null) ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, savedState.breakoutTime);
                         }
 
                         if (savedState.breakoutAttempts > 0f)
                         {
-                            var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                            if (bAttemptsField != null) bAttemptsField.SetValue(__instance, savedState.breakoutAttempts);
+                            if (ReflectionCache.BaggedObject.BreakoutAttempts != null) ReflectionCache.BaggedObject.BreakoutAttempts.SetValue(__instance, savedState.breakoutAttempts);
                         }
                     }
                 }
@@ -261,12 +244,11 @@ namespace DrifterBossGrabMod.Patches
                     // Neither seat nor tracked has targetObject, remove the UI
                     if (!isInAdditionalSeat)
                     {
-                        var uiOverlayField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-                        var uiOverlayController = (OverlayController)uiOverlayField.GetValue(__instance);
+                        var uiOverlayController = (OverlayController)ReflectionCache.BaggedObject.UIOverlayController.GetValue(__instance);
                         if (uiOverlayController != null)
                         {
                             HudOverlayManager.RemoveOverlay(uiOverlayController);
-                            uiOverlayField.SetValue(__instance, null);
+                            ReflectionCache.BaggedObject.UIOverlayController.SetValue(__instance, null);
                         }
                     }
                 }
@@ -284,7 +266,7 @@ namespace DrifterBossGrabMod.Patches
                 else
                 {
                     // Ensure UI is created/refreshed for main seat objects
-                    if (bagController != null && targetObject != null && BagHelpers.GetAdditionalSeat(bagController, targetObject) == null)
+                    if (bagController != null && targetObject != null && !isInAdditionalSeat)
                     {
                         BaggedObjectUIPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                     }
@@ -292,12 +274,11 @@ namespace DrifterBossGrabMod.Patches
                 // Remove the overlay to use carousel instead
                 if (PluginConfig.Instance.EnableCarouselHUD.Value)
                 {
-                    var uiOverlayField2 = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-                    var uiOverlayController2 = (OverlayController)uiOverlayField2.GetValue(__instance);
+                    var uiOverlayController2 = (OverlayController)ReflectionCache.BaggedObject.UIOverlayController.GetValue(__instance);
                     if (uiOverlayController2 != null)
                     {
                         HudOverlayManager.RemoveOverlay(uiOverlayController2);
-                        uiOverlayField2.SetValue(__instance, null);
+                        ReflectionCache.BaggedObject.UIOverlayController.SetValue(__instance, null);
                     }
                 }
 
@@ -327,12 +308,12 @@ namespace DrifterBossGrabMod.Patches
                 // Uncap Bag Scale logic - only apply when EnableBalance is true
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    bool isScaleUncapped = PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INF";
-                    if (isScaleUncapped || (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f))
+                    bool isScaleUncapped = PluginConfig.Instance.IsBagScaleCapInfinite;
+                    if (PluginConfig.Instance.IsBagScaleCapInfinite || PluginConfig.Instance.ParsedBagScaleCap > 1f)
                     {
                         try
                         {
-                            float baggedMass = bagController != null ? bagController.baggedMass : (float)AccessTools.Field(typeof(BaggedObject), "baggedMass").GetValue(__instance);
+                            float baggedMass = bagController != null ? bagController.baggedMass : (float)ReflectionCache.BaggedObject.BaggedMass.GetValue(__instance);
                             if (__instance != null) BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
                             else
                             {
@@ -382,7 +363,7 @@ namespace DrifterBossGrabMod.Patches
 
                     // We keep overrides if it's tracked or physically present, AND not dead/destroyed
                     bool isDeadCheck = false;
-                    try { isDeadCheck = __instance.targetObject.GetComponent<HealthComponent>()?.alive == false; } catch { isDeadCheck = true; }
+                    try { isDeadCheck = __instance.targetObject.TryGetComponent<HealthComponent>(out var healthComponent) && !healthComponent.alive; } catch { isDeadCheck = true; }
 
                     if ((isTrackedAsMain || isPhysicallyInSeat) && !isDeadCheck && __instance.targetObject.activeInHierarchy)
                     {
@@ -439,16 +420,7 @@ namespace DrifterBossGrabMod.Patches
                     return false;
                 }
 
-                bool isDead = false;
-                try
-                {
-                    var hc = __instance.targetObject.GetComponent<HealthComponent>();
-                    isDead = hc != null && !hc.alive;
-                }
-                catch
-                {
-                    isDead = true;
-                }
+                bool isDead = __instance.targetObject.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
 
                 if (isDead)
                 {
@@ -469,54 +441,73 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-
-                    // Method 1: Field-based cleanup (the standard way)
-                    // Unset Utility
-                    var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
-                    var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
-
-                    if (overriddenUtilityField != null && utilityOverrideField != null)
+                    var body = instance.outer?.GetComponent<CharacterBody>();
+                    
+                    // Unsubscribe from onSkillChanged FIRST (matches vanilla OnExit order: lines 311-336)
+                    // This must happen BEFORE unsetting overrides to prevent stale callbacks
+                    if (body && body.skillLocator)
                     {
-                        var overriddenUtility = (GenericSkill)overriddenUtilityField.GetValue(instance);
-                        var utilityOverride = (SkillDef)utilityOverrideField.GetValue(instance);
+                        var utility = body.skillLocator.utility;
+                        if (utility && ReflectionCache.BaggedObject.TryOverrideUtility != null)
+                        {
+                            var utilityDelegate = AccessTools.MethodDelegate<Action<GenericSkill>>(
+                                ReflectionCache.BaggedObject.TryOverrideUtility, instance);
+                            utility.onSkillChanged -= utilityDelegate;
+                        }
+
+                        var primary = body.skillLocator.primary;
+                        if (primary && ReflectionCache.BaggedObject.TryOverridePrimary != null)
+                        {
+                            var primaryDelegate = AccessTools.MethodDelegate<Action<GenericSkill>>(
+                                ReflectionCache.BaggedObject.TryOverridePrimary, instance);
+                            primary.onSkillChanged -= primaryDelegate;
+                        }
+                    }
+
+                    // Field-based cleanup (the standard way) - use cached fields, not AccessTools
+                    // Unset Utility
+                    if (ReflectionCache.BaggedObject.OverriddenUtility != null && ReflectionCache.BaggedObject.UtilityOverride != null)
+                    {
+                        var overriddenUtility = (GenericSkill)ReflectionCache.BaggedObject.OverriddenUtility.GetValue(instance);
+                        var utilityOverride = (SkillDef)ReflectionCache.BaggedObject.UtilityOverride.GetValue(instance);
 
                         if (overriddenUtility != null)
                         {
                             if (utilityOverride == null)
                             {
                                 Log.Warning($"[UnsetAllOverrides] utilityOverride is null from {instance.GetType().Name}");
-                                overriddenUtilityField.SetValue(instance, null);
-                                return;
+                                ReflectionCache.BaggedObject.OverriddenUtility.SetValue(instance, null);
                             }
-                            overriddenUtility.UnsetSkillOverride(instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
-                            overriddenUtilityField.SetValue(instance, null);
+                            else
+                            {
+                                overriddenUtility.UnsetSkillOverride(instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                                ReflectionCache.BaggedObject.OverriddenUtility.SetValue(instance, null);
+                            }
                         }
                     }
 
-                    // Unset Primary
-                    var overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
-                    var primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
-
-                    if (overriddenPrimaryField != null && primaryOverrideField != null)
+                    // Unset Primary - NO early return, always continue
+                    if (ReflectionCache.BaggedObject.OverriddenPrimary != null && ReflectionCache.BaggedObject.PrimaryOverride != null)
                     {
-                        var overriddenPrimary = (GenericSkill)overriddenPrimaryField.GetValue(instance);
-                        var primaryOverride = (SkillDef)primaryOverrideField.GetValue(instance);
+                        var overriddenPrimary = (GenericSkill)ReflectionCache.BaggedObject.OverriddenPrimary.GetValue(instance);
+                        var primaryOverride = (SkillDef)ReflectionCache.BaggedObject.PrimaryOverride.GetValue(instance);
 
                         if (overriddenPrimary != null)
                         {
                             if (primaryOverride == null)
                             {
                                 Log.Warning($"[UnsetAllOverrides] primaryOverride is null from {instance.GetType().Name}");
-                                overriddenPrimaryField.SetValue(instance, null);
-                                return;
+                                ReflectionCache.BaggedObject.OverriddenPrimary.SetValue(instance, null);
                             }
-                            overriddenPrimary.UnsetSkillOverride(instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
-                            overriddenPrimaryField.SetValue(instance, null);
+                            else
+                            {
+                                overriddenPrimary.UnsetSkillOverride(instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                                ReflectionCache.BaggedObject.OverriddenPrimary.SetValue(instance, null);
+                            }
                         }
                     }
 
-                    // Method 2: Nuclear Option - Scan the character's skills directly for any override sourced by this instance
-                    var body = instance.outer?.GetComponent<CharacterBody>();
+                    // Nuclear Option - Scan the character's skills directly for any override sourced by this instance
                     if (body && body.skillLocator)
                     {
                         CleanupSkillFromLocator(instance, body.skillLocator.primary);
@@ -531,31 +522,30 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            private static void RemoveWalkSpeedPenalty(BaggedObject instance)
-            {
-                if (instance == null || instance.outer == null) return;
-                try
+                private static void RemoveWalkSpeedPenalty(BaggedObject instance)
                 {
-                    var motor = instance.outer.gameObject.GetComponent<CharacterMotor>();
-                    if (motor == null) return;
-
-                    var modifierField = AccessTools.Field(typeof(BaggedObject), "walkSpeedModifier");
-                    if (modifierField != null)
+                    if (instance == null || instance.outer == null) return;
+                    try
                     {
-                        var modifier = modifierField.GetValue(instance) as CharacterMotor.WalkSpeedPenaltyModifier;
-                        if (modifier != null)
-                        {
+                        var motor = instance.outer.gameObject.GetComponent<CharacterMotor>();
+                        if (motor == null) return;
 
-                            motor.RemoveWalkSpeedPenalty(modifier);
-                            modifierField.SetValue(instance, null);
+                        if (ReflectionCache.BaggedObject.WalkSpeedModifier != null)
+                        {
+                            var modifier = ReflectionCache.BaggedObject.WalkSpeedModifier.GetValue(instance) as CharacterMotor.WalkSpeedPenaltyModifier;
+                            if (modifier != null)
+                            {
+
+                                motor.RemoveWalkSpeedPenalty(modifier);
+                                ReflectionCache.BaggedObject.WalkSpeedModifier.SetValue(instance, null);
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Error in RemoveWalkSpeedPenalty: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error($"Error in RemoveWalkSpeedPenalty: {ex.Message}");
-                }
-            }
 
             // When we skip vanilla OnExit (targetObject is null/destroyed or dead),
             // manually trigger junk spawning since vanilla OnExit.ExecuteBody() won't run.
@@ -565,15 +555,15 @@ namespace DrifterBossGrabMod.Patches
                 {
                     DrifterBagController? drifterBagController = null;
 
-                    // Method 1: Try Traverse to get the private field
+                    // Method 1: Try cached reflection to get the private field
                     try
                     {
-                        drifterBagController = Traverse.Create(instance).Field("drifterBagController").GetValue<DrifterBagController>();
+                        drifterBagController = ReflectionCache.BaggedObject.DrifterBagController?.GetValue(instance) as DrifterBagController;
                     }
                     catch (Exception ex)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($" [TrySpawnJunk] Traverse failed: {ex.Message}");
+                            Log.Info($" [TrySpawnJunk] Reflection failed: {ex.Message}");
                     }
 
                     // Method 2: Fallback to GetComponent via outer
@@ -614,8 +604,7 @@ namespace DrifterBossGrabMod.Patches
                             Vector3 dropLocation = drifterBody
                                 ? drifterBody.corePosition
                                 : drifterBagController.transform.position;
-                            var junkControllerField = AccessTools.Field(typeof(DrifterBagController), "junkController");
-                            var junkCtrl = junkControllerField?.GetValue(drifterBagController) as JunkController;
+                            var junkCtrl = ReflectionCache.DrifterBagController.JunkController?.GetValue(drifterBagController) as JunkController;
                             if (junkCtrl != null)
                             {
                                 junkCtrl.CallCmdGenerateJunkQuantity(dropLocation, 4);
@@ -647,8 +636,7 @@ namespace DrifterBossGrabMod.Patches
                 try
                 {
                     // skill.skillOverrides is private List<GenericSkill.SkillOverride>
-                    var overridesField = AccessTools.Field(typeof(GenericSkill), "skillOverrides");
-                    var overridesList = (System.Collections.IList)overridesField.GetValue(skill);
+                    var overridesList = (System.Collections.IList)ReflectionCache.GenericSkill.SkillOverrides.GetValue(skill);
                     if (overridesList == null) return;
 
                     // Iterate backwards to safely remove
@@ -709,10 +697,9 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (!isDead && __instance.targetObject != null)
                     {
-                        var holdsDeadBodyMethod = AccessTools.Method(typeof(BaggedObject), "HoldsDeadBody");
-                        if (holdsDeadBodyMethod != null)
+                        if (ReflectionCache.BaggedObject.HoldsDeadBody != null)
                         {
-                            isDead = (bool)holdsDeadBodyMethod.Invoke(__instance, null);
+                            isDead = (bool)ReflectionCache.BaggedObject.HoldsDeadBody.Invoke(__instance, null);
                         }
                     }
                 }
@@ -761,9 +748,8 @@ namespace DrifterBossGrabMod.Patches
                         
                         // Clean up disabled collider tracking when object is removed from bag
                         var bagState = BagPatches.GetState(bagController);
-                        if (bagState != null && bagState.DisabledCollidersByObject.ContainsKey(__instance.targetObject))
+                        if (bagState != null && bagState.DisabledCollidersByObject.TryRemove(__instance.targetObject, out _))
                         {
-                            bagState.DisabledCollidersByObject.TryRemove(__instance.targetObject, out _);
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
                                 Log.Info($"[BaggedObject_OnExit.Postfix] Cleaned up disabled collider tracking for {__instance.targetObject.name}");
@@ -814,7 +800,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     // 1. Check isBody flag
-                    var isBodyVal = _isBodyField?.GetValue(__instance);
+                    var isBodyVal = ReflectionCache.BaggedObject.IsBody?.GetValue(__instance);
                     if (isBodyVal is bool isBody && !isBody)
                     {
                         if (shouldLog && _lastFixedUpdateBlockReason != "isBody_false")
@@ -827,7 +813,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     // 2. Check targetBody reference
-                    var targetBody = _targetBodyField?.GetValue(__instance) as UnityEngine.Object;
+                    var targetBody = ReflectionCache.BaggedObject.TargetBody?.GetValue(__instance) as UnityEngine.Object;
                     if (targetBody == null)
                     {
                         if (shouldLog && _lastFixedUpdateBlockReason != "targetBody_null")
@@ -840,7 +826,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     // 2b. Check drifterBagController field
-                    var dbc = _drifterBagControllerField?.GetValue(__instance) as UnityEngine.Object;
+                    var dbc = ReflectionCache.BaggedObject.DrifterBagController?.GetValue(__instance) as UnityEngine.Object;
                     if (dbc == null)
                     {
                         if (shouldLog && _lastFixedUpdateBlockReason != "dbc_null")
@@ -888,13 +874,10 @@ namespace DrifterBossGrabMod.Patches
                     // Log that FixedUpdate is ALLOWED to run (throttled)
                     if (shouldLog && _lastFixedUpdateBlockReason != "allowed")
                     {
-                        var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-                        float currentAge = fixedAgeProp != null ? (float)fixedAgeProp.GetValue(__instance) : -1f;
-                        var breakoutTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                        float bTime = breakoutTimeField != null ? (float)breakoutTimeField.GetValue(__instance) : -1f;
-                        var breakoutAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                        float bAttempts = breakoutAttemptsField != null ? (float)breakoutAttemptsField.GetValue(__instance) : -1f;
-                        
+                        float currentAge = ReflectionCache.EntityState.FixedAge != null ? (float)ReflectionCache.EntityState.FixedAge.GetValue(__instance) : -1f;
+                        float bTime = ReflectionCache.BaggedObject.BreakoutTime != null ? (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance) : -1f;
+                        float bAttempts = ReflectionCache.BaggedObject.BreakoutAttempts != null ? (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(__instance) : -1f;
+
                         _lastFixedUpdateBlockReason = "allowed";
                         _lastFixedUpdateLogTime = Time.time;
                         Log.Info($"[BaggedObject_FixedUpdate] ALLOWED for {__instance.targetObject.name}: fixedAge={currentAge:F2}, breakoutTime={bTime:F2}, attempts={bAttempts}");

@@ -36,7 +36,7 @@ namespace DrifterBossGrabMod.Patches
                     if (trackedSeat.hasPassenger)
                     {
                         var actualPassenger = trackedSeat.NetworkpassengerBodyObject;
-                        if (actualPassenger.GetInstanceID() != trackedObject.GetInstanceID())
+                        if (actualPassenger == null || actualPassenger.GetInstanceID() != trackedObject.GetInstanceID())
                         {
                             return false;
                         }
@@ -153,7 +153,7 @@ namespace DrifterBossGrabMod.Patches
                     if (seat != null && seat.hasPassenger)
                     {
                         var seatPassenger = seat.NetworkpassengerBodyObject;
-                        if (seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
+                        if (seatPassenger != null && currentObject != null && seatPassenger.GetInstanceID() == currentObject.GetInstanceID() && seat != mainSeat)
                         {
                             return false;
                         }

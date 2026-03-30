@@ -14,13 +14,21 @@ namespace DrifterBossGrabMod.Patches
     // Provides static helper methods for updating the bag carousel and network state
     public static class BagCarouselUpdater
     {
+        // Static registry of active carousels - replaces expensive FindObjectsByType scans
+        internal static readonly List<UI.BaggedObjectCarousel> ActiveCarousels = new List<UI.BaggedObjectCarousel>();
+
         // Updates the bag carousel UI for the given controller
         public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[UpdateCarousel] Controller: {(controller ? controller.name : "null")} Dir: {direction}");
-            var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
-            foreach (var carousel in carousels)
+            for (int i = ActiveCarousels.Count - 1; i >= 0; i--)
             {
+                var carousel = ActiveCarousels[i];
+                if (carousel == null)
+                {
+                    ActiveCarousels.RemoveAt(i);
+                    continue;
+                }
                 carousel.PopulateCarousel(direction);
             }
         }

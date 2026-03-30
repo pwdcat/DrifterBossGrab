@@ -19,11 +19,11 @@ namespace BagCraftingMod.UI
             var assetPaths = PluginConfig.Instance.GetIconAssetPaths();
             if (assetPaths.TryGetValue(key, out var rawPath))
             {
-                Log.Debug($"[AssetCache] Raw config path for {key}: {rawPath}");
+                Log.Debug($"[BagCrafting] Raw config path for {key}: {rawPath}");
                 var paths = rawPath.Split('|');
                 foreach (var path in paths)
                 {
-                    Log.Info($"[AssetCache] Trying icon path for {key}: {path}");
+                    Log.Debug($"[BagCrafting] Trying icon path for {key}: {path}");
                     var iconSprite = LoadSpriteInternal(key, path);
                     if (iconSprite != null)
                     {
@@ -31,11 +31,11 @@ namespace BagCraftingMod.UI
                         
                         if (isMystery)
                         {
-                            Log.Info($"[AssetCache] Skipping mystery icon ({iconSprite.name}) from {path}, looking for better one in pipe...");
+                            Log.Debug($"[BagCrafting] Skipping mystery icon ({iconSprite.name}) from {path}, looking for better one in pipe...");
                             continue; 
                         }
                         
-                        Log.Info($"[AssetCache] Successfully resolved icon for {key} from {path} (Sprite: {iconSprite.name})");
+                        Log.Debug($"[BagCrafting] Successfully resolved icon for {key} from {path} (Sprite: {iconSprite.name})");
                         _iconCache[key] = iconSprite;
                         return iconSprite;
                     }
@@ -43,7 +43,7 @@ namespace BagCraftingMod.UI
             }
             else
             {
-                Log.Debug($"[AssetCache] No config mapping found for icon key: {key}");
+                Log.Debug($"[BagCrafting] No config mapping found for icon key: {key}");
             }
 
             return null;
@@ -51,7 +51,7 @@ namespace BagCraftingMod.UI
 
         private static Sprite? LoadSpriteInternal(string key, string path)
         {
-            Log.Info($"[AssetCache] Loading asset for {key} at: {path}");
+            Log.Debug($"[BagCrafting] Loading asset for {key} at: {path}");
             try
             {
                 var handle = Addressables.LoadAssetAsync<UnityEngine.Object>(path);
@@ -68,7 +68,7 @@ namespace BagCraftingMod.UI
             }
             catch (System.Exception ex)
             {
-                Log.Error($"[AssetCache] Failed to load {path}: {ex.Message}");
+                Log.Error($"[BagCrafting] Failed to load {path}: {ex.Message}");
             }
             return null;
         }
@@ -78,17 +78,17 @@ namespace BagCraftingMod.UI
             var soa = prefab.GetComponent<SpecialObjectAttributes>();
             if (soa == null)
             {
-                Log.Debug($"[AssetCache] Prefab {prefab.name} does NOT have SpecialObjectAttributes component.");
+                Log.Debug($"[BagCrafting] Prefab {prefab.name} does NOT have SpecialObjectAttributes component.");
             }
             else
             {
-                Log.Debug($"[AssetCache] Prefab {prefab.name} has SOA. portraitIcon: {(soa.portraitIcon ? soa.portraitIcon.name : "NULL")}");
+                Log.Debug($"[BagCrafting] Prefab {prefab.name} has SOA. portraitIcon: {(soa.portraitIcon ? soa.portraitIcon.name : "NULL")}");
                 if (soa.portraitIcon != null)
                 {
                     // Accept it unless it's explicitly mystery
                     if (soa.portraitIcon.name != null && soa.portraitIcon.name.Contains("Mystery"))
                     {
-                        Log.Debug($"[AssetCache] Prefab {prefab.name} has mystery icon on SOA, forcing fallback.");
+                        Log.Debug($"[BagCrafting] Prefab {prefab.name} has mystery icon on SOA, forcing fallback.");
                         return null; 
                     }
                     return TextureToSprite(soa.portraitIcon);
@@ -103,11 +103,11 @@ namespace BagCraftingMod.UI
             {
                 if (fallbackPath.Contains("Mystery"))
                 {
-                    Log.Debug($"[AssetCache] Fallback path for {key} is mystery, skipping to allow pipe fallback.");
+                    Log.Debug($"[BagCrafting] Fallback path for {key} is mystery, skipping to allow pipe fallback.");
                     return null;
                 }
 
-                Log.Info($"[AssetCache] Falling back to hardcoded map for {key}: {fallbackPath}");
+                Log.Debug($"[BagCrafting] Falling back to hardcoded map for {key}: {fallbackPath}");
                 var fallbackTex = Addressables.LoadAssetAsync<Texture>(fallbackPath).WaitForCompletion();
                 if (fallbackTex) return TextureToSprite(fallbackTex);
             }
@@ -125,7 +125,7 @@ namespace BagCraftingMod.UI
                 var paths = rawPath.Split('|');
                 foreach (var path in paths)
                 {
-                    Log.Info($"[AssetCache] Trying prefab path for {key}: {path}");
+                                        Log.Debug($"[BagCrafting] Trying prefab path: {path}");
                     try
                     {
                         var handle = Addressables.LoadAssetAsync<UnityEngine.Object>(path);
@@ -145,14 +145,14 @@ namespace BagCraftingMod.UI
 
                         if (prefab != null)
                         {
-                            Log.Info($"[AssetCache] Successfully cached prefab for {key}");
+                            Log.Debug($"[BagCrafting] Successfully cached prefab for {key}");
                             _prefabCache[key] = prefab;
                             return prefab;
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        Log.Error($"[AssetCache] Failed to load {path}: {ex.Message}");
+                        Log.Error($"[BagCrafting] Failed to load {path}: {ex.Message}");
                     }
                 }
             }

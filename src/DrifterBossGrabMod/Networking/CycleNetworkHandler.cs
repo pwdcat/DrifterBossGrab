@@ -39,16 +39,12 @@ namespace DrifterBossGrabMod.Networking
                 prioritizeMainSeat = prioritize
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler] Sending client preferences: netId={controllerIdentity.netId.Value}, autoPromote={autoPromote}, prioritize={prioritize}");
             NetworkManager.singleton.client.Send(MSG_CLIENT_PREFERENCES, msg);
         }
 
         private static void OnServerReceiveClientPreferences(NetworkMessage netMsg)
         {
             var msg = netMsg.ReadMessage<ClientPreferencesMessage>();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler] Server received client preferences: netId={msg.controllerNetId.Value}, autoPromote={msg.autoPromoteMainSeat}, prioritize={msg.prioritizeMainSeat}");
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
@@ -58,9 +54,6 @@ namespace DrifterBossGrabMod.Networking
 
             netController.autoPromoteMainSeat = msg.autoPromoteMainSeat;
             netController.prioritizeMainSeat = msg.prioritizeMainSeat;
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler] Updated preferences for {controllerObj.name}: AutoPromote={msg.autoPromoteMainSeat}, Prioritize={msg.prioritizeMainSeat}");
         }
 
         public static void SendCycleRequest(DrifterBagController bagController, int amount)
@@ -74,14 +67,6 @@ namespace DrifterBossGrabMod.Networking
                 amount = amount
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CycleNetworkHandler.SendCycleRequest] === CLIENT SENDING CYCLE REQUEST ===");
-                Log.Info($"[CycleNetworkHandler.SendCycleRequest] Controller: {bagController.name}");
-                Log.Info($"[CycleNetworkHandler.SendCycleRequest] NetID: {ni.netId.Value}, amount: {amount}");
-                Log.Info($"[CycleNetworkHandler.SendCycleRequest] IsSwappingPassengers BEFORE: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-                Log.Info($"[CycleNetworkHandler.SendCycleRequest] =========================================");
-            }
             NetworkManager.singleton.client.Send(MSG_CYCLE_REQUEST, msg);
         }
 
@@ -99,21 +84,12 @@ namespace DrifterBossGrabMod.Networking
                 seatIds = seatIds
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler] Sending client bag state: netId={ni.netId.Value}, objects={baggedIds.Length}");
             NetworkManager.singleton.client.Send(MSG_CLIENT_UPDATE_BAG_STATE, msg);
         }
 
         private static void OnServerReceiveCycleRequest(NetworkMessage netMsg)
         {
             var msg = netMsg.ReadMessage<CyclePassengersMessage>();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] === SERVER RECEIVED CYCLE REQUEST ===");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] NetID: {msg.bagControllerNetId.Value}, amount: {msg.amount}");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] IsSwappingPassengers BEFORE: {DrifterBossGrabPlugin.IsSwappingPassengers}");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] ===========================================");
-            }
 
             var controllerObj = NetworkServer.FindLocalObject(msg.bagControllerNetId);
             if (controllerObj)
@@ -121,8 +97,6 @@ namespace DrifterBossGrabMod.Networking
                 var bagController = controllerObj.GetComponent<DrifterBagController>();
                 if (bagController)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[CycleNetworkHandler.OnServerReceiveCycleRequest] Calling ServerCyclePassengers for {bagController.name}");
                     PassengerCycler.ServerCyclePassengers(bagController, msg.amount);
                 }
             }
@@ -131,8 +105,6 @@ namespace DrifterBossGrabMod.Networking
         private static void OnServerReceiveClientBagState(NetworkMessage netMsg)
         {
             var msg = netMsg.ReadMessage<ClientUpdateBagStateMessage>();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler] Server received client bag state: netId={msg.controllerNetId.Value}, objects={msg.baggedIds.Length}");
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
@@ -155,14 +127,7 @@ namespace DrifterBossGrabMod.Networking
 
                         if (!isInAnySeat)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[CycleNetworkHandler] Server auto-grabbing {obj.name} for client");
-
                             bagController.AssignPassenger(obj);
-                        }
-                        else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[CycleNetworkHandler] Object {obj.name} already in seat, skipping");
                         }
                     }
                 }
@@ -229,14 +194,6 @@ namespace DrifterBossGrabMod.Networking
                 targetObjectNetId = targetNi.netId
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CycleNetworkHandler.SendGrabObjectRequest] === CLIENT SENDING GRAB REQUEST ===");
-                Log.Info($"[CycleNetworkHandler.SendGrabObjectRequest] Controller: {bagController.name}, Target: {targetObject.name}");
-                Log.Info($"[CycleNetworkHandler.SendGrabObjectRequest] Controller NetID: {ni.netId.Value}, Target NetID: {targetNi.netId.Value}");
-                Log.Info($"[CycleNetworkHandler.SendGrabObjectRequest] EnableBalance={PluginConfig.Instance.EnableBalance.Value}");
-                Log.Info($"[CycleNetworkHandler.SendGrabObjectRequest] =========================================");
-            }
             NetworkManager.singleton.client.Send(MSG_GRAB_OBJECT, msg);
         }
 
@@ -244,13 +201,6 @@ namespace DrifterBossGrabMod.Networking
         private static void OnServerReceiveGrabObject(NetworkMessage netMsg)
         {
             var msg = netMsg.ReadMessage<GrabObjectMessage>();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] === SERVER RECEIVED GRAB REQUEST ===");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] Controller NetID: {msg.bagControllerNetId.Value}, Target NetID: {msg.targetObjectNetId.Value}");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] EnableBalance={PluginConfig.Instance.EnableBalance.Value}");
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] ===========================================");
-            }
 
             var controllerObj = NetworkServer.FindLocalObject(msg.bagControllerNetId);
             if (!controllerObj) return;
@@ -264,22 +214,14 @@ namespace DrifterBossGrabMod.Networking
             // Check if balance is enabled
             if (!PluginConfig.Instance.EnableBalance.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] Balance disabled, skipping grab request");
                 return;
             }
 
             // Check if object is already in any seat
             if (IsObjectInAnySeat(bagController, targetObject))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] Object {targetObject.name} already in a seat, skipping");
                 return;
             }
-
-            // Call AssignPassenger to trigger the Harmony patch
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[CycleNetworkHandler.OnServerReceiveGrabObject] Calling AssignPassenger for {targetObject.name}");
 
             bagController.AssignPassenger(targetObject);
         }

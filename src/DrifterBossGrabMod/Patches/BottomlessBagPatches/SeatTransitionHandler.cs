@@ -119,15 +119,15 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 sourceAdditionalSeat.EjectPassenger(targetObject);
-                System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                localSeatDict.TryRemove(targetObject, out _);
             }
 
             // Save state before assigning passenger
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Info($"[HandleNullToObjectTransition] Saving state before AssignPassenger (null -> {targetObject.name})");
 
-            bagController.AssignPassenger(targetObject);
             BagPatches.SetMainSeatObject(bagController, targetObject);
+            bagController.AssignPassenger(targetObject);
 
             // Restore target object's state after cycling to it
             if (targetObject != null)
@@ -207,7 +207,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     targetAdditionalSeat.EjectPassenger(targetObject);
-                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                    localSeatDict.TryRemove(targetObject, out _);
                     targetAdditionalSeat.AssignPassenger(currentObject);
                     BagPatches.SetMainSeatObject(bagController, null);
                     if (currentObject != null)
@@ -249,8 +249,8 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                vehicleSeat.AssignPassenger(targetObject);
                 BagPatches.SetMainSeatObject(bagController, targetObject);
+                vehicleSeat.AssignPassenger(targetObject);
 
                 // Restore target state.
                 if (targetObject != null)
@@ -292,7 +292,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     targetAdditionalSeat.EjectPassenger(targetObject);
-                    System.Collections.Generic.CollectionExtensions.Remove(localSeatDict, targetObject, out _);
+                    localSeatDict.TryRemove(targetObject, out _);
                     if (currentObject != null)
                     {
                         targetAdditionalSeat.AssignPassenger(currentObject);

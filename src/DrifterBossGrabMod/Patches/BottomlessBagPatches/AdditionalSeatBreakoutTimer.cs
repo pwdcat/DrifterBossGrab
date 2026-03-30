@@ -16,7 +16,15 @@ namespace DrifterBossGrabMod.Patches
         public float breakoutAttempts;
         
         private bool _hasPlayedRustle = false;
+        private CharacterBody? _cachedBody;
         private static System.Collections.Generic.Dictionary<GameObject, int> _wiggleLoopsActive = new System.Collections.Generic.Dictionary<GameObject, int>();
+        private static readonly System.Reflection.MethodInfo _cachedPlayCrossfadeMethod = typeof(EntityStates.EntityState).GetMethod(
+            "PlayCrossfade",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            null,
+            new Type[] { typeof(string), typeof(string), typeof(string), typeof(float), typeof(float) },
+            null
+        );
 
         // Check if an object is eligible for breakout.
         // requires CharacterBody, not player-controlled, and has a CharacterMaster.
@@ -33,6 +41,11 @@ namespace DrifterBossGrabMod.Patches
         
         private float _breakoutTimer;
         private int _baseBreakoutChance1inX = 3;
+
+        private void Start()
+        {
+            _cachedBody = gameObject.GetComponent<CharacterBody>();
+        }
 
         public float GetElapsedBreakoutTime()
         {
@@ -68,7 +81,7 @@ namespace DrifterBossGrabMod.Patches
             // Stop timer if dead or invalid
             try
             {
-                var body = gameObject.GetComponent<CharacterBody>();
+                var body = _cachedBody ?? gameObject.GetComponent<CharacterBody>();
                 if (body == null || body.healthComponent == null || !body.healthComponent.alive)
                 {
                     Destroy(this);
@@ -142,28 +155,29 @@ namespace DrifterBossGrabMod.Patches
         private static void AddWiggleLoop(GameObject drifterObject)
         {
             if (drifterObject == null) return;
-            if (!_wiggleLoopsActive.ContainsKey(drifterObject))
+            if (!_wiggleLoopsActive.TryGetValue(drifterObject, out int count))
             {
-                _wiggleLoopsActive[drifterObject] = 0;
+                count = 0;
             }
-            if (_wiggleLoopsActive[drifterObject] == 0)
+            if (count == 0)
             {
                 Util.PlaySound("Play_drifter_repossess_bagWiggle_Loop", drifterObject);
             }
-            _wiggleLoopsActive[drifterObject]++;
+            _wiggleLoopsActive[drifterObject] = count + 1;
         }
 
         private static void RemoveWiggleLoop(GameObject drifterObject)
         {
             if (drifterObject == null) return;
-            if (_wiggleLoopsActive.ContainsKey(drifterObject))
+            if (_wiggleLoopsActive.TryGetValue(drifterObject, out int count))
             {
-                _wiggleLoopsActive[drifterObject]--;
-                if (_wiggleLoopsActive[drifterObject] <= 0)
+                count--;
+                if (count <= 0)
                 {
                     Util.PlaySound("Stop_drifter_repossess_bagWiggle_Loop", drifterObject);
-                    _wiggleLoopsActive[drifterObject] = 0;
+                    count = 0;
                 }
+                _wiggleLoopsActive[drifterObject] = count;
             }
         }
 
@@ -175,17 +189,9 @@ namespace DrifterBossGrabMod.Patches
                 var esm = EntityStateMachine.FindByCustomName(controller.gameObject, "Bag");
                 if (esm != null && esm.state != null)
                 {
-                    var playCrossfadeMethod = typeof(EntityStates.EntityState).GetMethod(
-                        "PlayCrossfade",
-                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
-                        null,
-                        new Type[] { typeof(string), typeof(string), typeof(string), typeof(float), typeof(float) },
-                        null
-                    );
-                    
-                    if (playCrossfadeMethod != null)
+                    if (_cachedPlayCrossfadeMethod != null)
                     {
-                        playCrossfadeMethod.Invoke(esm.state, new object[] { layerName, animationStateName, playbackRateParam, duration, crossfadeDuration });
+                        _cachedPlayCrossfadeMethod.Invoke(esm.state, new object[] { layerName, animationStateName, playbackRateParam, duration, crossfadeDuration });
                     }
                 }
             }
@@ -201,7 +207,7 @@ namespace DrifterBossGrabMod.Patches
         private void Breakout()
         {
             if (gameObject == null) return;
-            var body = gameObject.GetComponent<CharacterBody>();
+            var body = _cachedBody ?? gameObject.GetComponent<CharacterBody>();
             if (body != null && body.healthComponent != null && !body.healthComponent.alive)
             {
                 return;
@@ -220,10 +226,9 @@ namespace DrifterBossGrabMod.Patches
             float speed = Mathf.Max(10f, 30f * mass / DrifterBagController.maxMass);
             
             // Apply max launch speed cap if configured
-            string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
-            if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed))
+            if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite)
             {
-                speed = Mathf.Min(speed, maxLaunchSpeed);
+                speed = Mathf.Min(speed, PluginConfig.Instance.ParsedMaxLaunchSpeed);
             }
             
             if (_cachedProjectilePrefab == null)

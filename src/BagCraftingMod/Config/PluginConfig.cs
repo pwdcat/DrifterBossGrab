@@ -22,6 +22,8 @@ namespace BagCraftingMod.Config
         // Icon Asset Mapping Configuration
         public ConfigEntry<string> IconAssetPathsRaw { get; private set; }
 
+        public ConfigEntry<bool> EnableDebugLogs { get; private set; }
+
         public PluginConfig(ConfigFile config)
         {
             // Merging Configuration
@@ -56,6 +58,8 @@ namespace BagCraftingMod.Config
             "Scrapper=RoR2/Base/Scrapper/Scrapper.prefab;" +
             "TripleShop=RoR2/Base/TripleShop/TripleShop.prefab",
             "Initial mapping of item names to Addressable asset paths. Use '|' to provide multiple paths (e.g. Prefab|ExplicitIcon).");
+
+            EnableDebugLogs = config.Bind("Debug", "EnableDebugLogs", false, "If true, verbose diagnostic logs will be enabled.");
         }
 
         public static void Init(ConfigFile config)

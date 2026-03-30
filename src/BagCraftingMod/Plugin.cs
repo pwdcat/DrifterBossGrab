@@ -16,8 +16,8 @@ using UnityEngine.AddressableAssets;
 
 namespace BagCraftingMod
 {
-    [BepInPlugin("pwdcat.BagCraftingMod", "BagCraftingMod", "1.0.0")]
-    [BepInDependency("pwdcat.DrifterBossGrab")]
+    [BepInPlugin("com.pwdcat.BagCraftingMod", "BagCraftingMod", "1.0.0")]
+    [BepInDependency("com.pwdcat.DrifterBossGrab")]
     [BepInDependency("com.ThinkInvisible.ItemQualities", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("com.rune580.riskofoptions", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -37,19 +37,14 @@ namespace BagCraftingMod
             string prefabPath = "RoR2/DLC3/MealPrep/MealPrepPickerPanel.prefab";
             try
             {
-                var handle = Addressables.LoadAssetAsync<GameObject>(prefabPath);
-                BagCraftingController.PanelPrefab = handle.WaitForCompletion();
-                Log.Info($"Successfully loaded {prefabPath}");
+                BagCraftingController.PanelPrefab = Addressables.LoadAssetAsync<GameObject>(prefabPath).WaitForCompletion();
+                Log.Info($"[BagCrafting] Successfully loaded {prefabPath}");
             }
             catch (System.Exception ex)
             {
-                Log.Error($"Failed to load {prefabPath}: {ex.Message}");
+                Log.Error($"[BagCrafting] Failed to load {prefabPath}: {ex.Message}");
             }
 
-            On.RoR2.SceneDirector.Start += (orig, self) => {
-                orig(self);
-                SpawnTestCrafter();
-            };
         }
 
         private void Update()
@@ -79,7 +74,7 @@ namespace BagCraftingMod
 
             if (BagCraftingController.PanelPrefab == null)
             {
-                Log.Warning("BagCraftingPanelPrefab is not assigned. Cannot open menu.");
+                Log.Warning("[BagCrafting] BagCraftingPanelPrefab is not assigned. Cannot open menu.");
                 return;
             }
 
@@ -114,7 +109,7 @@ namespace BagCraftingMod
         {
             if (!Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions")) return;
 
-            ModSettingsManager.SetModDescription("Merge bagged chests into higher tiers with configurable recipes.", "pwdcat.BagCraftingMod", "BagCraftingMod");
+            ModSettingsManager.SetModDescription("Merge bagged chests into higher tiers with configurable recipes.", "com.pwdcat.BagCraftingMod", "BagCraftingMod");
 
             // Load icon
             string iconPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Info.Location), "icon.png");
@@ -129,7 +124,7 @@ namespace BagCraftingMod
                 }
                 catch (System.Exception ex)
                 {
-                    Log.Warning($"Failed to load mod icon: {ex.Message}");
+                    Log.Warning($"[BagCrafting] Failed to load mod icon: {ex.Message}");
                 }
             }
 
@@ -146,10 +141,6 @@ namespace BagCraftingMod
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.IconAssetPathsRaw, new InputFieldConfig { name = "Icon Asset Paths", category = "Icons", submitOn = InputFieldConfig.SubmitEnum.OnExit }));
         }
 
-        private void SpawnTestCrafter()
-        {
-            Log.Info("Test Crafter spawning is disabled in this test build.");
-        }
     }
 
     public static class Log

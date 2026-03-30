@@ -48,8 +48,6 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (kvp.Value != null && !kvp.Value.hasPassenger)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[FindOrCreateEmptySeat] Found existing empty tracked seat for {bagController.name}");
                     return kvp.Value;
                 }
             }
@@ -60,8 +58,6 @@ namespace DrifterBossGrabMod.Patches
                 bool isTracked = seatDict.Values.Contains(childSeat);
                 if (!isTracked && !childSeat.hasPassenger)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[FindOrCreateEmptySeat] Found existing empty untracked seat for {bagController.name}");
                     return childSeat;
                 }
             }
@@ -71,13 +67,8 @@ namespace DrifterBossGrabMod.Patches
 
             if (totalAdditionalSeats >= currentCapacity - 1)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[FindOrCreateEmptySeat] Cannot create additional seat. Capacity reached ({totalAdditionalSeats + 1}/{currentCapacity})");
                 return null!;
             }
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[FindOrCreateEmptySeat] Creating new additional seat (Current additional: {totalAdditionalSeats}, Capacity: {currentCapacity})");
 
             if (!NetworkServer.active) return null!;
 

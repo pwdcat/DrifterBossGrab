@@ -64,19 +64,19 @@ namespace BagCraftingMod.UI
                 }
             }
             gameObject.name = "BagCraftingMenu(Clone)";
-            Log.Info("BagCraftingPanel.Awake()");
+            Log.Debug("BagCraftingPanel.Awake()");
 
             // 1. Find the key containers using discovery
             var bgContainer = FindChildRecursive(transform, "BGContainer");
             if (bgContainer)
             {
-                Log.Info("Found BGContainer, searching for children...");
+                Log.Debug($"[BagCrafting] Found BGContainer, searching for children...");
                 
                 // Crafting Container
                 var craftingContainer = FindChildRecursive(bgContainer, "CraftingContainer");
                 if (craftingContainer)
                 {
-                    Log.Info("Found CraftingContainer.");
+                    Log.Debug($"[BagCrafting] Found CraftingContainer.");
                     _selectedContainer = FindChildRecursive(craftingContainer, "Container") as RectTransform;
                     
                     if (_selectedContainer)
@@ -96,7 +96,7 @@ namespace BagCraftingMod.UI
                             glg.constraint = GridLayoutGroup.Constraint.FixedRowCount;
                             glg.constraintCount = 1;
                             glg.childAlignment = TextAnchor.MiddleCenter;
-                            Log.Info("Configured GridLayoutGroup for Selection.");
+                            Log.Debug($"[BagCrafting] Configured GridLayoutGroup for Selection.");
                         }
                     }
 
@@ -112,7 +112,7 @@ namespace BagCraftingMod.UI
                             var container = _selectedContainer;
                             if (container == null) return;
 
-                            Log.Info($"Container - Before ScrollRect/RectMask2D: anchorMin={container.anchorMin}, anchorMax={container.anchorMax}, sizeDelta={container.sizeDelta}, rect={container.rect}");
+                            Log.Debug($"[BagCrafting] Container - Before ScrollRect/RectMask2D: anchorMin={container.anchorMin}, anchorMax={container.anchorMax}, sizeDelta={container.sizeDelta}, rect={container.rect}");
                              
                             var scrollRect = container.gameObject.GetComponent<ScrollRect>();
                             if (!scrollRect)
@@ -130,7 +130,7 @@ namespace BagCraftingMod.UI
                                 scrollRect.elasticity = 0.1f;
                                 scrollRect.content = container;
                                 
-                                Log.Info($"ScrollRect configured on Container: horizontal={scrollRect.horizontal}, vertical={scrollRect.vertical}, scrollSensitivity={scrollRect.scrollSensitivity}");
+                                Log.Debug($"[BagCrafting] ScrollRect configured on Container: horizontal={scrollRect.horizontal}, vertical={scrollRect.vertical}, scrollSensitivity={scrollRect.scrollSensitivity}");
                             }
                             
                             var rectMask = container.gameObject.GetComponent<RectMask2D>();
@@ -144,10 +144,10 @@ namespace BagCraftingMod.UI
                                 rectMask.padding = new Vector4(0, 0, 0, 0);
                                 rectMask.softness = new Vector2Int(0, 0);
                                 
-                                Log.Info($"RectMask2D configured on Container: padding={rectMask.padding}, softness={rectMask.softness}");
+                                Log.Debug($"[BagCrafting] RectMask2D configured on Container: padding={rectMask.padding}, softness={rectMask.softness}");
                             }
                              
-                            Log.Info($"Container - After ScrollRect/RectMask2D: anchorMin={container.anchorMin}, anchorMax={container.anchorMax}, sizeDelta={container.sizeDelta}, rect={container.rect}");
+                            Log.Debug($"Container - After ScrollRect/RectMask2D: anchorMin={container.anchorMin}, anchorMax={container.anchorMax}, sizeDelta={container.sizeDelta}, rect={container.rect}");
                         }
                     }
 
@@ -184,13 +184,13 @@ namespace BagCraftingMod.UI
                 var inventoryContainer = FindChildRecursive(bgContainer, "InventoryContainer");
                 if (inventoryContainer)
                 {
-                    Log.Info("Found InventoryContainer.");
+                    Log.Info("[BagCrafting] Inventory UI found");
                     inventoryContainer.gameObject.SetActive(true); // Ensure it's active
                     
                     var iconContainer = FindChildRecursive(inventoryContainer, "IconContainer") as RectTransform;
                     if (iconContainer)
                     {
-                        Log.Info("Found IconContainer.");
+                        Log.Debug($"[BagCrafting] Found IconContainer.");
                         _bagContainer = iconContainer;
                         
                         // Fallback prefab if not found in crafting
@@ -230,8 +230,8 @@ namespace BagCraftingMod.UI
             }
             else
             {
-                Log.Warning("BGContainer not found! UI will be empty.");
-                Log.Info("Full hierarchy dump for debugging:");
+                Log.Warning($"[BagCrafting] BGContainer not found! UI will be empty.");
+                Log.Info($"[BagCrafting] Full hierarchy dump for debugging:");
                 DumpHierarchy(transform, "");
             }
 
@@ -239,7 +239,7 @@ namespace BagCraftingMod.UI
             var labelContainer = FindChildRecursive(transform, "LabelContainer");
             if (labelContainer)
             {
-                Log.Info("Found LabelContainer.");
+                Log.Debug($"[BagCrafting] Found LabelContainer.");
                 var mainLabel = FindChildRecursive(labelContainer, "Label")?.GetComponent<TMP_Text>();
                 if (mainLabel) mainLabel.text = "Bag Crafting";
 
@@ -252,18 +252,18 @@ namespace BagCraftingMod.UI
 
             if (_bagContainer && _slotPrefab)
             {
-                Log.Info($"Initializing _bagAllocator on {_bagContainer.name} with prefab {_slotPrefab.name}");
+                Log.Debug($"[BagCrafting] Initializing _bagAllocator on {_bagContainer.name} with prefab {_slotPrefab.name}");
                 _bagAllocator = new UIElementAllocator<MPButton>(_bagContainer, _slotPrefab, true, false);
                 _bagAllocator.onCreateElement = OnCreateBagButton;
             }
             else
             {
-                Log.Warning($"_bagContainer ({_bagContainer != null}) or _slotPrefab ({_slotPrefab != null}) is null.");
+                Log.Warning($"[BagCrafting] _bagContainer ({_bagContainer != null}) or _slotPrefab ({_slotPrefab != null}) is null.");
             }
 
             if (_selectedContainer && _slotPrefab)
             {
-                Log.Info($"Initializing _selectedAllocator on {_selectedContainer.name} with prefab {_slotPrefab.name}");
+                Log.Debug($"[BagCrafting] Initializing _selectedAllocator on {_selectedContainer.name} with prefab {_slotPrefab.name}");
                 _selectedAllocator = new UIElementAllocator<MPButton>(_selectedContainer, _slotPrefab, true, false);
                 _selectedAllocator.onCreateElement = OnCreateSelectedButton;
             }
@@ -358,7 +358,7 @@ namespace BagCraftingMod.UI
             _baggedObjects = currentBag;
             _lastBagCount = _baggedObjects.Count;
 
-            Log.Info($"UpdateAllVisuals: Updating UI (Bag: {_baggedObjects.Count}, Selected: {currentIngredients.Count})");
+            Log.Debug($"[BagCrafting] UpdateAllVisuals: Updating UI (Bag: {_baggedObjects.Count}, Selected: {currentIngredients.Count})");
 
             // 1. Group items for UI
             _bagGroups = _baggedObjects
@@ -539,15 +539,15 @@ namespace BagCraftingMod.UI
                 }
                 else
                 {
-                    Log.Debug("No sprite found for object.");
+                    Log.Debug("[BagCrafting] No sprite found for object.");
                     iconImage.enabled = false;
                 }
             }
             else
             {
                  var allImages = button.GetComponentsInChildren<Image>(true);
-                 Log.Warning($"iconImage not found on button! Total images in children: {allImages.Length}");
-                 foreach(var img in allImages) Log.Debug($" - Image: {img.name}, gameobject: {img.gameObject.name}");
+                 Log.Warning($"[BagCrafting] iconImage not found on button! Total images in children: {allImages.Length}");
+                 foreach(var img in allImages) Log.Debug($"[BagCrafting]  - Image: {img.name}, gameobject: {img.gameObject.name}");
             }
 
             var quality = ItemQualitySupport.GetQuality(obj);
@@ -626,28 +626,28 @@ namespace BagCraftingMod.UI
 
         private Sprite? GetIconForResult(string resultName)
         {
-            Log.Info($"GetIconForResult: {resultName}");
+            Log.Info($"[BagCrafting] Icon for: {resultName}");
             // 1. Try AssetCache (Config Mapping or previously cached)
             var cachedIcon = AssetCache.GetIcon(resultName);
             if (cachedIcon != null) 
             {
-                Log.Info($"Found icon in AssetCache for: {resultName}");
+                Log.Info($"[BagCrafting] Found icon in AssetCache for: {resultName}");
                 return cachedIcon;
             }
 
             // 2. Use the Controller's verified prefab discovery
             if (Controller != null)
             {
-                Log.Info($"Attempting prefab discovery for icon: {resultName}");
-                var prefab = Controller.FindPrefabForResult(resultName);
+                Log.Info($"[BagCrafting] Attempting prefab discovery for icon: {resultName}");
+                var prefab = BagCraftingController.FindPrefabForResult(resultName);
                 if (prefab != null)
                 {
-                    Log.Info($"Found prefab: {prefab.name}");
+                    Log.Info($"[BagCrafting] Prefab: {prefab.name}");
                     // Check if prefab has SpecialObjectAttributes with an icon
                     var soa = prefab.GetComponent<SpecialObjectAttributes>();
                     if (soa && soa.portraitIcon) 
                     {
-                        Log.Info($"Found portraitIcon on prefab SOA: {soa.portraitIcon.name}");
+                        Log.Info($"[BagCrafting] Found portraitIcon on prefab SOA: {soa.portraitIcon.name}");
                         var sprite = TextureToSprite(soa.portraitIcon);
                         if (sprite)
                         {
@@ -659,7 +659,7 @@ namespace BagCraftingMod.UI
                     // Fallback
                     string lowerName = prefab.name.ToLowerInvariant();
                     string iconPath = DrifterBossGrabMod.Patches.GrabbableObjectPatches.GetIconPathForObject(lowerName);
-                    Log.Info($"Fallback icon mapping for {lowerName}: {iconPath}");
+                    Log.Info($"[BagCrafting] Fallback icon mapping for {lowerName}: {iconPath}");
                     if (!string.IsNullOrEmpty(iconPath))
                     {
                         try
@@ -667,7 +667,7 @@ namespace BagCraftingMod.UI
                             var texture = Addressables.LoadAssetAsync<Texture>(iconPath).WaitForCompletion();
                             if (texture)
                             {
-                                Log.Info($"Successfully loaded fallback icon from Addressables: {iconPath}");
+                                Log.Info($"[BagCrafting] Successfully loaded fallback icon from Addressables: {iconPath}");
                                 var sprite = TextureToSprite(texture);
                                 if (sprite)
                                 {
@@ -678,13 +678,13 @@ namespace BagCraftingMod.UI
                         }
                         catch (Exception ex)
                         {
-                            Log.Error($"Failed to load Addressable icon {iconPath}: {ex.Message}");
+                            Log.Error($"[BagCrafting] Failed to load Addressable icon {iconPath}: {ex.Message}");
                         }
                     }
                 }
             }
 
-            Log.Warning($"No icon found for {resultName}, using mystery icon.");
+            Log.Warning($"[BagCrafting] No icon found for {resultName}, using mystery icon.");
             // Final fallback
             return GetIconForObject(null!); 
         }
@@ -702,7 +702,7 @@ namespace BagCraftingMod.UI
         private void DumpHierarchy(Transform? t, string indent)
         {
             if (!t) return;
-            Log.Info($"{indent}{t.name} (Active: {t.gameObject.activeSelf})");
+            Log.Info($"[BagCrafting] {indent}{t.name} (Active: {t.gameObject.activeSelf})");
             for (int i = 0; i < t.childCount; i++)
             {
                 DumpHierarchy(t.GetChild(i), indent + "  ");

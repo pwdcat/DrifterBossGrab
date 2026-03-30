@@ -1,6 +1,5 @@
 #nullable enable
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -24,18 +23,16 @@ namespace DrifterBossGrabMod.Patches
             {
                 _drifterBodyIndex = BodyCatalog.FindBodyIndex("DrifterBody");
             }
-            var drifterPlayers = PlayerCharacterMasterController.instances
-                .Where(pcm => pcm.master.GetBody()?.bodyIndex == _drifterBodyIndex && pcm.isLocalPlayer).ToList();
-            foreach (var drifter in drifterPlayers)
+            foreach (var pcm in PlayerCharacterMasterController.instances)
             {
-                var bagController = drifter.GetComponent<DrifterBagController>();
+                if (!pcm.isLocalPlayer) continue;
+                var body = pcm.master.GetBody();
+                if (body == null || body.bodyIndex != _drifterBodyIndex) continue;
+
+                var bagController = pcm.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
-                    var body = drifter.master.GetBody();
-                    if (body != null)
-                    {
-                        bagController = body.GetComponent<DrifterBagController>();
-                    }
+                    bagController = body.GetComponent<DrifterBagController>();
                 }
                 if (bagController == null)
                 {
@@ -93,52 +90,49 @@ namespace DrifterBossGrabMod.Patches
             {
                 _drifterBodyIndex = BodyCatalog.FindBodyIndex("DrifterBody");
             }
-            return PlayerCharacterMasterController.instances
-                .Where(pcm => pcm.master.GetBody()?.bodyIndex == _drifterBodyIndex)
-                .Any(drifter =>
+            foreach (var pcm in PlayerCharacterMasterController.instances)
+            {
+                var pcmBody = pcm.master.GetBody();
+                if (pcmBody == null || pcmBody.bodyIndex != _drifterBodyIndex) continue;
+
+                var bagController = pcm.GetComponent<DrifterBagController>();
+                if (bagController == null)
                 {
-                    var bagController = drifter.GetComponent<DrifterBagController>();
-                    if (bagController == null)
+                    bagController = pcmBody.GetComponent<DrifterBagController>();
+                }
+                if (bagController == null) continue;
+                try
+                {
+                    if (_networkbaggedObjectProperty != null)
                     {
-                        var body = drifter.master.GetBody();
-                        if (body != null)
-                        {
-                            bagController = body.GetComponent<DrifterBagController>();
-                        }
+                        var baggedObject = (GameObject)_networkbaggedObjectProperty.GetValue(bagController);
+                        if (baggedObject == obj) return true;
                     }
-                    if (bagController == null) return false;
-                    try
+                    if (_baggedObjectField != null)
                     {
-                        if (_networkbaggedObjectProperty != null)
-                        {
-                            var baggedObject = (GameObject)_networkbaggedObjectProperty.GetValue(bagController);
-                            return baggedObject == obj;
-                        }
-                        if (_baggedObjectField != null)
-                        {
-                            var baggedObject = (GameObject)_baggedObjectField.GetValue(bagController);
-                            return baggedObject == obj;
-                        }
-                        if (_networkpassengerProperty != null)
-                        {
-                            var baggedObject = (GameObject)_networkpassengerProperty.GetValue(bagController);
-                            return baggedObject == obj;
-                        }
-                        if (_passengerProperty != null)
-                        {
-                            var baggedObject = (GameObject)_passengerProperty.GetValue(bagController);
-                            return baggedObject == obj;
-                        }
+                        var baggedObject = (GameObject)_baggedObjectField.GetValue(bagController);
+                        if (baggedObject == obj) return true;
                     }
-                    catch (System.Exception ex)
+                    if (_networkpassengerProperty != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Error checking if object is bagged: {ex.Message}");
-                        }
+                        var baggedObject = (GameObject)_networkpassengerProperty.GetValue(bagController);
+                        if (baggedObject == obj) return true;
                     }
-                    return false;
-                });
+                    if (_passengerProperty != null)
+                    {
+                        var baggedObject = (GameObject)_passengerProperty.GetValue(bagController);
+                        if (baggedObject == obj) return true;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Error checking if object is bagged: {ex.Message}");
+                    }
+                }
+            }
+            return false;
         }
     }
 }

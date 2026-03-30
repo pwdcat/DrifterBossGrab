@@ -51,10 +51,6 @@ namespace DrifterBossGrabMod.UI
 
             if (_bagController == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[MassCapacityUIController] No local DrifterBagController found. Disabling.");
-                }
                 enabled = false;
                 return;
             }
@@ -67,10 +63,6 @@ namespace DrifterBossGrabMod.UI
         {
             if (!PluginConfig.Instance.EnableMassCapacityUI.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[MassCapacityUIController] Capacity UI is disabled in config.");
-                }
                 return;
             }
 
@@ -98,12 +90,12 @@ namespace DrifterBossGrabMod.UI
                 }
                 else
                 {
-                    Log.Error("[MassCapacityUIController] Failed to load Capacity UI prefab: prefab is null");
+                    Log.Error("[CapacityUI] Failed to load Capacity UI prefab: prefab is null");
                 }
             }
             else
             {
-                Log.Error($"[MassCapacityUIController] Failed to load Capacity UI prefab: {handle.Status}");
+                Log.Error($"[CapacityUI] Failed to load Capacity UI prefab: {handle.Status}");
             }
 
             Addressables.Release(handle);
@@ -115,7 +107,7 @@ namespace DrifterBossGrabMod.UI
             var hudCanvas = UnityEngine.Object.FindFirstObjectByType<RoR2.UI.HUD>();
             if (hudCanvas == null)
             {
-                Log.Error("[MassCapacityUIController] Failed to find HUD canvas");
+                Log.Error("[CapacityUI] Failed to find HUD canvas");
                 return;
             }
 
@@ -137,19 +129,19 @@ namespace DrifterBossGrabMod.UI
                         }
                         else
                         {
-                            Log.Warning("[MassCapacityUIController] CrosshairExtras not found, using CrosshairCanvas as parent");
+                            Log.Warning("[CapacityUI] CrosshairExtras not found, using CrosshairCanvas as parent");
                             targetParent = crosshairCanvas;
                         }
                     }
                     else
                     {
-                        Log.Warning("[MassCapacityUIController] CrosshairCanvas not found, using MainUIArea as parent");
+                        Log.Warning("[CapacityUI] CrosshairCanvas not found, using MainUIArea as parent");
                         targetParent = mainUIArea;
                     }
                 }
                 else
                 {
-                    Log.Warning("[MassCapacityUIController] MainUIArea not found, using MainContainer as parent");
+                    Log.Warning("[CapacityUI] MainUIArea not found, using MainContainer as parent");
                     targetParent = mainContainer;
                 }
             }
@@ -169,18 +161,13 @@ namespace DrifterBossGrabMod.UI
 
             // Initial update
             UpdateCapacityUI();
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[MassCapacityUIController] Capacity UI instantiated successfully at parent: {targetParent?.name ?? "null"}");
-            }
         }
 
         private void FindUIElements()
         {
             if (_massCapacityUIInstance == null)
             {
-                Log.Error("[MassCapacityUIController] Cannot find UI elements: instance is null");
+                Log.Error("[CapacityUI] Cannot find UI elements: instance is null");
                 return;
             }
 
@@ -236,10 +223,6 @@ namespace DrifterBossGrabMod.UI
         {
             if (_fillBarImage == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Warning("[MassCapacityUIController] Cannot create overencumbrance fill: primary fill bar not found");
-                }
                 return;
             }
 
@@ -247,10 +230,6 @@ namespace DrifterBossGrabMod.UI
             Transform junkMeterTransform = _fillBarImage.transform.parent;
             if (junkMeterTransform == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Warning("[MassCapacityUIController] Cannot create overencumbrance fill: Fill image has no parent");
-                }
                 return;
             }
 
@@ -304,11 +283,6 @@ namespace DrifterBossGrabMod.UI
 
             // Add the new blue gradient effect
             _overencumbranceGradientEffect = overencumbranceFillObj.AddComponent<OverencumbranceUIGradient>();
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[MassCapacityUIController] Created overencumbrance fill image as sibling of Fill");
-            }
         }
 
         // Updates the Capacity UI display based on current capacity
@@ -400,12 +374,6 @@ namespace DrifterBossGrabMod.UI
 
             UpdateGradient(percentage);
             UpdateSeparators(percentage);
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                string capacityDisplay = _currentCapacity >= float.MaxValue ? "∞" : _currentCapacity.ToString("F0");
-                Log.Info($"[MassCapacityUIController] Updated UI: mass={_currentUsedCapacity}/{capacityDisplay} ({massPercentage:P1}), slot={slotPercentage:P1}, final={percentage:P1})");
-            }
         }
 
         // Updates the overencumbrance fill image based on current overencumbrance status.
@@ -443,11 +411,6 @@ namespace DrifterBossGrabMod.UI
 
             // Show/hide based on whether we're overencumbered
             _overencumbranceFillImage.gameObject.SetActive(overencumbranceFraction > 0f);
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value && overencumbranceFraction > 0f)
-            {
-                Log.Info($"[MassCapacityUIController] Overencumbrance fill: {overencumbranceFraction:P1}");
-            }
         }
 
         // Updates the Capacity UI configuration
@@ -473,11 +436,6 @@ namespace DrifterBossGrabMod.UI
             // Update scale
             float scale = PluginConfig.Instance.MassCapacityUIScale.Value;
             _massCapacityUIInstance.transform.localScale = Vector3.one * scale;
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[MassCapacityUIController] Updated config: Position=({PluginConfig.Instance.MassCapacityUIPositionX.Value}, {PluginConfig.Instance.MassCapacityUIPositionY.Value}), Scale={scale}");
-            }
         }
 
         private void OnDestroy()
@@ -554,7 +512,7 @@ namespace DrifterBossGrabMod.UI
                 if (_bagController != null)
                 {
                     int capacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
-                    bool uncap = (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY") && PluginConfig.Instance.BottomlessBagEnabled.Value;
+                    bool uncap = PluginConfig.Instance.IsAddedCapacityInfinite && PluginConfig.Instance.BottomlessBagEnabled.Value;
 
                     int k = 1;
 
@@ -564,7 +522,7 @@ namespace DrifterBossGrabMod.UI
                         var countedInstanceIds = new HashSet<int>();
                         foreach (var obj in list)
                         {
-                            if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                            if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                             {
                                 int instanceId = obj.GetInstanceID();
                                 if (!countedInstanceIds.Contains(instanceId))
@@ -586,7 +544,7 @@ namespace DrifterBossGrabMod.UI
                     }
 
                     var incomingObject = BagPatches.GetState(_bagController).IncomingObject;
-                    if (incomingObject != null && !OtherPatches.IsInProjectileState(incomingObject))
+                    if (incomingObject != null && !ProjectileRecoveryPatches.IsInProjectileState(incomingObject))
                     {
                         float mass = _bagController.CalculateBaggedObjectMass(incomingObject);
                         cumulativeMass += mass;

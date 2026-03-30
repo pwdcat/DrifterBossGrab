@@ -31,19 +31,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Patch to ensure state calculation is applied when cycling to a new object
-        [HarmonyPatch(typeof(BottomlessBagPatches), "CycleToNextObject")]
-        public class CycleToNextObject_StateCalculation
-        {
-            [HarmonyPostfix]
-            public static void Postfix(DrifterBagController __instance, GameObject newObject)
-            {
-                if (newObject == null || !PluginConfig.Instance.EnableBalance.Value) return;
 
-                // Trigger state recalculation with current mode
-                BaggedObjectPatches.SynchronizeBaggedObjectState(__instance, newObject);
-            }
-        }
 
         // Patch SuffocateSlam.OnEnter to use dynamic capacity from balance feature instead of hardcoded maxMass
         [HarmonyPatch(typeof(SuffocateSlam), "OnEnter")]

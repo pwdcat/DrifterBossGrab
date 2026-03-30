@@ -62,7 +62,7 @@ namespace BagCraftingMod.UI
 
             if (drifter)
             {
-                Log.Info($"Crafting {BestFitRecipe.Recipe.ResultPrefabName} (Quality: {BestFitRecipe.Quality}) on authority: {drifter.hasAuthority}");
+                Log.Info($"[BagCrafting] Crafting {BestFitRecipe.Recipe.ResultPrefabName}");
                 
                 var position = drifter.transform.position;
                 var rotation = drifter.transform.rotation;
@@ -85,7 +85,7 @@ namespace BagCraftingMod.UI
         {
             if (!NetworkServer.active)
             {
-                Log.Warning("Cannot spawn - not on server");
+                Log.Warning("[BagCrafting] Cannot spawn - not on server");
                 return;
             }
 
@@ -101,13 +101,13 @@ namespace BagCraftingMod.UI
             // Fallback to base prefab if quality variant not found
             if (prefab == null && finalPrefabName != resultName)
             {
-                Log.Debug($"Quality variant {finalPrefabName} not found, falling back to {resultName}");
+                Log.Debug($"[BagCrafting] Quality variant {finalPrefabName} not found, falling back to {resultName}");
                 prefab = FindPrefabForResult(resultName);
             }
 
             if (prefab != null)
             {
-                Log.Info($"Spawning prefab directly: {finalPrefabName}");
+                Log.Info($"[BagCrafting] Spawning {finalPrefabName}");
                 
                 // Get position far away/below to avoid visual popping before grab
                 Vector3 spawnPos = summoner.transform.position + (Vector3.down * 500f);
@@ -131,19 +131,19 @@ namespace BagCraftingMod.UI
                     NetworkServer.Spawn(spawnedInstance);
                     
                     // Schedule auto-grab
-                    Log.Info($"Scheduling auto-grab for direct-spawned: {finalPrefabName}");
+                    Log.Info($"[BagCrafting] Scheduling auto-grab for direct-spawned: {finalPrefabName}");
                     DrifterBagAPI.ScheduleAutoGrab(drifter, spawnedInstance, 0.0f);
                     
-                    Log.Info($"Successfully spawned prefab: {finalPrefabName}");
+                    Log.Info($"[BagCrafting] Successfully spawned prefab: {finalPrefabName}");
                 }
                 else
                 {
-                    Log.Warning($"Failed to instantiate prefab: {finalPrefabName}");
+                    Log.Warning($"[BagCrafting] Failed to instantiate prefab: {finalPrefabName}");
                 }
             }
             else
             {
-                Log.Warning($"Prefab not found for result: {finalPrefabName}");
+                Log.Warning($"[BagCrafting] Prefab not found for result: {finalPrefabName}");
             }
         }
 
@@ -162,7 +162,7 @@ namespace BagCraftingMod.UI
             }
         }
 
-        public GameObject? FindPrefabForResult(string resultName)
+        public static GameObject? FindPrefabForResult(string resultName)
         {
             // 1. Try AssetCache (Config Mapping)
             var cachedPrefab = AssetCache.GetPrefab(resultName);
@@ -175,7 +175,7 @@ namespace BagCraftingMod.UI
             var isc = LegacyResourcesAPI.Load<SpawnCard>($"SpawnCards/InteractableSpawnCard/isc{resultName}");
             if (isc != null && isc.prefab)
             {
-                Log.Debug($"Found prefab via legacy SpawnCard fallback: {resultName}");
+                Log.Debug($"[BagCrafting] Found prefab via legacy SpawnCard fallback: {resultName}");
                 return isc.prefab;
             }
 

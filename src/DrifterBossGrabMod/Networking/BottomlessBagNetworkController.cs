@@ -12,9 +12,9 @@ namespace DrifterBossGrabMod.Networking
 {
     public class BottomlessBagNetworkController : NetworkBehaviour
     {
-        // Cached reflection methods
-        private static readonly MethodInfo _tryOverrideUtilityMethod = HarmonyLib.AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-        private static readonly MethodInfo _tryOverridePrimaryMethod = HarmonyLib.AccessTools.Method(typeof(BaggedObject), "TryOverridePrimary", new System.Type[] { typeof(GenericSkill) });
+        // Cached reflection methods - using centralized ReflectionCache
+        private static readonly MethodInfo _tryOverrideUtilityMethod = ReflectionCache.BaggedObject.TryOverrideUtility;
+        private static readonly MethodInfo _tryOverridePrimaryMethod = ReflectionCache.BaggedObject.TryOverridePrimary;
 
         [SyncVar]
         public int selectedIndex = -1;
@@ -86,11 +86,6 @@ namespace DrifterBossGrabMod.Networking
                     return;
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Debug($"[BottomlessBagNetworkController] Sending state update: index={index}, objects={baggedIds.Count}");
-                }
-
                 // Build collider disabled array
                 List<bool> collidersDisabled = new List<bool>();
                 var controller = GetComponent<DrifterBagController>();
@@ -103,9 +98,9 @@ namespace DrifterBossGrabMod.Networking
                         {
                             var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
                             bool disabled = false;
-                            if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                            if (obj != null && bagState.DisabledCollidersByObject.TryGetValue(obj, out var disabledColliders))
                             {
-                                disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                                disabled = disabledColliders.Count > 0;
                             }
                             collidersDisabled.Add(disabled);
                         }
@@ -142,12 +137,6 @@ namespace DrifterBossGrabMod.Networking
              _lastScrollDirection = direction;
 
              var ctrl = GetComponent<DrifterBagController>();
-
-             if (PluginConfig.Instance.EnableDebugLogs.Value)
-             {
-                 Log.Debug($"[BottomlessBagNetworkController] Applying state: index={index}, objects={baggedIds.Length}, direction={direction}");
-             }
-
              UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
         [Command]
@@ -176,11 +165,6 @@ namespace DrifterBossGrabMod.Networking
 
                         if (!isInAnySeat)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Debug($"[BottomlessBagNetworkController] Auto-grabbing {obj.name} for client");
-                            }
-
                             controller.AssignPassenger(obj);
                         }
                     }
@@ -228,10 +212,10 @@ namespace DrifterBossGrabMod.Networking
                     {
                         var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
                         bool disabled = false;
-                        if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
-                        {
-                            disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
-                        }
+                            if (obj != null && bagState.DisabledCollidersByObject.TryGetValue(obj, out var disabledColliders))
+                            {
+                                disabled = disabledColliders.Count > 0;
+                            }
                         collidersDisabled.Add(disabled);
                     }
                 }
@@ -293,12 +277,9 @@ namespace DrifterBossGrabMod.Networking
             if (controller != null)
             {
                 TryFixNullTargetState(controller, new List<uint>(baggedIds));
-            }
 
-            // Re-collect seat IDs post-DoSync.
-            uint[] actualSeatIds = seatIds;
-            if (controller != null)
-            {
+                // Re-collect seat IDs post-DoSync.
+                uint[] actualSeatIds = seatIds;
                 var actualSeats = BagPatches.GetState(controller).AdditionalSeats;
                 if (actualSeats != null && actualSeats.Count > 0)
                 {
@@ -321,67 +302,64 @@ namespace DrifterBossGrabMod.Networking
                             Log.Info($"[ServerUpdateFromClient] Replaced client seatIds (count={seatIds.Length}) with {actualSeatIds.Length} recovered seat IDs");
                     }
                 }
-            }
 
-            int correctedIndex = index;
-            if (controller != null && index < 0 && baggedIds.Length > 0)
-            {
-                var mainSeatObj = BagPatches.GetMainSeatObject(controller);
-                if (mainSeatObj != null)
+                int correctedIndex = index;
+                if (index < 0 && baggedIds.Length > 0)
                 {
-                    var mainNetId = mainSeatObj.GetComponent<NetworkIdentity>();
-                    if (mainNetId != null)
+                    var mainSeatObj = BagPatches.GetMainSeatObject(controller);
+                    if (mainSeatObj != null)
                     {
-                        for (int i = 0; i < baggedIds.Length; i++)
+                        var mainNetId = mainSeatObj.GetComponent<NetworkIdentity>();
+                        if (mainNetId != null)
                         {
-                            if (baggedIds[i] == mainNetId.netId.Value)
+                            for (int i = 0; i < baggedIds.Length; i++)
                             {
-                                correctedIndex = i;
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
-                                break;
+                                if (baggedIds[i] == mainNetId.netId.Value)
+                                {
+                                    correctedIndex = i;
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
+                                    break;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Build collider disabled array
-            List<bool> collidersDisabled = new List<bool>();
-            if (controller != null)
-            {
-                var bagState = Patches.BagPatches.GetState(controller);
+                // Build collider disabled array
+                List<bool> collidersDisabled = new List<bool>();
+                var bagState = BagPatches.GetState(controller);
                 if (bagState != null && bagState.DisabledCollidersByObject != null)
                 {
                     foreach (var id in baggedIds)
                     {
                         var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
                         bool disabled = false;
-                        if (obj != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
-                        {
-                            disabled = bagState.DisabledCollidersByObject[obj].Count > 0;
-                        }
+                            if (obj != null && bagState.DisabledCollidersByObject.TryGetValue(obj, out var disabledColliders))
+                            {
+                                disabled = disabledColliders.Count > 0;
+                            }
                         collidersDisabled.Add(disabled);
                     }
                 }
-            }
 
-            var msg = new UpdateBagStateMessage
-            {
-                controllerNetId = GetComponent<NetworkIdentity>().netId,
-                selectedIndex = correctedIndex,
-                baggedIds = baggedIds,
-                seatIds = actualSeatIds,
-                scrollDirection = 0,
-                collidersDisabled = collidersDisabled.ToArray()
-            };
+                var msg = new UpdateBagStateMessage
+                {
+                    controllerNetId = GetComponent<NetworkIdentity>().netId,
+                    selectedIndex = correctedIndex,
+                    baggedIds = baggedIds,
+                    seatIds = actualSeatIds,
+                    scrollDirection = 0,
+                    collidersDisabled = collidersDisabled.ToArray()
+                };
                 NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
 
-            // Also update local state with the actual seat IDs so server stays in sync
-            if (actualSeatIds != seatIds)
-            {
-                _additionalSeatNetIds = new List<uint>(actualSeatIds);
-                _additionalSeatNetIdsTarget = new List<uint>(actualSeatIds);
+                // Also update local state with the actual seat IDs so server stays in sync
+                if (actualSeatIds != seatIds)
+                {
+                    _additionalSeatNetIds = new List<uint>(actualSeatIds);
+                    _additionalSeatNetIdsTarget = new List<uint>(actualSeatIds);
+                }
             }
         }
         private void TryFixNullTargetState(DrifterBagController controller, List<uint> baggedIds)
@@ -506,15 +484,10 @@ namespace DrifterBossGrabMod.Networking
                  Log.Warning($"[SyncStateCoroutine] Timed out waiting for objects after {timeout:F2}s");
              }
 
-             _baggedObjectNetIds = new List<uint>(_baggedObjectNetIdsTarget);
-             _additionalSeatNetIds = new List<uint>(_additionalSeatNetIdsTarget);
+              _baggedObjectNetIds = new List<uint>(_baggedObjectNetIdsTarget);
+              _additionalSeatNetIds = new List<uint>(_additionalSeatNetIdsTarget);
 
-             if (PluginConfig.Instance.EnableDebugLogs.Value)
-             {
-                 Log.Debug($"[BottomlessBagNetworkController] Calling DoSync with triggerUIUpdate=true");
-             }
-
-            DoSync(controller, true, _lastScrollDirection);
+             DoSync(controller, true, _lastScrollDirection);
             _syncCoroutine = null;
         }
         private void DoSync(DrifterBagController controller, bool triggerUIUpdate, int scrollDirection = 0)
@@ -523,11 +496,6 @@ namespace DrifterBossGrabMod.Networking
             var syncedObjects = GetBaggedObjects();
             var seats = GetAdditionalSeats();
             var additionalSeatDict = new System.Collections.Concurrent.ConcurrentDictionary<GameObject, VehicleSeat>();
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Debug($"[BottomlessBagNetworkController] Syncing state for {controller.name}");
-            }
 
             if (!NetworkServer.active)
             {
@@ -611,7 +579,6 @@ namespace DrifterBossGrabMod.Networking
                             }
                             if (isInSyncedList)
                             {
-                                Log.Debug($"[DoSync] Server-side recovery: Found missing seat for {passenger.name} in additional seats.");
                                 additionalSeatDict[passenger] = childSeat;
                             }
                         }
@@ -640,31 +607,23 @@ namespace DrifterBossGrabMod.Networking
                     isActuallyInMainSeat = true;
                 }
 
-                 if (isActuallyInMainSeat)
-                 {
-                     mainSeatObject = potentialMainSeatObject;
-                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                     {
-                         Log.Debug($"[DoSync] Main seat: {mainSeatObject?.name ?? "null"}");
-                     }
+                  if (isActuallyInMainSeat)
+                  {
+                      mainSeatObject = potentialMainSeatObject;
 
-                     if (mainSeatObject != null && additionalSeatDict.ContainsKey(mainSeatObject))
-                     {
-                         additionalSeatDict.TryRemove(mainSeatObject, out _);
-                     }
-                 }
-                 else
-                 {
-                     mainSeatObject = null;
-                 }
-             }
-             else
-             {
-                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                 {
-                     Log.Debug($"[DoSync] No main seat object (selectedIndex={selectedIndex}, syncedObjects count={syncedObjects?.Count ?? 0})");
-                 }
-             }
+                       if (mainSeatObject != null)
+                       {
+                           additionalSeatDict.TryRemove(mainSeatObject, out _);
+                       }
+                  }
+                  else
+                  {
+                      mainSeatObject = null;
+                  }
+              }
+              else
+              {
+              }
             if (scrollDirection != 0)
             {
                 DrifterBossGrabPlugin.LastCycleClientTime = UnityEngine.Time.time;
@@ -687,8 +646,6 @@ namespace DrifterBossGrabMod.Networking
 
                     if (wasNullState)
                     {
-                        Log.Debug($"[DoSync] Client: Transitioning from null to {mainSeatObject.name}, restoring state");
-
                         // Load stored state.
                          if (controller != null)
                          {
@@ -737,22 +694,22 @@ namespace DrifterBossGrabMod.Networking
                 }
             }
 
-            // Track previous index.
-            _previousSelectedIndex = selectedIndex;
+             // Track previous index.
+             _previousSelectedIndex = selectedIndex;
 
-            if (controller != null) BagPassengerManager.ForceRecalculateMass(controller);
-            if (syncedObjects != null)
-            {
-             if (controller != null) BagPassengerManager.MarkMassDirty(controller);
-                 if (controller != null) BagPatches.GetState(controller).BaggedObjects = syncedObjects;
-             }
-             if (triggerUIUpdate)
+             if (controller != null)
              {
-                 if (controller != null) BagCarouselUpdater.UpdateCarousel(controller, scrollDirection);
-
-                 // Refresh UI if main seat changed.
-                 if (controller != null)
+                 BagPassengerManager.ForceRecalculateMass(controller);
+                 if (syncedObjects != null)
                  {
+                     BagPassengerManager.MarkMassDirty(controller);
+                     BagPatches.GetState(controller).BaggedObjects = syncedObjects;
+                 }
+                 if (triggerUIUpdate)
+                 {
+                     BagCarouselUpdater.UpdateCarousel(controller, scrollDirection);
+
+                     // Refresh UI if main seat changed.
                      bool mainSeatChanged = (mainSeatObject != BagPatches.GetMainSeatObject(controller));
                      if (mainSeatChanged && mainSeatObject != null)
                      {
@@ -789,10 +746,10 @@ namespace DrifterBossGrabMod.Networking
                         objects.Add(fallbackObj);
                         _netIdCache[id] = fallbackObj;
                     }
-                    else
-                    {
-                        Log.Debug($"[GetBaggedObjects] Could not find object for NetID {idValue}");
-                    }
+                     else
+                     {
+                         // Object not found - this can happen during network transitions
+                     }
                 }
             }
             return objects;

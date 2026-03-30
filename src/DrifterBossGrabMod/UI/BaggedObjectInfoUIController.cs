@@ -172,8 +172,7 @@ namespace DrifterBossGrabMod.UI
             
             // Check if bottomless bag is enabled with INF capacity
             bool isBottomlessBag = PluginConfig.Instance.BottomlessBagEnabled.Value &&
-                (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" || 
-                 PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY");
+                PluginConfig.Instance.IsAddedCapacityInfinite;
             
             string capacityStr;
             if (useSlotBasedDisplay)

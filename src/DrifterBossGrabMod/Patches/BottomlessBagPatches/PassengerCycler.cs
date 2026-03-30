@@ -15,11 +15,16 @@ namespace DrifterBossGrabMod.Patches
     // Handles cycling logic for bag passengers - manages server-side and client-side cycling operations
     public static class PassengerCycler
     {
+        // Static cached collections to avoid per-cycle allocations
+        private static readonly HashSet<int> _seenInstanceIdsBuffer = new HashSet<int>();
+        private static readonly List<GameObject> _validObjectsBuffer = new List<GameObject>();
+        private static readonly List<GameObject> _potentialRegrabObjectsBuffer = new List<GameObject>();
+
         // Cycles through passengers in the bag by the specified amount - routes to server or handles locally based on network state
         public static void CyclePassengers(DrifterBagController bagController, int amount)
         {
             // Only allow cycling when BottomlessBag feature is enabled
-            if (!FeatureState.IsCyclingEnabled)
+            if (!PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
                 return;
             }
@@ -48,7 +53,7 @@ namespace DrifterBossGrabMod.Patches
         public static void ServerCyclePassengers(DrifterBagController bagController, int amount)
         {
             // Only allow cycling when BottomlessBag feature is enabled
-            if (!FeatureState.IsCyclingEnabled)
+            if (!PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
                 return;
             }
@@ -66,11 +71,13 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            var seenInstanceIds = new HashSet<int>();
-            var validObjects = new List<GameObject>();
-            var allObjectsInScene = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            var potentialRegrabObjects = new List<GameObject>();
-            foreach (var sceneObj in allObjectsInScene)
+            var seenInstanceIds = _seenInstanceIdsBuffer;
+            seenInstanceIds.Clear();
+            var validObjects = _validObjectsBuffer;
+            validObjects.Clear();
+            var potentialRegrabObjects = _potentialRegrabObjectsBuffer;
+            potentialRegrabObjects.Clear();
+            foreach (var sceneObj in SpecialObjectAttributesPatches.RegisteredObjects)
             {
                 if (sceneObj != null && PluginConfig.IsGrabbable(sceneObj))
                 {
@@ -83,7 +90,7 @@ namespace DrifterBossGrabMod.Patches
                             break;
                         }
                     }
-                    if (wasPreviouslyTracked && !OtherPatches.IsInProjectileState(sceneObj))
+                    if (wasPreviouslyTracked && !ProjectileRecoveryPatches.IsInProjectileState(sceneObj))
                     {
                         potentialRegrabObjects.Add(sceneObj);
                     }
@@ -95,7 +102,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     continue;
                 }
-                bool isInProjectileState = OtherPatches.IsInProjectileState(obj);
+                bool isInProjectileState = ProjectileRecoveryPatches.IsInProjectileState(obj);
                 if (isInProjectileState)
                 {
 
@@ -127,24 +134,7 @@ namespace DrifterBossGrabMod.Patches
             CycleToNextObject(bagController, validObjects, amount);
         }
 
-        // Private method to cycle passengers by amount on all authoritative bag controllers
-        private static void CyclePassengers(int amount)
-        {
-            if (amount == 0) return;
-            var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
 
-            foreach (var bagController in bagControllers)
-            {
-
-                if (!bagController.isAuthority)
-                {
-                    continue;
-                }
-
-                CyclePassengers(bagController, amount);
-                break;
-            }
-        }
 
         // Cycles to the next object in the valid objects list by the specified amount - handles all seat transitions and state updates
         private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, int amount)
@@ -259,7 +249,7 @@ namespace DrifterBossGrabMod.Patches
                         break;
                     }
                 }
-                if (!mainPassengerStillValid && OtherPatches.IsInProjectileState(mainPassenger))
+                if (!mainPassengerStillValid && ProjectileRecoveryPatches.IsInProjectileState(mainPassenger))
                 {
                     mainPassengerStillValid = false;
                 }

@@ -9,6 +9,7 @@ using Rewired.Data.Mapping;
 using RoR2;
 using RoR2.UI;
 using UnityEngine;
+using BagCraftingMod.Config;
 
 namespace BagCraftingMod.Input
 {
@@ -25,7 +26,7 @@ namespace BagCraftingMod.Input
             if (_initialized) return;
             _initialized = true;
 
-            Log.Info("[InputSetup] Initializing Rewired input actions for BagCraftingMod...");
+            Log.Info("[BagCrafting] Initializing Rewired input...");
 
             // Register actions in RoR2's InputCatalog
             AddActionsToInputCatalog();
@@ -74,7 +75,7 @@ namespace BagCraftingMod.Input
             if (getStringMethod != null)
                 harmony.Patch(getStringMethod, prefix: new HarmonyMethod(typeof(InputSetup), nameof(OnLanguageGetString)));
 
-            Log.Info("[InputSetup] BagCraftingMod input registration complete.");
+            Log.Info("[BagCrafting] Input registration complete");
         }
 
         private static bool OnLanguageGetString(string token, ref string __result)
@@ -157,7 +158,7 @@ namespace BagCraftingMod.Input
                         action.ActionId++;
 
                     self.actions.Add(action);
-                    Log.Info($"[InputSetup] Added action '{action.Name}' (id={action.ActionId})");
+                    if (BagCraftingMod.Config.PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[BagCrafting] Added action '{action.Name}'");
                 }
 
                 if (self.keyboardMaps != null && self.joystickMaps != null)

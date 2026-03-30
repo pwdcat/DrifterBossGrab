@@ -11,21 +11,23 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.Info($"[{FeatureName}] Applying patches...");
             // Core grabbing patches that should always be active
             // These handle the fundamental grabbing mechanics
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.Run_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.DrifterBagController_AssignPassenger)).Patch();
-            // Explicitly register all nested patches for OtherPatches
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.HackingMainState_FixedUpdate_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.MapZoneChecker_FixedUpdate_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ProjectileFuse_FixedUpdate_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.SpecialObjectAttributes_Start_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.BaggedObject_OnEnter_Patch)).Patch();
+            // Explicitly register all nested patches for MiscPatches
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_FixedUpdate_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ProjectileFuse_FixedUpdate_Patch)).Patch();
             // Prevent clients from calling server-only eject functions
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
+            // Explicitly register all nested patches for ProjectileRecoveryPatches
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.MapZoneChecker_FixedUpdate_Patch)).Patch();
+            // Explicitly register all nested patches for SpecialObjectAttributesPatches
+            harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_Start_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.BaggedObject_OnEnter_Patch)).Patch();
 
             // Explicitly register all nested patches for RepossessExitPatches
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnEnter_Patch)).Patch();
@@ -41,7 +43,6 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.SpecialObjectAttributes_get_isTargetable)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.RepossessBullseyeSearch_HurtBoxPassesRequirements)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.SpecialObjectAttributes_AvoidCapture)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.Repossess_OnExit_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.AimRepossess_OnEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessPatches.Repossess_OnEnter_Patch)).Patch();
 
@@ -56,11 +57,10 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetState)).Patch();
 
             // Defensive null check for CheckForDeadPassenger when passenger has been destroyed/teleported
-            harmony.CreateClassProcessor(typeof(Patches.OtherPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
 
             // Explicitly register all nested patches for ProjectilePatches
             harmony.CreateClassProcessor(typeof(Patches.ProjectilePatches.ProjectileController_Start_Patch)).Patch();
-            Log.Info($"[{FeatureName}] Patches applied successfully.");
         }
     }
 }

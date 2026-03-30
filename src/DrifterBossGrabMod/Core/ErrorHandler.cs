@@ -19,7 +19,7 @@ namespace DrifterBossGrabMod.Core
             }
             catch (Exception ex)
             {
-                Log.Error($"[{context}] Error: {ex.Message}");
+                Log.Error($"[ErrorHandling] Error: {ex.Message}");
                 return defaultValue;
             }
         }
@@ -34,7 +34,7 @@ namespace DrifterBossGrabMod.Core
             }
             catch (Exception ex)
             {
-                Log.Error($"[{context}] Error: {ex.Message}");
+                Log.Error($"[ErrorHandling] Error: {ex.Message}");
             }
         }
     }

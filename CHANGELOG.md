@@ -3,14 +3,23 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.3] - 2026-03-16
+## [1.7.3]
 
 ### Added
 - API calls
+- Config Sync on Host setting change
+- ProperSave integration
 
 ### Changed
 - Config Reorganization
 - UI/UX Improvements
+- Optimizations
+
+### Fixed
+- Autopromote and Mainseat for clients
+- Bagged UI (Now StatsPanel) to be applied to clients correctly
+- State Management causing invisible objects on throw for clients
+    - Now will only apply for ungrabbables, might lose support for other mods
 
 ## [1.7.2]
 

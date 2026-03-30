@@ -73,9 +73,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(EntityStates.Drifter.EmptyBag __instance, ref FireProjectileInfo fireProjectileInfo)
             {
-                // Apply max launch speed cap if configured
-                string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
-                if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed))
+                if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed))
                 {
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }
@@ -89,9 +87,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(ref FireProjectileInfo fireProjectileInfo)
             {
-                // Apply max launch speed cap if configured
-                string maxLaunchSpeedStr = PluginConfig.Instance.MaxLaunchSpeed.Value.Trim().ToUpper();
-                if (maxLaunchSpeedStr != "INF" && maxLaunchSpeedStr != "INFINITY" && float.TryParse(maxLaunchSpeedStr, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)
+                if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)
                 {
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }

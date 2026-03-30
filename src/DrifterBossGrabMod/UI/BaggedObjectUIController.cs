@@ -16,34 +16,24 @@ namespace DrifterBossGrabMod.UI
 
         private void Start()
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[BaggedObjectUIController] Start: slotPrefab={slotPrefab}");
             if (slotPrefab)
             {
                 // Check if this body is Drifter
                 var body = GetComponent<CharacterBody>();
                 if (body == null || !body.name.StartsWith("DrifterBody") || !body.hasAuthority)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObjectUIController] Not attached to DrifterBody or no authority");
                     return;
                 }
                 var localUser = RoR2.LocalUserManager.GetFirstLocalUser();
                 if (localUser == null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObjectUIController] No local user found");
                     return;
                 }
                 var hud = localUser.cameraRigController?.hud;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[BaggedObjectUIController] HUD instance: {hud}");
                 if (hud && hud.mainContainer)
                 {
                     // Find the DisplayRoot transform in the HUD hierarchy
                     var displayRoot = FindDeepChild(hud.mainContainer.transform, "DisplayRoot");
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObjectUIController] displayRoot: {displayRoot}");
                     if (displayRoot)
                     {
                         // Create the carousel GameObject at runtime
@@ -73,9 +63,6 @@ namespace DrifterBossGrabMod.UI
                         BaggedObjectCarousel.ApplyWeightIconTransform(aboveInstance);
                         BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance);
                         BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance);
-
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[BaggedObjectUIController] Created carousel in HUD");
                     }
                 }
             }

@@ -30,21 +30,9 @@ namespace DrifterBossGrabMod.Balance
             }
 
             int utilityStocks = body.skillLocator.utility.maxStock;
-            int baseCapacity = 0;
-            
-            // Handle INF/INFINITY case for infinite capacity
-            string addedCapacityStr = PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper();
-            if (addedCapacityStr == "INF" || addedCapacityStr == "INFINITY")
-            {
-                return int.MaxValue;
-            }
-            
-            if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedAddedCapacity))
-            {
-                baseCapacity = parsedAddedCapacity;
-            }
+            int addedCapacity = Constants.ParseCapacityString(PluginConfig.Instance.AddedCapacity.Value);
 
-            return baseCapacity + utilityStocks;
+            return addedCapacity == int.MaxValue ? int.MaxValue : utilityStocks + addedCapacity;
         }
 
         // Calculates the mass capacity limit using the MassCapacityFormula
@@ -59,7 +47,7 @@ namespace DrifterBossGrabMod.Balance
                 {
                     return float.MaxValue;
                 }
-                return totalCapacity * 100f; // Default linear: 100 per stock
+                return totalCapacity * Constants.Limits.DefaultMassPerStock; // Default linear: 100 per stock
             }
 
             // Get character stats for formula variables

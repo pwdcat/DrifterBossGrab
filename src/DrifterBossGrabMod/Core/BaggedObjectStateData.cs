@@ -14,17 +14,17 @@ namespace DrifterBossGrabMod.Core
     // Stores all BaggedObject state fields per GameObject for persistence across object cycling
     public class BaggedObjectStateData
     {
-        // Cached FieldInfo instances to reduce reflection overhead
-        private static readonly FieldInfo _targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
-        private static readonly FieldInfo _isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
-        private static readonly FieldInfo _vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
-        private static readonly FieldInfo _baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
-        private static readonly FieldInfo _bagScale01Field = AccessTools.Field(typeof(BaggedObject), "bagScale01");
-        private static readonly FieldInfo _movespeedPenaltyField = AccessTools.Field(typeof(BaggedObject), "movespeedPenalty");
-        private static readonly FieldInfo _attackSpeedStatField = AccessTools.Field(typeof(BaggedObject), "attackSpeedStat");
-        private static readonly FieldInfo _damageStatField = AccessTools.Field(typeof(BaggedObject), "damageStat");
-        private static readonly FieldInfo _critStatField = AccessTools.Field(typeof(BaggedObject), "critStat");
-        private static readonly FieldInfo _moveSpeedStatField = AccessTools.Field(typeof(BaggedObject), "moveSpeedStat");
+        // Cached FieldInfo instances to reduce reflection overhead - using centralized ReflectionCache
+        private static readonly FieldInfo _targetBodyField = ReflectionCache.BaggedObject.TargetBody;
+        private static readonly FieldInfo _isBodyField = ReflectionCache.BaggedObject.IsBody;
+        private static readonly FieldInfo _vehiclePassengerAttributesField = ReflectionCache.BaggedObject.VehiclePassengerAttributes;
+        private static readonly FieldInfo _baggedMassField = ReflectionCache.BaggedObject.BaggedMass;
+        private static readonly FieldInfo _bagScale01Field = ReflectionCache.BaggedObject.BagScale01;
+        private static readonly FieldInfo _movespeedPenaltyField = ReflectionCache.BaggedObjectAdditional.MovespeedPenalty;
+        private static readonly FieldInfo _attackSpeedStatField = ReflectionCache.BaggedObjectAdditional.AttackSpeedStat!;
+        private static readonly FieldInfo _damageStatField = ReflectionCache.BaggedObjectAdditional.DamageStat!;
+        private static readonly FieldInfo _critStatField = ReflectionCache.BaggedObjectAdditional.CritStat!;
+        private static readonly FieldInfo _moveSpeedStatField = ReflectionCache.BaggedObjectAdditional.MoveSpeedStat!;
         
         // Target references
         public CharacterBody? targetBody;
@@ -89,17 +89,14 @@ namespace DrifterBossGrabMod.Core
                 }
                 
                 // Breakout timer tracking
-                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                if (bTimeField != null) breakoutTime = (float)bTimeField.GetValue(state);
+                if (ReflectionCache.BaggedObject.BreakoutTime != null) breakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(state);
 
-                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                if (bAttemptsField != null) breakoutAttempts = (float)bAttemptsField.GetValue(state);
+                if (ReflectionCache.BaggedObject.BreakoutAttempts != null) breakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(state);
 
                 // Try to get EntityState's internal age
-                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-                if (fixedAgeProp != null)
+                if (ReflectionCache.EntityState.FixedAge != null)
                 {
-                    elapsedBreakoutTime = (float)fixedAgeProp.GetValue(state);
+                    elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -122,16 +119,13 @@ namespace DrifterBossGrabMod.Core
 
             try
             {
-                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                if (bTimeField != null) breakoutTime = (float)bTimeField.GetValue(state);
+                if (ReflectionCache.BaggedObject.BreakoutTime != null) breakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(state);
 
-                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                if (bAttemptsField != null) breakoutAttempts = (float)bAttemptsField.GetValue(state);
+                if (ReflectionCache.BaggedObject.BreakoutAttempts != null) breakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(state);
 
-                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-                if (fixedAgeProp != null)
+                if (ReflectionCache.EntityState.FixedAge != null)
                 {
-                    elapsedBreakoutTime = (float)fixedAgeProp.GetValue(state);
+                    elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -176,17 +170,14 @@ namespace DrifterBossGrabMod.Core
                 
                 // Breakout data
                 // Set breakoutTime and breakoutAttempts directly on the state object
-                var bTimeField = AccessTools.Field(typeof(BaggedObject), "breakoutTime");
-                if (bTimeField != null) bTimeField.SetValue(state, breakoutTime);
+                if (ReflectionCache.BaggedObject.BreakoutTime != null) ReflectionCache.BaggedObject.BreakoutTime.SetValue(state, breakoutTime);
 
-                var bAttemptsField = AccessTools.Field(typeof(BaggedObject), "breakoutAttempts");
-                if (bAttemptsField != null) bAttemptsField.SetValue(state, breakoutAttempts);
+                if (ReflectionCache.BaggedObject.BreakoutAttempts != null) ReflectionCache.BaggedObject.BreakoutAttempts.SetValue(state, breakoutAttempts);
 
                 // Set EntityState's internal age
-                var fixedAgeProp = AccessTools.Property(typeof(EntityState), "fixedAge");
-                if (fixedAgeProp != null)
+                if (ReflectionCache.EntityState.FixedAge != null)
                 {
-                    fixedAgeProp.SetValue(state, elapsedBreakoutTime);
+                    ReflectionCache.EntityState.FixedAge.SetValue(state, elapsedBreakoutTime);
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -233,7 +224,7 @@ namespace DrifterBossGrabMod.Core
                 float massValue = baggedMass;
                 float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
                 
-                if (!PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
+                if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
                 {
                     float maxScale = 1f;
                     if (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f) {

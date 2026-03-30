@@ -6,31 +6,34 @@ namespace DrifterBossGrabMod
 {
     internal static class Log
     {
-        private static ILogger _logger = new DebugLogger();
+        private static ManualLogSource? _logger;
+        private static bool _enableDebugLogs;
+
         internal static bool EnableDebugLogs
         {
-            get => _logger is DebugLogger;
-            set => _logger = value ? new DebugLogger() : new InfoLogger();
+            get => _enableDebugLogs;
+            set => _enableDebugLogs = value;
         }
 
-        internal static void Init(ManualLogSource logSource)
-        {
-            // Keep for compatibility, but not used
-        }
+        internal static void Init(ManualLogSource logSource) => _logger = logSource;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Error(object data) => _logger.Log(LogLevel.Error, data.ToString());
+        internal static void Error(object data) => _logger?.LogError(data.ToString());
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Fatal(object data) => _logger.Log(LogLevel.Fatal, data.ToString());
+        internal static void Fatal(object data) => _logger?.LogFatal(data.ToString());
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Info(object data) => _logger.Log(LogLevel.Info, data.ToString());
+        internal static void Info(object data) => _logger?.LogInfo(data.ToString());
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Message(object data) => _logger.Log(LogLevel.Info, data.ToString());
+        internal static void Message(object data) => _logger?.LogInfo(data.ToString());
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Warning(object data) => _logger.Log(LogLevel.Warning, data.ToString());
+        internal static void Warning(object data) => _logger?.LogWarning(data.ToString());
 
         [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Debug(object data) => _logger.Log(LogLevel.Info, data.ToString());
+        internal static void Debug(object data)
+        {
+            if (_enableDebugLogs && _logger != null)
+                _logger.LogDebug(data.ToString());
+        }
     }
 }

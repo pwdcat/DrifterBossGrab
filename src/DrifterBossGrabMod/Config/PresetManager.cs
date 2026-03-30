@@ -28,7 +28,7 @@ namespace DrifterBossGrabMod.Config
 
             if (!PresetDefinitions.Presets.ContainsKey(presetType))
             {
-                Log.Warning($"[PresetManager] Preset {presetType} not found in definitions.");
+                Log.Warning($"[ConfigPreset] Preset {presetType} not found in definitions.");
                 return;
             }
 
@@ -37,7 +37,6 @@ namespace DrifterBossGrabMod.Config
 
             try
             {
-                Log.Info($"[PresetManager] Applying preset: {presetType}");
                 int appliedCount = 0;
 
                 foreach (var setting in presetValues)
@@ -111,12 +110,10 @@ namespace DrifterBossGrabMod.Config
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning($"[PresetManager] Failed to apply setting {setting.Key}: {ex.Message}");
+                            Log.Warning($"[ConfigPreset] Failed to apply setting {setting.Key}: {ex.Message}");
                         }
                     }
                 }
-
-                Log.Info($"[PresetManager] Applied {appliedCount} settings for preset {presetType}");
 
                 // Update the preset dropdown
                 PluginConfig.Instance.SelectedPreset.Value = presetType;
@@ -141,7 +138,6 @@ namespace DrifterBossGrabMod.Config
 
             if (selected != lastSelected)
             {
-                Log.Info($"[PresetManager] Detected preset change in config file: {lastSelected} -> {selected}. Applying new preset.");
                 ApplyPreset(selected);
             }
         }
@@ -184,7 +180,6 @@ namespace DrifterBossGrabMod.Config
             // Auto-switch to Custom if not already
             if (PluginConfig.Instance.SelectedPreset.Value != PresetType.Custom)
             {
-                Log.Info($"[PresetManager] Setting modified, switching to Custom preset");
                 PluginConfig.Instance.SelectedPreset.Value = PresetType.Custom;
             }
         }

@@ -34,6 +34,7 @@ namespace DrifterBossGrabMod
             public const int SingleCapacity = 1;
             public const int DefaultJunkQuantity = 4;
             public const int MinDurabilityThreshold = 1;
+            public const float DefaultMassPerStock = 100f;
         }
 
         // Multiplier values for scaling calculations
@@ -62,6 +63,46 @@ namespace DrifterBossGrabMod
             public const short UpdateBagStateMessageType = 206;
             public const short GrabObjectMessageType = 208;
             public const short ClientPreferencesMessageType = 209;
+        }
+
+        // Helper methods for parsing config values
+        public static int ParseCapacityString(string? value, int defaultValue = 0)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            string upperValue = value.Trim().ToUpper();
+            if (upperValue == "INF" || upperValue == "INFINITY")
+                return int.MaxValue;
+
+            if (int.TryParse(value, out int parsedValue))
+                return parsedValue;
+
+            return defaultValue;
+        }
+
+        public static float ParseMassString(string? value, float defaultValue = 0f)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            string upperValue = value.Trim().ToUpper();
+            if (upperValue == "INF" || upperValue == "INFINITY")
+                return float.PositiveInfinity;
+
+            if (float.TryParse(value, out float parsedValue))
+                return parsedValue;
+
+            return defaultValue;
+        }
+
+        public static bool IsInfiniteString(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string upperValue = value.Trim().ToUpper();
+            return upperValue == "INF" || upperValue == "INFINITY";
         }
     }
 }

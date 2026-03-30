@@ -444,6 +444,38 @@ namespace DrifterBossGrabMod
             }
             return false;
         }
+
+        // Cached config string parsing - avoids Trim().ToUpper() allocations on hot paths
+        private bool _isBagScaleCapInfinite;
+        private bool _isMassCapInfinite;
+        private bool _isAddedCapacityInfinite;
+        private bool _isMaxLaunchSpeedInfinite;
+        private float _parsedMassCap = 700f;
+        private float _parsedBagScaleCap = 1f;
+        private float _parsedMaxLaunchSpeed = 30f;
+
+        public bool IsBagScaleCapInfinite => _isBagScaleCapInfinite;
+        public bool IsMassCapInfinite => _isMassCapInfinite;
+        public bool IsAddedCapacityInfinite => _isAddedCapacityInfinite;
+        public bool IsMaxLaunchSpeedInfinite => _isMaxLaunchSpeedInfinite;
+        public float ParsedMassCap => _parsedMassCap;
+        public float ParsedBagScaleCap => _parsedBagScaleCap;
+        public float ParsedMaxLaunchSpeed => _parsedMaxLaunchSpeed;
+
+        public void RefreshCachedConfigStrings()
+        {
+            _isBagScaleCapInfinite = string.Equals(BagScaleCap.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(BagScaleCap.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+            _parsedBagScaleCap = _isBagScaleCapInfinite ? float.MaxValue : (float.TryParse(BagScaleCap.Value, out var bsc) ? bsc : 1f);
+
+            _isMassCapInfinite = string.Equals(MassCap.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MassCap.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+            _parsedMassCap = _isMassCapInfinite ? float.MaxValue : (float.TryParse(MassCap.Value, out var mc) ? mc : 700f);
+
+            _isAddedCapacityInfinite = string.Equals(AddedCapacity.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(AddedCapacity.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+
+            _isMaxLaunchSpeedInfinite = string.Equals(MaxLaunchSpeed.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MaxLaunchSpeed.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+            _parsedMaxLaunchSpeed = _isMaxLaunchSpeedInfinite ? float.MaxValue : (float.TryParse(MaxLaunchSpeed.Value, out var mls) ? mls : 30f);
+        }
+
         public static void Init(ConfigFile cfg)
         {
             // Preset selection
@@ -887,6 +919,7 @@ namespace DrifterBossGrabMod
 
             Instance.AddedCapacity.SettingChanged += (sender, args) =>
             {
+                Instance.RefreshCachedConfigStrings();
                 // Trigger capacity recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
@@ -918,6 +951,7 @@ namespace DrifterBossGrabMod
 
             Instance.BagScaleCap.SettingChanged += (sender, args) =>
             {
+                Instance.RefreshCachedConfigStrings();
                 // Trigger bag scale recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
@@ -927,6 +961,7 @@ namespace DrifterBossGrabMod
 
             Instance.MassCap.SettingChanged += (sender, args) =>
             {
+                Instance.RefreshCachedConfigStrings();
                 // Trigger mass recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
@@ -1196,6 +1231,9 @@ namespace DrifterBossGrabMod
             Instance.RecoveryObjectBlacklist.SettingChanged += (sender, args) => { Instance._recoveryBlacklistCache.Invalidate(); Instance._recoveryBlacklistCacheWithClones.Invalidate(); };
             Instance.GrabbableComponentTypes.SettingChanged += (sender, args) => Instance._grabbableComponentTypesCache.Invalidate();
             Instance.GrabbableKeywordBlacklist.SettingChanged += (sender, args) => Instance._grabbableKeywordBlacklistCache.Invalidate();
+
+            // Initial refresh of cached config string values
+            Instance.RefreshCachedConfigStrings();
         }
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,

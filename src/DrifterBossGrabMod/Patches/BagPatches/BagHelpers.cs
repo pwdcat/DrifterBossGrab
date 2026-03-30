@@ -22,18 +22,10 @@ namespace DrifterBossGrabMod.Patches
             {
                 tracker = obj.AddComponent<BaggedObjectTracker>();
                 tracker.obj = obj;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AddTracker] Added BaggedObjectTracker to {obj.name} for {controller.name}");
-                }
             }
 
             if (tracker != null && tracker.controller != controller)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AddTracker] Updating controller reference for {obj.name} from {(tracker.controller ? tracker.controller.name : "null/destroyed")} to {controller.name}");
-                }
                 tracker.controller = controller;
             }
         }

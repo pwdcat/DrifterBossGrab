@@ -23,6 +23,7 @@ namespace DrifterBossGrabMod.Patches
         private static readonly System.Type EntityStateMachineType = typeof(EntityStateMachine);
         private static readonly System.Type NetworkIdentityType = typeof(NetworkIdentity);
         private static readonly System.Type SpecialObjectAttributesType = typeof(SpecialObjectAttributes);
+        private static readonly System.Text.RegularExpressions.Regex NumericSuffixPattern = new System.Text.RegularExpressions.Regex(@"\s*\(\d+\)$", System.Text.RegularExpressions.RegexOptions.Compiled);
         // Object pooling for temporary collections to reduce GC pressure
         private static class ComponentPool
         {
@@ -215,69 +216,21 @@ namespace DrifterBossGrabMod.Patches
             // Ensure the target object has NetworkIdentity for networking synchronization
             if (!targetObj.TryGetComponent(out NetworkIdentity networkIdentity))
             {
-                // Object doesn't have NetworkIdentity - add it and try to spawn it on the network
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] Adding NetworkIdentity to environmental object: {objName}");
-                    Log.Info($"[NetworkIdentity] Object path: {GetGameObjectPath(targetObj)}");
-                    Log.Info($"[NetworkIdentity] Object instance ID: {targetObj.GetInstanceID()}");
-                }
-                
                 networkIdentity = targetObj.AddComponent<NetworkIdentity>();
                 networkIdentity.serverOnly = false;
                 networkIdentity.localPlayerAuthority = false;
-                
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] NetworkIdentity added to {objName}");
-                    Log.Info($"[NetworkIdentity] Asset ID before spawn: {networkIdentity.assetId}");
-                    Log.Info($"[NetworkIdentity] NetID before spawn: {networkIdentity.netId}");
-                    Log.Info($"[NetworkIdentity] ServerOnly: {networkIdentity.serverOnly}, LocalPlayerAuthority: {networkIdentity.localPlayerAuthority}");
-                }
-                
+
                 // Try to spawn the object on the network
                 try
                 {
                     if (NetworkServer.active)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[NetworkIdentity] Attempting to spawn {objName} on network...");
-                        }
-                        
                         NetworkServer.Spawn(targetObj);
-                        
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[NetworkIdentity] Successfully spawned {objName} on network");
-                            Log.Info($"[NetworkIdentity] Final NetID: {networkIdentity.netId}");
-                            Log.Info($"[NetworkIdentity] Final Asset ID: {networkIdentity.assetId}");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Warning($"[NetworkIdentity] NetworkServer not active - skipping spawn for {objName}");
-                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[AddSpecialObjectAttributesToGrabbableObject] Failed to spawn object {objName} on network: {ex.Message}\n{ex.StackTrace}");
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Error($"[NetworkIdentity] Exception details for {objName}:");
-                        Log.Error($"[NetworkIdentity] - Asset ID at time of error: {networkIdentity.assetId}");
-                        Log.Error($"[NetworkIdentity] - NetID at time of error: {networkIdentity.netId}");
-                    }
-                }
-            }
-            else
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] {objName} already has NetworkIdentity (NetID: {networkIdentity.netId}, Asset ID: {networkIdentity.assetId})");
+                    Log.Error($"[GrabPatch] Failed to spawn object {objName} on network: {ex.Message}\n{ex.StackTrace}");
                 }
             }
             // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
@@ -342,8 +295,7 @@ namespace DrifterBossGrabMod.Patches
             // Use pre-cached lowercase name for display name and void check
             string displayName = objName.Replace("(Clone)", "");
             // Remove numeric suffixes like (1), (0), etc.
-            var numericSuffixPattern = new System.Text.RegularExpressions.Regex(@"\s*\(\d+\)$");
-            displayName = numericSuffixPattern.Replace(displayName, "");
+            displayName = NumericSuffixPattern.Replace(displayName, "");
             soa.bestName = displayName;
             // Use pre-cached lowercase name for void check
             soa.isVoid = lowerObjName.Contains("void");
@@ -430,69 +382,21 @@ namespace DrifterBossGrabMod.Patches
             // Ensure the target object has NetworkIdentity for networking synchronization
             if (!targetObj.TryGetComponent(out NetworkIdentity networkIdentity))
             {
-                // Object doesn't have NetworkIdentity - add it and try to spawn it on the network
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] Adding NetworkIdentity to projectile: {objName}");
-                    Log.Info($"[NetworkIdentity] Object path: {GetGameObjectPath(targetObj)}");
-                    Log.Info($"[NetworkIdentity] Object instance ID: {targetObj.GetInstanceID()}");
-                }
-                
                 networkIdentity = targetObj.AddComponent<NetworkIdentity>();
                 networkIdentity.serverOnly = false;
                 networkIdentity.localPlayerAuthority = false;
-                
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] NetworkIdentity added to projectile {objName}");
-                    Log.Info($"[NetworkIdentity] Asset ID before spawn: {networkIdentity.assetId}");
-                    Log.Info($"[NetworkIdentity] NetID before spawn: {networkIdentity.netId}");
-                    Log.Info($"[NetworkIdentity] ServerOnly: {networkIdentity.serverOnly}, LocalPlayerAuthority: {networkIdentity.localPlayerAuthority}");
-                }
-                
+
                 // Try to spawn the object on the network
                 try
                 {
                     if (NetworkServer.active)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[NetworkIdentity] Attempting to spawn projectile {objName} on network...");
-                        }
-                        
                         NetworkServer.Spawn(targetObj);
-                        
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[NetworkIdentity] Successfully spawned projectile {objName} on network");
-                            Log.Info($"[NetworkIdentity] Final NetID: {networkIdentity.netId}");
-                            Log.Info($"[NetworkIdentity] Final Asset ID: {networkIdentity.assetId}");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Warning($"[NetworkIdentity] NetworkServer not active - skipping spawn for projectile {objName}");
-                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[AddSpecialObjectAttributesToGrabbableObject] Failed to spawn projectile {objName} on network: {ex.Message}\n{ex.StackTrace}");
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Error($"[NetworkIdentity] Exception details for projectile {objName}:");
-                        Log.Error($"[NetworkIdentity] - Asset ID at time of error: {networkIdentity.assetId}");
-                        Log.Error($"[NetworkIdentity] - NetID at time of error: {networkIdentity.netId}");
-                    }
-                }
-            }
-            else
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkIdentity] Projectile {objName} already has NetworkIdentity (NetID: {networkIdentity.netId}, Asset ID: {networkIdentity.assetId})");
+                    Log.Error($"[GrabPatch] Failed to spawn projectile {objName} on network: {ex.Message}\n{ex.StackTrace}");
                 }
             }
             // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
@@ -513,8 +417,7 @@ namespace DrifterBossGrabMod.Patches
                 // Use pre-cached lowercase name for display name and void check
                 string displayName = objName.Replace("(Clone)", "");
                 // Remove numeric suffixes like (1), (0), etc.
-                var numericSuffixPattern = new System.Text.RegularExpressions.Regex(@"\s*\(\d+\)$");
-                displayName = numericSuffixPattern.Replace(displayName, "");
+                displayName = NumericSuffixPattern.Replace(displayName, "");
                 soa.bestName = displayName;
                 // Use pre-cached lowercase name for void check
                 soa.isVoid = lowerObjName.Contains("void");
@@ -629,7 +532,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync] Failed to add attributes to {go?.name ?? "null"}: {ex.Message}\n{ex.StackTrace}");
+                    Log.Error($"[GrabPatch] Failed to add attributes to {go?.name ?? "null"}: {ex.Message}\n{ex.StackTrace}");
                 }
 
                 count++;

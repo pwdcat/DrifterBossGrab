@@ -19,6 +19,16 @@ namespace DrifterBossGrabMod.UI
         public GameObject? slotPrefab;
         public float sideScale = 0.8f;
 
+        private void OnEnable()
+        {
+            BagCarouselUpdater.ActiveCarousels.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            BagCarouselUpdater.ActiveCarousels.Remove(this);
+        }
+
         private static Texture2D? _weightIconTexture;
         private static Texture2D? WeightIconTexture => _weightIconTexture ??= LoadWeightIconTexture();
 
@@ -183,8 +193,7 @@ namespace DrifterBossGrabMod.UI
 
                 // If BottomlessBag is enabled with INF capacity, return a large value
                 if (PluginConfig.Instance.BottomlessBagEnabled.Value &&
-                    (PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INF" ||
-                     PluginConfig.Instance.AddedCapacity.Value.Trim().ToUpper() == "INFINITY"))
+                    PluginConfig.Instance.IsAddedCapacityInfinite)
                 {
                     return int.MaxValue;
                 }
@@ -701,8 +710,6 @@ namespace DrifterBossGrabMod.UI
 
         private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController, bool isCenter, int slotIndex = -1, int totalCount = 0)
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[Carousel] SetSlotData called for passenger: {(passenger != null ? passenger.name : "null")}, isCenter: {isCenter}, slotIndex: {slotIndex}");
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)
             {
@@ -772,13 +779,6 @@ namespace DrifterBossGrabMod.UI
                         // Use calculated total mass rather than bagController.baggedMass, 
                         // as bagController.baggedMass is physically clamped by massCap!
                         mass = BagCapacityCalculator.GetBaggedObjectMass(bagController);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Carousel] Center slot mass overridden to total: {mass} (individual: {baseMass})");
-                    }
-                    else if (isCenter)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Carousel] Center slot mass NOT overridden. ShowTotal: {showTotal}, AllMode: {isAllMode}, Individual: {mass}, BaggedMass: {bagController.baggedMass}");
                     }
 
                     var childLocator = slot.GetComponent<ChildLocator>();
@@ -817,8 +817,7 @@ namespace DrifterBossGrabMod.UI
                                     if (capacity >= 1000000f)
                                     {
                                         float maxMass = 700f;
-                                        string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
-                                        if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
+                                        if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
                                         {
                                             maxMass = parsedMassCap;
                                         }
@@ -844,8 +843,7 @@ namespace DrifterBossGrabMod.UI
                                     else
                                     {
                                         float maxMass = 700f;
-                                        string massCapStr = PluginConfig.Instance.MassCap.Value.Trim().ToUpper();
-                                        if (massCapStr != "INF" && massCapStr != "INFINITY" && float.TryParse(massCapStr, out float parsedMassCap))
+                                        if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
                                         {
                                             maxMass = parsedMassCap;
                                         }

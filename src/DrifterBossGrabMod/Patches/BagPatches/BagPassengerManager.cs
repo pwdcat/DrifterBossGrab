@@ -19,20 +19,23 @@ namespace DrifterBossGrabMod.Patches
     // Provides static helper methods for managing bag passengers and mass calculation
     public static class BagPassengerManager
     {
-        // Cached reflection fields
-        private static readonly FieldInfo _baggedMassField = AccessTools.Field(typeof(DrifterBagController), "baggedMass");
-        private static readonly FieldInfo _walkSpeedModifierField = AccessTools.Field(typeof(BaggedObject), "walkSpeedModifier");
+        // Cached reflection fields - using centralized ReflectionCache
+        private static readonly FieldInfo _baggedMassField = ReflectionCache.DrifterBagController.BaggedMass;
+        private static readonly FieldInfo _walkSpeedModifierField = ReflectionCache.BaggedObject.WalkSpeedModifier;
 
         // Mod-managed walk speed penalty modifiers
         private static readonly Dictionary<DrifterBagController, CharacterMotor.WalkSpeedPenaltyModifier> _modWalkSpeedModifiers
             = new Dictionary<DrifterBagController, CharacterMotor.WalkSpeedPenaltyModifier>();
+
+        // Static cached lists to avoid per-operation allocations
+        private static readonly List<GameObject> _removeKeysBuffer = new List<GameObject>();
+        private static readonly Dictionary<string, float> _penaltyVarsBuffer = new Dictionary<string, float>();
 
         // Marks the bag's mass as dirty
         public static void MarkMassDirty(DrifterBagController controller)
         {
             if (controller == null) return;
             BagPatches.GetState(controller).MarkMassDirty();
-            Log.Debug($"[MarkMassDirty] Marked mass as dirty for {controller.name}");
         }
 
         // Removes a bagged object from the controller
@@ -59,25 +62,22 @@ namespace DrifterBossGrabMod.Patches
             var seatDict = BagPatches.GetState(controller).AdditionalSeats;
             if (seatDict != null)
             {
-                 if (seatDict.ContainsKey(obj))
-                 {
-                     System.Collections.Generic.CollectionExtensions.Remove(seatDict, obj, out _);
-                 }
-                 var toRemove = new List<GameObject>();
+                 seatDict.Remove(obj, out _);
+                 _removeKeysBuffer.Clear();
                  foreach(var kvp in seatDict)
                  {
                      if(kvp.Value != null && kvp.Value.NetworkpassengerBodyObject == obj)
                      {
-                         toRemove.Add(kvp.Key);
+                         _removeKeysBuffer.Add(kvp.Key);
                      }
                  }
-                 foreach(var key in toRemove)
+                 foreach(var key in _removeKeysBuffer)
                  {
-                     System.Collections.Generic.CollectionExtensions.Remove(seatDict, key, out _);
+                      seatDict.TryRemove(key, out _);
                  }
             }
 
-            bool isThrowing = OtherPatches.IsInProjectileState(obj);
+            bool isThrowing = ProjectileRecoveryPatches.IsInProjectileState(obj);
 
             var list = BagPatches.GetState(controller).BaggedObjects;
             if (list == null) return;
@@ -96,13 +96,12 @@ namespace DrifterBossGrabMod.Patches
                 });
 
                 list.RemoveAll(x => ReferenceEquals(x, null) || (x is UnityEngine.Object uo && !uo) || (targetInstanceId != -1 && x.GetInstanceID() == targetInstanceId));
+                if (targetInstanceId != -1) BagPatches.GetState(controller).RemoveInstanceId(targetInstanceId);
 
                 if (wasMainPassenger)
                 {
                     if (NetworkServer.active && controller.vehicleSeat != null && controller.vehicleSeat.NetworkpassengerBodyObject == obj)
                     {
-                        Log.Debug($"[RemoveBaggedObject] Force ejecting {(obj ? obj.name : "null")} from Main Seat to clear it (isThrowing: {isThrowing}, isDestroying: {isDestroying})");
-
                         if (isDestroying)
                         {
                             ErrorHandler.SafeExecute("RemoveBaggedObject.EjectPassenger", () =>
@@ -124,10 +123,8 @@ namespace DrifterBossGrabMod.Patches
                     if (controller != null && NetworkServer.active && !controller.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller.hasAuthority)))
                     {
                         var newMain = list[0];
-                        if (newMain != null && !OtherPatches.IsInProjectileState(newMain))
+                        if (newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(newMain))
                         {
-                            Log.Debug($"[RemoveBaggedObject] Auto-promoting {(newMain ? newMain.name : "null")} to Main Seat after removal of previous main.");
-
                             // Auto-promote immediately
                             DelayedAutoPromote.Schedule(controller!, newMain, 0.0f);
                         }
@@ -147,7 +144,6 @@ namespace DrifterBossGrabMod.Patches
                 if (controller != null && obj != null)
                 {
                     BaggedObjectPatches.CleanupObjectState(controller, obj);
-                    Log.Debug($"[RemoveBaggedObject] Cleaned up state for {obj.name} (isDestroying: {isDestroying}, isThrowing: {isThrowing})");
                 }
             }
 
@@ -230,7 +226,6 @@ namespace DrifterBossGrabMod.Patches
             var state = BagPatches.GetState(controller);
             if (!state.IsMassDirty)
             {
-                Log.Debug($"[ForceRecalculateMass] Skipping recalculation for {controller.name} - mass is not dirty");
                 return;
             }
 
@@ -255,30 +250,24 @@ namespace DrifterBossGrabMod.Patches
                 {
                     foreach (var obj in list)
                     {
-                        if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                        if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                         {
                             totalMass += controller.CalculateBaggedObjectMass(obj);
                         }
                     }
                 }
-
-                Log.Debug($"[ForceRecalculateMass] All Mode: Aggregated mass {totalMass} for {controller.name} (Objects: {(list?.Count ?? 0)})");
             }
             else
             {
                 // Current Mode: Calculate individual object mass (main seat only)
                 var mainSeatObj = BagPatches.GetMainSeatObject(controller);
-                if (mainSeatObj != null && !OtherPatches.IsInProjectileState(mainSeatObj))
+                if (mainSeatObj != null && !ProjectileRecoveryPatches.IsInProjectileState(mainSeatObj))
                 {
                     totalMass = controller.CalculateBaggedObjectMass(mainSeatObj);
-
-                    Log.Debug($"[ForceRecalculateMass] Current Mode: Individual mass {totalMass} for {controller.name} (Object: {mainSeatObj.name})");
                 }
                 else
                 {
                     totalMass = 0f;
-
-                    Log.Debug($"[ForceRecalculateMass] Current Mode: No main seat object, mass set to 0 for {controller.name}");
                 }
             }
 
@@ -286,7 +275,7 @@ namespace DrifterBossGrabMod.Patches
             bool isMassUncapped = false;
             float maxMass = Constants.Limits.MaxMass;
             
-            if (PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.MassCap.Value.Trim().ToUpper() == "INFINITY")
+            if (PluginConfig.Instance.IsMassCapInfinite)
             {
                 isMassUncapped = true;
             }
@@ -307,7 +296,6 @@ namespace DrifterBossGrabMod.Patches
             if (_baggedMassField != null)
             {
                 _baggedMassField.SetValue(controller, totalMass);
-                Log.Info($"[ForceRecalculateMass] Set final baggedMass to {totalMass} for {controller.name} (Mode: {PluginConfig.Instance.StateCalculationMode.Value})");
 
                 controller.GetComponent<CharacterBody>()?.RecalculateStats();
 
@@ -333,8 +321,8 @@ namespace DrifterBossGrabMod.Patches
             // Update uncapped bag scale if enabled - only when EnableBalance is true
             if (PluginConfig.Instance.EnableBalance.Value)
             {
-                bool isScaleUncapped = PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INF" || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INFINITY";
-                if (isScaleUncapped || (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f))
+                bool isScaleUncapped = PluginConfig.Instance.IsBagScaleCapInfinite;
+                if (isScaleUncapped || PluginConfig.Instance.ParsedBagScaleCap > 1f)
                 {
                     UpdateUncappedBagScale(controller, totalMass);
                 }
@@ -380,29 +368,15 @@ namespace DrifterBossGrabMod.Patches
                 float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
                 float totalCapacity = CapacityScalingSystem.GetTotalCapacity(controller);
 
-                // Parse MassCap value (supports "INF" or "Infinity" for unlimited)
-                float massCap = 700f; // Default value
-                string massCapStr = PluginConfig.Instance.MassCap.Value;
-                if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
-                {
-                    massCap = float.MaxValue;
-                }
-                else if (!float.TryParse(massCapStr, out massCap))
-                {
-                    massCap = 700f; // Fallback to default if parsing fails
-                }
-
-                var penaltyVars = new Dictionary<string, float>
-                {
-                    ["T"] = totalMass,
-                    ["M"] = massCapacity,
-                    ["C"] = totalCapacity,
-                    ["H"] = health,
-                    ["L"] = level,
-                    ["MC"] = massCap,
-                    ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
-                };
+                var penaltyVars = _penaltyVarsBuffer;
+                penaltyVars.Clear();
+                penaltyVars["T"] = totalMass;
+                penaltyVars["M"] = massCapacity;
+                penaltyVars["C"] = totalCapacity;
+                penaltyVars["H"] = health;
+                penaltyVars["L"] = level;
+                penaltyVars["MC"] = PluginConfig.Instance.ParsedMassCap;
+                penaltyVars["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1;
 
                 penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);
             }
@@ -478,11 +452,10 @@ namespace DrifterBossGrabMod.Patches
                     if (uncappedScaleComponent != null && uncappedScaleComponent.IsInitialized)
                     {
                         BagPatches.GetState(controller).UncappedBagScale = uncappedScaleComponent;
-                        Log.Debug($"[UpdateUncappedBagScale] Successfully initialized and stored UncappedBagScaleComponent for {controller.name}");
                     }
                     else
                     {
-                        Log.Warning($"[UpdateUncappedBagScale] Failed to initialize UncappedBagScaleComponent for {controller.name}");
+                        Log.Warning($"[BagPatch] Failed to initialize UncappedBagScaleComponent for {controller.name}");
                         return;
                     }
                 }

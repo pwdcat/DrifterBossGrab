@@ -55,7 +55,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
                 // Detect zone inversion on first player spawn
-                Patches.OtherPatches.DetectZoneInversion(body.transform.position);
+                Patches.ZoneDetectionPatches.DetectZoneInversion(body.transform.position);
             }
         }
 

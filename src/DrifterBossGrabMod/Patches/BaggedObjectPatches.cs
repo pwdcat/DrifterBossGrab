@@ -51,27 +51,12 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Reflection Cache
-        private static readonly FieldInfo _targetObjectField = AccessTools.Field(typeof(BaggedObject), "targetObject");
-        private static readonly FieldInfo _targetBodyField = AccessTools.Field(typeof(BaggedObject), "targetBody");
-        private static readonly FieldInfo _isBodyField = AccessTools.Field(typeof(BaggedObject), "isBody");
-        private static readonly MethodInfo _holdsDeadBodyMethod = AccessTools.Method(typeof(BaggedObject), "HoldsDeadBody");
-        private static readonly FieldInfo _vehiclePassengerAttributesField = AccessTools.Field(typeof(BaggedObject), "vehiclePassengerAttributes");
-        private static readonly FieldInfo _baggedMassField = AccessTools.Field(typeof(BaggedObject), "baggedMass");
-        private static readonly FieldInfo _uiOverlayControllerField = AccessTools.Field(typeof(BaggedObject), "uiOverlayController");
-        private static readonly FieldInfo _overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
-        private static readonly FieldInfo _overriddenPrimaryField = AccessTools.Field(typeof(BaggedObject), "overriddenPrimary");
-        private static readonly FieldInfo _utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
-        private static readonly FieldInfo _primaryOverrideField = AccessTools.Field(typeof(BaggedObject), "primaryOverride");
-        private static readonly MethodInfo _onSyncBaggedObjectMethod = AccessTools.Method(typeof(DrifterBagController), "OnSyncBaggedObject", new Type[] { typeof(GameObject) });
-        private static readonly MethodInfo _tryOverrideUtilityMethod = AccessTools.Method(typeof(BaggedObject), "TryOverrideUtility");
-        private static readonly MethodInfo _tryOverridePrimaryMethod = AccessTools.Method(typeof(BaggedObject), "TryOverridePrimary", new Type[] { typeof(GenericSkill) });
-        private static readonly FieldInfo _bagScale01Field = AccessTools.Field(typeof(BaggedObject), "bagScale01");
-        private static readonly MethodInfo _setScaleMethod = AccessTools.Method(typeof(BaggedObject), "SetScale", new Type[] { typeof(float) });
-
-        // Store per-controller, per-object state data
-        private static Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>> _perObjectStateStorage
-            = new Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>>();
+        // Reflection Cache - using centralized ReflectionCache
+        private static readonly MethodInfo _onSyncBaggedObjectMethod = ReflectionCache.DrifterBagController.OnSyncBaggedObject;
+        private static readonly MethodInfo _tryOverrideUtilityMethod = ReflectionCache.BaggedObject.TryOverrideUtility;
+        private static readonly MethodInfo _tryOverridePrimaryMethod = ReflectionCache.BaggedObject.TryOverridePrimary;
+        private static readonly FieldInfo _bagScale01Field = ReflectionCache.BaggedObject.BagScale01;
+        private static readonly MethodInfo _setScaleMethod = ReflectionCache.BaggedObject.SetScale;
 
         public static BaggedObject? FindExistingBaggedObjectState(DrifterBagController bagController, GameObject? targetObject)
         {
@@ -178,15 +163,21 @@ namespace DrifterBossGrabMod.Patches
         {
             if (instance == null || instance.targetObject == null) return;
 
-            bool isBody = instance.targetObject.GetComponent<CharacterBody>() != null;
-            _isBodyField?.SetValue(instance, isBody);
-
-            if (isBody)
+            bool isBody = instance.targetObject.TryGetComponent<CharacterBody>(out var body);
+            if (ReflectionCache.BaggedObject.IsBody != null)
             {
-                var body = instance.targetObject.GetComponent<CharacterBody>();
-                _targetBodyField?.SetValue(instance, body);
+                ReflectionCache.BaggedObject.IsBody.SetValue(instance, isBody);
             }
-            _vehiclePassengerAttributesField?.SetValue(instance, instance.targetObject.GetComponent<SpecialObjectAttributes>());
+
+            if (isBody && ReflectionCache.BaggedObject.TargetBody != null)
+            {
+                ReflectionCache.BaggedObject.TargetBody.SetValue(instance, body);
+            }
+            if (ReflectionCache.BaggedObject.VehiclePassengerAttributes != null)
+            {
+                instance.targetObject.TryGetComponent<SpecialObjectAttributes>(out var attributes);
+                ReflectionCache.BaggedObject.VehiclePassengerAttributes.SetValue(instance, attributes);
+            }
         }
 
         public static void UpdateBagScale(BaggedObject baggedObject, float mass)
@@ -201,7 +192,7 @@ namespace DrifterBossGrabMod.Patches
             }
 
             float value = mass;
-            if (!PluginConfig.Instance.EnableBalance.Value || PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() != "INF")
+            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
             {
                 value = Mathf.Clamp(mass, 1f, maxCapacity); // Scale is handled by UncappedBagScaleComponent if it exceeds maxCapacity
             }
@@ -213,13 +204,16 @@ namespace DrifterBossGrabMod.Patches
             float t = (value - 1f) / (maxCapacity - 1f);
             float bagScale01 = 0.5f + 0.5f * t;
 
-            _bagScale01Field.SetValue(baggedObject, bagScale01);
+            if (_bagScale01Field != null)
+            {
+                _bagScale01Field.SetValue(baggedObject, bagScale01);
+            }
 
             // When BagScaleCap is enabled
             if (PluginConfig.Instance.EnableBalance.Value)
             {
-                bool isScaleUncapped = PluginConfig.Instance.BagScaleCap.Value.Trim().ToUpper() == "INF";
-                if (isScaleUncapped || (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f))
+                bool isScaleUncapped = PluginConfig.Instance.IsBagScaleCapInfinite;
+                if (isScaleUncapped || PluginConfig.Instance.ParsedBagScaleCap > 1f)
                 {
                     if (controller != null)
                     {
@@ -227,7 +221,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
-            else
+            else if (_setScaleMethod != null)
             {
                 // Use original animation parameter method when not uncapped
                 _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
@@ -272,19 +266,15 @@ namespace DrifterBossGrabMod.Patches
         {
             if (bagController == null || targetObject == null) return false;
 
-            // Check tracked main seat first
+            // Check tracked main seat (authoritative)
             var trackedMainSeat = BagPatches.GetMainSeatObject(bagController);
-
-            // If the controller is tracked in mainSeatDict
-            if (BagPatches.GetMainSeatObject(bagController) != null)
+            if (trackedMainSeat != null)
             {
-                bool isTrackedAsMain = trackedMainSeat != null && ReferenceEquals(targetObject, trackedMainSeat);
-
-                return isTrackedAsMain;
+                return ReferenceEquals(targetObject, trackedMainSeat);
             }
 
             // Fallback to vehicle seat check only if not logically tracked
-            var outerSeat = bagController!.vehicleSeat;
+            var outerSeat = bagController.vehicleSeat;
             if (outerSeat == null) return false;
 
             var outerCurrentPassengerBodyObject = outerSeat.NetworkpassengerBodyObject;
@@ -331,14 +321,17 @@ namespace DrifterBossGrabMod.Patches
                 else
                 {
                     // If not in main seat and not being cycled to main seat, unset the override
-                    var overriddenUtility = (GenericSkill)_overriddenUtilityField.GetValue(__instance);
-
-                    if (overriddenUtility != null)
+                    if (ReflectionCache.BaggedObject.OverriddenUtility != null && ReflectionCache.BaggedObject.UtilityOverride != null)
                     {
-                        var utilityOverride = (SkillDef)_utilityOverrideField.GetValue(__instance);
-                        overriddenUtility.UnsetSkillOverride(__instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
-                        _overriddenUtilityField.SetValue(__instance, null);
+                        var overriddenUtility = (GenericSkill)ReflectionCache.BaggedObject.OverriddenUtility.GetValue(__instance);
 
+                        if (overriddenUtility != null)
+                        {
+                            var utilityOverride = (SkillDef)ReflectionCache.BaggedObject.UtilityOverride.GetValue(__instance);
+                            overriddenUtility.UnsetSkillOverride(__instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            ReflectionCache.BaggedObject.OverriddenUtility.SetValue(__instance, null);
+
+                        }
                     }
                     return false; // Skip the original method - no skill override
                 }
@@ -378,14 +371,17 @@ namespace DrifterBossGrabMod.Patches
                 else
                 {
                     // If not in main seat and not being cycled to main seat, unset the override
-                    var overriddenPrimary = (GenericSkill)_overriddenPrimaryField.GetValue(__instance);
-
-                    if (overriddenPrimary != null)
+                    if (ReflectionCache.BaggedObject.OverriddenPrimary != null && ReflectionCache.BaggedObject.PrimaryOverride != null)
                     {
-                        var primaryOverride = (SkillDef)_primaryOverrideField.GetValue(__instance);
-                        overriddenPrimary.UnsetSkillOverride(__instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
-                        _overriddenPrimaryField.SetValue(__instance, null);
+                        var overriddenPrimary = (GenericSkill)ReflectionCache.BaggedObject.OverriddenPrimary.GetValue(__instance);
 
+                        if (overriddenPrimary != null)
+                        {
+                            var primaryOverride = (SkillDef)ReflectionCache.BaggedObject.PrimaryOverride.GetValue(__instance);
+                            overriddenPrimary.UnsetSkillOverride(__instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            ReflectionCache.BaggedObject.OverriddenPrimary.SetValue(__instance, null);
+
+                        }
                     }
                     return false; // Skip the original method - no skill override
                 }
@@ -439,8 +435,7 @@ namespace DrifterBossGrabMod.Patches
                         var bagCtrl = bagStateMachine != null ? bagStateMachine.GetComponent<DrifterBagController>() : bagController.gameObject.GetComponent<DrifterBagController>();
                         if (bagCtrl != null)
                         {
-                            var dbcField = AccessTools.Field(typeof(BaggedObject), "drifterBagController");
-                            dbcField?.SetValue(newBaggedObject, bagCtrl);
+                            ReflectionCache.BaggedObject.DrifterBagController?.SetValue(newBaggedObject, bagCtrl);
                         }
                         // DIAGNOSTIC LOG: Log when we create a new BaggedObject
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -496,7 +491,11 @@ namespace DrifterBossGrabMod.Patches
                 if ((isTrackedAsMainSeat || isInBaggedObjects) && !IsPassengerDeadOrDestroyed(passenger))
                 {
                     if (isTrackedAsMainSeat) BagPatches.SetMainSeatObject(bagController, null);
-                    if (isInBaggedObjects && baggedObjectsList != null) baggedObjectsList.Remove(passenger);
+                    if (isInBaggedObjects && baggedObjectsList != null)
+                    {
+                        baggedObjectsList.Remove(passenger);
+                        BagPatches.GetState(bagController).RemoveInstanceId(passenger.GetInstanceID());
+                    }
 
                     BagCarouselUpdater.UpdateCarousel(bagController);
                     BagCarouselUpdater.UpdateNetworkBagState(bagController);

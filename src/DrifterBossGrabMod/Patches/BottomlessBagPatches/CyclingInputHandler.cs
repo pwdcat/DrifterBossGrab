@@ -13,12 +13,13 @@ namespace DrifterBossGrabMod.Patches
         private static float _lastCycleTime = 0f;
         private static float _scrollAccumulator = 0f;
         private const float SCROLL_THRESHOLD = 0.1f; // Cumulative delta required to trigger one scroll event
+        private static DrifterBagController? _cachedLocalController;
 
         // Processes input for cycling through bag passengers - handles mouse wheel scrolling and keybind inputs
         public static void HandleInput()
         {
             // Only process cycling input when BottomlessBag feature is enabled
-            if (!FeatureState.IsCyclingEnabled)
+            if (!PluginConfig.Instance.BottomlessBagEnabled.Value)
             {
                 return;
             }
@@ -111,22 +112,37 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Private method to cycle passengers by amount on all authoritative bag controllers
+        private static DrifterBagController? FindLocalPlayerBagController()
+        {
+            var localUser = LocalUserManager.GetFirstLocalUser();
+            if (localUser?.cachedBody == null) return null;
+
+            var body = localUser.cachedBody;
+
+            var controller = body.GetComponent<DrifterBagController>();
+            if (controller != null) return controller;
+
+            controller = body.GetComponentInChildren<DrifterBagController>();
+            if (controller != null) return controller;
+
+            return null;
+        }
+
         private static void CyclePassengers(int amount)
         {
             if (amount == 0) return;
-            var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
 
-            foreach (var bagController in bagControllers)
+            if (_cachedLocalController != null && _cachedLocalController.isAuthority)
             {
+                PassengerCycler.CyclePassengers(_cachedLocalController, amount);
+                return;
+            }
 
-                if (!bagController.isAuthority)
-                {
-                    continue;
-                }
-
-                PassengerCycler.CyclePassengers(bagController, amount);
-                break;
+            var controller = FindLocalPlayerBagController();
+            if (controller != null && controller.isAuthority)
+            {
+                _cachedLocalController = controller;
+                PassengerCycler.CyclePassengers(controller, amount);
             }
         }
     }

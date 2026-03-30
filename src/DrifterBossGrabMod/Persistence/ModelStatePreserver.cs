@@ -21,24 +21,6 @@ namespace DrifterBossGrabMod
         private ModelStateData _originalState;
         private ModelStateData _rootRelativeState;
 
-        // Public fields for backward compatibility (deprecated)
-        [System.Obsolete("Use _originalState instead")]
-        public bool originalAutoUpdateModelTransform => _originalState.autoUpdateModelTransform;
-        [System.Obsolete("Use _originalState.position instead")]
-        public Vector3 originalInitialPosition => _originalState.position;
-        [System.Obsolete("Use _originalState.rotation instead")]
-        public Quaternion originalInitialRotation => _originalState.rotation;
-        [System.Obsolete("Use _originalState.scale instead")]
-        public Vector3 originalInitialScale => _originalState.scale;
-        [System.Obsolete("Use _originalState.parent instead")]
-        public Transform? originalModelParent => _originalState.parent;
-        [System.Obsolete("Use _rootRelativeState.position instead")]
-        public Vector3 rootRelativePosition => _rootRelativeState.position;
-        [System.Obsolete("Use _rootRelativeState.rotation instead")]
-        public Quaternion rootRelativeRotation => _rootRelativeState.rotation;
-        [System.Obsolete("Use _rootRelativeState.scale instead")]
-        public Vector3 rootRelativeScale => _rootRelativeState.scale;
-
         private ModelLocator? _modelLocator;
         private readonly Dictionary<Renderer, bool> _rendererStates = new Dictionary<Renderer, bool>();
         private readonly Dictionary<Collider, bool> _colliderStates = new Dictionary<Collider, bool>();
@@ -64,12 +46,36 @@ namespace DrifterBossGrabMod
         {
             if (_modelLocator != null && _modelLocator.modelTransform != null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE: {gameObject.name}");
+                    Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE autoUpdateModelTransform: {_modelLocator.autoUpdateModelTransform}");
+                    Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE dontDetatchFromParent: {_modelLocator.dontDetatchFromParent}");
+                    Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE modelTransform.active: {_modelLocator.modelTransform.gameObject.activeSelf}");
+                    if (_modelLocator.modelTransform != null)
+                    {
+                        Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE model position: {_modelLocator.modelTransform.position}");
+                        Log.Info($"[ModelStatePreserver.CaptureModelState] BEFORE model parent: {_modelLocator.modelTransform.parent?.name ?? "null"}");
+                    }
+                }
+
                 // Store original local values
                 _originalState.autoUpdateModelTransform = _modelLocator.autoUpdateModelTransform;
-                _originalState.position = _modelLocator.modelTransform.localPosition;
+                _originalState.position = _modelLocator.modelTransform!.localPosition;
                 _originalState.rotation = _modelLocator.modelTransform.localRotation;
                 _originalState.scale = _modelLocator.modelTransform.localScale;
-                _originalState.parent = _modelLocator.modelTransform.parent;
+
+                // If model is in persistence container, capture the GameObject itself as the intended parent
+                // This prevents restoring to the wrong parent after object is spawned from save
+                var currentParent = _modelLocator.modelTransform.parent;
+                if (currentParent != null && currentParent.name == "DBG_PersistenceContainer")
+                {
+                    _originalState.parent = transform;
+                }
+                else
+                {
+                    _originalState.parent = currentParent;
+                }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
@@ -77,6 +83,7 @@ namespace DrifterBossGrabMod
                     Log.Info($"[ModelStatePreserver.CaptureModelState] Original Position: {_originalState.position}");
                     Log.Info($"[ModelStatePreserver.CaptureModelState] Original Rotation: {_originalState.rotation}");
                     Log.Info($"[ModelStatePreserver.CaptureModelState] Original Scale: {_originalState.scale}");
+                    Log.Info($"[ModelStatePreserver.CaptureModelState] Original autoUpdateModelTransform: {_originalState.autoUpdateModelTransform}");
                 }
 
                 // Store root-relative values (relative to this GameObject's transform)
@@ -139,6 +146,17 @@ namespace DrifterBossGrabMod
                 return;
             }
 
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ModelStatePreserver.RestoreOriginalState] RESTORING state for {gameObject.name} (preserveTransform: {preserveTransform})");
+                Log.Info($"[ModelStatePreserver.RestoreOriginalState] Current autoUpdateModelTransform: {_modelLocator?.autoUpdateModelTransform}");
+                if (_modelLocator?.modelTransform != null)
+                {
+                    Log.Info($"[ModelStatePreserver.RestoreOriginalState] Current model position: {_modelLocator.modelTransform.position}");
+                    Log.Info($"[ModelStatePreserver.RestoreOriginalState] Current model parent: {_modelLocator.modelTransform.parent?.name ?? "null"}");
+                }
+            }
+
             // Restore with validation
             try
             {
@@ -163,17 +181,32 @@ namespace DrifterBossGrabMod
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[ModelStatePreserver.ApplyState] Called for {gameObject.name}, preserveTransform: {preserveTransform}");
+                Log.Info($"[ModelStatePreserver.ApplyState] Setting autoUpdateModelTransform to: {state.autoUpdateModelTransform}");
             }
 
             if (!preserveTransform)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ModelStatePreserver.ApplyState] Restoring to original parent: {state.parent?.name ?? "null"}");
+                }
                 // Restore parent relationship
                 _modelLocator.modelTransform.SetParent(state.parent, false);
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ModelStatePreserver.ApplyState] After SetParent: model parent is {_modelLocator.modelTransform.parent?.name ?? "null"}");
+                }
 
                 // Restore local transform values
                 _modelLocator.modelTransform.localPosition = state.position;
                 _modelLocator.modelTransform.localRotation = state.rotation;
                 _modelLocator.modelTransform.localScale = state.scale;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ModelStatePreserver.ApplyState] After restore - Position: {_modelLocator.modelTransform.position}");
+                }
             }
             else
             {
@@ -191,9 +224,13 @@ namespace DrifterBossGrabMod
                     _modelLocator.modelTransform.localScale = state.scale;
                 }
             }
-
             // Restore autoUpdateModelTransform to its original value
             _modelLocator.autoUpdateModelTransform = state.autoUpdateModelTransform;
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ModelStatePreserver.ApplyState] After setting autoUpdateModelTransform: {_modelLocator.autoUpdateModelTransform}");
+            }
 
             // Restore renderer states
             RestoreRendererStates();

@@ -39,10 +39,6 @@ namespace DrifterBossGrabMod
                 UnityEngine.Object.Destroy(_persistenceContainer);
                 _persistenceContainer = null!;
             }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[PersistenceObjectManager.Cleanup] PersistenceObjectManager cleaned up");
-            }
         }
 
         // Update cached configuration values
@@ -62,16 +58,8 @@ namespace DrifterBossGrabMod
         // Internal method for adding object to persistence
         internal static void AddPersistedObjectInternal(GameObject obj, string? ownerPlayerId = null)
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[AddPersistedObject] AddPersistedObject called for {obj?.name ?? "null"} - EnablePersistence: {_cachedEnablePersistence}");
-            }
             if (obj == null || !_cachedEnablePersistence)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AddPersistedObject] Object is null or persistence disabled - cannot add to persistence");
-                }
                 return;
             }
             lock (_lock)
@@ -82,17 +70,6 @@ namespace DrifterBossGrabMod
                     if (!string.IsNullOrEmpty(ownerPlayerId))
                     {
                         _persistedObjectOwnerPlayerIds[obj] = ownerPlayerId;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[AddPersistedObjectInternal] Stored owner ID '{ownerPlayerId}' for {obj.name}");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[AddPersistedObjectInternal] Owner ID is null or empty for {obj.name}, NOT storing in dictionary");
-                        }
                     }
                     // Move to persistence container
                     obj.transform.SetParent(_persistenceContainer!.transform, true);
@@ -104,10 +81,6 @@ namespace DrifterBossGrabMod
                         if (modelObj != obj) // Only if it's a separate object
                         {
                             modelObj.transform.SetParent(_persistenceContainer.transform, true);
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[AddPersistedObject] Also persisted model {modelObj.name} for {obj.name}");
-                            }
                         }
                     }
                     // Also persist the master for CharacterBody objects
@@ -115,21 +88,6 @@ namespace DrifterBossGrabMod
                     if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null && IsValidForPersistence(characterBody.master.gameObject))
                     {
                         AddPersistedObjectInternal(characterBody.master.gameObject, ownerPlayerId);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[AddPersistedObject] Also persisted master {characterBody.master.name} for {obj.name}");
-                        }
-                    }
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AddPersistedObject] Successfully added {obj.name} to persistence (total: {_persistedObjects.Count})");
-                    }
-                }
-                else
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AddPersistedObject] Object {obj.name} was already in persisted objects set");
                     }
                 }
             }
@@ -167,10 +125,6 @@ namespace DrifterBossGrabMod
                         {
                             modelObj.transform.SetParent(null, true);
                             SceneManager.MoveGameObjectToScene(modelObj, SceneManager.GetActiveScene());
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[RemovePersistedObject] Also removed model {modelObj.name} from persistence for {obj.name}");
-                            }
                         }
                     }
                     // Also remove master from persistence if it exists
@@ -182,10 +136,6 @@ namespace DrifterBossGrabMod
                         {
                             masterObj.transform.SetParent(null, true);
                             SceneManager.MoveGameObjectToScene(masterObj, SceneManager.GetActiveScene());
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[RemovePersistedObject] Also removed master {masterObj.name} from persistence for {obj.name}");
-                            }
                         }
                     }
                     // Re-attach model if it exists
@@ -194,14 +144,6 @@ namespace DrifterBossGrabMod
                         var temp = modelLocator.modelTransform;
                         modelLocator.modelTransform = null;
                         modelLocator.modelTransform = temp;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[RemovePersistedObject] Re-attached model for {obj.name} after removal from persistence");
-                        }
-                    }
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[RemovePersistedObject] Removed {obj.name} from persistence (total: {_persistedObjects.Count})");
                     }
                 }
             }
@@ -228,10 +170,6 @@ namespace DrifterBossGrabMod
                 }
                 _persistedObjects.Clear();
                 _persistedObjectOwnerPlayerIds.Clear();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ClearPersistedObjects] Cleared all persisted objects");
-                }
             }
         }
 
@@ -240,43 +178,23 @@ namespace DrifterBossGrabMod
         {
             if (obj == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[IsValidForPersistence] Object is null - returning false");
-                }
                 return false;
             }
             // Check if already persisted
             if (_persistedObjects.Contains(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[IsValidForPersistence] Object {obj.name} is already persisted - returning false");
-                }
                 return false;
             }
             // Always exclude thrown objects from persistence
             var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
             if (projectileController != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[IsValidForPersistence] Object {obj.name} has ThrownObjectProjectileController - returning false (thrown objects are excluded from persistence)");
-                }
                 return false;
             }
             // Check blacklist
             if (PluginConfig.IsBlacklisted(obj.name))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[IsValidForPersistence] Object {obj.name} is blacklisted - returning false");
-                }
                 return false;
-            }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[IsValidForPersistence] Object {obj.name} is valid for persistence - returning true");
             }
             return true;
         }
@@ -305,20 +223,12 @@ namespace DrifterBossGrabMod
             }
             // Always capture currently bagged objects for persistence
             var baggedObjects = GetCurrentlyBaggedObjects();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CaptureCurrentlyBaggedObjects] Capturing {baggedObjects.Count} currently bagged objects for persistence");
-            }
             foreach (var obj in baggedObjects)
             {
                 if (IsValidForPersistence(obj))
                 {
                     // Get the owner player ID from the bagged object
                     var ownerPlayerId = GetBaggedObjectOwnerPlayerId(obj);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[CaptureCurrentlyBaggedObjects] Object {obj.name} owner ID: {(ownerPlayerId ?? "null")}");
-                    }
                     AddPersistedObject(obj, ownerPlayerId);
                 }
             }
@@ -415,41 +325,18 @@ namespace DrifterBossGrabMod
         {
             if (obj == null) return null;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GetBaggedObjectOwnerPlayerId] Looking for owner of {obj.name}");
-            }
-
             // Try to find which DrifterBagController currently has this object
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
             if (bagControllers == null || bagControllers.Length == 0)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[GetBaggedObjectOwnerPlayerId] No bag controllers found for {obj.name}");
-                }
                 return null;
-            }
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GetBaggedObjectOwnerPlayerId] Found {bagControllers.Length} bag controllers");
             }
 
             foreach (var bagController in bagControllers)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[GetBaggedObjectOwnerPlayerId] Checking bag controller {bagController.name}");
-                }
-
                 // Check if this object is in the bag controller's main seat
                 if (bagController.vehicleSeat != null && bagController.vehicleSeat.NetworkpassengerBodyObject  == obj)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[GetBaggedObjectOwnerPlayerId] Found {obj.name} in main seat of {bagController.name}");
-                    }
                     // Found it in main seat - get player ID from this Drifter
                     var characterMaster = bagController.GetComponent<CharacterMaster>();
                     if (characterMaster == null)
@@ -459,10 +346,6 @@ namespace DrifterBossGrabMod
                     if (characterMaster != null && characterMaster.playerCharacterMasterController != null)
                     {
                         var playerId = characterMaster.playerCharacterMasterController.networkUser.id.ToString();
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[GetBaggedObjectOwnerPlayerId] Returning owner ID {playerId} for {obj.name} (found in main seat)");
-                        }
                         return playerId;
                     }
                 }
@@ -471,18 +354,10 @@ namespace DrifterBossGrabMod
                 var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
                 if (seatDict != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[GetBaggedObjectOwnerPlayerId] Checking {seatDict.Count} additional seats for {bagController.name}");
-                    }
                     foreach (var kvp in seatDict)
                     {
                         if (kvp.Value.NetworkpassengerBodyObject == obj)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[GetBaggedObjectOwnerPlayerId] Found {obj.name} in additional seat of {bagController.name}");
-                            }
                             // Found it in additional seat - get player ID from this Drifter
                             var characterMaster = bagController.GetComponent<CharacterMaster>();
                             if (characterMaster == null)
@@ -492,10 +367,6 @@ namespace DrifterBossGrabMod
                             if (characterMaster != null && characterMaster.playerCharacterMasterController != null)
                             {
                                 var playerId = characterMaster.playerCharacterMasterController.networkUser.id.ToString();
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($"[GetBaggedObjectOwnerPlayerId] Returning owner ID {playerId} for {obj.name} (found in additional seat)");
-                                }
                                 return playerId;
                             }
                         }
@@ -503,10 +374,6 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GetBaggedObjectOwnerPlayerId] Could not find owner for {obj.name}");
-            }
             return null;
         }
 

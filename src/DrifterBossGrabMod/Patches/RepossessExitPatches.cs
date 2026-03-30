@@ -5,6 +5,7 @@ using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
+using EntityStates;
 using EntityStates.Drifter;
 using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Networking;
@@ -12,6 +13,10 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessExitPatches
     {
+        private static readonly FieldInfo _chosenTargetField = ReflectionCache.RepossessExit.ChosenTarget;
+        private static readonly FieldInfo _activatedHitpauseField = ReflectionCache.RepossessExit.ActivatedHitpause;
+        private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
+
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
@@ -20,8 +25,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(RepossessExit __instance)
             {
-                var traverse = Traverse.Create(__instance);
-                var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null)
                 {
                     Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
@@ -45,8 +49,7 @@ namespace DrifterBossGrabMod.Patches
                 // Only apply grabbing logic if any grabbing type is enabled
                 if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                     return;
-                var traverse = Traverse.Create(__instance);
-                var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null && originalChosenTarget == null)
                 {
                     Log.Warning($"[RepossessExit Postfix] chosenTarget is null from {__instance.GetType().Name}");
@@ -60,8 +63,8 @@ namespace DrifterBossGrabMod.Patches
                 // If chosenTarget was rejected but it's grabbable, allow it
                 if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
                 {
-                    traverse.Field("chosenTarget").SetValue(originalChosenTarget);
-                    traverse.Field("activatedHitpause").SetValue(true);
+                    _chosenTargetField?.SetValue(__instance, originalChosenTarget);
+                    _activatedHitpauseField?.SetValue(__instance, true);
                     chosenTarget = originalChosenTarget;
                 }
                 else if (chosenTarget == null && originalChosenTarget != null)
@@ -93,8 +96,8 @@ namespace DrifterBossGrabMod.Patches
                         }
                         if (canGrab && !isBlacklisted)
                         {
-                            traverse.Field("chosenTarget").SetValue(originalChosenTarget);
-                            traverse.Field("activatedHitpause").SetValue(true);
+                            _chosenTargetField?.SetValue(__instance, originalChosenTarget);
+                            _activatedHitpauseField?.SetValue(__instance, true);
                             chosenTarget = originalChosenTarget;
                         }
                     }
@@ -131,8 +134,7 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                var traverse = Traverse.Create(__instance);
-                var chosenTarget = traverse.Field("chosenTarget").GetValue<GameObject>();
+                var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -172,18 +174,15 @@ namespace DrifterBossGrabMod.Patches
 
                         if (baggedObject != null)
                         {
-                            // Get the override fields
-                            var overriddenUtilityField = AccessTools.Field(typeof(BaggedObject), "overriddenUtility");
-                            var utilityOverrideField = AccessTools.Field(typeof(BaggedObject), "utilityOverride");
-
-                            var overriddenUtility = overriddenUtilityField?.GetValue(baggedObject) as GenericSkill;
-                            var utilityOverride = utilityOverrideField?.GetValue(baggedObject) as RoR2.Skills.SkillDef;
+                            // Get override fields
+                            var overriddenUtility = ReflectionCache.BaggedObject.OverriddenUtility.GetValue(baggedObject) as GenericSkill;
+                            var utilityOverride = ReflectionCache.BaggedObject.UtilityOverride.GetValue(baggedObject) as RoR2.Skills.SkillDef;
 
                             // Temporarily remove the override
-                            if (overriddenUtility != null && utilityOverride != null && overriddenUtilityField != null)
+                            if (overriddenUtility != null && utilityOverride != null)
                             {
                                 overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
-                                overriddenUtilityField.SetValue(baggedObject, null);
+                                ReflectionCache.BaggedObject.OverriddenUtility.SetValue(baggedObject, null);
 
                                 // Refresh the stock
                                 utilitySkill.stock = 1;
@@ -233,8 +232,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                    var traverse = Traverse.Create(__instance);
-                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
+                    var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                     if (targetObject == null) return;
                 }
                 catch (Exception ex)
@@ -243,6 +241,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
         [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnExit")]
         public class BaggedObject_OnExit_Patch
         {
@@ -251,8 +250,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                    var traverse = Traverse.Create(__instance);
-                    GameObject targetObject = traverse.Field("targetObject").GetValue<GameObject>();
+                    var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                     if (targetObject == null) return;
 
                     // CHECK SUPPRESSION: If suppression is active, do NOT restore physics yet.

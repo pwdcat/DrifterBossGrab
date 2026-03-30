@@ -161,7 +161,7 @@ namespace DrifterBossGrabMod.Balance
             {
                 foreach (var obj in baggedObjects)
                 {
-                    if (obj != null && !OtherPatches.IsInProjectileState(obj))
+                    if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                     {
                         totalMass += bagController.CalculateBaggedObjectMass(obj);
                     }
