@@ -6,14 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.3]
 
 ### Added
-- API calls
-- Config Sync on Host setting change
-- ProperSave integration
+- API
+    - Bag states (GetBaggedObjects, GetBagCount, GetBagCapacity, GetTotalMass)
+    - Mass and encumbrance calculations (GetMassRatio, GetEncumbranceLevel, IsOverencumbered)
+    - Object management (AddBaggedObject, RemoveBaggedObject, SetMainPassenger, ClearBag)
+    - Formula variable registry
+    - Events (OnObjectGrabbed, OnObjectReleased, OnBagFull, OnOverencumbered, etc)
+- ProperSave support
+- BodyColliderCache and ReflectionCache
 
 ### Changed
 - Config Reorganization
 - UI/UX Improvements
-- Optimizations
+- Refactoring
 
 ### Fixed
 - Autopromote and Mainseat for clients

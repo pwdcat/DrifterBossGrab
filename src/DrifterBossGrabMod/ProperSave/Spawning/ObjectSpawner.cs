@@ -27,6 +27,12 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
+            if (IsCharacterMaster(objData.PrefabName))
+            {
+                Log.Info($"[ObjectSpawn] Detected CharacterMaster {objData.PrefabName}, using PrefabSpawner");
+                return PrefabSpawner.SpawnObjectFromPrefab(objData, ownerPlayerId);
+            }
+
             // Find SpawnCard by exact AssetId, PrefabHash, or exact name
             var spawnCard = FindSpawnCardExact(objData);
 
@@ -78,8 +84,9 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 var characterMaster = spawnedObject.GetComponent<CharacterMaster>();
                 if (characterMaster != null)
                 {
-                    // Assign team to the master - default to enemy team
-                    characterMaster.teamIndex = TeamIndex.Monster;
+                    // Get saved team index from save data, default to Monster team
+                    var savedTeamIndex = GetSavedTeamIndex(objData);
+                    characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
                     Log.Info($"[ObjectSpawn] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
@@ -317,26 +324,43 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
+        private static TeamIndex? GetSavedTeamIndex(BaggedObjectSaveData objData)
+        {
+            if (objData == null || objData.ComponentStates == null)
+                return null;
+
+            foreach (var entry in objData.ComponentStates)
+            {
+                foreach (var value in entry.Values)
+                {
+                    if (value.Key == "teamIndex" && value.Type == "System.Byte")
+                    {
+                        if (byte.TryParse(value.Value, out var teamByte))
+                        {
+                            return (TeamIndex)teamByte;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static bool IsCharacterMaster(string prefabName)
+        {
+            if (string.IsNullOrEmpty(prefabName)) return false;
+
+            return prefabName.EndsWith("Master");
+        }
+
         private static bool IsEnemyBody(string prefabName)
         {
             if (string.IsNullOrEmpty(prefabName)) return false;
 
-            // Enemy bodies typically end with "Body" and are not player bodies
-            return prefabName.EndsWith("Body") &&
-                   !prefabName.Contains("Drifter") &&
-                   !prefabName.Contains("Player") &&
-                   !prefabName.Contains("Commando") &&
-                   !prefabName.Contains("Huntress") &&
-                   !prefabName.Contains("Engineer") &&
-                   !prefabName.Contains("Artificer") &&
-                   !prefabName.Contains("Mercenary") &&
-                   !prefabName.Contains("Loader") &&
-                   !prefabName.Contains("Acrid") &&
-                   !prefabName.Contains("Railgunner") &&
-                   !prefabName.Contains("VoidSurvivor") &&
-                   !prefabName.Contains("Bandit") &&
-                   !prefabName.Contains("Treebot") &&
-                   !prefabName.Contains("Croco");
+            var bodyIndex = BodyCatalog.FindBodyIndex(prefabName);
+            if (bodyIndex == BodyIndex.None) return false;
+
+            var survivorIndex = SurvivorCatalog.GetSurvivorIndexFromBodyIndex(bodyIndex);
+            return survivorIndex == SurvivorIndex.None;
         }
 
         private static SpawnCard? FindSpawnCardExact(BaggedObjectSaveData objData)

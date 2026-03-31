@@ -88,6 +88,28 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             // Reset rotation to identity for bunched up spawning
             spawnedObject.transform.rotation = Quaternion.identity;
 
+            // Handle CharacterMaster - set team and spawn body BEFORE network spawn
+            var characterMaster = spawnedObject.GetComponent<CharacterMaster>();
+            CharacterBody? spawnedBody = null;
+
+            if (characterMaster != null)
+            {
+                // Get saved team index from save data, default to Monster team
+                var savedTeamIndex = GetSavedTeamIndex(objData);
+                characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
+
+                Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
+
+                // Spawn the body for the master at the spawned object's position
+                spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
+
+                if (spawnedBody != null)
+                {
+                    Log.Info($"[PrefabSpawner] Using spawned body {spawnedBody.name} instead of master {spawnedObject.name}");
+                    spawnedObject = spawnedBody.gameObject;
+                }
+            }
+
             RestoreObjectState(spawnedObject, objData);
 
             // Spawn on network
@@ -110,9 +132,50 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return spawnedObject;
         }
 
+        private static TeamIndex? GetSavedTeamIndex(BaggedObjectSaveData objData)
+        {
+            if (objData == null || objData.ComponentStates == null)
+                return null;
+
+            foreach (var entry in objData.ComponentStates)
+            {
+                foreach (var value in entry.Values)
+                {
+                    if (value.Key == "teamIndex" && value.Type == "System.Byte")
+                    {
+                        if (byte.TryParse(value.Value, out var teamByte))
+                        {
+                            return (TeamIndex)teamByte;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static void EnsureSOAFromSaveData(GameObject obj, BaggedObjectSaveData objData)
+        {
+            if (obj == null || objData == null || objData.ComponentStates == null)
+                return;
+
+            bool hasSOAInSaveData = objData.ComponentStates.Any(entry =>
+                entry.PluginName.Contains("SpecialObjectAttributes", StringComparison.OrdinalIgnoreCase));
+
+            if (!hasSOAInSaveData)
+                return;
+
+            bool hasSOA = obj.GetComponent<RoR2.SpecialObjectAttributes>() != null;
+            if (hasSOA)
+                return;
+
+            Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
+        }
+
         private static void RestoreObjectState(GameObject spawnedObject, BaggedObjectSaveData objData)
         {
             if (objData == null || objData.ComponentStates == null) return;
+
+            EnsureSOAFromSaveData(spawnedObject, objData);
 
             var allPlugins = ProperSaveIntegration.GetSerializerPlugins();
 

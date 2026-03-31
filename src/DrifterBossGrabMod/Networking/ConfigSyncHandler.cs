@@ -252,5 +252,10 @@ namespace DrifterBossGrabMod.Networking
                 SendConfigToClient(conn);
             }
         }
+
+        public static void Cleanup()
+        {
+            NetworkManagerSystem.onClientConnectGlobal -= RegisterClientHandler;
+        }
     }
 }

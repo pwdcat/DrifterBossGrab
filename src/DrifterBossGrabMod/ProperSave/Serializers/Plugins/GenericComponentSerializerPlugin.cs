@@ -6,6 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
+using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
 {
@@ -81,8 +82,9 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                             state[prop.Name] = value;
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Log.Warning($"[GenericComponentSerializer] Failed to serialize field on {networkBehaviour?.GetType().Name}: {ex.Message}");
                     }
                 }
             }
@@ -131,8 +133,9 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                         var convertedValue = Convert.ChangeType(value, prop.PropertyType);
                         prop.SetValue(networkBehaviour, convertedValue);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Log.Warning($"[GenericComponentSerializer] Failed to restore field on {prop.Name}: {ex.Message}");
                     }
                 }
             }
@@ -159,9 +162,10 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                         state[field.Name] = ConvertFieldValueToString(value, field.FieldType);
                     }
                 }
-                catch (Exception)
-                {
-                }
+                    catch (Exception ex)
+                    {
+                        Log.Warning($"[GenericComponentSerializer] Failed to serialize field on {component?.GetType().Name}: {ex.Message}");
+                    }
             }
         }
 
@@ -215,8 +219,9 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                             field.SetValue(component, convertedValue);
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Log.Warning($"[GenericComponentSerializer] Failed to set field value: {ex.Message}");
                     }
                 }
             }

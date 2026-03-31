@@ -82,7 +82,7 @@ namespace DrifterBossGrabMod.Input
             }
             else
             {
-                Log.Warning("[InputSetup] Could not find ActionElementMap apply method. Profile bindings may not persist.");
+                Log.Info("[InputSetup] ActionElementMap apply method not found. Using fallback for profile bindings.");
             }
 
             // Hook UserProfile methods for default bindings
@@ -189,19 +189,7 @@ namespace DrifterBossGrabMod.Input
         // Looks for a non-public instance method on ActionElementMap that takes a single ControllerMap parameter
         private static MethodInfo? FindActionElementMapApplyMethod()
         {
-            foreach (var method in typeof(ActionElementMap).GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (method.ReturnType != typeof(void))
-                    continue;
-
-                var parameters = method.GetParameters();
-                if (parameters.Length == 1 && typeof(ControllerMap).IsAssignableFrom(parameters[0].ParameterType))
-                {
-                    return method;
-                }
-            }
-
-            return null;
+            return ReflectionCache.Rewired.ActionElementMap.GetApplyToControllerMapMethod();
         }
 
         // Invokes the discovered ActionElementMap apply method, falling back gracefully if not found

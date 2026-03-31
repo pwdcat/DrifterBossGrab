@@ -745,7 +745,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (list != null && victim != null && list.Contains(victim))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    if (PluginConfig.Instance.EnableDebugLogs.Value && controller != null)
                     {
                         Log.Info($"[GlobalEventManager_OnCharacterDeath] Bagged object {victim.name} died. Removing from bag of {controller.name}");
                     }

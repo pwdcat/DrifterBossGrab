@@ -71,10 +71,9 @@ namespace DrifterBossGrabMod.Core
             var junkController = target.GetComponent<JunkCubeController>();
             if (junkController)
             {
-                var field = typeof(JunkCubeController).GetField("_maxActivationCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (field != null)
+                if (ReflectionCache.JunkCubeController.MaxActivationCount != null)
                 {
-                    int maxCount = (int)field.GetValue(junkController);
+                    int maxCount = (int)ReflectionCache.JunkCubeController.MaxActivationCount.GetValue(junkController);
                     if (maxCount > 0) return 1f / maxCount;
                 }
                 // Fallback if reflection somehow fails

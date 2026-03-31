@@ -51,6 +51,10 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo BaggedMass = AccessTools.Field(typeof(RoR2.DrifterBagController), "baggedMass");
             public static readonly MethodInfo OnSyncBaggedObject = AccessTools.Method(typeof(RoR2.DrifterBagController), "OnSyncBaggedObject", new Type[] { typeof(GameObject) });
             public static readonly FieldInfo JunkController = AccessTools.Field(typeof(RoR2.DrifterBagController), "junkController");
+            public static readonly PropertyInfo NetworkbaggedObject = AccessTools.Property(typeof(RoR2.DrifterBagController), "NetworkbaggedObject");
+            public static readonly FieldInfo BaggedObject = AccessTools.Field(typeof(RoR2.DrifterBagController), "baggedObject");
+            public static readonly PropertyInfo Networkpassenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "Networkpassenger");
+            public static readonly PropertyInfo Passenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "passenger");
         }
         
         // ProjectileStickOnImpact members
@@ -110,6 +114,76 @@ namespace DrifterBossGrabMod
         {
             public static readonly FieldInfo ChosenTarget = AccessTools.Field(typeof(EntityStates.Drifter.RepossessExit), "chosenTarget");
             public static readonly FieldInfo ActivatedHitpause = AccessTools.Field(typeof(EntityStates.Drifter.RepossessExit), "activatedHitpause");
+        }
+
+        // JunkCubeController members
+        public static class JunkCubeController
+        {
+            private static FieldInfo? _maxActivationCount;
+
+            public static FieldInfo? MaxActivationCount
+            {
+                get
+                {
+                    if (_maxActivationCount == null)
+                    {
+                        var junkCubeType = Type.GetType("RoR2.JunkCubeController, RoR2");
+                        if (junkCubeType != null)
+                        {
+                            _maxActivationCount = AccessTools.Field(junkCubeType, "_maxActivationCount");
+                        }
+                    }
+                    return _maxActivationCount;
+                }
+            }
+        }
+
+        // NetworkIdentity members
+        public static class NetworkIdentity
+        {
+            public static readonly FieldInfo AssetId = AccessTools.Field(typeof(UnityEngine.Networking.NetworkIdentity), "m_AssetId");
+        }
+
+        // Rewired internals
+        public static class Rewired
+        {
+            public static class UserData
+            {
+                public static readonly FieldInfo Actions = AccessTools.Field(typeof(global::Rewired.Data.UserData), "actions");
+            }
+
+            public static class ActionElementMap
+            {
+                private static MethodInfo? _applyToControllerMapMethod;
+
+                public static MethodInfo? GetApplyToControllerMapMethod()
+                {
+                    if (_applyToControllerMapMethod == null)
+                    {
+                        var actionElementMapType = Type.GetType("Rewired.Data.Mapping.ActionElementMap, Rewired_Core");
+                        if (actionElementMapType != null)
+                        {
+                            foreach (var method in actionElementMapType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
+                            {
+                                if (method.ReturnType == typeof(void))
+                                {
+                                    var parameters = method.GetParameters();
+                                    if (parameters.Length == 1)
+                                    {
+                                        var controllerMapType = Type.GetType("Rewired.ControllerMap, Rewired_Core");
+                                        if (controllerMapType != null && controllerMapType.IsAssignableFrom(parameters[0].ParameterType))
+                                        {
+                                            _applyToControllerMapMethod = method;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return _applyToControllerMapMethod;
+                }
+            }
         }
     }
 }

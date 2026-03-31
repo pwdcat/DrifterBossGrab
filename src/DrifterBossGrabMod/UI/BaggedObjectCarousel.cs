@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
+using System;
 using System.Collections.Generic;
 using DrifterBossGrabMod.Patches;
 using UnityEngine.AddressableAssets;
@@ -751,14 +752,63 @@ namespace DrifterBossGrabMod.UI
                 }
                 else
                 {
-                    var specialObjectAttributes = passenger.GetComponent<SpecialObjectAttributes>();
-                    var body = passenger.GetComponent<CharacterBody>();
-                    var master = passenger.GetComponent<CharacterMaster>();
+                if (passenger == null || !passenger)
+                {
+                    if (baggedCardController.healthBar)
+                    {
+                        baggedCardController.healthBar.gameObject.SetActive(false);
+                    }
+                    return;
+                }
 
-                    baggedCardController.sourceBody = body;
-                    baggedCardController.sourceMaster = master;
-                    baggedCardController.sourcePassengerAttributes = specialObjectAttributes;
-                    baggedCardController.ForceUpdate();
+                var specialObjectAttributes = passenger.GetComponent<SpecialObjectAttributes>();
+                var body = passenger.GetComponent<CharacterBody>();
+                var master = passenger.GetComponent<CharacterMaster>();
+                var healthComponent = passenger.GetComponent<HealthComponent>();
+
+                baggedCardController.sourceBody = body;
+                baggedCardController.sourceMaster = master;
+                baggedCardController.sourcePassengerAttributes = specialObjectAttributes;
+                baggedCardController.ForceUpdate();
+
+                if (healthComponent != null && body != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[BaggedObjectCarousel] Health info for {passenger.name}: health={healthComponent.health}, fullHealth={healthComponent.fullHealth}, fullCombinedHealth={healthComponent.fullCombinedHealth}, baseMaxHealth={body.baseMaxHealth}");
+                    }
+
+                    if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
+                    {
+                        try
+                        {
+                            baggedCardController.healthBar.Update();
+                        }
+                        catch (NullReferenceException)
+                        {
+                            Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
+                        }
+                    }
+                }
+                else if (specialObjectAttributes != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[BaggedObjectCarousel] SpecialObjectAttributes for {passenger.name}: durability={specialObjectAttributes.durability}, maxDurability={specialObjectAttributes.maxDurability}");
+                    }
+
+                    if (baggedCardController.healthBar != null && baggedCardController.healthBar.altSource == specialObjectAttributes)
+                    {
+                        try
+                        {
+                            baggedCardController.healthBar.Update();
+                        }
+                        catch (NullReferenceException)
+                        {
+                            Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
+                        }
+                    }
+                }
 
                     if (baggedCardController.healthBar && baggedCardController.healthBar.deadImage)
                     {

@@ -145,5 +145,14 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             if (string.IsNullOrEmpty(name)) return null;
             return _spawnCardByExactName.TryGetValue(name, out var card) ? card : null;
         }
+
+        public static void Cleanup()
+        {
+            Run.onRunStartGlobal -= OnRunStart;
+            _spawnCardByAssetId.Clear();
+            _spawnCardByPrefabHash.Clear();
+            _spawnCardByExactName.Clear();
+            _initialized = false;
+        }
     }
 }

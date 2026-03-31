@@ -10,8 +10,8 @@ using RoR2;
 using DrifterBossGrabMod.API;
 using DrifterBossGrabMod.ProperSave.Data;
 using DrifterBossGrabMod.ProperSave.Matching;
-using DrifterBossGrabMod.ProperSave.Serializers;
 using DrifterBossGrabMod.ProperSave.Spawning;
+using DrifterBossGrabMod.ProperSave.Serializers;
 
 namespace DrifterBossGrabMod.ProperSave
 {
@@ -119,6 +119,8 @@ namespace DrifterBossGrabMod.ProperSave
             Run.onRunStartGlobal -= OnRunStart;
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
 
+            SpawnCardRegistry.Cleanup();
+
             _serializerPlugins.Clear();
             _pendingSaveData = null;
             _initialized = false;
@@ -222,71 +224,71 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             // Enemy serializers (highest priority, 1:1 restoration)
-            var characterBodySerializer = BuiltInSerializers.ForCharacterBody();
+            var characterMasterSerializer = BuiltInSerializersAPI.ForCharacterMaster();
+            _serializerPlugins.Add(characterMasterSerializer);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {characterMasterSerializer.GetType().Name} (Priority: {characterMasterSerializer.Priority})");
+            }
+
+            var characterBodySerializer = BuiltInSerializersAPI.ForCharacterBody();
             _serializerPlugins.Add(characterBodySerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {characterBodySerializer.GetType().Name} (Priority: {characterBodySerializer.Priority})");
             }
 
-            var enemyInventorySerializer = new Serializers.Plugins.EnemyInventorySerializerPlugin();
-            _serializerPlugins.Add(enemyInventorySerializer);
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"  - Added: {enemyInventorySerializer.GetType().Name} (Priority: {enemyInventorySerializer.Priority})");
-            }
-
-            // Interactable serializers (declarative)
-            var chestSerializer = BuiltInSerializers.ForChest();
+            // Interactable serializers (API-based)
+            var chestSerializer = BuiltInSerializersAPI.ForChest();
             _serializerPlugins.Add(chestSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {chestSerializer.GetType().Name} (Priority: {chestSerializer.Priority})");
             }
 
-            var duplicatorSerializer = BuiltInSerializers.ForDuplicator();
+            var duplicatorSerializer = BuiltInSerializersAPI.ForDuplicator();
             _serializerPlugins.Add(duplicatorSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {duplicatorSerializer.GetType().Name} (Priority: {duplicatorSerializer.Priority})");
             }
 
-            var shrineSerializer = BuiltInSerializers.ForShrine();
+            var shrineSerializer = BuiltInSerializersAPI.ForShrine();
             _serializerPlugins.Add(shrineSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {shrineSerializer.GetType().Name} (Priority: {shrineSerializer.Priority})");
             }
 
-            var soaSerializer = BuiltInSerializers.ForSpecialObjectAttributes();
+            var soaSerializer = BuiltInSerializersAPI.ForSpecialObjectAttributes();
             _serializerPlugins.Add(soaSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {soaSerializer.GetType().Name} (Priority: {soaSerializer.Priority})");
             }
 
-            var junkCubeSerializer = BuiltInSerializers.ForJunkCubeController();
+            var junkCubeSerializer = BuiltInSerializersAPI.ForJunkCubeController();
             _serializerPlugins.Add(junkCubeSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {junkCubeSerializer.GetType().Name} (Priority: {junkCubeSerializer.Priority})");
             }
 
-            var halcyoniteShrineSerializer = BuiltInSerializers.ForHalcyoniteShrineInteractable();
+            var halcyoniteShrineSerializer = BuiltInSerializersAPI.ForHalcyoniteShrineInteractable();
             _serializerPlugins.Add(halcyoniteShrineSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {halcyoniteShrineSerializer.GetType().Name} (Priority: {halcyoniteShrineSerializer.Priority})");
             }
 
-            var tinkerableSerializer = BuiltInSerializers.ForTinkerableObjectAttributes();
+            var tinkerableSerializer = BuiltInSerializersAPI.ForTinkerableObjectAttributes();
             _serializerPlugins.Add(tinkerableSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {tinkerableSerializer.GetType().Name} (Priority: {tinkerableSerializer.Priority})");
             }
 
-            var purchaseSerializer = BuiltInSerializers.ForPurchaseInteraction();
+            var purchaseSerializer = BuiltInSerializersAPI.ForPurchaseInteraction();
             _serializerPlugins.Add(purchaseSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
@@ -294,14 +296,14 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             // Reflection-based fallbacks and integrations
-            var genericSerializer = new Serializers.Plugins.GenericComponentSerializerPlugin();
+            var genericSerializer = BuiltInSerializersAPI.ForGenericComponentSerializer();
             _serializerPlugins.Add(genericSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"  - Added: {genericSerializer.GetType().Name} (Priority: {genericSerializer.Priority})");
             }
 
-            var qualitySerializer = new Serializers.Plugins.QualityIntegrationPlugin();
+            var qualitySerializer = BuiltInSerializersAPI.ForQualityIntegration();
             _serializerPlugins.Add(qualitySerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
@@ -464,10 +466,22 @@ namespace DrifterBossGrabMod.ProperSave
                 return null;
             }
 
+            var characterBody = obj.GetComponent<CharacterBody>();
+            if (characterBody != null && characterBody.master != null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[CaptureObjectData] Skipping CharacterBody {obj.name} that has a master {characterBody.master.name}");
+                }
+                return null;
+            }
+
+            string prefabName = System.Text.RegularExpressions.Regex.Replace(obj.name, @"\(Clone\)(\(\d+\))?$", "");
+
             var objData = new BaggedObjectSaveData
             {
                 ObjectName = obj.name,
-                PrefabName = obj.name,
+                PrefabName = prefabName,
                 ObjectInstanceId = obj.GetInstanceID(),
                 SceneName = SceneManager.GetActiveScene().name,
                 OwnerPlayerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj) ?? string.Empty,
@@ -570,6 +584,24 @@ namespace DrifterBossGrabMod.ProperSave
 
             // Call the completion callback
             onComplete?.Invoke();
+        }
+
+        private static void EnsureSOAFromSaveData(GameObject obj, BaggedObjectSaveData objData)
+        {
+            if (obj == null || objData == null || objData.ComponentStates == null)
+                return;
+
+            bool hasSOAInSaveData = objData.ComponentStates.Any(entry =>
+                entry.PluginName.Contains("SpecialObjectAttributes", StringComparison.OrdinalIgnoreCase));
+
+            if (!hasSOAInSaveData)
+                return;
+
+            bool hasSOA = obj.GetComponent<RoR2.SpecialObjectAttributes>() != null;
+            if (hasSOA)
+                return;
+
+            Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
         }
 
         private static void RestoreBagState(DrifterBagSaveData saveData)
@@ -697,6 +729,8 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Warning($"[ProperSave] RestoreObjectState: ComponentStates is null for {objData.ObjectName}");
                 return;
             }
+
+            EnsureSOAFromSaveData(obj, objData);
 
             foreach (var entry in objData.ComponentStates)
             {

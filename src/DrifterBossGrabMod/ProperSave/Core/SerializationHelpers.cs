@@ -2,6 +2,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Networking;
+using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.ProperSave.Core
 {
@@ -112,9 +113,9 @@ namespace DrifterBossGrabMod.ProperSave.Core
                         return value;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Log warning if debug logs are enabled
+                Log.Warning($"[SerializationHelpers] Failed to convert value: {ex.Message}");
             }
 
             return value;

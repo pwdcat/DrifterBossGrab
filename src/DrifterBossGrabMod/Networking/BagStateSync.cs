@@ -13,9 +13,11 @@ namespace DrifterBossGrabMod.Networking
     public static class BagStateSync
     {
         public static GameObject? AdditionalSeatPrefab { get; private set; }
+        private static Harmony? _harmony;
 
         public static void Init(Harmony harmony)
         {
+            _harmony = harmony;
             RoR2.Networking.NetworkManagerSystem.onClientConnectGlobal += OnClientConnect;
             RoR2.Networking.NetworkManagerSystem.onStartServerGlobal += OnServerStart;
             Run.onRunStartGlobal += OnRunStart;
@@ -82,8 +84,7 @@ namespace DrifterBossGrabMod.Networking
             // Register it so it can be spawned
             // Use a stable hash for the assetId
             var assetId = new Guid("d62f2e5a-7b3c-4e8a-9d1f-8c5e2a3b4d5e");
-            typeof(NetworkIdentity).GetField("m_AssetId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                ?.SetValue(ni, NetworkHash128.Parse(assetId.ToString()));
+            ReflectionCache.NetworkIdentity.AssetId?.SetValue(ni, NetworkHash128.Parse(assetId.ToString()));
 
             // Prevent it from being destroyed
             GameObject.DontDestroyOnLoad(AdditionalSeatPrefab);
@@ -149,6 +150,15 @@ namespace DrifterBossGrabMod.Networking
         public static BottomlessBagNetworkController? GetNetworkController(DrifterBagController controller)
         {
             return controller.GetComponent<BottomlessBagNetworkController>();
+        }
+
+        public static void Cleanup()
+        {
+            RoR2.Networking.NetworkManagerSystem.onClientConnectGlobal -= OnClientConnect;
+            RoR2.Networking.NetworkManagerSystem.onStartServerGlobal -= OnServerStart;
+            Run.onRunStartGlobal -= OnRunStart;
+            _harmony?.UnpatchSelf();
+            _harmony = null;
         }
     }
 }

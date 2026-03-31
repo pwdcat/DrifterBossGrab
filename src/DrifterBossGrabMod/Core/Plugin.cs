@@ -237,6 +237,11 @@ namespace DrifterBossGrabMod
 
         public void OnDestroy()
         {
+            Run.onPlayerFirstCreatedServer -= OnPlayerFirstCreated;
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged -= OnSceneChanged;
+            CharacterBody.onBodyStartGlobal -= OnBodyStart;
+            ConfigChangeNotifier.RemoveObserver(this);
+            ConfigChangeNotifier.Cleanup();
             RemoveConfigurationEventHandlers();
             RemovePersistenceEventHandlers();
             RemoveFeatureToggleHandlers();
@@ -244,7 +249,8 @@ namespace DrifterBossGrabMod
             CleanupFeatures();
             StopCoroutines();
             Patches.UIPatches.CleanupMassCapacityUI();
-            
+            Networking.BagStateSync.Cleanup();
+            Networking.ConfigSyncHandler.Cleanup();
             ProperSave.ProperSaveIntegration.Cleanup();
         }
 
