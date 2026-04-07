@@ -8,8 +8,8 @@ using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using RoR2;
 using DrifterBossGrabMod.API;
+using DrifterBossGrabMod.ProperSave.Core;
 using DrifterBossGrabMod.ProperSave.Data;
-using DrifterBossGrabMod.ProperSave.Matching;
 using DrifterBossGrabMod.ProperSave.Spawning;
 using DrifterBossGrabMod.ProperSave.Serializers;
 
@@ -31,13 +31,7 @@ namespace DrifterBossGrabMod.ProperSave
             public const float UpwardPlacementOffset = 0.5f;
         }
 
-        public static class Validation
-        {
-            public const float PositionMatchWeight = 0.3f;
-            public const float ComponentTypeMatchWeight = 0.2f;
-            public const float ExactPrefabHashConfidence = 0.95f;
-            public const float ExactAssetIdConfidence = 1.0f;
-        }
+        
     }
 
     public static class ProperSaveIntegration
@@ -412,50 +406,6 @@ namespace DrifterBossGrabMod.ProperSave
             return saveData;
         }
 
-        private static string SerializeVector3(Vector3 v) => $"{v.x}|{v.y}|{v.z}";
-        private static string SerializeQuaternion(Quaternion q) => $"{q.x}|{q.y}|{q.z}|{q.w}";
-        private static string SerializeDateTime(DateTime dt) => dt.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
-        private static string SerializeGuid(Guid? guid) => guid?.ToString() ?? string.Empty;
-
-        private static Vector3 ParseVector3(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return Vector3.zero;
-            var parts = s.Split('|');
-            if (parts.Length != 3) return Vector3.zero;
-            float.TryParse(parts[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var x);
-            float.TryParse(parts[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var y);
-            float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var z);
-            return new Vector3(x, y, z);
-        }
-
-        private static Quaternion ParseQuaternion(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return Quaternion.identity;
-            var parts = s.Split('|');
-            if (parts.Length != 4) return Quaternion.identity;
-            float.TryParse(parts[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var x);
-            float.TryParse(parts[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var y);
-            float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var z);
-            float.TryParse(parts[3], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var w);
-            return new Quaternion(x, y, z, w);
-        }
-
-        private static DateTime ParseDateTime(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return DateTime.Now;
-            if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
-                return dt;
-            return DateTime.Now;
-        }
-
-        private static Guid? ParseGuid(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return null;
-            if (Guid.TryParse(s, out var guid))
-                return guid;
-            return null;
-        }
-
         private static BaggedObjectSaveData? CaptureObjectData(GameObject obj)
         {
             if (obj == null) return null;
@@ -471,9 +421,37 @@ namespace DrifterBossGrabMod.ProperSave
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[CaptureObjectData] Skipping CharacterBody {obj.name} that has a master {characterBody.master.name}");
+                    Log.Info($"[CaptureObjectData] Skipping {obj.name} - has master {characterBody.master.name}, master will handle spawning");
                 }
                 return null;
+            }
+
+            string? masterName = null;
+
+            // Check if object is currently in a seat
+            bool? isMainSeatObject = null;
+            int? additionalSeatIndex = null;
+            CheckObjectInSeats(obj, out isMainSeatObject, out additionalSeatIndex);
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[CaptureObjectData] Capturing data for {obj.name}");
+                var components = obj.GetComponents<Component>();
+                Log.Info($"[CaptureObjectData] Components on object ({components.Length} total): {string.Join(", ", components.Take(10).Select(c => c.GetType().Name))}");
+
+                var masterComponent = obj.GetComponent<RoR2.CharacterMaster>();
+                if (masterComponent != null)
+                {
+                    Log.Info($"[CaptureObjectData] Object HAS CharacterMaster component: {masterComponent.name}");
+                }
+                else
+                {
+                    Log.Info($"[CaptureObjectData] Object does not have CharacterMaster component");
+                    if (characterBody != null && characterBody.master != null)
+                    {
+                        Log.Info($"[CaptureObjectData] CharacterBody's master is: {characterBody.master.name} (saved as: {masterName})");
+                    }
+                }
             }
 
             string prefabName = System.Text.RegularExpressions.Regex.Replace(obj.name, @"\(Clone\)(\(\d+\))?$", "");
@@ -486,20 +464,20 @@ namespace DrifterBossGrabMod.ProperSave
                 SceneName = SceneManager.GetActiveScene().name,
                 OwnerPlayerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj) ?? string.Empty,
 
-                Position = SerializeVector3(obj.transform.position),
-                Rotation = SerializeQuaternion(obj.transform.rotation),
+                Position = SerializationHelpers.SerializeVector3(obj.transform.position),
+                Rotation = SerializationHelpers.SerializeQuaternion(obj.transform.rotation),
 
-                AssetId = SerializeGuid(new Guid(networkIdentity.assetId.ToString())),
+                AssetId = SerializationHelpers.SerializeGuid(new Guid(networkIdentity.assetId.ToString())),
                 PrefabHash = networkIdentity.assetId.ToString(),
 
                 ComponentType = GetPrimaryComponentType(obj),
 
-                ValidationInfo = new ObjectValidationInfo
-                {
-                    SaveTime = SerializeDateTime(DateTime.Now),
-                    StageName = SceneManager.GetActiveScene().name,
-                    StageClearCount = Run.instance?.stageClearCount ?? 0
-                }
+                MasterName = masterName,
+
+                IsMainSeatObject = isMainSeatObject,
+                AdditionalSeatIndex = additionalSeatIndex
+
+                
             };
 
             objData.SpawnCardPath = GetSpawnCardPath(obj);
@@ -525,7 +503,7 @@ namespace DrifterBossGrabMod.ProperSave
                         {
                             var value = kvp.Value;
                             var typeStr = value?.GetType().FullName ?? "System.String";
-                            var valueStr = SerializeValue(value);
+                            var valueStr = SerializationHelpers.SerializeValue(value);
 
                             entry.Values.Add(new StateValue
                             {
@@ -555,6 +533,40 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             return objData;
+        }
+
+        private static void CheckObjectInSeats(GameObject obj, out bool? isMainSeatObject, out int? additionalSeatIndex)
+        {
+            isMainSeatObject = null;
+            additionalSeatIndex = null;
+
+            var controllers = UnityEngine.Object.FindObjectsByType<RoR2.DrifterBagController>(UnityEngine.FindObjectsSortMode.None);
+            foreach (var controller in controllers)
+            {
+                if (controller == null) continue;
+
+                var state = Patches.BagPatches.GetState(controller);
+                if (state == null) continue;
+
+                // Check main seat
+                if (state.MainSeatObject != null && state.MainSeatObject.GetInstanceID() == obj.GetInstanceID())
+                {
+                    isMainSeatObject = true;
+                    return;
+                }
+
+                // Check additional seats
+                int seatIndex = 0;
+                foreach (var kvp in state.AdditionalSeats)
+                {
+                    if (kvp.Key != null && kvp.Key.GetInstanceID() == obj.GetInstanceID())
+                    {
+                        additionalSeatIndex = seatIndex;
+                        return;
+                    }
+                    seatIndex++;
+                }
+            }
         }
 
         private static string GetPrimaryComponentType(GameObject obj)
@@ -612,9 +624,15 @@ namespace DrifterBossGrabMod.ProperSave
                 return;
             }
 
+            // Clear restoration tracking to start fresh
+            Spawning.PrefabSpawner.ClearRestoredObjectTracking();
+
             // We use successCount/failureCount differently now because restoration is async
             // These are just for tracking, actual success/failure is handled in the coroutine
             var objectsToRestore = new List<(GameObject obj, BaggedObjectSaveData data)>();
+
+            // Track masters we've spawned to avoid duplicate body spawns
+            var spawnedMasters = new HashSet<int>();
 
             foreach (var objData in saveData.BaggedObjects)
             {
@@ -624,7 +642,7 @@ namespace DrifterBossGrabMod.ProperSave
 
                     // Always spawn new objects from save data (like persistence system does)
                     // Don't try to match to scene objects since we're loading from a save file
-                    var obj = ObjectSpawner.SpawnObjectFromSaveData(objData, objData.OwnerPlayerId);
+                    var obj = ObjectSpawner.SpawnObjectFromSaveData(objData, objData.OwnerPlayerId, spawnedMasters);
 
                     if (obj != null)
                     {
@@ -653,21 +671,75 @@ namespace DrifterBossGrabMod.ProperSave
 
             foreach (var (obj, objData) in objectsToRestore)
             {
-                yield return null;  // Wait 1 frame for object initialization
-                yield return null;  // Wait 2nd frame for NetworkBehaviour sync
+                yield return null;
+                yield return null;
+
+                GameObject? objectToAutoGrab = obj;
+                bool isCharacterMaster = obj.GetComponent<CharacterMaster>() != null;
+
+                // For CharacterMaster objects, wait for body to spawn before processing
+                if (isCharacterMaster)
+                {
+                    var master = obj.GetComponent<CharacterMaster>();
+                    if (master != null)
+                    {
+                        int waitFrame = 0;
+                        int maxWaitFrames = 30;
+                        while (master.GetBody() == null && waitFrame < maxWaitFrames)
+                        {
+                            yield return null;
+                            waitFrame++;
+                        }
+
+                        var body = master.GetBody();
+                        if (body != null)
+                        {
+                            objectToAutoGrab = body.gameObject;
+                            isCharacterMaster = false;
+                            Log.Info($"[RestoreAllObjects] Auto-grabbing body {body.name} from master {master.name}");
+                        }
+                    }
+                }
 
                 try
                 {
+                    Log.Info($"[RestoreAllObjects] Restoring {obj.name} (frame {Time.frameCount})");
+
+                    // Refresh BodyColliderCache to ensure it has valid collider references
+                    var colliderCache = obj.GetComponent<BodyColliderCache>();
+                    if (colliderCache != null)
+                    {
+                        colliderCache.RefreshCache();
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RestoreAllObjects] Refreshed BodyColliderCache for {obj.name}");
+                        }
+                    }
+
+                    // Check health before restoration
+                    var healthBefore = obj.GetComponent<RoR2.HealthComponent>();
+                    if (healthBefore != null)
+                    {
+                        Log.Info($"[RestoreAllObjects] Health BEFORE restoration: health={healthBefore.health}, fullHealth={healthBefore.fullHealth}");
+                    }
+
                     // Now restore the object state
                     RestoreObjectState(obj, objData);
 
-                    // Only auto-grab if object wasn't already in a seat when saved
-                    // Skip CharacterMaster objects - they're AI controllers, not grabbable objects
-                    bool wasInSeat = objData.IsMainSeatObject == true || objData.AdditionalSeatIndex.HasValue;
-                    bool isCharacterMaster = obj.GetComponent<CharacterMaster>() != null;
-                    if (!wasInSeat && !isCharacterMaster && PersistenceObjectManager.GetCachedEnableAutoGrab())
+                    // Check health after restoration
+                    var healthAfter = obj.GetComponent<RoR2.HealthComponent>();
+                    if (healthAfter != null)
                     {
-                        ScheduleAutoGrab(obj);
+                        Log.Info($"[RestoreAllObjects] Health AFTER restoration: health={healthAfter.health}, fullHealth={healthAfter.fullHealth}, healthFraction={healthAfter.healthFraction}");
+                    }
+
+                    if (!isCharacterMaster)
+                    {
+                        bool wasInSeat = objData.IsMainSeatObject == true || objData.AdditionalSeatIndex.HasValue;
+                        if (wasInSeat || PersistenceObjectManager.GetCachedEnableAutoGrab())
+                        {
+                            ScheduleAutoGrab(objectToAutoGrab);
+                        }
                     }
 
                     successCount++;
@@ -744,7 +816,7 @@ namespace DrifterBossGrabMod.ProperSave
 
                         foreach (var value in entry.Values)
                         {
-                            var deserializedValue = DeserializeValue(value.Value, value.Type);
+                            var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
                             if (deserializedValue != null)
                             {
                                 state[value.Key] = deserializedValue;
@@ -761,67 +833,22 @@ namespace DrifterBossGrabMod.ProperSave
             }
         }
 
-        private static string SerializeValue(object? value)
-        {
-            if (value == null) return "";
-
-            if (value is bool b) return b.ToString();
-            if (value is int i) return i.ToString();
-            if (value is uint u) return u.ToString();
-            if (value is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is string s) return s;
-
-            return value.ToString() ?? "";
-        }
-
-        private static object? DeserializeValue(string value, string typeStr)
-        {
-            if (string.IsNullOrEmpty(value)) return null;
-
-            try
-            {
-                switch (typeStr)
-                {
-                    case "System.Boolean":
-                    case "bool":
-                        return bool.Parse(value);
-
-                    case "System.Int32":
-                    case "int":
-                        return int.Parse(value);
-
-                    case "System.UInt32":
-                    case "uint":
-                        return uint.Parse(value);
-
-                    case "System.Single":
-                    case "float":
-                        return float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-
-                    case "System.Double":
-                    case "double":
-                        return double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-
-                    case "System.String":
-                    case "string":
-                        return value;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Warning($"[ProperSave] Failed to deserialize value '{value}' of type '{typeStr}': {ex.Message}");
-                }
-            }
-
-            return value;
-        }
-
         private static bool IsProperSaveAvailable()
         {
             return Chainloader.PluginInfos.ContainsKey(PROPER_SAVE_GUID);
+        }
+
+        private static bool IsEnemyBody(GameObject obj)
+        {
+            var characterBody = obj.GetComponent<CharacterBody>();
+            if (characterBody == null) return false;
+
+            var cleanedName = System.Text.RegularExpressions.Regex.Replace(obj.name, @"\(Clone\)(\(\d+\))?$", "");
+            var bodyIndex = BodyCatalog.FindBodyIndex(cleanedName);
+            if (bodyIndex == BodyIndex.None) return false;
+
+            var survivorIndex = SurvivorCatalog.GetSurvivorIndexFromBodyIndex(bodyIndex);
+            return survivorIndex == SurvivorIndex.None;
         }
 
         private static string GetSpawnCardPath(GameObject obj)
@@ -856,3 +883,5 @@ namespace DrifterBossGrabMod.ProperSave
         }
      }
  }
+
+

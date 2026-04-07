@@ -325,7 +325,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers
             {
                 if (!canHandle)
                 {
-                    Log.Warning($"[ComponentFieldMap<{typeof(TComponent).Name}] {obj.name}: Component NOT found!");
+                    Log.Warning($"[ComponentFieldMap<{typeof(TComponent).Name}] {obj.name}: Component not found!");
                 }
                 else
                 {

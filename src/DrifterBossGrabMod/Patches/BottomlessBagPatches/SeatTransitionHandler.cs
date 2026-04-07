@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.Networking;
 using RoR2;
 using DrifterBossGrabMod;
 
@@ -39,16 +40,18 @@ namespace DrifterBossGrabMod.Patches
                     stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                     BaggedObjectPatches.SaveObjectState(bagController, actualMainPassenger, stateData);
                     
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[DEBUG] [HandleNullStateTransition] Saved state for {actualMainPassenger.name} before cycling away to null (server-side)");
                 }
+            }
+
+            // Mark object to preserve overrides during cycling before ejecting
+            if (actualMainPassenger != null)
+            {
+                BaggedObjectStatePatches.BaggedObject_OnExit.MarkPreserveOverridesDuringCycling(actualMainPassenger);
             }
 
             vehicleSeat.EjectPassenger(actualMainPassenger);
             if (actualMainPassenger != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[DEBUG] [HandleNullStateTransition] Ejected passenger {actualMainPassenger.name} from main seat");
                 BagPatches.SetMainSeatObject(bagController, null);
                 BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger, bagController);
             }
@@ -81,12 +84,6 @@ namespace DrifterBossGrabMod.Patches
                         timer.SetElapsedBreakoutTime(storedState.elapsedBreakoutTime);
                         timer.breakoutAttempts = storedState.breakoutAttempts;
                         
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[DEBUG] [HandleNullStateTransition] Created & restored AdditionalSeatBreakoutTimer for {actualMainPassenger.name}: age={storedState.elapsedBreakoutTime}, attempts={storedState.breakoutAttempts}, breakoutTime={timer.breakoutTime}");
-                    }
-                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[DEBUG] [HandleNullStateTransition] Created fresh AdditionalSeatBreakoutTimer for {actualMainPassenger.name}: breakoutTime={timer.breakoutTime}");
                     }
                 }
             }
@@ -122,9 +119,29 @@ namespace DrifterBossGrabMod.Patches
                 localSeatDict.TryRemove(targetObject, out _);
             }
 
-            // Save state before assigning passenger
+            // Check if bag is full - if so, keep object in additional seat instead of main seat
+            int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
+            int objectsInBag = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+            bool isBagFull = objectsInBag >= effectiveCapacity;
+
+            if (isBagFull && NetworkServer.active && sourceAdditionalSeat == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[HandleNullToObjectTransition] Bag is full, keeping {targetObject.name} in additional seat instead of main seat");
+
+                var targetAdditionalSeat = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict);
+                if (targetAdditionalSeat != null)
+                {
+                    targetAdditionalSeat.AssignPassenger(targetObject);
+                    localSeatDict[targetObject] = targetAdditionalSeat;
+                    return;
+                }
+            }
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
                 Log.Info($"[HandleNullToObjectTransition] Saving state before AssignPassenger (null -> {targetObject.name})");
+            }
 
             BagPatches.SetMainSeatObject(bagController, targetObject);
             bagController.AssignPassenger(targetObject);
@@ -135,17 +152,11 @@ namespace DrifterBossGrabMod.Patches
                 var storedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
                 if (storedState != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[DEBUG] [HandleNullToObjectTransition] Restoring stored state for {targetObject.name}");
                     var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, targetObject);
                     if (baggedState != null)
                     {
                         storedState.ApplyToBaggedObject(baggedState);
                     }
-                }
-                else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[DEBUG] [HandleNullToObjectTransition] No stored state found for {targetObject.name}, using fresh state");
                 }
             }
         }
@@ -179,9 +190,13 @@ namespace DrifterBossGrabMod.Patches
                         if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
                         stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                         BaggedObjectPatches.SaveObjectState(bagController, currentObject, stateData);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[DEBUG] [HandleObjectSwap] Saved state for {currentObject.name} before cycling away (server-side)");
                     }
+                }
+
+                // Mark object to preserve overrides during cycling before ejecting
+                if (currentObject != null)
+                {
+                    BaggedObjectStatePatches.BaggedObject_OnExit.MarkPreserveOverridesDuringCycling(currentObject);
                 }
 
                 // Server-side swap.
@@ -234,8 +249,6 @@ namespace DrifterBossGrabMod.Patches
                             if (ss.breakoutTime > 0f) swapTimer.breakoutTime = ss.breakoutTime;
                             swapTimer.SetElapsedBreakoutTime(ss.elapsedBreakoutTime);
                             swapTimer.breakoutAttempts = ss.breakoutAttempts;
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[DEBUG] [HandleObjectSwap] Created & restored timer for {currentObject.name}: age={ss.elapsedBreakoutTime}, breakoutTime={swapTimer.breakoutTime}");
                         }
                     }
                 }
@@ -258,8 +271,6 @@ namespace DrifterBossGrabMod.Patches
                     var storedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
                     if (storedState != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[DEBUG] [HandleObjectSwap] Restoring stored state for {targetObject.name} (server-side)");
                         var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, targetObject);
                         if (baggedState != null)
                         {
@@ -327,8 +338,6 @@ namespace DrifterBossGrabMod.Patches
                     var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, currentObject);
                     if (currentState != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[DEBUG] [HandleObjectSwap] Saved state for {currentObject.name} before cycling away (client-side)");
                         var stateData = BaggedObjectPatches.LoadObjectState(bagController, currentObject) ?? new Core.BaggedObjectStateData();
                         if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
                         stateData.CaptureBreakoutStateFromBaggedObject(currentState);

@@ -55,25 +55,26 @@ namespace DrifterBossGrabMod
             _isInitialized = false;
         }
 
+        public Dictionary<Collider, bool> OriginalStates { get; } = new Dictionary<Collider, bool>();
+
         // disable all movement colliders on an object and record their previous state
         public static void DisableMovementColliders(GameObject obj, System.Collections.Generic.Dictionary<Collider, bool> originalStates)
         {
             System.Collections.Generic.IEnumerable<Collider> colliders;
 
-            if (obj.GetComponent<CharacterBody>() != null)
+            var cache = obj.GetComponent<BodyColliderCache>();
+            if (cache == null)
             {
-                var cache = obj.GetComponent<BodyColliderCache>();
-                if (cache == null)
-                    cache = obj.AddComponent<BodyColliderCache>();
-                colliders = cache.GetColliders();
+                cache = obj.AddComponent<BodyColliderCache>();
             }
-            else
+            colliders = cache.GetColliders();
+
+            if (cache.OriginalStates.Count > 0 && originalStates.Count == 0)
             {
-                var modelLocator = obj.GetComponent<ModelLocator>();
-                if (modelLocator && modelLocator.modelTransform)
-                    colliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
-                else
-                    colliders = obj.GetComponentsInChildren<Collider>(true);
+                foreach (var kvp in cache.OriginalStates)
+                {
+                    originalStates[kvp.Key] = kvp.Value;
+                }
             }
 
             foreach (Collider collider in colliders)
@@ -82,6 +83,10 @@ namespace DrifterBossGrabMod
                 {
                     if (!originalStates.ContainsKey(collider))
                         originalStates[collider] = collider.enabled;
+                    
+                    if (!cache.OriginalStates.ContainsKey(collider))
+                        cache.OriginalStates[collider] = collider.enabled;
+
                     collider.enabled = false;
                 }
             }
@@ -93,7 +98,16 @@ namespace DrifterBossGrabMod
             foreach (var kvp in originalStates)
             {
                 if (kvp.Key != null)
+                {
                     kvp.Key.enabled = kvp.Value;
+                    
+                    // Also clear from the cache if possible
+                    var cache = kvp.Key.GetComponentInParent<BodyColliderCache>();
+                    if (cache != null)
+                    {
+                        cache.OriginalStates.Remove(kvp.Key);
+                    }
+                }
             }
             originalStates.Clear();
         }

@@ -6,6 +6,14 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class SceneExitPatches
     {
+        private static bool _hasCapturedForScene = false;
+
+        // Reset the capture flag when a new scene loads so we are ready for the next transition
+        public static void ResetCaptureFlag()
+        {
+            _hasCapturedForScene = false;
+        }
+
         [HarmonyPatch(typeof(SceneExitController), "OnEnable")]
         public class SceneExitController_OnEnable
         {
@@ -16,6 +24,7 @@ namespace DrifterBossGrabMod.Patches
                 SceneExitController.onBeginExit += OnBeginExit;
             }
         }
+
         [HarmonyPatch(typeof(SceneExitController), "OnDisable")]
         public class SceneExitController_OnDisable
         {
@@ -25,26 +34,66 @@ namespace DrifterBossGrabMod.Patches
                 SceneExitController.onBeginExit -= OnBeginExit;
             }
         }
+
+        [HarmonyPatch(typeof(RoR2.Run), nameof(RoR2.Run.AdvanceStage), typeof(SceneDef))]
+        public class Run_AdvanceStage
+        {
+            [HarmonyPrefix]
+            public static void Prefix(RoR2.Run __instance, SceneDef nextScene)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[SceneExitPatches] Run.AdvanceStage called for next scene {nextScene?.baseSceneName}. Executing persistence capture fallback.");
+                }
+                ExecutePersistenceCapture();
+            }
+        }
+
         private static void OnBeginExit(SceneExitController exitController)
+        {
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[SceneExitPatches] SceneExitController.onBeginExit called. Executing persistence capture.");
+            }
+            ExecutePersistenceCapture();
+        }
+
+        private static void ExecutePersistenceCapture()
         {
             if (!PluginConfig.Instance.EnableObjectPersistence.Value)
             {
                 return;
             }
+
+            if (_hasCapturedForScene)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info("[SceneExitPatches] Persistence capture already executed for this scene transition. Skipping.");
+                }
+                return;
+            }
+
+            _hasCapturedForScene = true;
+
             // Get currently bagged objects
             var baggedObjects = PersistenceManager.GetCurrentlyBaggedObjects();
+
             // Send persistence message to all clients (only from server to avoid duplicates)
             if (NetworkServer.active)
             {
                 PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(baggedObjects);
             }
+
             // Capture currently bagged objects before scene transition
             PersistenceManager.CaptureCurrentlyBaggedObjects();
+
             // Move objects to persistence container
             PersistenceManager.MoveObjectsToPersistenceContainer();
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" Captured bagged objects on scene exit{(NetworkServer.active ? " and sent persistence message" : "")}");
+                Log.Info($" Captured {baggedObjects.Count} bagged objects on scene exit{(NetworkServer.active ? " and sent persistence message" : "")}");
             }
         }
     }

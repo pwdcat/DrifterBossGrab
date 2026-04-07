@@ -297,7 +297,7 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 _usingAdditionalSeat = false;
-                if (passengerObject && PluginConfig.IsBlacklisted(passengerObject.name))
+                if (passengerObject && PluginConfig.IsBlacklisted(passengerObject!.name))
                 {
                     return false;
                 }
@@ -386,6 +386,18 @@ namespace DrifterBossGrabMod.Patches
                 int passengerInstanceId = passengerObject.GetInstanceID();
                 bool isAlreadyTrackedByThisController = GetState(__instance!).ContainsInstanceId(passengerInstanceId);
 
+                // DEBUG: Log capacity check details
+                int listCount = list.Count;
+                int nullCount = 0;
+                int projectileCount = 0;
+                foreach (var o in list)
+                {
+                    if (o == null) nullCount++;
+                    else if (ProjectileRecoveryPatches.IsInProjectileState(o)) projectileCount++;
+                }
+                if (PluginConfig.Instance.EnableDebugLogs.Value || objectsInBag < listCount)
+                    Log.Info($"[AssignPassenger] CAPACITY CHECK: {passengerObject.name} listCount={listCount}, nullCount={nullCount}, projectileCount={projectileCount}, objectsInBag={objectsInBag}, effectiveCapacity={effectiveCapacity}, isAlreadyTracked={isAlreadyTrackedByThisController}");
+
                 // When AddedCapacity is INF AND EnableBalance is true, check mass capacity instead of slot capacity
                 if (PluginConfig.Instance.BottomlessBagEnabled.Value && PluginConfig.Instance.IsAddedCapacityInfinite && !isAlreadyTrackedByThisController)
                 {
@@ -407,6 +419,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!isAlreadyTrackedByThisController && objectsInBag >= effectiveCapacity)
                 {
+                    Log.Warning($"[AssignPassenger] BLOCKING {passengerObject.name} - bag full ({objectsInBag}/{effectiveCapacity}), alreadyTracked={isAlreadyTrackedByThisController}");
                     return false;
                 }
 
@@ -701,6 +714,36 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[VehicleSeat.AssignPassenger] BLOCKED assignment for {bodyObject.name} during BaggedObject initialization (Client Side override)");
+
+                // Manually replicate vanilla collider/hurtbox deactivation since we're blocking AssignPassenger
+                if (__instance.disableAllCollidersAndHurtboxes)
+                {
+                    // Disable all colliders (replicates SetPassengerCollisions(false))
+                    var allColliders = bodyObject.GetComponentsInChildren<Collider>();
+                    foreach (var collider in allColliders)
+                    {
+                        if (collider != null)
+                            collider.enabled = false;
+                    }
+
+                    // Increment hurtbox deactivator counter (replicates vanilla logic)
+                    var characterBody = bodyObject.GetComponent<CharacterBody>();
+                    if (characterBody != null && characterBody.modelLocator != null)
+                    {
+                        var modelTransform = characterBody.modelLocator.modelTransform;
+                        if (modelTransform != null)
+                        {
+                            var hurtBoxGroup = modelTransform.GetComponent<RoR2.HurtBoxGroup>();
+                            if (hurtBoxGroup != null)
+                            {
+                                hurtBoxGroup.hurtBoxesDeactivatorCounter++;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[VehicleSeat.AssignPassenger] Manually disabled colliders and incremented hurtBox counter for {bodyObject.name}");
+                            }
+                        }
+                    }
+                }
+
                 return false; // Skip original AssignPassenger
             }
             return true;

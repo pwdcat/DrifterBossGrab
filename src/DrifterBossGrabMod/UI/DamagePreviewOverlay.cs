@@ -42,14 +42,14 @@ namespace DrifterBossGrabMod.UI
         {
             if (!PluginConfig.Instance.EnableDamagePreview.Value)
             {
-                if (_previewRect && _previewRect.gameObject.activeSelf)
+                if (_previewRect && _previewRect!.gameObject.activeSelf)
                     _previewRect.gameObject.SetActive(false);
                 return;
             }
 
-            if (!_healthBar || !bagController || !targetObject || targetObject.name.Contains("EmptySlotMarker"))
+            if (!_healthBar || !bagController || !targetObject || targetObject!.name.Contains("EmptySlotMarker"))
             {
-                if (_previewRect && _previewRect.gameObject.activeSelf)
+                if (_previewRect && _previewRect!.gameObject.activeSelf)
                     _previewRect.gameObject.SetActive(false);
                 return;
             }
@@ -64,8 +64,8 @@ namespace DrifterBossGrabMod.UI
             if (!_previewImage) return;
 
             // Ensure our bar is active
-            if (!_previewRect!.gameObject.activeSelf)
-                _previewRect.gameObject.SetActive(true);
+            if (!_previewRect!.gameObject!.activeSelf)
+                _previewRect!.gameObject.SetActive(true);
 
             UpdatePreviewBar();
 
@@ -76,7 +76,7 @@ namespace DrifterBossGrabMod.UI
                 if (_logTimer >= LogInterval)
                 {
                     _logTimer = 0f;
-                    SlamDamageCalculator.LogDetails(bagController, targetObject);
+                    SlamDamageCalculator.LogDetails(bagController!, targetObject!);
                 }
             }
         }
@@ -84,7 +84,7 @@ namespace DrifterBossGrabMod.UI
         private void CreatePreviewBar()
         {
             if (!_healthBar) return;
-            var barContainer = _healthBar.barContainer;
+            var barContainer = _healthBar!.barContainer;
             if (!barContainer)
             {
                 Log.Warning("[DamagePreviewOverlay] HealthBar.barContainer is null");
@@ -127,7 +127,7 @@ namespace DrifterBossGrabMod.UI
         private void UpdatePreviewBar()
         {
             // Check if cache is valid
-            int currentTargetInstanceId = targetObject ? targetObject.GetInstanceID() : 0;
+            int currentTargetInstanceId = targetObject ? targetObject!.GetInstanceID() : 0;
             bool targetChanged = currentTargetInstanceId != _cachedTargetInstanceId;
 
             // Recalculate if cache is invalid or target changed
@@ -186,9 +186,9 @@ namespace DrifterBossGrabMod.UI
             // CharacterBody health source
             if (_healthBar != null && _healthBar.source != null)
             {
-                float total = _healthBar.source.fullCombinedHealth;
-                if (total <= 0f) return 0f;
-                return Mathf.Clamp01(_healthBar.source.combinedHealth / total);
+                float total = _healthBar.source!.fullCombinedHealth;
+            if (total <= 0f) return 0f;
+            return Mathf.Clamp01(_healthBar.source!.combinedHealth / total);
             }
 
             // SpecialObjectAttributes alt source
@@ -206,7 +206,7 @@ namespace DrifterBossGrabMod.UI
         {
             if (_previewImage)
             {
-                _previewImage.color = PluginConfig.Instance.DamagePreviewColor.Value;
+                _previewImage!.color = PluginConfig.Instance.DamagePreviewColor.Value;
             }
         }
 
@@ -241,7 +241,7 @@ namespace DrifterBossGrabMod.UI
         {
             if (_previewRect)
             {
-                Destroy(_previewRect.gameObject);
+                Destroy(_previewRect!.gameObject);
             }
         }
     }

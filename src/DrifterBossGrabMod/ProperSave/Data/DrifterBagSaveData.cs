@@ -29,13 +29,12 @@ namespace DrifterBossGrabMod.ProperSave.Data
 
         public string PrefabName { get; set; } = string.Empty;
         public string PrefabHash { get; set; } = string.Empty;
+        public string? MasterName { get; set; }
 
         public string ComponentType { get; set; } = string.Empty;
 
         public string Position { get; set; } = string.Empty;
         public string Rotation { get; set; } = string.Empty;
-
-        public ObjectValidationInfo ValidationInfo { get; set; } = new();
 
         public List<ComponentStateEntry> ComponentStates { get; set; } = new();
 
@@ -56,15 +55,5 @@ namespace DrifterBossGrabMod.ProperSave.Data
         public string Key { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
-    }
-
-    // Validation and tracking information for bagged objects
-    [Serializable]
-    public class ObjectValidationInfo
-    {
-        public string SaveTime { get; set; } = string.Empty;
-        public string StageName { get; set; } = string.Empty;
-        public int StageClearCount { get; set; }
-        public string RequiredComponents { get; set; } = string.Empty;
     }
 }

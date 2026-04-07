@@ -9,6 +9,7 @@ using RoR2.HudOverlay;
 using UnityEngine;
 using UnityEngine.Networking;
 using DrifterBossGrabMod;
+using DrifterBossGrabMod.Networking;
 
 namespace DrifterBossGrabMod.Patches
 {
@@ -36,6 +37,8 @@ namespace DrifterBossGrabMod.Patches
         // Track objects in projectile state (don't count toward capacity).
         internal static readonly HashSet<GameObject> projectileStateObjects = new HashSet<GameObject>();
         private static readonly object _projectileStateLock = new object();
+        private static readonly HashSet<GameObject> _objectsUndergoingThrow = new HashSet<GameObject>();
+        private static readonly object _throwTrackingLock = new object();
 
         // Cached reflection fields
         private static readonly FieldInfo _projectileControllerField = ReflectionCache.ThrownObjectProjectileController.ProjectileController;
@@ -43,6 +46,16 @@ namespace DrifterBossGrabMod.Patches
         private static readonly MethodInfo _calculatePassengerFinalPositionMethod = ReflectionCache.ThrownObjectProjectileController.CalculatePassengerFinalPosition;
         private static readonly FieldInfo _runStickEventField = ReflectionCache.ProjectileStickOnImpact.RunStickEvent;
         private static readonly FieldInfo _alreadyRanStickEventField = ReflectionCache.ProjectileStickOnImpact.AlreadyRanStickEvent;
+
+        public static bool IsUndergoingThrowOperation(GameObject obj)
+        {
+            if (obj == null) return false;
+
+            lock (_throwTrackingLock)
+            {
+                return _objectsUndergoingThrow.Contains(obj);
+            }
+        }
 
         public static void RecoverObject(ThrownObjectProjectileController thrownController, GameObject passenger, Vector3 projectilePos)
         {
@@ -97,6 +110,19 @@ namespace DrifterBossGrabMod.Patches
 
                 // Destroy the projectile
                 UnityEngine.Object.Destroy(thrownController.gameObject);
+
+                // Clear throw operation flag since throw was aborted
+                if (passenger != null)
+                {
+                    lock (_throwTrackingLock)
+                    {
+                        if (_objectsUndergoingThrow.Contains(passenger))
+                        {
+                            _objectsUndergoingThrow.Remove(passenger);
+                            Log.Info($"[RecoverObject] {passenger.name} throw operation aborted (recovered) - now grabbable");
+                        }
+                    }
+                }
             }
         }
 
@@ -106,16 +132,37 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(ThrownObjectProjectileController __instance, GameObject passengerObject)
             {
-                if (passengerObject != null)
+                if (passengerObject == null)
                 {
-                    // Check if we've already processed this passenger (avoid double-processing)
-                    lock (_projectileStateLock)
-                    {
-                        if (projectileStateObjects.Contains(passengerObject))
-                            return;
-                    }
-                    ProcessThrownObject(__instance, passengerObject);
+                    Log.Warning("[ThrownObjectProjectileController_OnSyncPassenger] passengerObject is null");
+                    return;
                 }
+
+                // Validate that the passenger object is ready
+                if (!NetworkUtils.ValidateObjectReady(passengerObject))
+                {
+                    Log.Warning($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} is not ready for network operations");
+                    return;
+                }
+
+                // Check if we've already processed this passenger
+                lock (_projectileStateLock)
+                {
+                    if (projectileStateObjects.Contains(passengerObject))
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} already processed, skipping");
+                        return;
+                    }
+                }
+
+                // Log the sync operation
+                NetworkUtils.LogNetworkOperation("ThrownObjectProjectileController_OnSyncPassenger", passengerObject, NetworkServer.active, new Dictionary<string, object>
+                {
+                    { "projectile", __instance != null ? __instance.name : "null" }
+                });
+
+                ProcessThrownObject(__instance, passengerObject);
             }
         }
 
@@ -127,8 +174,17 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
             string passengerName = passenger.name;
+
+            // Mark object as undergoing throw operation
+            lock (_throwTrackingLock)
+            {
+                _objectsUndergoingThrow.Add(passenger);
+            }
+            Log.Info($"[ProcessThrownObject] Marked {passengerName} as undergoing throw operation");
+
             // Track this object as being in projectile state
             lock (_projectileStateLock) { projectileStateObjects.Add(passenger); }
+
             // Get the DrifterBagController to remove from tracking
             var projectileController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
             if (projectileController == null)
@@ -136,6 +192,7 @@ namespace DrifterBossGrabMod.Patches
                 Log.Error($"[ThrowPatch] Failed to get projectileController from {__instance.GetType().Name}");
                 return;
             }
+
             GameObject? owner = projectileController.owner;
             if (owner != null)
             {
@@ -145,14 +202,47 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active)
                     {
                         // Remove from bag tracking - object is now airborne (server only)
+                        Log.Info($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
                         BagPassengerManager.RemoveBaggedObject(bagController, passenger);
+
+                        // Get NetworkIdentity of thrown object
+                        var passengerNetId = passenger.GetComponent<UnityEngine.Networking.NetworkIdentity>();
+                        if (passengerNetId != null)
+                        {
+                            // Explicitly remove from network controller's bagged IDs before sending message
+                            var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
+                            if (netController != null)
+                            {
+                                netController.RemoveBaggedObjectId(passengerNetId.netId);
+                                Log.Info($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
+                            }
+
+                            // Send explicit bag state update to all clients IMMEDIATELY
+                            // This ensures clients sync up when the throw is processed, not on impact
+                            Networking.CycleNetworkHandler.SendBagStateUpdate(bagController, passengerNetId.netId, isThrowOperation: true);
+                            Log.Info($"[ProcessThrownObject] SERVER: Sent bag state update for thrown {passengerName}");
+                        }
+                        else
+                        {
+                            Log.Warning($"[ProcessThrownObject] {passengerName} does not have NetworkIdentity, cannot send state update");
+                        }
                     }
                     else
                     {
-                        // Client: don't mutate bag state, let server drive it
-                        BagCarouselUpdater.UpdateCarousel(bagController, 0);
+                        Log.Info($"[ProcessThrownObject] CLIENT: Removing {passengerName} from local tracking");
+                        BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
+
+                        Log.Info($"[ProcessThrownObject] CLIENT: {passengerName} throw processed, carousel updated");
                     }
                 }
+                else
+                {
+                    Log.Warning($"[ProcessThrownObject] Owner does not have DrifterBagController component");
+                }
+            }
+            else
+            {
+                Log.Warning($"[ProcessThrownObject] Projectile owner is null");
             }
         }
 
@@ -166,7 +256,7 @@ namespace DrifterBossGrabMod.Patches
                 var rb = projectile.GetComponent<Rigidbody>();
                 if (rb != null)
                 {
-                    rb.linearVelocity = Vector3.zero;
+                    rb.velocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
             }
@@ -265,40 +355,6 @@ namespace DrifterBossGrabMod.Patches
                                 }
                             }
                         }
-                        else
-                        {
-                            if (UnityEngine.Networking.NetworkServer.active)
-                            {
-                                vehicleSeat.EjectPassenger();
-                                // Get the DrifterBagController to clean up tracking
-                                var projController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
-                                if (projController == null)
-                                {
-                                    Log.Error($"[ImpactPatch] Failed to get projectileController from {__instance.GetType().Name}");
-                                    return;
-                                }
-                                GameObject? owner = projController.owner;
-                                if (owner != null)
-                                {
-                                    var bagController = owner.GetComponent<DrifterBagController>();
-                                    if (bagController != null)
-                                    {
-                                        // Only remove from bag tracking if it's still tracked
-                                        if (BagHelpers.IsBaggedObject(bagController, passenger))
-                                        {
-                                            if (passenger != null)
-                                            {
-                                                Patches.BagPassengerManager.RemoveBaggedObject(bagController, passenger);
-                                            }
-                                        }
-                                        else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        {
-                                            Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     // Ensure model is parented to passenger
@@ -375,9 +431,18 @@ namespace DrifterBossGrabMod.Patches
                     CheckAndRecoverProjectile(__instance, "ImpactBehavior");
                     // Remove from projectile state tracking - object has landed
                     if (passenger != null) lock (_projectileStateLock) { projectileStateObjects.Remove(passenger); }
-                }
-                else
-                {
+                    if (passenger != null)
+                    {
+                        // Only clear if we're still tracking it
+                        lock (_throwTrackingLock)
+                        {
+                            if (_objectsUndergoingThrow.Contains(passenger))
+                            {
+                                _objectsUndergoingThrow.Remove(passenger);
+                                Log.Info($"[ImpactBehavior] {passenger.name} throw operation complete - now grabbable");
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -428,7 +493,11 @@ namespace DrifterBossGrabMod.Patches
         public static bool IsInProjectileState(GameObject obj)
         {
             if (obj == null) return false;
-            lock (_projectileStateLock) { return projectileStateObjects.Contains(obj); }
+
+            lock (_projectileStateLock)
+            {
+                return projectileStateObjects.Contains(obj) || _objectsUndergoingThrow.Contains(obj);
+            }
         }
 
         public static int GetProjectileStateCount(DrifterBagController controller)
@@ -448,7 +517,7 @@ namespace DrifterBossGrabMod.Patches
 
         public static void RemoveFromProjectileState(GameObject obj)
         {
-            if (obj != null)
+            if (obj == null)
             {
                 lock (_projectileStateLock) { projectileStateObjects.Remove(obj); }
             }

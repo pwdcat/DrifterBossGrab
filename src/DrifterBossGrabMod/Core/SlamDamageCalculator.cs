@@ -28,7 +28,7 @@ namespace DrifterBossGrabMod.Core
         {
             if (!bagController || !target) return 0f;
 
-            var drifterBody = bagController.GetComponent<CharacterBody>();
+            var drifterBody = bagController!.GetComponent<CharacterBody>();
             if (!drifterBody) return 0f;
 
             float effectiveCoef = GetEffectiveCoefficient(bagController);
@@ -49,7 +49,7 @@ namespace DrifterBossGrabMod.Core
             float baseDamage = drifterBody.damage * effectiveCoef;
 
             // Get target body for dry run calculation
-            var targetBody = target.GetComponent<CharacterBody>();
+            var targetBody = target!.GetComponent<CharacterBody>();
             if (targetBody == null)
             {
                 // Fallback for non-CharacterBody targets
@@ -114,7 +114,7 @@ namespace DrifterBossGrabMod.Core
             }
 
             var body = bagController?.GetComponent<CharacterBody>();
-            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
 
             // Create local variables specific to slam damage
             var localVars = new Dictionary<string, float>
@@ -200,13 +200,13 @@ namespace DrifterBossGrabMod.Core
             }
 
             // Calculation logic matching GetEffectiveCoefficient
-            float mass = bagController ? bagController.baggedMass : 0f;
-            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
-            float massFraction = bagController ? (bagController.baggedMass / maxCapacity) : 0f;
+            float mass = bagController ? bagController!.baggedMass : 0f;
+            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
+            float massFraction = bagController ? (bagController!.baggedMass / maxCapacity) : 0f;
             float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
 
-            var drifterBody = bagController ? bagController.GetComponent<CharacterBody>() : null;
-            float damageStat = drifterBody ? drifterBody.damage : 0f;
+            var drifterBody = bagController ? bagController!.GetComponent<CharacterBody>() : null;
+            float damageStat = drifterBody ? drifterBody!.damage : 0f;
             float baseDamage = damageStat * effectiveCoef;
             float armor = 0f;
 
@@ -223,7 +223,7 @@ namespace DrifterBossGrabMod.Core
             if (drifterBody && targetBody != null)
             {
                 float dryRunBaseDamage = damageStat * effectiveCoef;
-                dryRunResult = DryRunDamageCalculator.CalculateDamage(drifterBody, targetBody, dryRunBaseDamage);
+                dryRunResult = DryRunDamageCalculator.CalculateDamage(drifterBody!, targetBody, dryRunBaseDamage);
             }
 
             // Priority 0: JunkCubeController

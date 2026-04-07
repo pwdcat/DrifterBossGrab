@@ -96,6 +96,18 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
+            // Include incoming object mass for predictive capacity calculation
+            GameObject? predictiveIncomingObject = incomingObject;
+            if (predictiveIncomingObject == null)
+            {
+                predictiveIncomingObject = BagPatches.GetState(drifterBagController).IncomingObject;
+            }
+
+            if (predictiveIncomingObject != null && !ProjectileRecoveryPatches.IsInProjectileState(predictiveIncomingObject))
+            {
+                totalMass += drifterBagController.CalculateBaggedObjectMass(predictiveIncomingObject);
+            }
+
             return totalMass;
         }
 

@@ -261,22 +261,7 @@ namespace DrifterBossGrabMod.UI
                 }
             }
 
-            // Debug logging to diagnose damage calculation
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[BaggedObjectInfoUI] Damage Calculation Debug:");
-                Log.Info($"  Body Damage: {_body.damage:F2}");
-                Log.Info($"  Total Mass: {totalMass:F2}");
-                Log.Info($"  Mass Capacity: {massCapacity:F2}");
-                Log.Info($"  Mass Fraction: {massFraction:F2}");
-                Log.Info($"  Damage Coef (calculated): {damageCoef:F2}");
-                Log.Info($"  Base Damage: {baseDamage:F2}");
-                Log.Info($"  Crit Chance: {_body.crit:F1}%");
-                Log.Info($"  Crit Multiplier: {_body.critMultiplier:F2}");
-                Log.Info($"  Actual Damage (to enemies): {actualDamage:F2}");
-                Log.Info($"  Bagged Object Armor: {baggedObjectArmor:F2}");
-                Log.Info($"  Bagged Object Damage: {baggedObjectDamage:F2}");
-            }
+
 
             string totalsSection = $"<size=20><b>Bag Totals</b></size>\n";
             

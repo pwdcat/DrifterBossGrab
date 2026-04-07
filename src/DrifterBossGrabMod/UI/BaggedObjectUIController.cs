@@ -20,7 +20,7 @@ namespace DrifterBossGrabMod.UI
             {
                 // Check if this body is Drifter
                 var body = GetComponent<CharacterBody>();
-                if (body == null || !body.name.StartsWith("DrifterBody") || !body.hasAuthority)
+                if (body == null || !body!.name.StartsWith("DrifterBody") || !body.hasAuthority)
                 {
                     return;
                 }
@@ -30,10 +30,11 @@ namespace DrifterBossGrabMod.UI
                     return;
                 }
                 var hud = localUser.cameraRigController?.hud;
-                if (hud && hud.mainContainer)
+                if (hud && hud!.mainContainer)
                 {
                     // Find the DisplayRoot transform in the HUD hierarchy
-                    var displayRoot = FindDeepChild(hud.mainContainer.transform, "DisplayRoot");
+                    var safeHud = hud!;
+                    var displayRoot = FindDeepChild(safeHud.mainContainer!.transform, "DisplayRoot");
                     if (displayRoot)
                     {
                         // Create the carousel GameObject at runtime
@@ -45,24 +46,24 @@ namespace DrifterBossGrabMod.UI
 
                         // Instantiate the slot instances directly
                         aboveInstance = Instantiate(slotPrefab, carouselInstance.transform);
-                        aboveInstance.name = "aboveSlot";
-                        aboveInstance.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, -PluginConfig.Instance.CarouselSpacing.Value);
+                        aboveInstance!.name = "aboveSlot";
+                        aboveInstance!.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, -PluginConfig.Instance.CarouselSpacing.Value);
                         aboveInstance.SetActive(false);
 
                         centerInstance = Instantiate(slotPrefab, carouselInstance.transform);
-                        centerInstance.name = "centerSlot";
-                        centerInstance.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, 0);
+                        centerInstance!.name = "centerSlot";
+                        centerInstance!.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, 0);
                         centerInstance.SetActive(false);
 
                         belowInstance = Instantiate(slotPrefab, carouselInstance.transform);
-                        belowInstance.name = "belowSlot";
-                        belowInstance.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, PluginConfig.Instance.CarouselSpacing.Value);
+                        belowInstance!.name = "belowSlot";
+                        belowInstance!.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, PluginConfig.Instance.CarouselSpacing.Value);
                         belowInstance.SetActive(false);
 
                         // Set weight icon positions
-                        BaggedObjectCarousel.ApplyWeightIconTransform(aboveInstance);
-                        BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance);
-                        BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(aboveInstance!);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance!);
+                        BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance!);
                     }
                 }
             }
@@ -91,7 +92,7 @@ namespace DrifterBossGrabMod.UI
                 var layoutElement = baggedCardController.portraitIconImage?.GetComponent<UnityEngine.UI.LayoutElement>();
                 if (layoutElement)
                 {
-                    layoutElement.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowIcon.Value);
+                    layoutElement!.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowIcon.Value);
                 }
 
                 // Toggle weight icon

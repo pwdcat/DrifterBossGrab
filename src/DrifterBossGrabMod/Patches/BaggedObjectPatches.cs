@@ -18,7 +18,7 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class BaggedObjectPatches
     {
-        private static string GetSafeName(UnityEngine.Object? obj) => obj ? obj.name : "null";
+        private static string GetSafeName(UnityEngine.Object? obj) => obj ? obj!.name : "null";
         private static readonly HashSet<GameObject> _suppressedExitObjects = new HashSet<GameObject>();
 
         public static void SuppressExitForObject(GameObject obj)
@@ -98,36 +98,62 @@ namespace DrifterBossGrabMod.Patches
                 {
                     bagController.NetworkbaggedObject = targetObject;
                 }
-                var currentBaggedObj = bagController.baggedObject;
-                if (currentBaggedObj != targetObject)
+
+                if (!DrifterBossGrabPlugin.IsSwappingPassengers)
                 {
-                    _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
-                }
-            }
-                else if (bagController.hasAuthority)
-                {
-                    // Check if we need to update to avoid redundant calls
                     var currentBaggedObj = bagController.baggedObject;
                     if (currentBaggedObj != targetObject)
                     {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
+                        _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
+                    }
+                }
+                else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
+                }
+            }
+            else if (bagController.hasAuthority)
+            {
+                // Check if we need to update to avoid redundant calls
+                if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                {
+                    var currentBaggedObj = bagController.baggedObject;
+                    if (currentBaggedObj != targetObject)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
                         // Use cached reflection to call private OnSyncBaggedObject
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
                 }
-
-            // 2. Apply skill overrides (NOT handled by VehicleSeat.OnPassengerEnter())
-            if (baggedObject != null)
-            {
-                var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
-                if (skillLocator != null)
+                else if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    if (skillLocator.utility != null)
+                    Log.Info($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
+                }
+            }
+
+            // 2. Apply skill overrides (not handled by VehicleSeat.OnPassengerEnter())
+            if (baggedObject != null && targetObject != null)
+            {
+                var baggedList = BagPatches.GetState(bagController).BaggedObjects;
+                bool isInBag = baggedList != null && baggedList.Contains(targetObject);
+                bool isProjectile = ProjectileRecoveryPatches.IsInProjectileState(targetObject);
+
+                if (isInBag && !isProjectile)
+                {
+                    var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
+                    if (skillLocator != null)
                     {
-                        _tryOverrideUtilityMethod?.Invoke(baggedObject, new object[] { skillLocator.utility });
-                    }
-                    if (skillLocator.primary != null)
-                    {
-                        _tryOverridePrimaryMethod?.Invoke(baggedObject, new object[] { skillLocator.primary });
+                        if (skillLocator.utility != null)
+                        {
+                            _tryOverrideUtilityMethod?.Invoke(baggedObject, new object[] { skillLocator.utility });
+                        }
+                        if (skillLocator.primary != null)
+                        {
+                            _tryOverridePrimaryMethod?.Invoke(baggedObject, new object[] { skillLocator.primary });
+                        }
                     }
                 }
             }
@@ -312,10 +338,8 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-                // Only allow if the object is in the main seat OR being cycled to main seat
                 if (shouldAllowOverride)
                 {
-
                     return true; // Allow normal execution
                 }
                 else
@@ -362,10 +386,8 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-                // Only allow if the object is in the main seat OR being cycled to main seat
                 if (shouldAllowOverride)
                 {
-
                     return true; // Allow normal execution
                 }
                 else
@@ -427,6 +449,20 @@ namespace DrifterBossGrabMod.Patches
 
                 if (targetStateMachine != null)
                 {
+                    var baggedList = BagPatches.GetState(bagController).BaggedObjects;
+                    bool isTracked = baggedList != null && baggedList.Contains(targetObject);
+                    if (!isTracked)
+                    {
+                        int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController, targetObject);
+                        int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+                        if (currentCount >= effectiveCapacity)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[FindOrCreateBaggedObjectState] Skipping - bag full ({currentCount}/{effectiveCapacity}) for {targetObject.name}");
+                            return null;
+                        }
+                    }
+
                     var constructor = typeof(BaggedObject).GetConstructor(Type.EmptyTypes);
                     if (constructor != null)
                     {
@@ -501,6 +537,9 @@ namespace DrifterBossGrabMod.Patches
                     BagCarouselUpdater.UpdateNetworkBagState(bagController);
                     BagPassengerManager.ForceRecalculateMass(bagController);
                     RemoveUIOverlay(passenger, bagController);
+                    
+                    // Clean up initialization tracking when passenger truly exits
+                    BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(passenger);
                 }
             }
 

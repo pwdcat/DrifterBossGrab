@@ -2,7 +2,6 @@
 using System;
 namespace DrifterBossGrabMod
 {
-    // Shared constants used throughout the DrifterBossGrabMod
     internal static class Constants
     {
         public const string CloneSuffix = "(Clone)";
@@ -60,9 +59,14 @@ namespace DrifterBossGrabMod
         // Network message types
         public static class Network
         {
+            public const short BaggedObjectsPersistenceMessageType = 201;
+            public const short CycleRequestMessageType = 205;
             public const short UpdateBagStateMessageType = 206;
+            public const short ClientUpdateBagStateMessageType = 207;
             public const short GrabObjectMessageType = 208;
             public const short ClientPreferencesMessageType = 209;
+            public const short SyncConfigMessageType = 210;
+            public const short BagStateUpdatedMessageType = 211;
         }
 
         // Helper methods for parsing config values

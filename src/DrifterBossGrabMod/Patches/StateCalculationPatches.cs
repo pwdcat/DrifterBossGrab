@@ -25,9 +25,10 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($"[AssignPassenger_StateCalculation] Called with passengerObject={passengerObject?.name ?? "null"}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}");
                 }
 
-                if (passengerObject == null || !PluginConfig.Instance.EnableBalance.Value) return;
+                if (passengerObject == null) return;
 
                 // Trigger state recalculation with current mode
+                // This ensures skill overrides are applied even when EnableBalance is false
                 BaggedObjectPatches.SynchronizeBaggedObjectState(__instance, passengerObject);
             }
         }

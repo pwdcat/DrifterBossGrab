@@ -5,6 +5,7 @@ using DrifterBossGrabMod.ProperSave.Data;
 using System.Linq;
 using RoR2;
 using UnityEngine.Networking;
+using DrifterBossGrabMod.ProperSave.Core;
 
 namespace DrifterBossGrabMod.ProperSave.Spawning.Resolvers
 {
@@ -14,13 +15,13 @@ namespace DrifterBossGrabMod.ProperSave.Spawning.Resolvers
 
         public bool CanResolve(BaggedObjectSaveData saveData)
         {
-            var assetId = ParseGuid(saveData.AssetId);
+            var assetId = SerializationHelpers.ParseGuid(saveData.AssetId);
             return assetId.HasValue && assetId.Value != Guid.Empty;
         }
 
         public SpawnCard? Resolve(BaggedObjectSaveData saveData)
         {
-            var assetId = ParseGuid(saveData.AssetId);
+            var assetId = SerializationHelpers.ParseGuid(saveData.AssetId);
             if (!assetId.HasValue || assetId.Value == Guid.Empty) return null;
 
             try
@@ -47,14 +48,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning.Resolvers
                 Log.Error($"[Resolver] Error resolving spawn card: {ex.Message}");
             }
 
-            return null;
-        }
-
-        private static Guid? ParseGuid(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return null;
-            if (Guid.TryParse(s, out var guid))
-                return guid;
             return null;
         }
 

@@ -31,6 +31,9 @@ namespace DrifterBossGrabMod.Patches
         private static readonly List<GameObject> _removeKeysBuffer = new List<GameObject>();
         private static readonly Dictionary<string, float> _penaltyVarsBuffer = new Dictionary<string, float>();
 
+        // Track if RemoveBaggedObject is actively processing a throw removal
+        public static volatile bool IsProcessingThrowRemoval = false;
+
         // Marks the bag's mass as dirty
         public static void MarkMassDirty(DrifterBagController controller)
         {
@@ -120,7 +123,7 @@ namespace DrifterBossGrabMod.Patches
                     // Fire OnMainPassengerChanged event when main passenger is cleared
                     API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, mainPassengerBefore, null);
 
-                    if (controller != null && NetworkServer.active && !controller.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller.hasAuthority)))
+                    if (controller != null && NetworkServer.active && !controller!.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller!.hasAuthority)))
                     {
                         var newMain = list[0];
                         if (newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(newMain))
@@ -145,6 +148,14 @@ namespace DrifterBossGrabMod.Patches
                 {
                     BaggedObjectPatches.CleanupObjectState(controller, obj);
                 }
+
+                if (wasMainPassenger && controller != null && obj != null)
+                {
+                    BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
+                }
+                
+                // Clean up initialization tracking
+                BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(obj);
             }
 
             if (obj != null)
@@ -164,12 +175,22 @@ namespace DrifterBossGrabMod.Patches
             int direction = wasMainPassenger ? 1 : 0;
             if (controller != null)
             {
+                // Set flag to indicate we're processing a throw removal
+                IsProcessingThrowRemoval = isThrowing;
+
+                // Restore carousel update - needed to trigger network state update
                 BagCarouselUpdater.UpdateCarousel(controller, direction);
             }
 
             if (controller != null)
             {
                 BagCarouselUpdater.UpdateNetworkBagState(controller, direction);
+            }
+
+            // Clear flag after updates are done
+            if (isThrowing && controller != null)
+            {
+                IsProcessingThrowRemoval = false;
             }
 
              if (controller != null && !skipStateReset)
@@ -207,6 +228,22 @@ namespace DrifterBossGrabMod.Patches
                   {
                       preserver.RestoreOriginalState(false);
                       UnityEngine.Object.Destroy(preserver);
+                  }
+
+                  // Ensure colliders are restored when removing ungrabbable enemies from the bag manually
+                  if (controller != null)
+                  {
+                      var bagState = BagPatches.GetState(controller);
+                      if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(obj, out var disabledStates))
+                      {
+                          BodyColliderCache.RestoreMovementColliders(disabledStates);
+                          bagState.DisabledCollidersByObject.TryRemove(obj, out _);
+                          
+                          if (PluginConfig.Instance.EnableDebugLogs.Value)
+                          {
+                              Log.Info($"[RemoveBaggedObject] Restored movement colliders for ungrabbable enemy {obj.name}");
+                          }
+                      }
                   }
               }
 

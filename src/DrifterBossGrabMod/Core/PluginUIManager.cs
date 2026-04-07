@@ -326,7 +326,6 @@ namespace DrifterBossGrabMod
             if (!RooInstalled) return;
 
             var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
-            Log.Info($"[UpdateBalanceSubTabVisibility] Updating visibility for sub-tab: {selectedSubTab}");
 
             UpdateSubTabVisibility(
                 selectedSubTab,
@@ -338,36 +337,58 @@ namespace DrifterBossGrabMod
         private void UpdateSubTabVisibility<T>(T selectedSubTab, System.Collections.Generic.Dictionary<string, T[]> settingToSubTabMap, System.Func<string, T[], bool> shouldShowPredicate)
         {
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            int matchedCount = 0;
+            int showCount = 0;
+            int hideCount = 0;
+            int hudSettingsCount = 0;
+            int balanceSettingsCount = 0;
 
             foreach (var setting in allSettings)
             {
-                if (!string.IsNullOrEmpty(setting.settingToken) && settingToSubTabMap.TryGetValue(setting.settingToken, out var subTabs))
+                if (!string.IsNullOrEmpty(setting.settingToken))
                 {
-                    bool shouldShow = shouldShowPredicate(setting.settingToken, subTabs);
+                    bool foundInDict = settingToSubTabMap.TryGetValue(setting.settingToken, out var subTabs);
 
-                    var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
-                    if (canvasGroup == null)
+                    if (setting.settingToken.Contains(".HUD."))
                     {
-                        canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
+                        hudSettingsCount++;
+                    }
+                    else if (setting.settingToken.Contains(".BALANCE."))
+                    {
+                        balanceSettingsCount++;
                     }
 
-                    var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
-                    if (layoutElement == null)
+                    if (foundInDict)
                     {
-                        layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-                    }
+                        matchedCount++;
+                        bool shouldShow = shouldShowPredicate(setting.settingToken, subTabs);
 
-                    if (shouldShow)
-                    {
-                        canvasGroup.alpha = 1f;
-                        canvasGroup.blocksRaycasts = true;
-                        layoutElement.ignoreLayout = false;
-                    }
-                    else
-                    {
-                        canvasGroup.alpha = 0f;
-                        canvasGroup.blocksRaycasts = false;
-                        layoutElement.ignoreLayout = true;
+                        var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
+                        if (canvasGroup == null)
+                        {
+                            canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
+                        }
+
+                        var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
+                        if (layoutElement == null)
+                        {
+                            layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+                        }
+
+                        if (shouldShow)
+                        {
+                            canvasGroup.alpha = 1f;
+                            canvasGroup.blocksRaycasts = true;
+                            layoutElement.ignoreLayout = false;
+                            showCount++;
+                        }
+                        else
+                        {
+                            canvasGroup.alpha = 0f;
+                            canvasGroup.blocksRaycasts = false;
+                            layoutElement.ignoreLayout = true;
+                            hideCount++;
+                        }
                     }
                 }
             }

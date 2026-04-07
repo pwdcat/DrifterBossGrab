@@ -502,7 +502,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (DrifterBossGrabPlugin.Instance)
             {
-                DrifterBossGrabPlugin.Instance.StartCoroutine(EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync());
+                DrifterBossGrabPlugin.Instance!.StartCoroutine(EnsureAllGrabbableObjectsHaveSpecialObjectAttributesAsync());
             }
             else
             {

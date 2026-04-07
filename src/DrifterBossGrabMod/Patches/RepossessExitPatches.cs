@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Reflection;
 using HarmonyLib;
 using RoR2;
@@ -17,6 +19,25 @@ namespace DrifterBossGrabMod.Patches
         private static readonly FieldInfo _activatedHitpauseField = ReflectionCache.RepossessExit.ActivatedHitpause;
         private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
 
+        // Per-instance storage using ConditionalWeakTable
+        private static readonly ConditionalWeakTable<RepossessExit, System.Runtime.CompilerServices.StrongBox<GameObject?>> _originalTargets
+            = new ConditionalWeakTable<RepossessExit, System.Runtime.CompilerServices.StrongBox<GameObject?>>();
+
+        public static void StoreOriginalTarget(RepossessExit instance, GameObject? target)
+        {
+            if (_originalTargets.TryGetValue(instance, out var box))
+                box.Value = target;
+            else
+                _originalTargets.Add(instance, new System.Runtime.CompilerServices.StrongBox<GameObject?>(target));
+        }
+
+        public static GameObject? GetOriginalTarget(RepossessExit instance)
+        {
+            if (_originalTargets.TryGetValue(instance, out var box))
+                return box.Value;
+            return null;
+        }
+
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
@@ -28,11 +49,28 @@ namespace DrifterBossGrabMod.Patches
                 var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null)
                 {
-                    Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
-                    originalChosenTarget = null;
-                    return true;
+                    // On client, try to recover from deserialized original target
+                    var recovered = GetOriginalTarget(__instance);
+                    if (recovered != null)
+                    {
+                        chosenTarget = recovered;
+                        _chosenTargetField?.SetValue(__instance, chosenTarget);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RepossessExit Prefix] Recovered chosenTarget from deserialization: {recovered.name}");
+                        }
+                    }
+                    else
+                    {
+                        Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
+                        originalChosenTarget = null;
+                        return true;
+                    }
                 }
                 originalChosenTarget = chosenTarget;
+
+                // Store per-instance for OnSerialize to use
+                StoreOriginalTarget(__instance, chosenTarget);
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
@@ -103,13 +141,19 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Send network message to host when balance is enabled and a grab occurs
-                // This ensures the host also calls AssignPassenger, triggering the Harmony patch
-                if (PluginConfig.Instance.EnableBalance.Value && originalChosenTarget != null)
+                // Send network message to host when a grab occurs
+                if (originalChosenTarget != null)
                 {
                     // Only send if we're a client (not the host)
                     if (!NetworkServer.active && NetworkClient.active)
                     {
+                        // Block grab if object is currently undergoing throw operation
+                        if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(originalChosenTarget))
+                        {
+                            Log.Warning($"[RepossessExit Postfix] Blocking grab request for {originalChosenTarget.name} - object is currently undergoing throw operation");
+                            return;
+                        }
+
                         var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                         if (bagController != null)
                         {
@@ -119,6 +163,59 @@ namespace DrifterBossGrabMod.Patches
                             }
                             CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
                         }
+                    }
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(RepossessExit), "OnSerialize")]
+        public class RepossessExit_OnSerialize_Patch
+        {
+            private static GameObject? _savedTarget;
+
+            [HarmonyPrefix]
+            public static void Prefix(RepossessExit __instance)
+            {
+                _savedTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
+                if (_savedTarget == null)
+                {
+                    var stored = GetOriginalTarget(__instance);
+                    if (stored != null)
+                    {
+                        _chosenTargetField?.SetValue(__instance, stored);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RepossessExit OnSerialize] Restored chosenTarget for serialization: {stored.name}");
+                        }
+                    }
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(RepossessExit __instance)
+            {
+                // Restore original value after serialization
+                if (_savedTarget == null)
+                {
+                    _chosenTargetField?.SetValue(__instance, null);
+                }
+                _savedTarget = null;
+            }
+        }
+
+        [HarmonyPatch(typeof(RepossessExit), "OnDeserialize")]
+        public class RepossessExit_OnDeserialize_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(RepossessExit __instance, NetworkReader reader)
+            {
+                var deserializedTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
+                if (deserializedTarget != null)
+                {
+                    StoreOriginalTarget(__instance, deserializedTarget);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[RepossessExit OnDeserialize] Received chosenTarget: {deserializedTarget.name}");
                     }
                 }
             }
@@ -253,7 +350,7 @@ namespace DrifterBossGrabMod.Patches
                     var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                     if (targetObject == null) return;
 
-                    // CHECK SUPPRESSION: If suppression is active, do NOT restore physics yet.
+                    // check suppression: if suppression is active, do not restore physics yet.
                     if (BaggedObjectPatches.IsObjectExitSuppressed(targetObject))
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -261,6 +358,22 @@ namespace DrifterBossGrabMod.Patches
                             Log.Info($" [BaggedObject.OnExit] Suppressing Rigidbody restoration for {targetObject.name} (AutoGrab/Transition)");
                         }
                         return;
+                    }
+                    var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+                    if (bagController != null)
+                    {
+                        var state = Patches.BagPatches.GetState(bagController);
+                        bool isInMainSeat = bagController.vehicleSeat?.NetworkpassengerBodyObject == targetObject;
+                        bool isInAdditionalSeat = state?.AdditionalSeats.ContainsKey(targetObject) == true;
+
+                        if (isInMainSeat || isInAdditionalSeat)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($" [BaggedObject.OnExit] Skipping restoration for {targetObject.name} - still in bag (Main={isInMainSeat}, Additional={isInAdditionalSeat})");
+                            }
+                            return;
+                        }
                     }
 
                     // Re-enable Rigidbody for released objects
@@ -272,6 +385,26 @@ namespace DrifterBossGrabMod.Patches
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($" Restored Rigidbody on {targetObject.name} (bag exit)");
+                        }
+                    }
+
+                    // Re-enable hurtboxes that were disabled during the grab.
+                    var characterBody = targetObject.GetComponent<CharacterBody>();
+                    if (characterBody != null && characterBody.modelLocator != null)
+                    {
+                        var modelTransform = characterBody.modelLocator.modelTransform;
+                        if (modelTransform != null)
+                        {
+                            var hurtBoxGroup = modelTransform.GetComponent<RoR2.HurtBoxGroup>();
+                            if (hurtBoxGroup != null && hurtBoxGroup.hurtBoxesDeactivatorCounter > 0)
+                            {
+                                int oldCounter = hurtBoxGroup.hurtBoxesDeactivatorCounter;
+                                hurtBoxGroup.hurtBoxesDeactivatorCounter = 0;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    Log.Info($"[BaggedObject.OnExit] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {targetObject.name}");
+                                }
+                            }
                         }
                     }
                 }

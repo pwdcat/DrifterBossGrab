@@ -40,7 +40,7 @@ namespace DrifterBossGrabMod
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
         private static UnityEngine.Coroutine? _grabbableComponentTypesUpdateCoroutine;
-        public static bool _isSwappingPassengers = false;
+        public static volatile bool _isSwappingPassengers = false;
         public static float LastCycleClientTime = 0f;
         public static bool IsSwappingPassengers => _isSwappingPassengers;
         public static bool IsDrifterPresent { get; set; } = false;
@@ -121,7 +121,7 @@ namespace DrifterBossGrabMod
             RegisterGameEvents();
 
             Networking.BagStateSync.Init(new Harmony(Constants.PluginGuid + ".networking"));
-            Networking.ConfigSyncHandler.Init();
+            Networking.NetworkMessageRegistry.Initialize();
 
             Input.InputSetup.Init();
 
@@ -158,6 +158,7 @@ namespace DrifterBossGrabMod
         {
             DrifterBossGrabPlugin.IsDrifterPresent = false;
             Patches.ZoneDetectionPatches.ResetZoneInversionDetection();
+            Patches.SceneExitPatches.ResetCaptureFlag();
             PersistenceSceneHandler.Instance.OnSceneChanged(oldScene, newScene);
             if (Instance != null)
             {
@@ -250,7 +251,7 @@ namespace DrifterBossGrabMod
             StopCoroutines();
             Patches.UIPatches.CleanupMassCapacityUI();
             Networking.BagStateSync.Cleanup();
-            Networking.ConfigSyncHandler.Cleanup();
+            Networking.NetworkMessageRegistry.Cleanup();
             ProperSave.ProperSaveIntegration.Cleanup();
         }
 

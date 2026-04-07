@@ -66,8 +66,7 @@ namespace DrifterBossGrabMod
             {
                 Log.Info($" OnSceneChanged called - EnablePersistence: {PersistenceObjectManager.GetCachedEnablePersistence()}, from {oldScene.name} to {newScene.name}");
             }
-            // Register network message handler if client is available
-            PersistenceNetworkHandler.RegisterNetworkHandlers();
+            // Network handlers are now registered via [NetworkMessageHandler] attributes
             // Invalidate teleporter cache on scene change
             InvalidateTeleporterCache();
             if (!PersistenceObjectManager.GetCachedEnablePersistence())
@@ -279,6 +278,17 @@ namespace DrifterBossGrabMod
                     obj.transform.SetParent(null, true);
                     SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
 
+                    // Refresh BodyColliderCache after model re-parenting to ensure it has valid collider references
+                    var colliderCache = obj.GetComponent<BodyColliderCache>();
+                    if (colliderCache != null)
+                    {
+                        colliderCache.RefreshCache();
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RestorePersistedObjects] Refreshed BodyColliderCache for {obj.name}");
+                        }
+                    }
+
                     // Re-parent model if it was detached during persistence
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null)
@@ -432,7 +442,7 @@ namespace DrifterBossGrabMod
                    if (rb)
                    {
                        rb.isKinematic = false; // Re-enable physics
-                               rb.linearVelocity = Vector3.zero; // Reset velocity just in case
+                               rb.velocity = Vector3.zero; // Reset velocity just in case
                        if (PluginConfig.Instance.EnableDebugLogs.Value)
                        {
                           Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
@@ -504,7 +514,7 @@ namespace DrifterBossGrabMod
 
                         if (TryGetComponent<Rigidbody>(out var rb))
                         {
-                            rb.linearVelocity = Vector3.zero;
+                            rb.velocity = Vector3.zero;
                             rb.angularVelocity = Vector3.zero;
                         }
 
@@ -618,7 +628,7 @@ namespace DrifterBossGrabMod
         // Try to auto-grab a restored object
         private static void TryAutoGrabObject(GameObject obj)
         {
-            if (!NetworkServer.active) return; // Only Host handles auto-grab assignment
+            if (!NetworkServer.active) return; // only Host handles auto-grab assignment
 
             if (obj == null)
             {
@@ -722,7 +732,7 @@ namespace DrifterBossGrabMod
 
                     bagController.AssignPassenger(obj);
 
-                    // If this object is now in the main seat, we MUST transition the state machine
+                    // If this object is now in the main seat, we must transition the state machine
                     // to BaggedObject so skill overrides are applied.
                     if (Patches.BagPatches.GetMainSeatObject(bagController) == obj)
                     {
@@ -738,7 +748,6 @@ namespace DrifterBossGrabMod
                             bagStateMachine.SetNextState(baggedObject);
                         }
                     }
-                    // UI and network syncing will follow after assignment
                 });
             }
             else
@@ -792,14 +801,6 @@ namespace DrifterBossGrabMod
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" No DrifterBagController found on Drifter master or body");
-                }
-                return;
-            }
-            if (BagCapacityCalculator.GetUtilityMaxStock(bagController) <= 1)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Skipping auto-grab - bag capacity is 1 (Temporary Fix)");
                 }
                 return;
             }
@@ -1144,7 +1145,7 @@ namespace DrifterBossGrabMod
                     if (!_clientSceneObjects.ContainsKey(networkIdentity.netId))
                     {
                         _clientSceneObjects.Add(networkIdentity.netId, networkIdentity);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via cached Reflection.");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via cached reflection.");
                     }
                     else
                     {

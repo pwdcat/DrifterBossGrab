@@ -58,7 +58,6 @@ namespace DrifterBossGrabMod.Networking
 
             var seat = AdditionalSeatPrefab.AddComponent<VehicleSeat>();
 
-            // Create child transforms for seatPosition and exitPosition
             var seatPosObj = new GameObject("SeatPosition");
             seatPosObj.transform.SetParent(AdditionalSeatPrefab.transform);
             seatPosObj.transform.localPosition = Vector3.zero;
@@ -69,24 +68,17 @@ namespace DrifterBossGrabMod.Networking
             exitPosObj.transform.localPosition = Vector3.zero;
             seat.exitPosition = exitPosObj.transform;
 
-            // Default settings, will be copied from actual seat during spawn
             seat.passengerState = new EntityStates.SerializableEntityStateType(typeof(EntityStates.Idle));
 
-            // Apply settings to match Drifter's main seat
-            // Since VehicleSeat doesn't sync these flags, we must set them on the prefab
             seat.hidePassenger = true;
             seat.disablePassengerMotor = true;
             seat.disableAllCollidersAndHurtboxes = true;
             seat.isEquipmentActivationAllowed = true;
 
-            seat.shouldSetIdle = true; // Set to true to match default expectation for vehicles
+            seat.shouldSetIdle = true;
 
-            // Register it so it can be spawned
-            // Use a stable hash for the assetId
             var assetId = new Guid("d62f2e5a-7b3c-4e8a-9d1f-8c5e2a3b4d5e");
             ReflectionCache.NetworkIdentity.AssetId?.SetValue(ni, NetworkHash128.Parse(assetId.ToString()));
-
-            // Prevent it from being destroyed
             GameObject.DontDestroyOnLoad(AdditionalSeatPrefab);
             AdditionalSeatPrefab.SetActive(false);
 
@@ -96,9 +88,6 @@ namespace DrifterBossGrabMod.Networking
         private static void OnClientConnect(NetworkConnection conn)
         {
             Log.Info("[BagStateSync] OnClientConnect firing");
-            PersistenceNetworkHandler.RegisterNetworkHandlers();
-
-            // Register additional handlers for bag state
             if (NetworkManager.singleton?.client != null)
             {
                 // might use this later
@@ -108,16 +97,14 @@ namespace DrifterBossGrabMod.Networking
         private static void OnServerStart()
         {
             Log.Info("[BagStateSync] OnServerStart firing");
-            // NetworkServer.active may not be true yet, so use a coroutine to wait
             if (DrifterBossGrabPlugin.Instance != null)
             {
-                DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedCycleHandlerInit());
+                DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedServerHooksInit());
             }
         }
 
-        private static System.Collections.IEnumerator DelayedCycleHandlerInit()
+        private static System.Collections.IEnumerator DelayedServerHooksInit()
         {
-            // Wait until NetworkServer.active is true
             float timeout = 5f;
             float elapsed = 0f;
             while (!NetworkServer.active && elapsed < timeout)
@@ -128,8 +115,8 @@ namespace DrifterBossGrabMod.Networking
 
             if (NetworkServer.active)
             {
-                Log.Info($"[BagStateSync] NetworkServer.active became true after {elapsed:F1}s, initializing CycleNetworkHandler");
-                CycleNetworkHandler.Init();
+                Log.Info($"[BagStateSync] NetworkServer.active became true after {elapsed:F1}s, initializing server hooks");
+                PersistenceNetworkHandler.RegisterServerHooks();
             }
             else
             {
@@ -139,11 +126,10 @@ namespace DrifterBossGrabMod.Networking
 
         private static void OnRunStart(Run run)
         {
-            // Re-register the cycle handler when a run starts (in case it was lost during scene transition)
             if (NetworkServer.active)
             {
-                Log.Info("[BagStateSync] OnRunStart - re-initializing CycleNetworkHandler");
-                CycleNetworkHandler.Init();
+                Log.Info("[BagStateSync] OnRunStart - re-initializing server hooks");
+                PersistenceNetworkHandler.RegisterServerHooks();
             }
         }
 

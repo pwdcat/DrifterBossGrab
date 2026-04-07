@@ -55,13 +55,13 @@ namespace DrifterBossGrabMod.Balance
 
             float totalMass = baseMass;
 
-            // Apply ALL flag multiplier (universal multiplier that applies to ALL enemies)
+            // Apply all flag multiplier (universal multiplier that applies to all enemies)
             float allFlagMultiplier = FormulaParser.Evaluate(cfg.AllFlagMultiplier.Value, characterBody, localVars);
 
-            // Apply flag multiplier directly (multiplicative stacking with ALL flag)
+            // Apply flag multiplier directly (multiplicative stacking with all flag)
             if (highestMassBonusPercent != 1f || allFlagMultiplier != 1f)
             {
-                // The ALL flag stacks multiplicatively with the highest specific flag
+                // The all flag stacks multiplicatively with the highest specific flag
                 totalMass *= allFlagMultiplier * highestMassBonusPercent;
             }
 

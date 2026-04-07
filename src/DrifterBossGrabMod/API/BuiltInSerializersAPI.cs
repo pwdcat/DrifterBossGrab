@@ -109,7 +109,9 @@ namespace DrifterBossGrabMod.API
                 .AddAction("baseMoveSpeed", c => c.baseMoveSpeed)
                 .AddAction("baseAttackSpeed", c => c.baseAttackSpeed)
                 .AddAction("baseArmor", c => c.baseArmor)
-                .AddAction("level", c => c.level);
+                .AddAction("level", c => c.level)
+                .AddAction("bodyFlags", c => c.bodyFlags, (c, v) => c.bodyFlags = v, asInt: true)
+                .AddCustomAction(CaptureHealthComponent, RestoreHealthComponentAndRecalculateStats);
 
         public static IObjectSerializerPlugin ForCharacterMaster() =>
             new ComponentAPISerializer<CharacterMaster>(priority: 115)
@@ -121,7 +123,7 @@ namespace DrifterBossGrabMod.API
             var _maxActivationCountField = typeof(JunkCubeController).GetField("_maxActivationCount",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
-            serializer.AddAction("ActivationCount", c => c.ActivationCount);
+            serializer.AddAction("ActivationCount", c => c.ActivationCount, (c, v) => c.ActivationCount = (int)v);
             serializer.AddAction("_maxActivationCount", c =>
             {
                 return _maxActivationCountField?.GetValue(c) as int? ?? c.ActivationCount;
@@ -129,8 +131,66 @@ namespace DrifterBossGrabMod.API
             {
                 _maxActivationCountField?.SetValue(c, v);
             });
+            serializer.AddCustomAction(CaptureJunkCubeHealth, RestoreJunkCubeHealth);
 
             return serializer;
+        }
+
+        private static void CaptureJunkCubeHealth<T>(T component, Dictionary<string, object> state) where T : Component
+        {
+            var junkCube = component as JunkCubeController;
+            if (junkCube == null) return;
+
+            var health = junkCube.GetComponent<HealthComponent>();
+            if (health != null)
+            {
+                state["healthFraction"] = health.healthFraction;
+                state["shieldFraction"] = health.shield > 0f ? health.shield / health.fullHealth : 0f;
+                state["barrierFraction"] = health.barrier > 0f ? health.barrier / health.fullHealth : 0f;
+            }
+        }
+
+        private static void RestoreJunkCubeHealth<T>(T component, Dictionary<string, object> state) where T : Component
+        {
+            var junkCube = component as JunkCubeController;
+            if (junkCube == null) return;
+
+            var health = junkCube.GetComponent<HealthComponent>();
+            if (health == null) return;
+
+            float savedHealthFraction = 1f;
+            if (state.TryGetValue("healthFraction", out var healthFraction))
+            {
+                savedHealthFraction = (float)healthFraction;
+            }
+
+            var body = junkCube.GetComponent<CharacterBody>();
+            if (body != null)
+            {
+                body.RecalculateStats();
+            }
+
+            if (health.fullHealth > 0f && savedHealthFraction >= 0f)
+            {
+                var targetHealth = Mathf.Clamp01(savedHealthFraction) * health.fullHealth;
+                targetHealth = Mathf.Clamp(targetHealth, 0f, health.fullHealth);
+                health.Networkhealth = targetHealth;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[RestoreJunkCubeHealth] Restored health: {health.health}/{health.fullHealth} (fraction: {savedHealthFraction:F3}, activation: {junkCube.ActivationCount})");
+                }
+            }
+
+            if (state.TryGetValue("shieldFraction", out var shieldFraction))
+            {
+                health.Networkshield = Mathf.Clamp01((float)shieldFraction) * health.fullHealth;
+            }
+
+            if (state.TryGetValue("barrierFraction", out var barrierFraction))
+            {
+                health.Networkbarrier = Mathf.Clamp01((float)barrierFraction) * health.fullHealth;
+            }
         }
 
         public static IObjectSerializerPlugin ForHalcyoniteShrineInteractable() =>
@@ -201,6 +261,8 @@ namespace DrifterBossGrabMod.API
             var health = component.GetComponent<HealthComponent>();
             if (health == null) return;
 
+            var body = component as CharacterBody;
+
             state["healthFraction"] = health.healthFraction;
             state["shieldFraction"] = health.shield > 0f ? health.shield / health.fullHealth : 0f;
             state["barrierFraction"] = health.barrier > 0f ? health.barrier / health.fullHealth : 0f;
@@ -212,14 +274,42 @@ namespace DrifterBossGrabMod.API
             if (health == null) return;
 
             var body = component as CharacterBody;
+
+            if (health.health > health.fullHealth && health.fullHealth > 0f)
+            {
+                health.health = health.fullHealth;
+            }
+
+            if (health.fullHealth <= 0f && body != null)
+            {
+                body.RecalculateStats();
+
+                if (health.fullHealth <= 0f)
+                {
+                    return;
+                }
+            }
+
+            float savedHealthFraction = 1f;
+            if (state.TryGetValue("healthFraction", out var healthFraction))
+            {
+                savedHealthFraction = (float)healthFraction;
+            }
+
             if (body != null)
             {
                 body.RecalculateStats();
             }
 
-            if (state.TryGetValue("healthFraction", out var healthFraction))
+            if (savedHealthFraction >= 0f && health.fullHealth > 0f)
             {
-                health.Networkhealth = Mathf.Clamp01((float)healthFraction) * health.fullHealth;
+                var targetHealth = Mathf.Clamp01(savedHealthFraction) * health.fullHealth;
+                targetHealth = Mathf.Clamp(targetHealth, 0f, health.fullHealth);
+                health.Networkhealth = targetHealth;
+            }
+            else if (health.fullHealth > 0f)
+            {
+                health.Networkhealth = Mathf.Min(health.health, health.fullHealth);
             }
 
             if (state.TryGetValue("shieldFraction", out var shieldFraction))
@@ -230,11 +320,6 @@ namespace DrifterBossGrabMod.API
             if (state.TryGetValue("barrierFraction", out var barrierFraction))
             {
                 health.Networkbarrier = Mathf.Clamp01((float)barrierFraction) * health.fullHealth;
-            }
-
-            if (body != null && PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CharacterBody] Restored health for {body.name}: health={health.health}, maxHealth={health.fullHealth}, healthFraction={health.healthFraction}");
             }
         }
 
@@ -316,6 +401,7 @@ namespace DrifterBossGrabMod.API
                     var newState = EntityStateCatalog.InstantiateState(stateType);
                     if (newState != null)
                     {
+                        Log.Info($"[EntityStateMachine] Setting state {stateTypeName} on {component.gameObject.name}");
                         stateMachine.SetState(newState);
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {

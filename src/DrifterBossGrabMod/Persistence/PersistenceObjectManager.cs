@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using RoR2;
 using RoR2.Projectile;
+using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod
 {
@@ -237,8 +238,8 @@ namespace DrifterBossGrabMod
         // Get all objects currently in Drifter bags
         public static List<GameObject> GetCurrentlyBaggedObjects()
         {
-            // Use the centralized detection method
-            return Patches.BaggedObjectsOnlyDetection.GetCurrentlyBaggedObjects();
+            // Use the centralized tracking system that tracks ALL bagged objects (main + additional seats)
+            return PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
         }
 
         // Get current persisted objects count

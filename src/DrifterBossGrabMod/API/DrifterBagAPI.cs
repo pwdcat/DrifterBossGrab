@@ -8,6 +8,7 @@ using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Core;
 using DrifterBossGrabMod.Config;
 using DrifterBossGrabMod.Balance;
+using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.API
 {
@@ -119,9 +120,7 @@ namespace DrifterBossGrabMod.API
             return true;
         }
 
-        // Programmatically adds an object to the Drifter's bag.
-        // This handles setting up necessary components (SpecialObjectAttributes, etc.) before assignment.
-        // Returns True if the object was successfully assigned to the bag.
+        // Programmatically adds an object to the Drifter's bag
         public static bool AddBaggedObject(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;
@@ -129,13 +128,37 @@ namespace DrifterBossGrabMod.API
             // Ensure the object is prepared for grabbing (adds SpecialObjectAttributes, ESM, etc.)
             GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
 
+            // Suppress the accidental throw during automated assignments
+            BaggedObjectPatches.SuppressExitForObject(obj);
+
             // Trigger the assignment logic
             controller.AssignPassenger(obj);
+
+            // If this object is now in the main seat, we must transition the state machine
+            // to BaggedObject so skill overrides and UI updates are applied.
+            if (BagPatches.GetMainSeatObject(controller) == obj)
+            {
+                var targetBody = controller.GetComponentInParent<CharacterBody>();
+                if (targetBody != null)
+                {
+                    var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
+                    if (bagStateMachine != null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[DrifterBagAPI] Setting BaggedObject state on {targetBody.name} for {obj.name}");
+                        }
+                        var baggedObjectState = new BaggedObject();
+                        baggedObjectState.targetObject = obj;
+                        bagStateMachine.SetNextState(baggedObjectState);
+                    }
+                }
+            }
+
             return true;
         }
 
         // Removes a specific object from the bag.
-        // If isDestroying is true, treats the removal as the object being destroyed (e.g. consumed). Otherwise treats it as a release/throw.
         public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false)
         {
             if (controller == null || obj == null) return;
@@ -143,7 +166,6 @@ namespace DrifterBossGrabMod.API
         }
 
         // Forces a recalculation of the bag's mass and updates the Drifter's stats accordingly.
-        // Use this after modifying the bag contents manually if not using the Add/Remove methods above.
         public static void ForceRecalculateMass(DrifterBagController controller)
         {
             if (controller == null) return;
@@ -596,6 +618,22 @@ namespace DrifterBossGrabMod.API
         internal static void InvokeOnMassRecalculated(DrifterBagController controller, float newTotalMass, float previousTotalMass)
         {
             OnMassRecalculated?.Invoke(controller, newTotalMass, previousTotalMass);
+        }
+
+        #endregion
+
+        #region Serialization and Save/Load API
+
+        // Registers a custom object serializer plugin with the save/load system
+        public static void RegisterSerializerPlugin(ProperSave.Serializers.IObjectSerializerPlugin plugin)
+        {
+            ProperSave.ProperSaveIntegration.RegisterPlugin(plugin);
+        }
+
+        // Returns a list of all currently registered object serializer plugins.
+        public static List<ProperSave.Serializers.IObjectSerializerPlugin> GetSerializerPlugins()
+        {
+            return ProperSave.ProperSaveIntegration.GetSerializerPlugins();
         }
 
         #endregion

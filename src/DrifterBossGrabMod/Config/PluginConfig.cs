@@ -264,7 +264,7 @@ namespace DrifterBossGrabMod
         {
             // Carousel settings (shared)
             // SelectedHudElement dropdown should always be visible regardless of selected sub-tab
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] { 
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] { 
                 HudElementType.All, 
                 HudElementType.MainSlot, 
                 HudElementType.SideSlots, 
@@ -273,107 +273,93 @@ namespace DrifterBossGrabMod
                 HudElementType.CapacityUI, 
                 HudElementType.StatsPanel 
             },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.VERTICAL_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.VERTICAL_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
 
             // Main Slot settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
 
             // Side Slots settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
 
             // Weight icon and display settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.USE_NEW_WEIGHT_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHT_DISPLAY_MODE.CHOICE"] = new[] { HudElementType.WeightIcon },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SCALE_WEIGHT_COLOR.CHECKBOX"] = new[] { HudElementType.WeightIcon },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_TOTAL_MASS.CHECKBOX"] = new[] { HudElementType.WeightIcon },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_OVERENCUMBERED_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.USE_NEW_WEIGHT_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHT_DISPLAY_MODE.CHOICE"] = new[] { HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SCALE_WEIGHT_COLOR.CHECKBOX"] = new[] { HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_TOTAL_MASS.CHECKBOX"] = new[] { HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_OVERENCUMBERED_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
 
             // Damage preview settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_DAMAGE_PREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGE_PREVIEW_COLOR.COLOR"] = new[] { HudElementType.DamagePreview },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_DAMAGE_PREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGE_PREVIEW_COLOR.COLOR"] = new[] { HudElementType.DamagePreview },
 
             // Capacity UI settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAPACITY_UI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_X_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_SCALE.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_SEPARATORS.CHECKBOX"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_INTENSITY.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_START.COLOR"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_MID.COLOR"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_END.COLOR"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_START.COLOR"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_MID.COLOR"] = new[] { HudElementType.CapacityUI },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_END.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAPACITY_UI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_X_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_SCALE.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_SEPARATORS.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_INTENSITY.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_START.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_MID.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_END.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_START.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_MID.COLOR"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_END.COLOR"] = new[] { HudElementType.CapacityUI },
 
             // Stats Panel settings
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_STATS_PANEL.CHECKBOX"] = new[] { HudElementType.StatsPanel },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_X_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_SCALE.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_COLOR.COLOR"] = new[] { HudElementType.StatsPanel }
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_STATS_PANEL.CHECKBOX"] = new[] { HudElementType.StatsPanel },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_X_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_SCALE.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_COLOR.COLOR"] = new[] { HudElementType.StatsPanel }
         };
 
         // Mapping of setting tokens to Balance sub-tabs
         public static readonly Dictionary<string, BalanceSubTabType[]> BalanceSettingToSubTab = new()
         {
             // Capacity settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLOT_SCALING_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLOT_SCALING_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
 
             // Multipliers settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
-            ["PWDCAT.DRIFTERBOSSGRAB.CHARACTER_FLAGS.ALL_FLAG_MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
-
-            // Control settings (Relocated to Hidden section)
-            // Balance Filter dropdown should always be visible regardless of selected sub-tab
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BALANCE_FILTER.CHOICE"] = new[] { 
-                BalanceSubTabType.All, 
-                BalanceSubTabType.Capacity, 
-                BalanceSubTabType.Multipliers, 
-                BalanceSubTabType.Penalty, 
-                BalanceSubTabType.Misc 
-            },
-            ["PWDCAT.DRIFTERBOSSGRAB.GENERAL.SELECTED_PRESET.CHOICE"] = new[] { BalanceSubTabType.All },
-            ["PWDCAT.DRIFTERBOSSGRAB.GENERAL.GRABBABLE_COMPONENTS.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.All },
-            ["PWDCAT.DRIFTERBOSSGRAB.GENERAL.CHOOSER_SORT_MODE.CHOICE"] = new[] { BalanceSubTabType.All },
-            ["PWDCAT.DRIFTERBOSSGRAB.GENERAL.COMPONENT_CHOOSER.CHOICE"] = new[] { BalanceSubTabType.All },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.CHARACTER_FLAGS.ALL_FLAG_MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
 
             // Penalty settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_OVERENCUMBRANCE_(%).FLOAT_FIELD"] = new[] { BalanceSubTabType.Penalty },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATE_CALCULATION.CHOICE"] = new[] { BalanceSubTabType.Penalty },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_MULTIPLIER_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.SPEED_PENALTY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_OVERENCUMBRANCE_(%).FLOAT_FIELD"] = new[] { BalanceSubTabType.Penalty },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATE_CALCULATION.CHOICE"] = new[] { BalanceSubTabType.Penalty },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_MULTIPLIER_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SPEED_PENALTY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
 
             // Misc settings
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc }
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc }
         };
 
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
@@ -481,9 +467,9 @@ namespace DrifterBossGrabMod
             // Preset selection
             Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
                 "Select a preset to apply all settings at once.\n" +
-                "- Vanilla: All features disabled, vanilla behavior\n" +
+                "- Vanilla: all features disabled, vanilla behavior\n" +
                 "- Intended: Boss grab only\n" +
-                "- Default: All features in DrifterGrabFeature + bottomless bag and persistence\n" +
+                "- Default: all features in DrifterGrabFeature + bottomless bag and persistence\n" +
                 "- Balance: Default + balance features\n" +
                 "- Custom: User has modified settings (auto-switched)");
 
@@ -512,7 +498,7 @@ namespace DrifterBossGrabMod
                 "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
                 "Use exact component type names (case-sensitive).");
             Instance.GrabbableKeywordBlacklist = cfg.Bind("General", "GrabbableKeywordBlacklist", "Master,Controller",
-                "Comma-separated list of keywords that make objects NOT grabbable if found in their name.\n" +
+                "Comma-separated list of keywords that make objects not grabbable if found in their name.\n" +
                 "Objects with these keywords in their name will be excluded from grabbing.\n" +
                 "Example: 'Master' prevents grabbing enemy masters\n" +
                 "Case-insensitive matching, partial matches allowed.");
@@ -640,7 +626,7 @@ namespace DrifterBossGrabMod
                 "The icon color uses the overencumbrance gradient based on capacity percentage.");
             Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show the overencumbrance icon over the new weight icon when overencumbered.\n" +
                 "Replaces the weight text with a scaled down version of the custom arrow icon.\n" +
-                "Only applies when ShowTotalMassOnWeightIcon is enabled.");
+                "only applies when ShowTotalMassOnWeightIcon is enabled.");
             Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Automatically promote the next object in the bag to the main seat when the current main object is removed.\n" +
                 "When enabled, cycling through the bag automatically updates the main seat.");
             Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "When enabled, newly grabbed objects are placed in the main seat first instead of additional seats.\n" +
@@ -723,8 +709,8 @@ namespace DrifterBossGrabMod
                 "  'L * 0.1 + 0.5' - Level-based damage\n" +
                 "  'clamp(BASE_COEF + (MASS_SCALING * BM / MC), 0, 5.0)' - Capped between 0 and 5.0");
             Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "Mode for calculating bagged object state:\n" +
-                "- Current: Only the currently selected object affects Drifter's stats\n" +
-                "- All: All bagged objects are aggregated for stat calculation.");
+                "- Current: only the currently selected object affects Drifter's stats\n" +
+                "- all: all bagged objects are aggregated for stat calculation.");
             Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Mode for AoE damage distribution:\n" +
                 "- None: AoE slam damage disabled\n" +
                 "- Full: Each object takes full damage (total damage × object count)\n" +
@@ -809,10 +795,10 @@ namespace DrifterBossGrabMod
             Instance.VoidFlagMultiplier.Value = "1"; // Initialize with default
 
             Instance.AllFlagMultiplier = cfg.Bind(
-                new ConfigDefinition("Character Flags", "All Flag Multiplier"),
+                new ConfigDefinition("Character Flags", "all Flag Multiplier"),
                 "1",
                 new ConfigDescription(
-                    "Universal multiplier that applies to ALL enemies. Stacks with specific flags.\n" +
+                    "Universal multiplier that applies to all enemies. Stacks with specific flags.\n" +
                     "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
                     "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                     "Constants: pi, e, INF\n" +

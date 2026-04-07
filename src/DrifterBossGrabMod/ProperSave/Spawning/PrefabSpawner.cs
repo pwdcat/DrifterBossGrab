@@ -13,6 +13,13 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 {
     public static class PrefabSpawner
     {
+        // Track which objects have been restored to prevent double restoration
+        private static readonly System.Collections.Generic.HashSet<int> _restoredObjectIds = new System.Collections.Generic.HashSet<int>();
+
+        public static void ClearRestoredObjectTracking()
+        {
+            _restoredObjectIds.Clear();
+        }
         public static GameObject? SpawnObjectFromPrefab(BaggedObjectSaveData objData, string? ownerPlayerId = null)
         {
             if (objData == null) return null;
@@ -46,6 +53,9 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     .FirstOrDefault(g =>
                     {
                         if (g == null) return false;
+
+                        if (!RoR2.Util.IsPrefab(g)) return false;
+
                         var networkIdentity = g.GetComponent<NetworkIdentity>();
                         if (networkIdentity == null) return false;
 
@@ -88,31 +98,30 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             // Reset rotation to identity for bunched up spawning
             spawnedObject.transform.rotation = Quaternion.identity;
 
-            // Handle CharacterMaster - set team and spawn body BEFORE network spawn
+            // Handle CharacterMaster - spawn master on network FIRST, then spawn body
             var characterMaster = spawnedObject.GetComponent<CharacterMaster>();
             CharacterBody? spawnedBody = null;
 
             if (characterMaster != null)
             {
+                Log.Info($"[PrefabSpawner] Found CharacterMaster {spawnedObject.name}");
+
                 // Get saved team index from save data, default to Monster team
                 var savedTeamIndex = GetSavedTeamIndex(objData);
                 characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
                 Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
-                // Spawn the body for the master at the spawned object's position
-                spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
-
-                if (spawnedBody != null)
+                // Find the body prefab for this master
+                var bodyPrefab = BodyCatalog.FindBodyPrefab(objData.PrefabName);
+                if (bodyPrefab != null)
                 {
-                    Log.Info($"[PrefabSpawner] Using spawned body {spawnedBody.name} instead of master {spawnedObject.name}");
-                    spawnedObject = spawnedBody.gameObject;
+                    characterMaster.bodyPrefab = bodyPrefab;
                 }
             }
 
-            RestoreObjectState(spawnedObject, objData);
-
-            // Spawn on network
+            // Spawn the master on network BEFORE spawning body
+            Log.Info($"[PrefabSpawner] Spawning master on network...");
             if (NetworkServer.active)
             {
                 NetworkServer.Spawn(spawnedObject);
@@ -120,6 +129,26 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             else
             {
                 Log.Warning("[PrefabSpawner] NetworkServer is not active, skipping NetworkServer.Spawn");
+            }
+
+            // Now spawn the body (after master is network-spawned)
+            if (characterMaster != null)
+            {
+                Log.Info($"[PrefabSpawner] Spawning body from master...");
+                spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
+
+                if (spawnedBody != null)
+                {
+                    Log.Info($"[PrefabSpawner] Spawned body {spawnedBody.name} from master {spawnedObject.name}");
+                    Log.Info($"[PrefabSpawner] Body {spawnedBody.name} master: {spawnedBody.master?.name ?? "null"}");
+                    Log.Info($"[PrefabSpawner] Master {spawnedObject.name} body: {characterMaster.GetBody()?.name ?? "null"}");
+
+                    spawnedObject = spawnedBody.gameObject;
+                }
+                else
+                {
+                    Log.Error($"[PrefabSpawner] Failed to spawn body from master {spawnedObject.name}");
+                }
             }
 
             // Move to active scene if needed
@@ -175,6 +204,17 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         {
             if (objData == null || objData.ComponentStates == null) return;
 
+            var instanceId = spawnedObject.GetInstanceID();
+
+            // Check if this object has already been restored
+            if (_restoredObjectIds.Contains(instanceId))
+            {
+                Log.Warning($"[RestoreObjectState] Skipping restoration for {spawnedObject.name} (ID: {instanceId}) - already restored");
+                return;
+            }
+
+            Log.Info($"[RestoreObjectState] Restoring state for {spawnedObject.name} (ID: {instanceId}), {objData.ComponentStates.Count} component entries");
+
             EnsureSOAFromSaveData(spawnedObject, objData);
 
             var allPlugins = ProperSaveIntegration.GetSerializerPlugins();
@@ -185,61 +225,31 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                 if (plugin != null && plugin.CanHandle(spawnedObject))
                 {
+                    Log.Info($"[RestoreObjectState] Processing plugin '{entry.PluginName}' for {spawnedObject.name} with {entry.Values.Count} values");
+
                     var state = new System.Collections.Generic.Dictionary<string, object>();
 
                     foreach (var value in entry.Values)
                     {
-                        var deserializedValue = DeserializeValue(value.Value, value.Type);
+                        var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
                         if (deserializedValue != null)
                         {
                             state[value.Key] = deserializedValue;
+                            Log.Info($"[RestoreObjectState]   - {value.Key} = {deserializedValue} (type: {value.Type})");
                         }
                     }
 
                     plugin.RestoreState(spawnedObject, state);
                 }
-            }
-        }
-
-        private static object? DeserializeValue(string value, string typeStr)
-        {
-            if (string.IsNullOrEmpty(value)) return null;
-
-            try
-            {
-                switch (typeStr)
+                else
                 {
-                    case "System.Boolean":
-                    case "bool":
-                        return bool.Parse(value);
-
-                    case "System.Int32":
-                    case "int":
-                        return int.Parse(value);
-
-                    case "System.UInt32":
-                    case "uint":
-                        return uint.Parse(value);
-
-                    case "System.Single":
-                    case "float":
-                        return float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-
-                    case "System.Double":
-                    case "double":
-                        return double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-
-                    case "System.String":
-                    case "string":
-                        return value;
+                    Log.Warning($"[RestoreObjectState] Skipping plugin '{entry.PluginName}' - plugin not found or cannot handle object");
                 }
             }
-            catch (Exception ex)
-            {
-                Log.Warning($"[PrefabSpawner] Failed to deserialize value '{value}' of type '{typeStr}': {ex.Message}");
-            }
 
-            return value;
+            // Mark this object as restored
+            _restoredObjectIds.Add(instanceId);
+            Log.Info($"[RestoreObjectState] Finished restoring state for {spawnedObject.name} (marked ID {instanceId} as restored)");
         }
 
         private static void PositionObjectNearPlayer(GameObject obj, string? ownerPlayerId)

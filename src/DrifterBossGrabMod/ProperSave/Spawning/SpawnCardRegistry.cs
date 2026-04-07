@@ -64,7 +64,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             try
             {
-                // Priority 1: Resources.FindObjectsOfTypeAll<SpawnCard>() - catches everything loaded in memory
+                // Priority 1: Resources.FindObjectsOfTypeAll<SpawnCard>()
                 var resourceCards = Resources.FindObjectsOfTypeAll<SpawnCard>();
                 if (resourceCards != null && resourceCards.Length > 0)
                 {
@@ -143,7 +143,20 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         public static SpawnCard? FindSpawnCardByExactName(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
-            return _spawnCardByExactName.TryGetValue(name, out var card) ? card : null;
+
+            if (_spawnCardByExactName.TryGetValue(name, out var card))
+            {
+                return card;
+            }
+
+            var baseName = System.Text.RegularExpressions.Regex.Replace(name, @"\(Clone\)(\(\d+\))?$", "");
+
+            if (!string.IsNullOrEmpty(baseName) && _spawnCardByExactName.TryGetValue(baseName, out card))
+            {
+                return card;
+            }
+
+            return null;
         }
 
         public static void Cleanup()

@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using UnityEngine.Networking;
 
@@ -13,38 +14,45 @@ namespace DrifterBossGrabMod.Networking
 
         public override void Serialize(NetworkWriter writer)
         {
-            writer.Write((int)baggedObjectNetIds.Count);
-            foreach (var netId in baggedObjectNetIds)
+            int count = Math.Min(baggedObjectNetIds.Count, 1000);
+            writer.Write(count);
+            for (int i = 0; i < count; i++)
             {
-                writer.Write(netId);
+                writer.Write(baggedObjectNetIds[i]);
             }
-            writer.Write((int)ownerPlayerIds.Count);
-            foreach (var playerId in ownerPlayerIds)
+
+            count = Math.Min(ownerPlayerIds.Count, 1000);
+            writer.Write(count);
+            for (int i = 0; i < count; i++)
             {
-                writer.Write(playerId);
+                writer.Write(ownerPlayerIds[i] ?? string.Empty);
             }
-            writer.Write((int)collidersDisabled.Count);
-            foreach (var disabled in collidersDisabled)
+
+            count = Math.Min(collidersDisabled.Count, 1000);
+            writer.Write(count);
+            for (int i = 0; i < count; i++)
             {
-                writer.Write(disabled);
+                writer.Write(collidersDisabled[i]);
             }
         }
 
         public override void Deserialize(NetworkReader reader)
         {
-            int count = reader.ReadInt32();
+            int count = Math.Min(reader.ReadInt32(), 1000);
             baggedObjectNetIds.Clear();
             for (int i = 0; i < count; i++)
             {
                 baggedObjectNetIds.Add(reader.ReadNetworkId());
             }
-            count = reader.ReadInt32();
+
+            count = Math.Min(reader.ReadInt32(), 1000);
             ownerPlayerIds.Clear();
             for (int i = 0; i < count; i++)
             {
                 ownerPlayerIds.Add(reader.ReadString());
             }
-            count = reader.ReadInt32();
+
+            count = Math.Min(reader.ReadInt32(), 1000);
             collidersDisabled.Clear();
             for (int i = 0; i < count; i++)
             {
@@ -85,14 +93,17 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(selectedIndex);
             writer.Write(scrollDirection);
 
-            writer.Write(baggedIds.Length);
-            foreach (var id in baggedIds) writer.Write(id);
+            int baggedCount = Math.Min(baggedIds.Length, 500);
+            writer.Write(baggedCount);
+            for (int i = 0; i < baggedCount; i++) writer.Write(baggedIds[i]);
 
-            writer.Write(seatIds.Length);
-            foreach (var id in seatIds) writer.Write(id);
+            int seatCount = Math.Min(seatIds.Length, 500);
+            writer.Write(seatCount);
+            for (int i = 0; i < seatCount; i++) writer.Write(seatIds[i]);
 
-            writer.Write(collidersDisabled.Length);
-            foreach (var disabled in collidersDisabled) writer.Write(disabled);
+            int colliderCount = Math.Min(collidersDisabled.Length, 500);
+            writer.Write(colliderCount);
+            for (int i = 0; i < colliderCount; i++) writer.Write(collidersDisabled[i]);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -101,15 +112,15 @@ namespace DrifterBossGrabMod.Networking
             selectedIndex = reader.ReadInt32();
             scrollDirection = reader.ReadInt32();
 
-            int count = reader.ReadInt32();
+            int count = Math.Min(reader.ReadInt32(), 500);
             baggedIds = new uint[count];
             for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
 
-            int count2 = reader.ReadInt32();
+            int count2 = Math.Min(reader.ReadInt32(), 500);
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
 
-            int count3 = reader.ReadInt32();
+            int count3 = Math.Min(reader.ReadInt32(), 500);
             collidersDisabled = new bool[count3];
             for (int i = 0; i < count3; i++) collidersDisabled[i] = reader.ReadBoolean();
         }
@@ -146,11 +157,13 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
 
-            writer.Write(baggedIds.Length);
-            foreach (var id in baggedIds) writer.Write(id);
+            int baggedCount = Math.Min(baggedIds.Length, 500);
+            writer.Write(baggedCount);
+            for (int i = 0; i < baggedCount; i++) writer.Write(baggedIds[i]);
 
-            writer.Write(seatIds.Length);
-            foreach (var id in seatIds) writer.Write(id);
+            int seatCount = Math.Min(seatIds.Length, 500);
+            writer.Write(seatCount);
+            for (int i = 0; i < seatCount; i++) writer.Write(seatIds[i]);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -158,18 +171,17 @@ namespace DrifterBossGrabMod.Networking
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
 
-            int count = reader.ReadInt32();
+            int count = Math.Min(reader.ReadInt32(), 500);
             baggedIds = new uint[count];
             for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
 
-            int count2 = reader.ReadInt32();
+            int count2 = Math.Min(reader.ReadInt32(), 500);
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
         }
     }
 
     // Network message for grabbing an object (Client -> Server)
-    // This message is sent when a client grabs an object via RepossessExit
     public class GrabObjectMessage : MessageBase
     {
         public NetworkInstanceId bagControllerNetId = NetworkInstanceId.Invalid;
@@ -226,7 +238,6 @@ namespace DrifterBossGrabMod.Networking
         public bool EnableStockRefreshClamping;
         public bool EnableSuccessiveGrabStockRefresh;
         public float CycleCooldown;
-        // Balance
 
         // Balance
         public bool EnableBalance;
@@ -286,7 +297,6 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableStockRefreshClamping);
             writer.Write(EnableSuccessiveGrabStockRefresh);
             writer.Write(CycleCooldown);
-            // Balance
 
             // Balance
             writer.Write(EnableBalance);
@@ -347,7 +357,6 @@ namespace DrifterBossGrabMod.Networking
             EnableStockRefreshClamping = reader.ReadBoolean();
             EnableSuccessiveGrabStockRefresh = reader.ReadBoolean();
             CycleCooldown = reader.ReadSingle();
-            // Balance
 
             // Balance
             EnableBalance = reader.ReadBoolean();
@@ -373,7 +382,6 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // Network message for client preference sync (AutoPromote, PrioritizeMainSeat)
     public class ClientPreferencesMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -392,6 +400,52 @@ namespace DrifterBossGrabMod.Networking
             controllerNetId = reader.ReadNetworkId();
             autoPromoteMainSeat = reader.ReadBoolean();
             prioritizeMainSeat = reader.ReadBoolean();
+        }
+    }
+
+    // Network message for explicit bag state update (Server -> Client)
+    public class BagStateUpdatedMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public int selectedIndex;
+        public NetworkInstanceId removedObjectNetId;
+        public uint[] baggedIds = System.Array.Empty<uint>();
+        public uint[] seatIds = System.Array.Empty<uint>();
+        public int scrollDirection;
+        public bool isThrowOperation;
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            writer.Write(selectedIndex);
+            writer.Write(removedObjectNetId);
+            writer.Write(scrollDirection);
+            writer.Write(isThrowOperation);
+
+            int baggedCount = Math.Min(baggedIds.Length, 500);
+            writer.Write(baggedCount);
+            for (int i = 0; i < baggedCount; i++) writer.Write(baggedIds[i]);
+
+            int seatCount = Math.Min(seatIds.Length, 500);
+            writer.Write(seatCount);
+            for (int i = 0; i < seatCount; i++) writer.Write(seatIds[i]);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            selectedIndex = reader.ReadInt32();
+            removedObjectNetId = reader.ReadNetworkId();
+            scrollDirection = reader.ReadInt32();
+            isThrowOperation = reader.ReadBoolean();
+
+            int count = Math.Min(reader.ReadInt32(), 500);
+            baggedIds = new uint[count];
+            for (int i = 0; i < count; i++) baggedIds[i] = reader.ReadUInt32();
+
+            int count2 = Math.Min(reader.ReadInt32(), 500);
+            seatIds = new uint[count2];
+            for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
         }
     }
 }
