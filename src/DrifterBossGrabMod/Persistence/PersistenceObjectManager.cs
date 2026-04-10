@@ -15,6 +15,7 @@ namespace DrifterBossGrabMod
         private static GameObject? _persistenceContainer;
         private static readonly HashSet<GameObject> _persistedObjects = new HashSet<GameObject>();
         private static readonly Dictionary<GameObject, string> _persistedObjectOwnerPlayerIds = new Dictionary<GameObject, string>();
+        private static readonly Dictionary<GameObject, CharacterMaster> _bodyToMasterMap = new Dictionary<GameObject, CharacterMaster>();
         private static readonly object _lock = new object();
         private static readonly PersistenceCommandInvoker _commandInvoker = new PersistenceCommandInvoker();
         // Cached config values for performance
@@ -35,6 +36,7 @@ namespace DrifterBossGrabMod
         public static void Cleanup()
         {
             ClearPersistedObjects();
+            _bodyToMasterMap.Clear();
             if (_persistenceContainer != null)
             {
                 UnityEngine.Object.Destroy(_persistenceContainer);
@@ -111,12 +113,14 @@ namespace DrifterBossGrabMod
                 {
                     // Remove from owners dictionary
                     _persistedObjectOwnerPlayerIds.Remove(obj);
+
                     // Remove from persistence container
-                if (!isDestroying)
-                {
-                    obj.transform.SetParent(null, true);
-                    SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
-                }
+                    if (!isDestroying)
+                    {
+                        obj.transform.SetParent(null, true);
+                        SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
+                    }
+
                     // Also remove model from persistence if it exists
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null)
@@ -128,17 +132,29 @@ namespace DrifterBossGrabMod
                             SceneManager.MoveGameObjectToScene(modelObj, SceneManager.GetActiveScene());
                         }
                     }
+
                     // Also remove master from persistence if it exists
-                    var characterBody = obj.GetComponent<CharacterBody>();
-                    if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null)
+                    var master = GetMasterForBody(obj);
+                    var masterObj = master?.gameObject;
+                    if (masterObj != null)
                     {
-                        var masterObj = characterBody.master.gameObject;
+                        _persistedObjects.Remove(masterObj);
+                        _persistedObjectOwnerPlayerIds.Remove(masterObj);
+
                         if (masterObj.transform.parent == _persistenceContainer!.transform)
                         {
                             masterObj.transform.SetParent(null, true);
                             SceneManager.MoveGameObjectToScene(masterObj, SceneManager.GetActiveScene());
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[PersistenceObjectManager] Removed master {masterObj.name} from persistence container for body {obj.name}");
+                            }
                         }
                     }
+
+                    _bodyToMasterMap.Remove(obj);
+
                     // Re-attach model if it exists
                     if (modelLocator != null && modelLocator.modelTransform != null)
                     {
@@ -378,5 +394,27 @@ namespace DrifterBossGrabMod
             return null;
         }
 
+        // Get the master associated with a body
+        internal static CharacterMaster? GetMasterForBody(GameObject bodyObj)
+        {
+            if (bodyObj == null) return null;
+            lock (_lock)
+            {
+                if (_bodyToMasterMap.TryGetValue(bodyObj, out var master) && master != null)
+                {
+                    return master;
+                }
+
+                // Fallback to searching component
+                var characterBody = bodyObj.GetComponent<CharacterBody>();
+                if (characterBody != null && characterBody.master != null)
+                {
+                    _bodyToMasterMap[bodyObj] = characterBody.master;
+                    return characterBody.master;
+                }
+
+                return null;
+            }
+        }
     }
 }

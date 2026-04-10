@@ -78,6 +78,9 @@ namespace DrifterBossGrabMod.Patches
             if (controller == null || newMain == null || ProjectileRecoveryPatches.IsInProjectileState(newMain))
                 return;
 
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[ExecutePromotionImmediate] START: Promoting {newMain.name}");
+
             var state = BagPatches.GetState(controller);
             lock (state.BagLock)
             {
@@ -85,12 +88,64 @@ namespace DrifterBossGrabMod.Patches
                     return;
             }
 
+            // Check current state machine state
+            var bagStateMachine = GetBagStateMachine(controller);
+            var currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+            var currentTarget = GetBaggedObjectTarget(bagStateMachine);
+            var isInAdditionalSeat = state.AdditionalSeats.TryGetValue(newMain, out var _);
+            var isInMainSeat = controller.vehicleSeat?.NetworkpassengerBodyObject == newMain;
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ExecutePromotionImmediate] BEFORE CLEAR: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+            }
+
+            // Clear any existing BaggedObject state before promoting
+            // This prevents race condition where destroyed object's state exits while we're trying to enter new state
+            if (NetworkServer.active)
+            {
+                var stateMachines = controller.GetComponents<EntityStateMachine>();
+                foreach (var esm in stateMachines)
+                {
+                    if (esm.customName == "Bag")
+                    {
+                        if (esm.state is BaggedObject)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ExecutePromotionImmediate] Clearing BaggedObject state (current target: {(GetBaggedObjectTarget(esm) ? GetBaggedObjectTarget(esm).name : "null")})");
+                            // Transition to Main state to clear the old BaggedObject state
+                            esm.SetNextStateToMain();
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ExecutePromotionImmediate] Current state is NOT BaggedObject, skipping state clear");
+                        }
+                        break;
+                    }
+                }
+            }
+
             // Eject from additional seat if needed
             if (state.AdditionalSeats.TryGetValue(newMain, out var existingSeat) && existingSeat != null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[ExecutePromotionImmediate] Ejecting from additional seat");
+
                 if (NetworkServer.active)
                     existingSeat.EjectPassenger(newMain);
                 state.AdditionalSeats.TryRemove(newMain, out _);
+            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                bagStateMachine = GetBagStateMachine(controller);
+                currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                isInAdditionalSeat = state.AdditionalSeats.TryGetValue(newMain, out var _);
+                isInMainSeat = controller.vehicleSeat?.NetworkpassengerBodyObject == newMain;
+
+                Log.Info($"[ExecutePromotionImmediate] AFTER CLEAR: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
             }
 
             if (NetworkServer.active)
@@ -108,12 +163,48 @@ namespace DrifterBossGrabMod.Patches
                         controller.vehicleSeat.EjectPassenger();
                     }
                 }
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[ExecutePromotionImmediate] Calling controller.AssignPassenger({newMain.name})");
+
                 controller.AssignPassenger(newMain);
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    bagStateMachine = GetBagStateMachine(controller);
+                    currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                    currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                    isInAdditionalSeat = state.AdditionalSeats.TryGetValue(newMain, out var _);
+                    isInMainSeat = controller.vehicleSeat?.NetworkpassengerBodyObject == newMain;
+
+                    Log.Info($"[ExecutePromotionImmediate] AFTER ASSIGN: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+                }
 
                 if (controller.vehicleSeat != null)
                 {
                     if (controller.vehicleSeat.NetworkpassengerBodyObject != newMain)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[ExecutePromotionImmediate] Calling vehicleSeat.AssignPassenger({newMain.name}) - NOT in main seat yet");
+
                         controller.vehicleSeat.AssignPassenger(newMain);
+
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            bagStateMachine = GetBagStateMachine(controller);
+                            currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                            currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                            isInAdditionalSeat = state.AdditionalSeats.TryGetValue(newMain, out var _);
+                            isInMainSeat = controller.vehicleSeat?.NetworkpassengerBodyObject == newMain;
+
+                            Log.Info($"[ExecutePromotionImmediate] AFTER VEHICLE_SEAT: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+                        }
+                    }
+                    else
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[ExecutePromotionImmediate] SKIPPING vehicleSeat.AssignPassenger - Already in main seat");
+                    }
 
                     // Force transition to BaggedObject state (reset was skipped).
                     var stateMachines = controller.GetComponents<EntityStateMachine>();
@@ -121,9 +212,21 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (esm.customName == "Bag")
                         {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ExecutePromotionImmediate] Setting new BaggedObject state with target={newMain.name}");
+
                             var newState = new BaggedObject();
                             newState.targetObject = newMain;
                             esm.SetNextState(newState);
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                bagStateMachine = GetBagStateMachine(controller);
+                                currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                                currentTarget = GetBaggedObjectTarget(bagStateMachine);
+
+                                Log.Info($"[ExecutePromotionImmediate] FINAL STATE: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}");
+                            }
                             break;
                         }
                     }
@@ -135,6 +238,25 @@ namespace DrifterBossGrabMod.Patches
                 BagPatches.SetMainSeatObject(controller, newMain);
                 API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, previousMain, newMain);
             }
+        }
+
+        // Helper methods for debug logging
+        private static EntityStateMachine GetBagStateMachine(DrifterBagController controller)
+        {
+            var stateMachines = controller.GetComponents<EntityStateMachine>();
+            foreach (var esm in stateMachines)
+            {
+                if (esm.customName == "Bag")
+                    return esm;
+            }
+            return null;
+        }
+
+        private static GameObject? GetBaggedObjectTarget(EntityStateMachine? esm)
+        {
+            if (esm?.state is BaggedObject bagged)
+                return bagged.targetObject;
+            return null;
         }
 
         private void Update()
@@ -151,6 +273,9 @@ namespace DrifterBossGrabMod.Patches
         {
             if (_controller != null && _newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(_newMain))
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[ExecutePromotion] START: Promoting {_newMain.name}");
+
                 var state = BagPatches.GetState(_controller);
                 bool stillInBag;
                 lock (state.BagLock)
@@ -163,12 +288,63 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
+                // Check current state machine state
+                var bagStateMachine = GetBagStateMachine(_controller);
+                var currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                var currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                var isInAdditionalSeat = state.AdditionalSeats.TryGetValue(_newMain, out var _);
+                var isInMainSeat = _controller.vehicleSeat?.NetworkpassengerBodyObject == _newMain;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ExecutePromotion] BEFORE CLEAR: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+                }
+
+                // Clear any existing BaggedObject state before promoting
+                if (NetworkServer.active)
+                {
+                    var stateMachines = _controller.GetComponents<EntityStateMachine>();
+                    foreach (var esm in stateMachines)
+                    {
+                        if (esm.customName == "Bag")
+                        {
+                            if (esm.state is BaggedObject)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ExecutePromotion] Clearing BaggedObject state (current target: {(GetBaggedObjectTarget(esm) ? GetBaggedObjectTarget(esm).name : "null")})");
+                                // Transition to Main state to clear the old BaggedObject state
+                                esm.SetNextStateToMain();
+                            }
+                            else
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ExecutePromotion] Current state is NOT BaggedObject, skipping state clear");
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 // Eject from additional seat if needed
                 if (state.AdditionalSeats.TryGetValue(_newMain, out var existingSeat) && existingSeat != null)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[ExecutePromotion] Ejecting from additional seat");
+
                     if (NetworkServer.active)
                         existingSeat.EjectPassenger(_newMain);
                     state.AdditionalSeats.TryRemove(_newMain, out _);
+                }
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    bagStateMachine = GetBagStateMachine(_controller);
+                    currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                    currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                    isInAdditionalSeat = state.AdditionalSeats.TryGetValue(_newMain, out var _);
+                    isInMainSeat = _controller.vehicleSeat?.NetworkpassengerBodyObject == _newMain;
+
+                    Log.Info($"[ExecutePromotion] AFTER CLEAR: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
                 }
 
                 if (NetworkServer.active)
@@ -186,12 +362,48 @@ namespace DrifterBossGrabMod.Patches
                             _controller.vehicleSeat.EjectPassenger();
                         }
                     }
+
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[ExecutePromotion] Calling controller.AssignPassenger({_newMain.name})");
+
                     _controller.AssignPassenger(_newMain);
+
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        bagStateMachine = GetBagStateMachine(_controller);
+                        currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                        currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                        isInAdditionalSeat = state.AdditionalSeats.TryGetValue(_newMain, out var _);
+                        isInMainSeat = _controller.vehicleSeat?.NetworkpassengerBodyObject == _newMain;
+
+                        Log.Info($"[ExecutePromotion] AFTER ASSIGN: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+                    }
 
                     if (_controller.vehicleSeat != null)
                     {
                         if (_controller.vehicleSeat.NetworkpassengerBodyObject != _newMain)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ExecutePromotion] Calling vehicleSeat.AssignPassenger({_newMain.name}) - NOT in main seat yet");
+
                             _controller.vehicleSeat.AssignPassenger(_newMain);
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                bagStateMachine = GetBagStateMachine(_controller);
+                                currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                                currentTarget = GetBaggedObjectTarget(bagStateMachine);
+                                isInAdditionalSeat = state.AdditionalSeats.TryGetValue(_newMain, out var _);
+                                isInMainSeat = _controller.vehicleSeat?.NetworkpassengerBodyObject == _newMain;
+
+                                Log.Info($"[ExecutePromotion] AFTER VEHICLE_SEAT: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}, InAdditional={isInAdditionalSeat}, InMain={isInMainSeat}");
+                            }
+                        }
+                        else
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ExecutePromotion] SKIPPING vehicleSeat.AssignPassenger - Already in main seat");
+                        }
 
                         // Force transition to BaggedObject state (reset was skipped).
                         var stateMachines = _controller.GetComponents<EntityStateMachine>();
@@ -199,9 +411,21 @@ namespace DrifterBossGrabMod.Patches
                         {
                             if (esm.customName == "Bag")
                             {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ExecutePromotion] Setting new BaggedObject state with target={_newMain.name}");
+
                                 var newState = new BaggedObject();
                                 newState.targetObject = _newMain;
                                 esm.SetNextState(newState);
+
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                {
+                                    bagStateMachine = GetBagStateMachine(_controller);
+                                    currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                                    currentTarget = GetBaggedObjectTarget(bagStateMachine);
+
+                                    Log.Info($"[ExecutePromotion] FINAL STATE: State={currentStateName}, Target={(currentTarget ? currentTarget.name : "null")}");
+                                }
                                 break;
                             }
                         }

@@ -28,7 +28,6 @@ namespace DrifterBossGrabMod.Patches
                 if (passengerObject == null) return;
 
                 // Trigger state recalculation with current mode
-                // This ensures skill overrides are applied even when EnableBalance is false
                 BaggedObjectPatches.SynchronizeBaggedObjectState(__instance, passengerObject);
             }
         }

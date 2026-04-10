@@ -46,7 +46,15 @@ namespace DrifterBossGrabMod.Patches
         {
             if (ReferenceEquals(obj, null)) return;
 
-            int targetInstanceId = ErrorHandler.SafeExecute("RemoveBaggedObject.GetInstanceID", () => obj.GetInstanceID(), -1);
+            int targetInstanceId;
+            try
+            {
+                targetInstanceId = obj.GetInstanceID();
+            }
+            catch
+            {
+                targetInstanceId = -1;
+            }
 
             if (DrifterBossGrabPlugin.IsSwappingPassengers)
             {
@@ -88,7 +96,7 @@ namespace DrifterBossGrabMod.Patches
             // Re-fetch to ensure we have the list object ref if needed
             if (list != null)
             {
-                ErrorHandler.SafeExecute("RemoveBaggedObject.DestroyTracker", () =>
+                try
                 {
                     var tracker = obj.GetComponent<BaggedObjectTracker>();
                     if (tracker != null)
@@ -96,21 +104,60 @@ namespace DrifterBossGrabMod.Patches
                         tracker.isRemovingManual = true;
                         UnityEngine.Object.Destroy(tracker);
                     }
-                });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[RemoveBaggedObject] Error destroying tracker: {ex.Message}");
+                }
 
                 list.RemoveAll(x => ReferenceEquals(x, null) || (x is UnityEngine.Object uo && !uo) || (targetInstanceId != -1 && x.GetInstanceID() == targetInstanceId));
                 if (targetInstanceId != -1) BagPatches.GetState(controller).RemoveInstanceId(targetInstanceId);
 
                 if (wasMainPassenger)
                 {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        var currentState = GetBagStateMachineState(controller);
+                        Log.Info($"[RemoveBaggedObject] Was main passenger destroyed. Current Bag state: {currentState}");
+                    }
+
+                    // Fire OnMainPassengerChanged event when main passenger is cleared
+                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, mainPassengerBefore, null);
+
                     if (NetworkServer.active && controller.vehicleSeat != null && controller.vehicleSeat.NetworkpassengerBodyObject == obj)
                     {
                         if (isDestroying)
                         {
-                            ErrorHandler.SafeExecute("RemoveBaggedObject.EjectPassenger", () =>
+                            try
                             {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[RemoveBaggedObject] About to eject passenger from main seat: {obj.name}");
+
                                 controller.vehicleSeat.EjectPassenger(obj);
-                            });
+
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error($"[RemoveBaggedObject] Error ejecting passenger: {ex.GetType().Name} - {ex.Message}");
+                                
+                                // FORCE CLEAR if EjectPassenger threw an exception so we don't get stuck!
+                                try
+                                {
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[RemoveBaggedObject] Forcibly clearing passenger state due to exception.");
+                                    
+                                    var passengerField = typeof(RoR2.VehicleSeat).GetField("passengerBodyObject", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                                    if (passengerField != null) passengerField.SetValue(controller.vehicleSeat, null);
+                                    
+                                    controller.vehicleSeat.NetworkpassengerBodyObject = null;
+                                }
+                                catch (Exception innerEx)
+                                {
+                                    Log.Error($"[RemoveBaggedObject] Failed to forcefully clear passenger state: {innerEx.Message}");
+                                }
+                            }
                         }
                         else
                         {
@@ -120,14 +167,15 @@ namespace DrifterBossGrabMod.Patches
 
                     BagPatches.SetMainSeatObject(controller, null);
 
-                    // Fire OnMainPassengerChanged event when main passenger is cleared
-                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, mainPassengerBefore, null);
 
                     if (controller != null && NetworkServer.active && !controller!.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller!.hasAuthority)))
                     {
                         var newMain = list[0];
                         if (newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(newMain))
                         {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[RemoveBaggedObject] Triggering autopromote for: {newMain.name}");
+
                             // Auto-promote immediately
                             DelayedAutoPromote.Schedule(controller!, newMain, 0.0f);
                         }
@@ -456,7 +504,7 @@ namespace DrifterBossGrabMod.Patches
         public static void SuppressVanillaWalkSpeedModifier(BaggedObject instance)
         {
             if (instance == null) return;
-            ErrorHandler.SafeExecute("SuppressVanillaWalkSpeedModifier", () =>
+            try
             {
                 var modifier = _walkSpeedModifierField?.GetValue(instance) as CharacterMotor.WalkSpeedPenaltyModifier;
                 if (modifier != null)
@@ -465,7 +513,11 @@ namespace DrifterBossGrabMod.Patches
                     motor?.RemoveWalkSpeedPenalty(modifier);
                     _walkSpeedModifierField?.SetValue(instance, null);
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[SuppressVanillaWalkSpeedModifier] Error: {ex.Message}");
+            }
         }
 
         // Update the uncapped bag scale component.
@@ -508,6 +560,21 @@ namespace DrifterBossGrabMod.Patches
             {
                 uncappedScaleComponent.UpdateScaleFromMass(mass);
             }
+        }
+
+        // Helper method for debug logging - gets current state of Bag state machine
+        private static string GetBagStateMachineState(DrifterBagController controller)
+        {
+            if (controller == null) return "null";
+            var stateMachines = controller.GetComponents<EntityStateMachine>();
+            foreach (var esm in stateMachines)
+            {
+                if (esm.customName == "Bag")
+                {
+                    return esm.state?.GetType().Name ?? "null";
+                }
+            }
+            return "not found";
         }
     }
 }

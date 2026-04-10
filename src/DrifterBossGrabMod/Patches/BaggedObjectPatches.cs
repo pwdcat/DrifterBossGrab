@@ -425,7 +425,7 @@ namespace DrifterBossGrabMod.Patches
             // DIAGNOSTIC LOG: Track when we're creating a new BaggedObject state
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[FindOrCreateBaggedObjectState] Called with targetObject={targetObject?.name ?? "null"}, NetworkServer.active={NetworkServer.active}");
+                Log.Info($"[FindOrCreateBaggedObjectState] Called with targetObject={(targetObject ? targetObject.name : "null")}, NetworkServer.active={NetworkServer.active}");
             }
 
             var bagStateMachine = EntityStateMachine.FindByCustomName(bagController.gameObject, "Bag");
@@ -433,7 +433,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {targetObject?.name ?? "null"}");
+                    Log.Info($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {(targetObject ? targetObject.name : "null")}");
                 }
                 return bo;
             }
@@ -450,7 +450,7 @@ namespace DrifterBossGrabMod.Patches
                 if (targetStateMachine != null)
                 {
                     var baggedList = BagPatches.GetState(bagController).BaggedObjects;
-                    bool isTracked = baggedList != null && baggedList.Contains(targetObject);
+                    bool isTracked = baggedList != null && targetObject != null && baggedList.Contains(targetObject);
                     if (!isTracked)
                     {
                         int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController, targetObject);
@@ -458,7 +458,7 @@ namespace DrifterBossGrabMod.Patches
                         if (currentCount >= effectiveCapacity)
                         {
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[FindOrCreateBaggedObjectState] Skipping - bag full ({currentCount}/{effectiveCapacity}) for {targetObject.name}");
+                                Log.Info($"[FindOrCreateBaggedObjectState] Skipping - bag full ({currentCount}/{effectiveCapacity}) for {(targetObject ? targetObject.name : "null")}");
                             return null;
                         }
                     }
@@ -476,7 +476,7 @@ namespace DrifterBossGrabMod.Patches
                         // DIAGNOSTIC LOG: Log when we create a new BaggedObject
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={targetObject?.name ?? "null"}, drifterBagController={(bagCtrl != null ? bagCtrl.name : "null")}");
+                            Log.Info($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={(targetObject ? targetObject.name : "null")}, drifterBagController={(bagCtrl ? bagCtrl.name : "null")}");
                         }
                         targetStateMachine.SetState(newBaggedObject);
                         return newBaggedObject;
@@ -485,7 +485,7 @@ namespace DrifterBossGrabMod.Patches
             }
             catch (Exception ex)
             {
-                Log.Error($"Error in FindOrCreateBaggedObjectState: {ex.Message}");
+                Log.Error($"[FindOrCreateBaggedObjectState] Error: {ex}");
             }
             return null;
         }

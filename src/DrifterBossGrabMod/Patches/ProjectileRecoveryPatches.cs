@@ -162,7 +162,10 @@ namespace DrifterBossGrabMod.Patches
                     { "projectile", __instance != null ? __instance.name : "null" }
                 });
 
-                ProcessThrownObject(__instance, passengerObject);
+                if (__instance != null)
+                {
+                    ProcessThrownObject(__instance, passengerObject!);
+                }
             }
         }
 
@@ -517,7 +520,7 @@ namespace DrifterBossGrabMod.Patches
 
         public static void RemoveFromProjectileState(GameObject obj)
         {
-            if (obj == null)
+            if (obj != null)
             {
                 lock (_projectileStateLock) { projectileStateObjects.Remove(obj); }
             }

@@ -229,9 +229,9 @@ namespace DrifterBossGrabMod
             {
                 if (obj == null || !obj || !receivedObjects.Contains(obj))
                 {
-                    currentObjects.Remove(obj);
                     if (obj != null)
                     {
+                        currentObjects.Remove(obj);
                         bagState.RemoveInstanceId(obj.GetInstanceID());
                     }
                 }
@@ -385,7 +385,14 @@ namespace DrifterBossGrabMod
 
                 if (foundObj == null && NetworkServer.active)
                 {
-                    foundObj = ErrorHandler.SafeExecute("FindObject.NetworkServerFind", () => NetworkServer.FindLocalObject(netId), null);
+                    try
+                    {
+                        foundObj = NetworkServer.FindLocalObject(netId);
+                    }
+                    catch
+                    {
+                        foundObj = null;
+                    }
                 }
             }
 

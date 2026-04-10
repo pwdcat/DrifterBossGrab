@@ -29,9 +29,7 @@ namespace DrifterBossGrabMod.ProperSave
         {
             public const float ForwardPlacementDistance = 3f;
             public const float UpwardPlacementOffset = 0.5f;
-        }
-
-        
+        } 
     }
 
     public static class ProperSaveIntegration
@@ -138,13 +136,11 @@ namespace DrifterBossGrabMod.ProperSave
             if (_pendingSaveData == null) return;
 
             // Only restore when loading a save (Single mode scene load to game scene)
-            // Use a delay to ensure scene is fully loaded
             Run.instance.StartCoroutine(DelayedSceneLoadRestoration(nextScene));
         }
 
         private static System.Collections.IEnumerator DelayedSceneLoadRestoration(Scene scene)
         {
-            // Wait a frame to ensure scene is fully loaded
             yield return null;
 
             if (_pendingSaveData == null)
@@ -391,14 +387,41 @@ namespace DrifterBossGrabMod.ProperSave
             SpawnCardRegistry.Initialize();
 
             var persistedObjects = PersistenceObjectManager.GetPersistedObjects();
+            var capturedInstanceIds = new HashSet<int>();
+
+            // Build bag slot index map before iterating persisted objects
+            var bagSlotIndexMap = new Dictionary<int, int>(); // instanceId -> bagSlotIndex
+            var controllers = UnityEngine.Object.FindObjectsByType<RoR2.DrifterBagController>(UnityEngine.FindObjectsSortMode.None);
+            foreach (var controller in controllers)
+            {
+                if (controller == null) continue;
+                var state = Patches.BagPatches.GetState(controller);
+                if (state?.BaggedObjects == null) continue;
+                
+                lock (state.BagLock)
+                {
+                    for (int i = 0; i < state.BaggedObjects.Count; i++)
+                    {
+                        var bagObj = state.BaggedObjects[i];
+                        if (bagObj != null)
+                        {
+                            bagSlotIndexMap[bagObj.GetInstanceID()] = i;
+                        }
+                    }
+                }
+            }
 
             foreach (var obj in persistedObjects)
             {
                 if (obj == null) continue;
 
-                var objData = CaptureObjectData(obj);
+                var objData = CaptureObjectData(obj, capturedInstanceIds);
                 if (objData != null)
                 {
+                    if (bagSlotIndexMap.TryGetValue(obj.GetInstanceID(), out var index))
+                    {
+                        objData.BagSlotIndex = index;
+                    }
                     saveData.BaggedObjects.Add(objData);
                 }
             }
@@ -406,7 +429,7 @@ namespace DrifterBossGrabMod.ProperSave
             return saveData;
         }
 
-        private static BaggedObjectSaveData? CaptureObjectData(GameObject obj)
+        private static BaggedObjectSaveData? CaptureObjectData(GameObject obj, HashSet<int>? capturedInstanceIds = null)
         {
             if (obj == null) return null;
 
@@ -417,13 +440,32 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             var characterBody = obj.GetComponent<CharacterBody>();
-            if (characterBody != null && characterBody.master != null)
+            var master = characterBody != null ? characterBody.master : obj.GetComponent<CharacterMaster>();
+            
+            bool isSavingMaster = master != null;
+            GameObject objectToCapture = (isSavingMaster && master != null) ? master.gameObject : obj;
+
+            // Deduplicate to ensure we only capture this specific master or body once
+            if (capturedInstanceIds != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                int instanceId = objectToCapture.GetInstanceID();
+                if (capturedInstanceIds.Contains(instanceId))
                 {
-                    Log.Info($"[CaptureObjectData] Skipping {obj.name} - has master {characterBody.master.name}, master will handle spawning");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CaptureObjectData] Skipping duplicate capture for {objectToCapture.name} (from source {obj.name})");
+                    }
+                    return null;
                 }
-                return null;
+                capturedInstanceIds.Add(instanceId);
+            }
+            
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                if (isSavingMaster && master != null)
+                    Log.Info($"[CaptureObjectData] Capturing master {master.name} for object {obj.name}");
+                else
+                    Log.Info($"[CaptureObjectData] Capturing body/object {obj.name}");
             }
 
             string? masterName = null;
@@ -454,23 +496,28 @@ namespace DrifterBossGrabMod.ProperSave
                 }
             }
 
-            string prefabName = System.Text.RegularExpressions.Regex.Replace(obj.name, @"\(Clone\)(\(\d+\))?$", "");
+            string prefabName = System.Text.RegularExpressions.Regex.Replace(objectToCapture.name, @"\(Clone\)(\(\d+\))?$", "");
+            
+            // For masters, we need to use the actual network identity of the master for AssetID etc.
+            var captureIdentity = objectToCapture.GetComponent<NetworkIdentity>();
+            if (captureIdentity == null) captureIdentity = networkIdentity;
 
             var objData = new BaggedObjectSaveData
             {
                 ObjectName = obj.name,
+                SaveType = isSavingMaster ? "CharacterMaster" : "Body",
                 PrefabName = prefabName,
-                ObjectInstanceId = obj.GetInstanceID(),
+                ObjectInstanceId = objectToCapture.GetInstanceID(),
                 SceneName = SceneManager.GetActiveScene().name,
                 OwnerPlayerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj) ?? string.Empty,
 
                 Position = SerializationHelpers.SerializeVector3(obj.transform.position),
                 Rotation = SerializationHelpers.SerializeQuaternion(obj.transform.rotation),
 
-                AssetId = SerializationHelpers.SerializeGuid(new Guid(networkIdentity.assetId.ToString())),
-                PrefabHash = networkIdentity.assetId.ToString(),
+                AssetId = SerializationHelpers.SerializeGuid(new Guid(captureIdentity.assetId.ToString())),
+                PrefabHash = captureIdentity.assetId.ToString(),
 
-                ComponentType = GetPrimaryComponentType(obj),
+                ComponentType = GetPrimaryComponentType(objectToCapture),
 
                 MasterName = masterName,
 
@@ -480,13 +527,13 @@ namespace DrifterBossGrabMod.ProperSave
                 
             };
 
-            objData.SpawnCardPath = GetSpawnCardPath(obj);
+            objData.SpawnCardPath = GetSpawnCardPath(objectToCapture);
 
             foreach (var plugin in _serializerPlugins)
             {
-                if (plugin.CanHandle(obj))
+                if (plugin.CanHandle(objectToCapture))
                 {
-                    var state = plugin.CaptureState(obj);
+                    var state = plugin.CaptureState(objectToCapture);
                     if (state != null)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -571,13 +618,10 @@ namespace DrifterBossGrabMod.ProperSave
 
         private static string GetPrimaryComponentType(GameObject obj)
         {
-            // Scan for ANY component that inherits from NetworkBehaviour or MonoBehaviour
-            // Prioritizing RoR2-specific types but falling back to the first meaningful component
             foreach (var comp in obj.GetComponents<MonoBehaviour>())
             {
                 if (comp == null) continue;
                 var type = comp.GetType();
-                // Skip Unity/System internals
                 if (type.Namespace?.StartsWith("UnityEngine") == true) continue;
                 if (type.Namespace?.StartsWith("System") == true) continue;
                 return type.AssemblyQualifiedName;
@@ -587,7 +631,7 @@ namespace DrifterBossGrabMod.ProperSave
 
         private static System.Collections.IEnumerator DelayedStateRestoration(GameObject obj, BaggedObjectSaveData objData, System.Action onComplete)
         {
-            // Wait a few frames to ensure NetworkBehaviour components are fully initialized
+            // Wait a few frames to ensure NetworkBehaviour components are fully initialized (needs a revisit)
             yield return null;  // Wait 1 frame for object initialization
             yield return null;  // Wait 2nd frame for NetworkBehaviour sync
 
@@ -627,21 +671,17 @@ namespace DrifterBossGrabMod.ProperSave
             // Clear restoration tracking to start fresh
             Spawning.PrefabSpawner.ClearRestoredObjectTracking();
 
-            // We use successCount/failureCount differently now because restoration is async
-            // These are just for tracking, actual success/failure is handled in the coroutine
             var objectsToRestore = new List<(GameObject obj, BaggedObjectSaveData data)>();
-
-            // Track masters we've spawned to avoid duplicate body spawns
             var spawnedMasters = new HashSet<int>();
+            var sortedObjects = saveData.BaggedObjects
+                .OrderBy(o => o.BagSlotIndex >= 0 ? o.BagSlotIndex : int.MaxValue)
+                .ToList();
 
-            foreach (var objData in saveData.BaggedObjects)
+            foreach (var objData in sortedObjects)
             {
                 try
                 {
                     if (objData == null) continue;
-
-                    // Always spawn new objects from save data (like persistence system does)
-                    // Don't try to match to scene objects since we're loading from a save file
                     var obj = ObjectSpawner.SpawnObjectFromSaveData(objData, objData.OwnerPlayerId, spawnedMasters);
 
                     if (obj != null)
@@ -738,7 +778,7 @@ namespace DrifterBossGrabMod.ProperSave
                         bool wasInSeat = objData.IsMainSeatObject == true || objData.AdditionalSeatIndex.HasValue;
                         if (wasInSeat || PersistenceObjectManager.GetCachedEnableAutoGrab())
                         {
-                            ScheduleAutoGrab(objectToAutoGrab);
+                            ScheduleAutoGrab(objectToAutoGrab, objData.OwnerPlayerId);
                         }
                     }
 
@@ -754,32 +794,45 @@ namespace DrifterBossGrabMod.ProperSave
             Log.Info($"[ProperSave] Restoration complete: {successCount} success, {failureCount} failed");
         }
 
-        private static void ScheduleAutoGrab(GameObject obj)
+        private static void ScheduleAutoGrab(GameObject obj, string ownerPlayerId)
         {
             if (!NetworkServer.active) return;
 
-            var drifterBody = PlayerCharacterMasterController.instances
-                .Where(pcm => pcm.master?.bodyPrefab?.name?.Contains("Drifter") == true)
-                .Select(pcm => pcm.master.GetBody())
-                .FirstOrDefault();
+            CharacterBody? targetBody = null;
 
-            if (drifterBody == null)
+            // Find the Drifter body associated with this owner
+            if (!string.IsNullOrEmpty(ownerPlayerId))
             {
+                foreach (var nu in NetworkUser.readOnlyInstancesList)
+                {
+                    var id = nu.id;
+                    var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
+                    if (idString == ownerPlayerId)
+                    {
+                        targetBody = nu.master?.GetBody();
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: if no specific owner found, don't just grab the host
+            // (Previous version grabbed host by default, which caused the "host grabs everything" bug)
+            if (targetBody == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ScheduleAutoGrab] No specific owner found for {obj.name} (owner ID: {ownerPlayerId}). Skipping auto-grab to avoid host-capturing.");
+                }
                 return;
             }
 
-            var bagController = drifterBody.GetComponent<DrifterBagController>();
-            if (bagController == null)
-            {
-                bagController = drifterBody.GetComponentInParent<DrifterBagController>();
-            }
+            var bagController = targetBody.GetComponent<DrifterBagController>();
+            if (bagController == null) bagController = targetBody.GetComponentInParent<DrifterBagController>();
 
-            if (bagController == null)
+            if (bagController != null)
             {
-                return;
+                DrifterBagAPI.ScheduleAutoGrab(bagController, obj, PluginConfig.Instance.AutoGrabDelay.Value);
             }
-
-            DrifterBagAPI.ScheduleAutoGrab(bagController, obj, PluginConfig.Instance.AutoGrabDelay.Value);
         }
 
         private static void RestoreObjectState(GameObject obj, BaggedObjectSaveData objData)

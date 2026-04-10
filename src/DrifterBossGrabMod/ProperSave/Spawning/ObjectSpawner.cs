@@ -25,9 +25,33 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            if (IsCharacterMaster(objData.PrefabName))
+            if (objData.SaveType == "CharacterMaster" || IsCharacterMaster(objData.PrefabName))
             {
-                Log.Info($"[ObjectSpawn] Detected CharacterMaster {objData.PrefabName}, using PrefabSpawner");
+                Log.Info($"[ObjectSpawn] Detected CharacterMaster {objData.PrefabName} (SaveType: {objData.SaveType}), spawning master...");
+                
+                // Try to find master spawn card
+                var masterName = objData.PrefabName;
+                var masterSpawnCard = SpawnCardRegistry.FindSpawnCardByExactName(masterName);
+                
+                if (masterSpawnCard != null && masterSpawnCard.prefab != null)
+                {
+                     var masterPlacementRule = CreatePlacementRuleForRestoration(objData, ownerPlayerId);
+                     var masterSpawnRequest = new DirectorSpawnRequest(
+                         masterSpawnCard,
+                         masterPlacementRule,
+                         RoR2Application.rng
+                     );
+
+                     var spawnedMaster = DirectorCore.instance.TrySpawnObject(masterSpawnRequest);
+                     if (spawnedMaster != null)
+                     {
+                         spawnedMasters?.Add(objData.ObjectInstanceId);
+                         Log.Info($"[ObjectSpawn] Successfully spawned master {spawnedMaster.name} via DirectorCore");
+                         return spawnedMaster;
+                     }
+                }
+
+                // Fallback: PrefabSpawner
                 spawnedMasters?.Add(objData.ObjectInstanceId);
                 return PrefabSpawner.SpawnObjectFromPrefab(objData, ownerPlayerId);
             }
@@ -370,7 +394,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         {
             if (string.IsNullOrEmpty(prefabName)) return false;
 
-            return prefabName.EndsWith("Master");
+            return prefabName.EndsWith("Master") || prefabName.Contains("Master(Clone)");
         }
 
         private static bool IsEnemyBody(string prefabName)

@@ -19,6 +19,7 @@ namespace DrifterBossGrabMod.ProperSave.Data
     public class BaggedObjectSaveData
     {
         public string ObjectName { get; set; } = string.Empty;
+        public string SaveType { get; set; } = "Body";
         public string ObjectType { get; set; } = string.Empty;
         public string SpawnCardPath { get; set; } = string.Empty;
         public int ObjectInstanceId { get; set; }
@@ -40,6 +41,7 @@ namespace DrifterBossGrabMod.ProperSave.Data
 
         public int? AdditionalSeatIndex { get; set; }
         public bool? IsMainSeatObject { get; set; }
+        public int BagSlotIndex { get; set; } = -1;
     }
 
     [Serializable]

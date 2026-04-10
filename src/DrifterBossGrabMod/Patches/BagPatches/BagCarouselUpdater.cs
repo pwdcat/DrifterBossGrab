@@ -17,6 +17,20 @@ namespace DrifterBossGrabMod.Patches
         // Static registry of active carousels - replaces expensive FindObjectsByType scans
         internal static readonly List<UI.BaggedObjectCarousel> ActiveCarousels = new List<UI.BaggedObjectCarousel>();
 
+        // Helper method to validate bagged objects
+        private static bool IsValidBaggedObject(GameObject obj)
+        {
+            if (obj == null || !obj) return false;
+
+            var healthComp = obj.GetComponent<HealthComponent>();
+            if (healthComp != null && !healthComp.alive) return false;
+
+            var attributes = obj.GetComponent<SpecialObjectAttributes>();
+            if (attributes != null && attributes.durability <= 0) return false;
+
+            return true;
+        }
+
         // Updates the bag carousel UI for the given controller
         public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
@@ -45,7 +59,10 @@ namespace DrifterBossGrabMod.Patches
             {
                 var baggedObjects = BagPatches.GetState(controller).BaggedObjects;
 
-                baggedObjects.RemoveAll(obj => ReferenceEquals(obj, null) || (obj is UnityEngine.Object uo && !uo));
+                // Filter out destroyed/invalid objects before updating network
+                baggedObjects.RemoveAll(obj => ReferenceEquals(obj, null) ||
+                                              (obj is UnityEngine.Object uo && !uo) ||
+                                              !IsValidBaggedObject(obj));
 
                 var additionalSeats = new List<GameObject>();
                 // Consolidated state access
@@ -54,12 +71,23 @@ namespace DrifterBossGrabMod.Patches
                 {
                     foreach (var seat in seatDict.Values)
                     {
-                        if (seat != null) additionalSeats.Add(seat.gameObject);
+                        if (seat != null && seat.gameObject != null && seat.gameObject && IsValidBaggedObject(seat.gameObject))
+                        {
+                            additionalSeats.Add(seat.gameObject);
+                        }
                     }
                 }
 
                 int selectedIndex = -1;
                 var mainPassenger = BagPatches.GetMainSeatObject(controller);
+
+                // Validate main passenger before calculating selectedIndex
+                if (mainPassenger != null && !IsValidBaggedObject(mainPassenger))
+                {
+                    // Clear invalid main passenger reference
+                    BagPatches.SetMainSeatObject(controller, null);
+                    mainPassenger = null;
+                }
 
                 bool isActuallyInMainSeat = false;
                 if (mainPassenger != null && controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger)

@@ -159,7 +159,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (obj == null)
             {
-                Log.Warning($"[NetworkUtils.ValidateObjectReady] {obj.name} is being destroyed");
+                Log.Warning($"[NetworkUtils.ValidateObjectReady] Object is being destroyed");
                 return false;
             }
 

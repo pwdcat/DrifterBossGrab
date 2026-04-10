@@ -446,13 +446,19 @@ namespace DrifterBossGrabMod.Patches
                     return true;
                 }
 
+                var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" [BaggedObject_OnExit] Prefix start for targetObject: {GetSafeName(__instance.targetObject)}");
+                    var currentMain = bagController != null ? BagPatches.GetMainSeatObject(bagController) : null;
+                    var bagStateMachine = EntityStateMachine.FindByCustomName(__instance.outer?.gameObject, "Bag");
+                    var currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
+                    var currentTarget = bagStateMachine?.state is BaggedObject bagged ? bagged.targetObject : null;
+
+                    Log.Info($"[BaggedObject_OnExit.Prefix] CALLED: InstanceTarget={( __instance.targetObject ? __instance.targetObject.name : "null")}, StateTarget={(currentTarget ? currentTarget.name : "null")}, State={currentStateName}, MainPassenger={(currentMain ? currentMain.name : "null")}");
                 }
 
                 // Check if we should keep the overrides (i.e. object is still being held/tracked)
-                var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
                     Log.Warning("[BaggedObject_OnExit.Prefix] bagController is null, proceeding with vanilla OnExit");
@@ -486,53 +492,54 @@ namespace DrifterBossGrabMod.Patches
                 bool shouldKeepOverrides = false;
                 bool isDifferentObjectInMainSeat = false;
                 bool isDeadCheck = false;
+                GameObject? targetObject = __instance?.targetObject;
 
-                if (bagController != null && __instance.targetObject != null)
+                if (bagController != null && targetObject != null)
                 {
                     // Check if object is still tracked as main seat
                     var tracked = BagPatches.GetMainSeatObject(bagController);
-                    bool isTrackedAsMain = tracked != null && ReferenceEquals(__instance.targetObject, tracked);
+                    bool isTrackedAsMain = tracked != null && ReferenceEquals(targetObject, tracked);
 
                     // Check if object is physically in seat
                     bool isPhysicallyInSeat = bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger &&
-                                              ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, __instance.targetObject);
+                                            ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, targetObject);
 
                     // If anything is in the main seat that's not this object, force unset overrides
                     isDifferentObjectInMainSeat = bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger &&
-                                                        !ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, __instance.targetObject);
+                                                        !ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, targetObject);
 
                     // We keep overrides only if THIS object is in the main seat, AND not dead/destroyed
-                    try { isDeadCheck = __instance.targetObject.TryGetComponent<HealthComponent>(out var healthComponent) && !healthComponent.alive; } catch { isDeadCheck = true; }
+                    try { isDeadCheck = targetObject.TryGetComponent<HealthComponent>(out var healthComponent) && !healthComponent.alive; } catch { isDeadCheck = true; }
 
-                    shouldKeepOverrides = isTrackedAsMain && isPhysicallyInSeat && !isDeadCheck && __instance.targetObject.activeInHierarchy && !isDifferentObjectInMainSeat;
+                    shouldKeepOverrides = isTrackedAsMain && isPhysicallyInSeat && !isDeadCheck && targetObject.activeInHierarchy && !isDifferentObjectInMainSeat;
                 }
 
                 if (shouldKeepOverrides)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                         Log.Info($" [BaggedObject_OnExit] Skipping UnsetAllOverrides - object {GetSafeName(__instance.targetObject)} is still tracked or in seat.");
+                    Log.Info($" [BaggedObject_OnExit] Skipping UnsetAllOverrides - object {GetSafeName(targetObject)} is still tracked or in seat.");
                     }
                 }
                 else
                 {
-            // Check if object is marked to preserve overrides during cycling
-            bool preserveDuringCycling = false;
-            if (__instance.targetObject != null)
-            {
-                lock (_preserveOverridesDuringCycling)
-                {
-                    preserveDuringCycling = _preserveOverridesDuringCycling.Contains(__instance.targetObject!);
-                    // Clear the flag after checking to prevent indefinite preservation
-                    _preserveOverridesDuringCycling.Remove(__instance.targetObject);
-                }
-            }
+                    // Check if object is marked to preserve overrides during cycling
+                    bool preserveDuringCycling = false;
+                    if (targetObject != null)
+                    {
+                        lock (_preserveOverridesDuringCycling)
+                        {
+                            preserveDuringCycling = _preserveOverridesDuringCycling.Contains(targetObject!);
+                            // Clear the flag after checking to prevent indefinite preservation
+                            _preserveOverridesDuringCycling.Remove(targetObject);
+                        }
+                    }
 
                     if (preserveDuringCycling && !isDifferentObjectInMainSeat)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($" [BaggedObject_OnExit] Skipping UnsetAllOverrides - object {GetSafeName(__instance.targetObject)} is marked to preserve overrides during cycling.");
+                            Log.Info($" [BaggedObject_OnExit] Skipping UnsetAllOverrides - object {GetSafeName(targetObject)} is marked to preserve overrides during cycling.");
                         }
                     }
                     else
@@ -542,19 +549,23 @@ namespace DrifterBossGrabMod.Patches
                             Log.Info($" [BaggedObject_OnExit] Forcing UnsetAllOverrides during cycling - different object in main seat or object is dead.");
                         }
                         // This ensures that even if we skip the original OnExit or it fails, the overrides are gone.
-                        UnsetAllOverrides(__instance);
+                        if (__instance != null)
+                        {
+                            UnsetAllOverrides(__instance);
+                        }
                     }
                 }
 
                 bool isSuppressed = false;
-                if (__instance.targetObject)
+                GameObject? suppressedObject = __instance?.targetObject;
+                if (suppressedObject)
                 {
                     lock (_suppressedExitObjects)
                     {
-                        if (_suppressedExitObjects.Contains(__instance.targetObject!))
+                        if (_suppressedExitObjects.Contains(suppressedObject!))
                         {
                             isSuppressed = true;
-                            _suppressedExitObjects.Remove(__instance.targetObject!);
+                            _suppressedExitObjects.Remove(suppressedObject!);
                         }
                     }
                 }
@@ -568,7 +579,7 @@ namespace DrifterBossGrabMod.Patches
                     return false;
                 }
 
-                if (!__instance.targetObject)
+                if (!__instance?.targetObject)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -577,22 +588,32 @@ namespace DrifterBossGrabMod.Patches
 
                     // Manually trigger junk spawning since we're skipping vanilla OnExit
                     // Vanilla OnExit would call ExecuteBody() when HoldsDeadBody() is true
-                    TrySpawnJunkForSkippedOnExit(__instance, "null/destroyed targetObject");
-                    RemoveWalkSpeedPenalty(__instance);
+                    if (__instance != null)
+                    {
+                        TrySpawnJunkForSkippedOnExit(__instance, "null/destroyed targetObject");
+                        RemoveWalkSpeedPenalty(__instance);
+                    }
                     return false;
                 }
 
-                bool isDead = __instance.targetObject!.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
+                bool isDead = false;
+                if (__instance?.targetObject != null)
+                {
+                    isDead = __instance.targetObject.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
+                }
 
                 if (isDead)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($" [BaggedObject_OnExit] targetObject is dead/dying ({GetSafeName(__instance.targetObject)}), skipping original OnExit to avoid crashes (cleanup already attempted).");
+                        Log.Info($" [BaggedObject_OnExit] targetObject is dead/dying ({GetSafeName(__instance?.targetObject)}), skipping original OnExit to avoid crashes (cleanup already attempted).");
                     }
                     // Also need to spawn junk for dead bodies since we're skipping vanilla OnExit
-                    TrySpawnJunkForSkippedOnExit(__instance, $"dead/dying {GetSafeName(__instance.targetObject)}");
-                    RemoveWalkSpeedPenalty(__instance);
+                    if (__instance != null)
+                    {
+                        TrySpawnJunkForSkippedOnExit(__instance, $"dead/dying {GetSafeName(__instance?.targetObject)}");
+                        RemoveWalkSpeedPenalty(__instance);
+                    }
                     return false;
                 }
 
@@ -1236,12 +1257,18 @@ namespace DrifterBossGrabMod.Patches
                 // Clean up
                 try
                 {
-                    BagPassengerManager.RemoveBaggedObject(controller, obj);
+                    BagPassengerManager.RemoveBaggedObject(controller, obj, isDestroying: true);
                 }
                 catch (Exception ex)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Warning($"[EntityStateMachine_SetState] Error during RemoveBaggedObject cleanup: {ex.Message}");
+                }
+
+                // Force immediate carousel refresh after cleanup
+                if (controller != null)
+                {
+                    BagCarouselUpdater.UpdateCarousel(controller);
                 }
             }
         }

@@ -8,7 +8,7 @@ namespace DrifterBossGrabMod
         // Version info
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.7.3";
+        public const string PluginVersion = "1.8.0";
 
         // Timeout values for various operations
         public static class Timeouts
