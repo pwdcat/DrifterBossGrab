@@ -43,6 +43,22 @@ namespace DrifterBossGrabMod.Core
         public float moveSpeedStat;
         public float armorStat;
         public float regenStat;
+        public float baseMaxHealth;
+        public float baseRegen;
+        public float baseMaxShield;
+        public float baseMoveSpeed;
+        public float baseDamage;
+        public float baseAttackSpeed;
+        public float baseArmor;
+        public float baseCrit;
+        public float level;
+        public float experience;
+        public uint teamIndex;
+        public bool isElite;
+        public CharacterBody.BodyFlags bodyFlags;
+        public string? subtitleNameToken;
+        public uint skinIndex;
+
         public int junkSpawnCount;
         public float slamDamageCoefficient; // Stores the damage coefficient calculated when object was bagged
 
@@ -50,6 +66,10 @@ namespace DrifterBossGrabMod.Core
         public float breakoutTime = 10f;
         public float breakoutAttempts = 0f;
         public float elapsedBreakoutTime = 0f;
+
+        // Model restoration data
+        public bool originalAutoUpdateModelTransform = true;
+        public bool hasCapturedModelTransformState = false;
 
         // Additional
         public SpecialObjectAttributes? vehiclePassengerAttributes;
@@ -149,6 +169,14 @@ namespace DrifterBossGrabMod.Core
                 return;
             }
 
+            // Detect and prevent applying uninitialized "stub" states which would zero out a functional object
+            if (this.targetObject == null && this.baggedMass == 0f)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info("[BaggedObjectStateData] Skipping application of uninitialized 'stub' state (targetObject is null).");
+                return;
+            }
+
             try
             {
                 // Target references
@@ -180,16 +208,60 @@ namespace DrifterBossGrabMod.Core
                     ReflectionCache.EntityState.FixedAge.SetValue(state, elapsedBreakoutTime);
                 }
 
+                // Apply stats to the body if it exists
+                if (targetBody != null)
+                {
+                    ApplyToCharacterBody(targetBody);
+                }
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[BaggedObjectStateData] Applied state to {targetObject?.name ?? "null"}: " +
+                    string targetName = this.targetObject != null ? this.targetObject.name : (state.targetObject != null ? state.targetObject.name : "null");
+                    Log.Info($"[BaggedObjectStateData] Applied state to {targetName}: " +
                             $"mass={baggedMass}, age={elapsedBreakoutTime}, scale={bagScale01}, penalty={movespeedPenalty}, " +
-                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
+                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}, " +
+                            $"level={level}, isElite={isElite}");
                 }
             }
             catch (Exception ex)
             {
                 Log.Error($"[BaggedObjectStateData] Error applying to BaggedObject: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // Apply captured stats and flags to a CharacterBody instance
+        public void ApplyToCharacterBody(CharacterBody body)
+        {
+            if (body == null) return;
+
+            try
+            {
+                body.baseMaxHealth = baseMaxHealth;
+                body.baseRegen = baseRegen;
+                body.baseMaxShield = baseMaxShield;
+                body.baseMoveSpeed = baseMoveSpeed;
+                body.baseDamage = baseDamage;
+                body.baseAttackSpeed = baseAttackSpeed;
+                body.baseArmor = baseArmor;
+                body.baseCrit = baseCrit;
+                body.level = level;
+                body.experience = experience;
+                body.teamComponent.teamIndex = (TeamIndex)teamIndex;
+                body.bodyFlags = bodyFlags;
+                body.subtitleNameToken = subtitleNameToken ?? body.subtitleNameToken;
+                body.skinIndex = skinIndex;
+
+                // Recalculate stats to apply changes
+                body.RecalculateStats();
+                
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[BaggedObjectStateData] Restored CharacterBody stats for {body.name}: level={level}, hp={body.baseMaxHealth}, elite={isElite}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BaggedObjectStateData] Error applying to CharacterBody: {ex.Message}");
             }
         }
 
@@ -287,6 +359,22 @@ namespace DrifterBossGrabMod.Core
                     moveSpeedStat = targetBody.moveSpeed;
                     armorStat = targetBody.armor;
                     regenStat = targetBody.regen;
+
+                    baseMaxHealth = targetBody.baseMaxHealth;
+                    baseRegen = targetBody.baseRegen;
+                    baseMaxShield = targetBody.baseMaxShield;
+                    baseMoveSpeed = targetBody.baseMoveSpeed;
+                    baseDamage = targetBody.baseDamage;
+                    baseAttackSpeed = targetBody.baseAttackSpeed;
+                    baseArmor = targetBody.baseArmor;
+                    baseCrit = targetBody.baseCrit;
+                    level = targetBody.level;
+                    experience = targetBody.experience;
+                    teamIndex = (uint)targetBody.teamComponent.teamIndex;
+                    isElite = targetBody.isElite;
+                    bodyFlags = targetBody.bodyFlags;
+                    subtitleNameToken = targetBody.subtitleNameToken;
+                    skinIndex = targetBody.skinIndex;
                 }
                 else
                 {
@@ -297,12 +385,40 @@ namespace DrifterBossGrabMod.Core
                     moveSpeedStat = 0f;
                     armorStat = 0f;
                     regenStat = 0f;
+
+                    baseMaxHealth = 0f;
+                    baseRegen = 0f;
+                    baseMaxShield = 0f;
+                    baseMoveSpeed = 0f;
+                    baseDamage = 0f;
+                    baseAttackSpeed = 0f;
+                    baseArmor = 0f;
+                    baseCrit = 0f;
+                    level = 1f;
+                    experience = 0f;
+                    teamIndex = unchecked((uint)TeamIndex.None);
+                    isElite = false;
+                    bodyFlags = CharacterBody.BodyFlags.None;
+                    subtitleNameToken = null;
+                    skinIndex = 0;
                 }
 
                 // Breakout data - reset for new objects
                 breakoutTime = 0f;
                 breakoutAttempts = 0f;
-                elapsedBreakoutTime = 0f; // Reset elapsed time for new objects
+                elapsedBreakoutTime = 0f;
+
+                if (!hasCapturedModelTransformState)
+                {
+                    var modelLocator = targetObject.GetComponent<ModelLocator>();
+                    if (modelLocator != null)
+                    {
+                        originalAutoUpdateModelTransform = modelLocator.autoUpdateModelTransform;
+                        hasCapturedModelTransformState = true;
+                    }
+                }
+                
+                
 
                 // Calculate junk spawn count
                 junkSpawnCount = CalculateJunkSpawnCount(baggedMass);

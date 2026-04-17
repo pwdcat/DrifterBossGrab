@@ -24,7 +24,6 @@ namespace DrifterBossGrabMod
             // Explicitly register all nested patches for ProjectileRecoveryPatches
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.MapZoneChecker_FixedUpdate_Patch)).Patch();
             // Explicitly register all nested patches for SpecialObjectAttributesPatches
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.BaggedObject_OnEnter_Patch)).Patch();

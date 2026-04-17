@@ -25,6 +25,7 @@ namespace DrifterBossGrabMod
         private EventHandler? bottomlessBagToggleHandler;
         private EventHandler? persistenceToggleHandler;
         private EventHandler? balanceToggleHandler;
+        private EventHandler? recoveryToggleHandler;
 
         private void OnConfigSettingChangedEvent(object sender, SettingChangedEventArgs args)
         {
@@ -97,6 +98,17 @@ namespace DrifterBossGrabMod
                 }
             };
             PluginConfig.Instance.EnableBalance.SettingChanged += balanceToggleHandler;
+
+            recoveryToggleHandler = (sender, args) =>
+            {
+                bool isEnabled = PluginConfig.Instance.EnableRecoveryFeature.Value;
+                if (isEnabled != _wasRecoveryEnabled)
+                {
+                    _recoveryFeature?.Toggle(_recoveryHarmony!, isEnabled);
+                    _wasRecoveryEnabled = isEnabled;
+                }
+            };
+            PluginConfig.Instance.EnableRecoveryFeature.SettingChanged += recoveryToggleHandler;
         }
 
         private void SetupClientPreferenceHandlers()
@@ -133,6 +145,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= bottomlessBagToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceToggleHandler;
             PluginConfig.Instance.EnableBalance.SettingChanged -= balanceToggleHandler;
+            PluginConfig.Instance.EnableRecoveryFeature.SettingChanged -= recoveryToggleHandler;
         }
 
         private void RemoveClientPreferenceHandlers()

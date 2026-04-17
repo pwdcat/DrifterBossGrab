@@ -17,9 +17,9 @@ namespace DrifterBossGrabMod
 {
     public class PersistenceSceneHandler
     {
+        private static bool isRestoringFromSceneChange = false;
+        public static bool IsRestoringFromSceneChange() => isRestoringFromSceneChange;
         public static PersistenceSceneHandler Instance { get; } = new PersistenceSceneHandler();
-        private static List<RoR2.TeleporterInteraction> _cachedTeleporters = new();
-        private static bool _teleportersDirty = true;
         private static readonly System.Reflection.FieldInfo _clientSceneObjectsField =
             HarmonyLib.AccessTools.Field(typeof(ClientScene), "objects") ??
             HarmonyLib.AccessTools.Field(typeof(ClientScene), "s_LocalObjects");
@@ -42,22 +42,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Get cached teleporters, refreshing cache if dirty
-        private static List<RoR2.TeleporterInteraction> GetTeleporters()
-        {
-            if (_teleportersDirty)
-            {
-                _cachedTeleporters = UnityEngine.Object.FindObjectsByType<RoR2.TeleporterInteraction>(FindObjectsSortMode.None).ToList();
-                _teleportersDirty = false;
-            }
-            return _cachedTeleporters;
-        }
 
-        // Mark teleporter cache as dirty (call when scene changes)
-        private static void InvalidateTeleporterCache()
-        {
-            _teleportersDirty = true;
-        }
 
         // Handle scene change
         public void OnSceneChanged(Scene oldScene, Scene newScene)
@@ -67,8 +52,8 @@ namespace DrifterBossGrabMod
                 Log.Info($" OnSceneChanged called - EnablePersistence: {PersistenceObjectManager.GetCachedEnablePersistence()}, from {oldScene.name} to {newScene.name}");
             }
             // Network handlers are now registered via [NetworkMessageHandler] attributes
-            // Invalidate teleporter cache on scene change
-            InvalidateTeleporterCache();
+            // Invalidate teleporter registry and cache on scene change
+            MultiTeleporterTracker.Clear();
             if (!PersistenceObjectManager.GetCachedEnablePersistence())
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -83,6 +68,7 @@ namespace DrifterBossGrabMod
             }
             var coroutineRunner = new GameObject("PersistenceCoroutineRunner");
             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
+            isRestoringFromSceneChange = true;
             runner.StartCoroutine(DelayedRestorePersistedObjects());
         }
 
@@ -308,6 +294,9 @@ namespace DrifterBossGrabMod
                             modelObj.transform.localPosition = Vector3.zero;
                             modelObj.transform.localRotation = Quaternion.identity;
                         }
+
+                        // Refresh visual state to clear pink textures or shader artifacts after stage transition
+                        VisualRefreshUtility.Refresh(obj);
                     }
 
                     // Position Logic
@@ -332,9 +321,6 @@ namespace DrifterBossGrabMod
                                 // Fresh NetID refresh pass
                                 NetworkServer.UnSpawn(obj);
                                 NetworkServer.Spawn(obj);
-
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[RestorePersistedObjects] Unspawned/Spawned {obj.name} to refresh network identity");
                             }
                         }
                         catch (Exception ex)
@@ -388,7 +374,7 @@ namespace DrifterBossGrabMod
                     RestoreRenderers(obj);
 
                     // Special handling for teleporters and portals
-                    HandleSpecialObjectRestoration(obj);
+                    HandleSpecialObjectRestoration(obj, duringSceneRestoration: true);
 
                     // Attempt auto-grab if enabled
                     if (PersistenceObjectManager.GetCachedEnableAutoGrab())
@@ -452,6 +438,7 @@ namespace DrifterBossGrabMod
                 {
                     Log.Info($"[RestorePersistedObjects] Restoration complete. {successfullyRestoredObjects.Count} objects restored.");
                 }
+                isRestoringFromSceneChange = false;
             }
         }
 
@@ -1081,7 +1068,7 @@ namespace DrifterBossGrabMod
         }
 
         // Handle special restoration logic
-        private static void HandleSpecialObjectRestoration(GameObject obj)
+        public static void HandleSpecialObjectRestoration(GameObject obj, bool duringSceneRestoration = false)
         {
             if (obj == null) return;
             string objName = obj.name.ToLower();
@@ -1090,32 +1077,33 @@ namespace DrifterBossGrabMod
             {
                 Log.Info($" Checking for TeleporterInteraction on persisted object {obj.name}");
             }
-            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>(); // Assuming teleporterInteraction is defined here or as a field
+            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
             if (teleporterInteraction != null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} for persisted object {obj.name}");
+                    Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} for persisted object {obj.name}. Registering as secondary and patching references.");
                 }
-                // Check if there's another teleporter in the scene that is not disabled
-                bool hasActiveTeleporter = HasActiveTeleporterInScene(teleporterInteraction.gameObject);
-                if (hasActiveTeleporter)
+
+                // Patch stale references to destroyed Unity objects ONLY during scene restoration, not during cycling
+                if (isRestoringFromSceneChange)
                 {
-                    teleporterInteraction.enabled = false;
-                    // Mark the GameObject that has the TeleporterInteraction for disabling in FixedUpdate
-                    PersistenceManager.MarkTeleporterForDisabling(teleporterInteraction.gameObject);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Disabled TeleporterInteraction on persisted teleporter {obj.name}, marked {teleporterInteraction.gameObject.name} for FixedUpdate disabling - active teleporter found");
-                    }
+                    TeleporterPatches.PatchStaleReferences(teleporterInteraction);
                 }
-                else
+
+                // Register as secondary and protect primary singleton
+                MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Left TeleporterInteraction enabled on persisted teleporter {obj.name} - no active teleporter found");
-                    }
+                    Log.Info($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
                 }
+            }
+
+            // Only refresh visuals during scene restoration, not during cycling
+            if (duringSceneRestoration)
+            {
+                VisualRefreshUtility.Refresh(obj);
             }
             else
             {
@@ -1179,19 +1167,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Check if there's another active teleporter in the scene
-        private static bool HasActiveTeleporterInScene(GameObject excludeTeleporter)
-        {
-            var allTeleporters = GetTeleporters();
-            foreach (var teleporter in allTeleporters)
-            {
-                if (teleporter.gameObject != excludeTeleporter && teleporter.enabled && !PersistenceManager.ShouldDisableTeleporter(teleporter.gameObject))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+
 
         // Helper method to register object with ClientScene using cached Reflection
         private static void RegisterLocalObjectReflectively(NetworkIdentity networkIdentity)

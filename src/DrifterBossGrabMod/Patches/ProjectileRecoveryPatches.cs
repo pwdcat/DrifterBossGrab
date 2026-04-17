@@ -10,26 +10,19 @@ using UnityEngine;
 using UnityEngine.Networking;
 using DrifterBossGrabMod;
 using DrifterBossGrabMod.Networking;
+using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
     public static class ProjectileRecoveryPatches
     {
-        // Constants for projectile recovery bounds and positioning.
+        // Constants for projectile recovery positioning.
         public static class ProjectileRecovery
         {
-            // Minimum Y-coordinate for projectile recovery. Objects below this value are considered lost and should be recovered.
-            public const float MinY = -1000f;
-
-            // Maximum Y-coordinate for projectile recovery. Objects above this value are considered lost and should be recovered.
-            public const float MaxY = 5000f;
-
             // Forward distance offset for teleporting recovered objects in front of the player.
             public const float TeleportForwardDistance = 4f;
-
             // Upward distance offset for teleporting recovered objects above the player.
             public const float TeleportUpDistance = 2f;
-
             // Upward distance offset for recovering projectiles to player position.
             public const float RecoveryUpDistance = 2f;
         }
@@ -39,6 +32,9 @@ namespace DrifterBossGrabMod.Patches
         private static readonly object _projectileStateLock = new object();
         private static readonly HashSet<GameObject> _objectsUndergoingThrow = new HashSet<GameObject>();
         private static readonly object _throwTrackingLock = new object();
+        
+        // Track the bag controller that last held an object, so we can recover it even after it's ejected.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController> lastKnownOwners = new System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController>();
 
         // Cached reflection fields
         private static readonly FieldInfo _projectileControllerField = ReflectionCache.ThrownObjectProjectileController.ProjectileController;
@@ -57,71 +53,88 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static void RecoverObject(ThrownObjectProjectileController thrownController, GameObject passenger, Vector3 projectilePos)
+        public static void RecoverObject(GameObject passenger)
         {
-            // Get the player who threw the projectile
-            var projectileController = _projectileControllerField?.GetValue(thrownController) as RoR2.Projectile.ProjectileController;
-            if (projectileController == null)
+            if (passenger == null) return;
+
+            // Get the DrifterBagController associated with this object.
+            DrifterBagController? bagController = null;
+            var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
+            if (specialAttrs != null)
             {
-                Log.Error($"[GrabPatch] Failed to get projectileController from {thrownController.GetType().Name}");
+                // Try to find the bag controller via the attributes or by searching.
+                foreach (var controller in BagPatches.GetAllControllers())
+                {
+                    if (BagHelpers.IsBaggedObject(controller, passenger))
+                    {
+                        bagController = controller;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: If we couldn't find the bag controller via direct search
+            if (bagController == null)
+            {
+                lastKnownOwners.TryGetValue(passenger, out bagController);
+            }
+
+            if (bagController == null || bagController.characterBody == null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Warning($"[Recovery] Could not find bag owner/destination for {passenger.name}");
                 return;
             }
-            GameObject? owner = projectileController.owner;
-            if (owner != null)
+
+            // Log recovery
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                // Find the bag controller and properly remove/eject the object
-                var ownerBody = owner.GetComponent<CharacterBody>();
-                if (ownerBody != null)
+                Log.Info($"[Recovery] Recovering {passenger.name} for {bagController.characterBody.name}");
+            }
+
+            // Determine teleport position
+            // Log details if debug enabled
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[Recovery] Attempting to recover bagged object: {passenger.name}");
+            }
+
+            Vector3 teleportPos = bagController.characterBody.corePosition + bagController.characterBody.transform.forward * ProjectileRecovery.TeleportForwardDistance + Vector3.up * ProjectileRecovery.TeleportUpDistance;
+            
+            if (Run.instance)
+            {
+                teleportPos = Run.instance.FindSafeTeleportPosition(bagController.characterBody, bagController.transform, 0f, 100f);
+            }
+
+            // Properly remove/eject the object from the bag tracking
+            BagPassengerManager.RemoveBaggedObject(bagController, passenger);
+            
+            // Teleport and restore state
+            passenger.transform.position = teleportPos;
+            RemoveFromProjectileState(passenger);
+
+            // Restore physics and model state
+            var bagState = BagPatches.GetState(bagController);
+            if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(passenger, out var states))
+            {
+                BodyColliderCache.RestoreMovementColliders(states);
+                bagState.DisabledCollidersByObject.Remove(passenger, out _);
+            }
+
+            var modelLocator = passenger.GetComponent<ModelLocator>();
+            if (modelLocator != null)
+            {
+                var state = BaggedObjectPatches.LoadObjectState(bagController, passenger);
+                modelLocator.autoUpdateModelTransform = state != null ? state.originalAutoUpdateModelTransform : true;
+                modelLocator.dontDetatchFromParent = true;
+            }
+
+            // Clear throw operation flag
+            lock (_throwTrackingLock)
+            {
+                if (_objectsUndergoingThrow.Contains(passenger))
                 {
-                    var bagController = ownerBody.GetComponent<DrifterBagController>();
-                    if (bagController != null)
-                    {
-                        if (passenger != null)
-                        {
-                            BagPassengerManager.RemoveBaggedObject(bagController, passenger);
-                        }
-                    }
-                }
-
-                Vector3 playerPos = owner.transform.position;
-                string passengerName;
-                if (passenger == null)
-                {
-                    Log.Warning($"[GrabPatch] Passenger is null, cannot recover object");
-                    return;
-                }
-                passengerName = passenger.name;
-                // Removed GrabbedObjectState restoration - testing if SpecialObjectAttributes handles this automatically
-                // Teleport passenger to a position in front of the player
-                Vector3 teleportPos = owner.transform.position + owner.transform.forward * ProjectileRecovery.TeleportForwardDistance + Vector3.up * ProjectileRecovery.TeleportUpDistance;
-                if (passenger != null) passenger.transform.position = teleportPos;
-
-                // Clear projectile state tracking so the object can be cycled if re-grabbed
-                if (passenger != null) RemoveFromProjectileState(passenger);
-
-                // Restore original state if ModelStatePreserver exists (renderers, colliders)
-                var modelStatePreserver = passenger?.GetComponent<ModelStatePreserver>();
-                if (modelStatePreserver != null)
-                {
-                    // Use restoreParent=true for recovery to put the object back exactly as it was
-                    modelStatePreserver.RestoreOriginalState(true);
-                    UnityEngine.Object.Destroy(modelStatePreserver);
-                }
-
-                // Destroy the projectile
-                UnityEngine.Object.Destroy(thrownController.gameObject);
-
-                // Clear throw operation flag since throw was aborted
-                if (passenger != null)
-                {
-                    lock (_throwTrackingLock)
-                    {
-                        if (_objectsUndergoingThrow.Contains(passenger))
-                        {
-                            _objectsUndergoingThrow.Remove(passenger);
-                            Log.Info($"[RecoverObject] {passenger.name} throw operation aborted (recovered) - now grabbable");
-                        }
-                    }
+                    _objectsUndergoingThrow.Remove(passenger);
                 }
             }
         }
@@ -183,10 +196,49 @@ namespace DrifterBossGrabMod.Patches
             {
                 _objectsUndergoingThrow.Add(passenger);
             }
-            Log.Info($"[ProcessThrownObject] Marked {passengerName} as undergoing throw operation");
-
             // Track this object as being in projectile state
             lock (_projectileStateLock) { projectileStateObjects.Add(passenger); }
+
+            // Switch to Layer 0 (Default)
+            int targetLayer = 0; 
+            __instance.gameObject.layer = targetLayer;
+            foreach (var transform in __instance.GetComponentsInChildren<Transform>(true))
+            {
+                transform.gameObject.layer = targetLayer;
+            }
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                var colliders = ReflectionCache.ThrownObjectProjectileController.MyColliders?.GetValue(__instance) as Collider[];
+                var collDisabled = (bool)(ReflectionCache.ThrownObjectProjectileController.CollidersDisabled?.GetValue(__instance) ?? false);
+                var countdown = (float)(ReflectionCache.ThrownObjectProjectileController.DisableCollidersCountdown?.GetValue(__instance) ?? 0f);
+                
+                Log.Debug($"[Recovery] STARTUP TRACE: {passengerName}");
+                Log.Debug($" - Layer: {__instance.gameObject.layer} ({UnityEngine.LayerMask.LayerToName(__instance.gameObject.layer)})");
+                Log.Debug($" - Colliders Count: {colliders?.Length ?? 0}");
+                Log.Debug($" - _collidersDisabled: {collDisabled}");
+                Log.Debug($" - _disableCollidersCountdown: {countdown}");
+
+                // Full Physics Collision Matrix Trace (32 Layers)
+                System.Text.StringBuilder collisionMap = new System.Text.StringBuilder();
+                collisionMap.Append($" - Projectile Matrix (Layer {__instance.gameObject.layer}): ");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (!UnityEngine.Physics.GetIgnoreLayerCollision(__instance.gameObject.layer, i))
+                        collisionMap.Append($"{i} ");
+                }
+                Log.Debug(collisionMap.ToString());
+
+                // Potential MapZone Matrix Trace (Layer 24 was identified as TriggerZone)
+                System.Text.StringBuilder zoneMap = new System.Text.StringBuilder();
+                zoneMap.Append(" - TriggerZone Matrix (Layer 24): ");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (!UnityEngine.Physics.GetIgnoreLayerCollision(24, i))
+                        zoneMap.Append($"{i} ");
+                }
+                Log.Debug(zoneMap.ToString());
+            }
 
             // Get the DrifterBagController to remove from tracking
             var projectileController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
@@ -200,13 +252,18 @@ namespace DrifterBossGrabMod.Patches
             if (owner != null)
             {
                 var bagController = owner.GetComponent<DrifterBagController>();
-                if (bagController != null)
-                {
-                    if (NetworkServer.active)
+                    if (bagController != null)
                     {
-                        // Remove from bag tracking - object is now airborne (server only)
-                        Log.Info($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
-                        BagPassengerManager.RemoveBaggedObject(bagController, passenger);
+                        // Store last known owner for recovery purposes if it falls OOB
+                        lastKnownOwners.Remove(passenger);
+                        lastKnownOwners.Add(passenger, bagController);
+
+                        if (NetworkServer.active)
+                        {
+                            // Remove from bag tracking
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
+                            BagPassengerManager.RemoveBaggedObject(bagController, passenger);
 
                         // Get NetworkIdentity of thrown object
                         var passengerNetId = passenger.GetComponent<UnityEngine.Networking.NetworkIdentity>();
@@ -217,13 +274,15 @@ namespace DrifterBossGrabMod.Patches
                             if (netController != null)
                             {
                                 netController.RemoveBaggedObjectId(passengerNetId.netId);
-                                Log.Info($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
                             }
 
                             // Send explicit bag state update to all clients IMMEDIATELY
                             // This ensures clients sync up when the throw is processed, not on impact
                             Networking.CycleNetworkHandler.SendBagStateUpdate(bagController, passengerNetId.netId, isThrowOperation: true);
-                            Log.Info($"[ProcessThrownObject] SERVER: Sent bag state update for thrown {passengerName}");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[ProcessThrownObject] SERVER: Sent bag state update for thrown {passengerName}");
                         }
                         else
                         {
@@ -232,10 +291,16 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        Log.Info($"[ProcessThrownObject] CLIENT: Removing {passengerName} from local tracking");
-                        BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
-
-                        Log.Info($"[ProcessThrownObject] CLIENT: {passengerName} throw processed, carousel updated");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[ProcessThrownObject] CLIENT: Removing {passengerName} from local tracking");
+                            BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
+                            Log.Info($"[ProcessThrownObject] CLIENT: {passengerName} throw processed, carousel updated");
+                        }
+                        else
+                        {
+                            BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
+                        }
                     }
                 }
                 else
@@ -265,26 +330,72 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static void CheckAndRecoverProjectile(Component projectileComponent, string source)
+        private static GameObject? FindTrackedObjectInHierarchy(GameObject obj)
         {
-            if (projectileComponent == null) return;
-            Vector3 pos = projectileComponent.transform.position;
-
-            // Abstraction for both ProjectileController and ThrownObjectProjectileController
-            if (pos.y < ProjectileRecovery.MinY || pos.y > ProjectileRecovery.MaxY)
+            if (obj == null) return null;
+            Transform? current = obj.transform;
+            while (current != null)
             {
-                if (projectileComponent is ThrownObjectProjectileController thrown)
+                if (IsInProjectileState(current.gameObject)) return current.gameObject;
+                current = current.parent;
+            }
+            return null;
+        }
+
+        [HarmonyPatch(typeof(MapZone), "TryZoneStart")]
+        public class MapZone_TryZoneStart_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(MapZone __instance, Collider other)
+            {
+                if (__instance.zoneType != MapZone.ZoneType.OutOfBounds) return true;
+
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[Recovery] MapZone triggered: {__instance.name} (ZoneLayer: {__instance.gameObject.layer}) | Object: {other.name} | ObjectLayer: {other.gameObject.layer}");
+
+                var body = other.GetComponent<CharacterBody>();
+                
+                // First try direct check or hierarchy check for character/tracked object
+                GameObject? target = (body != null) ? body.gameObject : FindTrackedObjectInHierarchy(other.gameObject);
+                
+                if (target != null)
                 {
-                    GameObject passenger = thrown.Networkpassenger;
-                    if (passenger != null && !PluginConfig.IsRecoveryBlacklisted(passenger.name))
+                    // Check if this object is in projectile state
+                    if (IsInProjectileState(target))
                     {
-                        RecoverObject(thrown, passenger, pos);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Recovery] Tracked object {target.name} hit OOB zone {__instance.name}");
+
+                        bool isEnemy = body != null && body.teamComponent && body.teamComponent.teamIndex != TeamIndex.Player;
+                        
+                        // If behavior is set to Kill for enemies, let vanilla handle it
+                        if (isEnemy && PluginConfig.Instance.EnemyRecoveryMode.Value == EnemyRecoveryMode.Kill)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[Recovery] Letting vanilla handle OOB for enemy {body!.name} (Kill mode)");
+                            return true;
+                        }
+
+                        // Intercept and recover
+                        RecoverObject(target);
+                        return false; // Prevent vanilla teleport/kill
                     }
                 }
                 else
                 {
-                    RecoverProjectile(projectileComponent.gameObject);
+                    // Generic projectile recovery (e.g. scrap that fell off, or standard thrown object that isn't tracked)
+                    var projectileController = other.GetComponent<ProjectileController>() ?? other.GetComponentInParent<ProjectileController>();
+                    if (projectileController && !other.GetComponent<CharacterBody>())
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Recovery] Generic Projectile hit MapZone: {other.name} (Parent: {projectileController.name})");
+
+                        RecoverProjectile(projectileController.gameObject);
+                        return false;
+                    }
                 }
+
+                return true;
             }
         }
 
@@ -294,201 +405,41 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(ThrownObjectProjectileController __instance)
             {
-                // Get passenger.
-                GameObject passenger = __instance.Networkpassenger;
-                if (passenger != null)
+                if (__instance.Networkpassenger != null)
                 {
-                    string passengerName = passenger.name;
-                    var vehicleSeat = _vehicleSeatField?.GetValue(__instance) as VehicleSeat;
-                    if (vehicleSeat != null && vehicleSeat.hasPassenger)
-                    {
-                        if (_calculatePassengerFinalPositionMethod != null)
-                        {
-                            var parameters = new object?[] { null, null };
-                            _calculatePassengerFinalPositionMethod.Invoke(__instance, parameters);
-                            Vector3 finalPosition = (Vector3)parameters[0]!;
-                            Quaternion finalRotation = (Quaternion)parameters[1]!;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[Recovery] ThrownObjectProjectileController impacted. Clearing throw state for {__instance.Networkpassenger.name}");
 
-                            // Eject the passenger - Server only to prevent desync validation warnings and position fighting
-                            if (UnityEngine.Networking.NetworkServer.active)
-                            {
-                                vehicleSeat.EjectPassenger(finalPosition, finalRotation);
-                            }
-                            else
-                            {
-                                // Manually detach and position to prevent destruction with projectile
-                                if (passenger != null)
-                                {
-                                    passenger.transform.SetParent(null);
-                                    passenger.transform.position = finalPosition;
-                                    var components = passenger?.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
-                                    if (components != null)
-                                    {
-                                        foreach (var c in components)
-                                        {
-                                            if (c != null) c.enabled = true;
-                                        }
-                                    }
-                                    if (passenger != null) passenger.transform.rotation = finalRotation;
-                                }
-                            }
-                            // Get the DrifterBagController to clean up tracking
-                            var projController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
-                            if (projController == null)
-                            {
-                                Log.Error($"[ImpactPatch] Failed to get projectileController from {__instance.GetType().Name}");
-                                return;
-                            }
-                            GameObject? owner = projController.owner;
-                            if (owner != null)
-                            {
-                                var bagController = owner.GetComponent<DrifterBagController>();
-                                if (bagController != null)
-                                {
-                                    // Only remove from bag tracking if it's still tracked
-                                    // (it may have already been removed in ThrownObjectProjectileController.Awake)
-                                    if (BagHelpers.IsBaggedObject(bagController, passenger))
-                                    {
-                                        if (passenger != null) Patches.BagPassengerManager.RemoveBaggedObject(bagController, passenger);
-                                    }
-                                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    {
-                                        Log.Info($" Skipping RemoveBaggedObject - {passengerName} already removed from tracking");
-                                    }
-                                }
-                            }
+                    lock (_throwTrackingLock)
+                    {
+                        if (_objectsUndergoingThrow.Contains(__instance.Networkpassenger))
+                        {
+                            _objectsUndergoingThrow.Remove(__instance.Networkpassenger);
                         }
                     }
-
-                    // Ensure model is parented to passenger
-                    if (passenger != null)
-                    {
-                        var modelLocator = passenger.GetComponent<ModelLocator>();
-                        if (modelLocator != null && modelLocator.modelTransform != null)
-                        {
-                            if (!modelLocator.modelTransform.IsChildOf(passenger.transform))
-                            {
-                                // Use worldPositionStays=true to preserve world scale and prevent scale compounding
-                                modelLocator.modelTransform.SetParent(passenger.transform, true);
-                                modelLocator.modelTransform.localPosition = Vector3.zero;
-                                modelLocator.modelTransform.localRotation = Quaternion.identity;
-                            }
-                        }
-                    }
-
-                    // Ensure Rigidbody is not kinematic
-                    var rb = passenger?.GetComponent<Rigidbody>();
-                    if (rb != null)
-                    {
-                        rb.isKinematic = false;
-                        rb.detectCollisions = true;
-                    }
-
-                    // Restore any disabled colliders for ungrabbable enemies
-                    if (passenger != null)
-                    {
-                        var projController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
-                        if (projController != null && projController.owner != null)
-                        {
-                            var bagController = projController.owner.GetComponent<DrifterBagController>();
-                            if (bagController != null)
-                            {
-                                var bagState = Patches.BagPatches.GetState(bagController);
-                                if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(passenger, out var disabledStates))
-                                {
-                                    BodyColliderCache.RestoreMovementColliders(disabledStates);
-                                    bagState.DisabledCollidersByObject.TryRemove(passenger, out _);
-                                }
-                            }
-                        }
-                    }
-
-                    var specialAttrs = passenger?.GetComponent<SpecialObjectAttributes>();
-                    if (passenger != null)
-                    {
-                        var stickOnImpactComponents = passenger.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
-                        if (stickOnImpactComponents != null)
-                        {
-                            foreach (var stickComponent in stickOnImpactComponents)
-                            {
-                                if (stickComponent == null) continue;
-                                // Call Detach() to clear stored victim/position data that causes position reset
-                                stickComponent.Detach();
-                                _runStickEventField?.SetValue(stickComponent, false);
-                                _alreadyRanStickEventField?.SetValue(stickComponent, false);
-
-                                // Re-enable the component so it can function normally for future impacts
-                                stickComponent.enabled = true;
-                            }
-                        }
-                    }
-                    // Restore ModelLocator state if ModelStatePreserver component exists
-                    var modelStatePreserver = passenger?.GetComponent<ModelStatePreserver>();
-                    if (modelStatePreserver != null)
-                    {
-                        // Restore state but skip parent restoration
-                        modelStatePreserver.RestoreOriginalState(false);
-                        UnityEngine.Object.Destroy(modelStatePreserver);
-                    }
-                    // Also check if projectile impacted while out of bounds
-                    CheckAndRecoverProjectile(__instance, "ImpactBehavior");
-                    // Remove from projectile state tracking - object has landed
-                    if (passenger != null) lock (_projectileStateLock) { projectileStateObjects.Remove(passenger); }
-                    if (passenger != null)
-                    {
-                        // Only clear if we're still tracking it
-                        lock (_throwTrackingLock)
-                        {
-                            if (_objectsUndergoingThrow.Contains(passenger))
-                            {
-                                _objectsUndergoingThrow.Remove(passenger);
-                                Log.Info($"[ImpactBehavior] {passenger.name} throw operation complete - now grabbable");
-                            }
-                        }
-                    }
+                    RemoveFromProjectileState(__instance.Networkpassenger);
                 }
             }
         }
 
-        [HarmonyPatch(typeof(MapZoneChecker), "FixedUpdate")]
-        public class MapZoneChecker_FixedUpdate_Patch
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "OnDestroy")]
+        public class ThrownObjectProjectileController_OnDestroy_Patch
         {
-            private static readonly float checkInterval = ZoneDetectionPatches.Timing.MapZoneCheckInterval;
-            private static readonly Dictionary<MapZoneChecker, float> lastCheckTimes = new Dictionary<MapZoneChecker, float>();
-
-            [HarmonyPostfix]
-            public static void Postfix(MapZoneChecker __instance)
+            [HarmonyPrefix]
+            public static void Prefix(ThrownObjectProjectileController __instance)
             {
-                // Throttle checks per projectile instance to every 5 seconds
-                if (!lastCheckTimes.ContainsKey(__instance))
+                if (__instance.Networkpassenger != null)
                 {
-                    lastCheckTimes[__instance] = 0f;
-                }
-                if (Time.time - lastCheckTimes[__instance] < checkInterval)
-                {
-                    return;
-                }
-                lastCheckTimes[__instance] = Time.time;
-                var thrownController = __instance.GetComponent<ThrownObjectProjectileController>();
-                if (thrownController != null && thrownController.Networkpassenger != null)
-                {
-                    // Untrack the thrown object from persistence tracking
-                    PersistenceObjectsTracker.UntrackBaggedObject(thrownController.Networkpassenger);
-                    // Only recover objects, not characters/enemies/bosses
-                    if (thrownController.Networkpassenger.GetComponent<CharacterBody>() == null)
+                    lock (_throwTrackingLock)
                     {
-                        // Check if object is blacklisted from recovery
-                        if (thrownController.Networkpassenger == null)
+                        if (_objectsUndergoingThrow.Contains(__instance.Networkpassenger))
                         {
-                            Log.Warning("[ZonePatch] Passenger is null, skipping recovery check");
-                            return;
-                        }
-                        string passengerName = thrownController.Networkpassenger.name;
-                        if (!PluginConfig.IsRecoveryBlacklisted(passengerName))
-                        {
-                            CheckAndRecoverProjectile(thrownController, "MapZoneChecker");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[Recovery] ThrownObjectProjectileController destroyed. Safety clearing throw state for {__instance.Networkpassenger.name}");
+                            _objectsUndergoingThrow.Remove(__instance.Networkpassenger);
                         }
                     }
+                    RemoveFromProjectileState(__instance.Networkpassenger);
                 }
             }
         }

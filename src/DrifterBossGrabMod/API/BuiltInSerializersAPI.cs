@@ -103,19 +103,29 @@ namespace DrifterBossGrabMod.API
 
         public static IObjectSerializerPlugin ForCharacterBody() =>
             new ComponentAPISerializer<CharacterBody>(priority: 110)
-                .AddAction("baseMaxHealth", c => c.baseMaxHealth)
-                .AddAction("baseMaxShield", c => c.baseMaxShield)
-                .AddAction("baseDamage", c => c.baseDamage)
-                .AddAction("baseMoveSpeed", c => c.baseMoveSpeed)
-                .AddAction("baseAttackSpeed", c => c.baseAttackSpeed)
-                .AddAction("baseArmor", c => c.baseArmor)
-                .AddAction("level", c => c.level)
+                .AddAction("baseMaxHealth", c => c.baseMaxHealth, (c, v) => c.baseMaxHealth = v)
+                .AddAction("baseMaxShield", c => c.baseMaxShield, (c, v) => c.baseMaxShield = v)
+                .AddAction("baseRegen", c => c.baseRegen, (c, v) => c.baseRegen = v)
+                .AddAction("baseDamage", c => c.baseDamage, (c, v) => c.baseDamage = v)
+                .AddAction("baseMoveSpeed", c => c.baseMoveSpeed, (c, v) => c.baseMoveSpeed = v)
+                .AddAction("baseAttackSpeed", c => c.baseAttackSpeed, (c, v) => c.baseAttackSpeed = v)
+                .AddAction("baseArmor", c => c.baseArmor, (c, v) => c.baseArmor = v)
+                .AddAction("baseCrit", c => c.baseCrit, (c, v) => c.baseCrit = v)
+                .AddAction("level", c => c.level, (c, v) => c.level = v)
+                .AddAction("experience", c => c.experience, (c, v) => c.experience = v)
                 .AddAction("bodyFlags", c => c.bodyFlags, (c, v) => c.bodyFlags = v, asInt: true)
+                .AddAction("skinIndex", c => c.skinIndex, (c, v) => c.skinIndex = v)
+                .AddAction("subtitleNameToken", c => c.subtitleNameToken, (c, v) => c.subtitleNameToken = v)
                 .AddCustomAction(CaptureHealthComponent, RestoreHealthComponentAndRecalculateStats);
 
         public static IObjectSerializerPlugin ForCharacterMaster() =>
             new ComponentAPISerializer<CharacterMaster>(priority: 115)
-                .AddAction("teamIndex", c => c.teamIndex, (c, v) => c.teamIndex = v, asInt: true);
+                .AddAction("teamIndex", c => c.teamIndex, (c, v) => c.teamIndex = v, asInt: true)
+                .AddCustomAction(CaptureMasterInventory, RestoreMasterInventory);
+
+        public static IObjectSerializerPlugin ForInventory() =>
+            new ComponentAPISerializer<Inventory>(priority: 120)
+                .AddCustomAction((c, s) => CaptureInventory(c, s), (c, s) => RestoreInventory(c, s));
 
         public static IObjectSerializerPlugin ForJunkCubeController()
         {
@@ -417,6 +427,80 @@ namespace DrifterBossGrabMod.API
             catch (Exception ex)
             {
                 Log.Error($"[EntityStateMachine] Failed to restore state for {component.gameObject.name}: {ex.Message}");
+            }
+        }
+
+        private static void CaptureMasterInventory(CharacterMaster master, Dictionary<string, object> state)
+        {
+            if (master.inventory != null)
+            {
+                CaptureInventory(master.inventory, state, "inventory.");
+            }
+        }
+
+        private static void RestoreMasterInventory(CharacterMaster master, Dictionary<string, object> state)
+        {
+            if (master.inventory != null)
+            {
+                RestoreInventory(master.inventory, state, "inventory.");
+            }
+        }
+
+        private static void CaptureInventory(Inventory inventory, Dictionary<string, object> state, string prefix = "")
+        {
+            var itemStacks = new List<int>();
+            for (var i = 0; i < (int)ItemCatalog.itemCount; i++)
+            {
+                // Capture ALL items, not just permanent ones, to ensure summoned enemies
+                // (like Beetle Guards) keep their full inventory in the bag.
+                var count = inventory.GetItemCountPermanent((ItemIndex)i);
+                if (count > 0)
+                {
+                    itemStacks.Add(i);
+                    itemStacks.Add(count);
+                }
+            }
+            state[prefix + "itemStacks"] = itemStacks;
+
+            var equipment = inventory.GetEquipment(0, 0);
+            if (equipment.equipmentIndex != EquipmentIndex.None)
+            {
+                state[prefix + "equipmentIndex"] = (int)equipment.equipmentIndex;
+                state[prefix + "equipmentCharges"] = (int)equipment.charges;
+            }
+            
+            state[prefix + "infusionBonus"] = (int)inventory.infusionBonus;
+        }
+
+        private static void RestoreInventory(Inventory inventory, Dictionary<string, object> state, string prefix = "")
+        {
+            if (state.TryGetValue(prefix + "itemStacks", out var itemStacksObj) && itemStacksObj is List<int> itemStacksList)
+            {
+                // Clear existing items
+                for (int i = 0; i < (int)ItemCatalog.itemCount; i++)
+                {
+                    inventory.RemoveItemPermanent((ItemIndex)i, inventory.GetItemCountPermanent((ItemIndex)i));
+                }
+
+                for (var i = 0; i < itemStacksList.Count; i += 2)
+                {
+                    var itemIndex = (ItemIndex)itemStacksList[i];
+                    var count = itemStacksList[i + 1];
+                    inventory.GiveItemPermanent(itemIndex, count);
+                }
+            }
+
+            if (state.TryGetValue(prefix + "equipmentIndex", out var eqIndexObj))
+            {
+                var eqIndex = (EquipmentIndex)Convert.ToInt32(eqIndexObj);
+                var charges = state.TryGetValue(prefix + "equipmentCharges", out var eqCharges) ? Convert.ToInt32(eqCharges) : 0;
+                inventory.SetEquipmentIndex(eqIndex, false);
+                inventory.SetEquipment(new EquipmentState(eqIndex, Run.FixedTimeStamp.now, (byte)charges), 0, 0);
+            }
+
+            if (state.TryGetValue(prefix + "infusionBonus", out var infusionBonus))
+            {
+                inventory.infusionBonus = (uint)Convert.ToInt32(infusionBonus);
             }
         }
     }

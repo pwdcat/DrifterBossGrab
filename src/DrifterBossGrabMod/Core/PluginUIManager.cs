@@ -71,7 +71,13 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes, new InputFieldConfig { name = "Grabbable Components", category = "General" }));
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.ComponentChooserOption(PluginConfig.Instance.ComponentChooserDummyEntry, "Component Chooser", "Click to load and toggle components in the GrabbableComponentTypes list.", "General"));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.ComponentChooserSortModeEntry, new ChoiceConfig { name = "Chooser Sort Mode", category = "General" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist, new InputFieldConfig { name = "Recovery Blacklist" }));
+            
+            // Recovery Category
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableRecoveryFeature, new CheckBoxConfig { name = "Enable Recovery Feature", category = "Recovery" }));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.EnemyRecoveryMode, new ChoiceConfig { name = "Enemy Recovery Mode", category = "Recovery" }));
+
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist, new InputFieldConfig { name = "Recovery Blacklist", category = "Recovery" }));
+            
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist, new InputFieldConfig { name = "Keyword Blacklist" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs, new CheckBoxConfig { name = "Enable Debug Logs" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableConfigSync, new CheckBoxConfig { name = "Enable Config Sync" }));

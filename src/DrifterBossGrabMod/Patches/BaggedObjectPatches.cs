@@ -77,7 +77,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[SynchronizeBaggedObjectState] Called with targetObject={targetObject?.name ?? "null"}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}, hasAuthority={bagController.hasAuthority}");
+                Log.Debug($"[SynchronizeBaggedObjectState] Called with targetObject={targetObject?.name ?? "null"}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}, hasAuthority={bagController.hasAuthority}");
             }
             BaggedObject? baggedObject = null;
             if (targetObject != null)
@@ -105,13 +105,13 @@ namespace DrifterBossGrabMod.Patches
                     if (currentBaggedObj != targetObject)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
+                            Log.Debug($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
                 }
                 else if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
+                    Log.Debug($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
                 }
             }
             else if (bagController.hasAuthority)
@@ -123,14 +123,14 @@ namespace DrifterBossGrabMod.Patches
                     if (currentBaggedObj != targetObject)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
+                            Log.Debug($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {targetObject?.name ?? "null"}");
                         // Use cached reflection to call private OnSyncBaggedObject
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
                 }
                 else if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
+                    Log.Debug($"[SynchronizeBaggedObjectState] SKIPPED OnSyncBaggedObject - during passenger swap");
                 }
             }
 
@@ -425,7 +425,7 @@ namespace DrifterBossGrabMod.Patches
             // DIAGNOSTIC LOG: Track when we're creating a new BaggedObject state
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($"[FindOrCreateBaggedObjectState] Called with targetObject={(targetObject ? targetObject.name : "null")}, NetworkServer.active={NetworkServer.active}");
+                Log.Debug($"[FindOrCreateBaggedObjectState] Called with targetObject={(targetObject != null ? targetObject.name : "null")}, NetworkServer.active={NetworkServer.active}");
             }
 
             var bagStateMachine = EntityStateMachine.FindByCustomName(bagController.gameObject, "Bag");
@@ -433,7 +433,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {(targetObject ? targetObject.name : "null")}");
+                    Log.Debug($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {(targetObject != null ? targetObject.name : "null")}");
                 }
                 return bo;
             }
@@ -458,7 +458,7 @@ namespace DrifterBossGrabMod.Patches
                         if (currentCount >= effectiveCapacity)
                         {
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[FindOrCreateBaggedObjectState] Skipping - bag full ({currentCount}/{effectiveCapacity}) for {(targetObject ? targetObject.name : "null")}");
+                                Log.Debug($"[FindOrCreateBaggedObjectState] Skipping - bag full ({currentCount}/{effectiveCapacity}) for {(targetObject != null ? targetObject.name : "null")}");
                             return null;
                         }
                     }
@@ -476,7 +476,7 @@ namespace DrifterBossGrabMod.Patches
                         // DIAGNOSTIC LOG: Log when we create a new BaggedObject
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={(targetObject ? targetObject.name : "null")}, drifterBagController={(bagCtrl ? bagCtrl.name : "null")}");
+                            Log.Debug($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={(targetObject != null ? targetObject.name : "null")}, drifterBagController={(bagCtrl != null ? bagCtrl.name : "null")}");
                         }
                         targetStateMachine.SetState(newBaggedObject);
                         return newBaggedObject;

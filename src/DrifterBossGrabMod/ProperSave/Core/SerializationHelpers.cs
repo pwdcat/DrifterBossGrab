@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using DrifterBossGrabMod;
@@ -23,6 +24,11 @@ namespace DrifterBossGrabMod.ProperSave.Core
             if (value is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (value is string s) return s;
+
+            if (value is List<int> intList)
+            {
+                return string.Join(",", intList);
+            }
 
             return value.ToString() ?? "";
         }
@@ -86,6 +92,21 @@ namespace DrifterBossGrabMod.ProperSave.Core
 
             try
             {
+                if (typeStr != null && typeStr.Contains("System.Collections.Generic.List`1[[System.Int32"))
+                {
+                    var list = new List<int>();
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        var parts = value.Split(',');
+                        foreach (var part in parts)
+                        {
+                            if (int.TryParse(part, out var val))
+                                list.Add(val);
+                        }
+                    }
+                    return list;
+                }
+
                 switch (typeStr)
                 {
                     case "System.Boolean":

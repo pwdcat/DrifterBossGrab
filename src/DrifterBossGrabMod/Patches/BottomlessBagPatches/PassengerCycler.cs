@@ -166,20 +166,13 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (shouldTrack)
                     {
-                        var list = BagPatches.GetState(bagController).BaggedObjects;
+                        var state = BagPatches.GetState(bagController);
+                        var list = state.BaggedObjects;
                         int passengerInstanceId = seatPassenger.GetInstanceID();
-                        bool alreadyTracked = false;
-                        foreach (var existingObj in list)
-                        {
-                            if (existingObj != null && existingObj.GetInstanceID() == passengerInstanceId)
-                            {
-                                alreadyTracked = true;
-                                break;
-                            }
-                        }
-                        if (!alreadyTracked)
+                        if (!state.ContainsInstanceId(passengerInstanceId))
                         {
                             list.Add(seatPassenger);
+                            state.AddInstanceId(passengerInstanceId);
                         }
                         BagPatches.SetMainSeatObject(bagController, seatPassenger);
                         BagCarouselUpdater.UpdateCarousel(bagController, 0);
@@ -358,20 +351,13 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (shouldTrack)
                     {
-                        var list = BagPatches.GetState(bagController).BaggedObjects;
+                        var state = BagPatches.GetState(bagController);
+                        var list = state.BaggedObjects;
                         int passengerInstanceId = seatPassenger.GetInstanceID();
-                        bool alreadyTracked = false;
-                        foreach (var existingObj in list)
-                        {
-                            if (existingObj != null && existingObj.GetInstanceID() == passengerInstanceId)
-                            {
-                                alreadyTracked = true;
-                                break;
-                            }
-                        }
-                        if (!alreadyTracked)
+                        if (!state.ContainsInstanceId(passengerInstanceId))
                         {
                             list.Add(seatPassenger);
+                            state.AddInstanceId(passengerInstanceId);
                         }
                         BagPatches.SetMainSeatObject(bagController, seatPassenger);
                         BagCarouselUpdater.UpdateCarousel(bagController, 0);

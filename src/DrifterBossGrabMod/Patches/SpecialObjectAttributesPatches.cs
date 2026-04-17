@@ -63,12 +63,6 @@ namespace DrifterBossGrabMod.Patches
                 var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                 if (targetObject != null)
                 {
-                    // Ensure ModelStatePreserver is attached before the object is stashed and hidden
-                    if (PluginConfig.Instance.EnableObjectPersistence.Value && targetObject.GetComponent<ModelStatePreserver>() == null)
-                    {
-                        targetObject.AddComponent<ModelStatePreserver>();
-                    }
-
                     var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();
                     if (specialAttrs != null)
                     {

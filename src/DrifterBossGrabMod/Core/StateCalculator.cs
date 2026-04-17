@@ -150,6 +150,13 @@ namespace DrifterBossGrabMod.Core
 
             var aggregateState = new BaggedObjectStateData();
 
+            // Set targetObject to the current main passenger if available, to avoid 'null' references in logs
+            var mainPassenger = BaggedObjectPatches.GetMainSeatOccupant(controller);
+            if (mainPassenger != null)
+            {
+                aggregateState.targetObject = mainPassenger;
+            }
+
             // Aggregate mass with multiplier
             float totalMass = 0f;
             int validObjectCount = 0;

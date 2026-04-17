@@ -11,6 +11,7 @@ namespace DrifterBossGrabMod.Networking
         public List<NetworkInstanceId> baggedObjectNetIds = new List<NetworkInstanceId>();
         public List<string> ownerPlayerIds = new List<string>();
         public List<bool> collidersDisabled = new List<bool>();
+        public List<bool> autoUpdateModelTransforms = new List<bool>();
 
         public override void Serialize(NetworkWriter writer)
         {
@@ -33,6 +34,13 @@ namespace DrifterBossGrabMod.Networking
             for (int i = 0; i < count; i++)
             {
                 writer.Write(collidersDisabled[i]);
+            }
+
+            count = Math.Min(autoUpdateModelTransforms.Count, 1000);
+            writer.Write(count);
+            for (int i = 0; i < count; i++)
+            {
+                writer.Write(autoUpdateModelTransforms[i]);
             }
         }
 
@@ -57,6 +65,13 @@ namespace DrifterBossGrabMod.Networking
             for (int i = 0; i < count; i++)
             {
                 collidersDisabled.Add(reader.ReadBoolean());
+            }
+
+            count = Math.Min(reader.ReadInt32(), 1000);
+            autoUpdateModelTransforms.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                autoUpdateModelTransforms.Add(reader.ReadBoolean());
             }
         }
     }

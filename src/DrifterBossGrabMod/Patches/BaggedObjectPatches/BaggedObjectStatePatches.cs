@@ -70,7 +70,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         // Same object processed very recently - likely a re-entry loop
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[BaggedObject_OnEnter.Prefix] Blocking re-entry for {__instance.targetObject.name} (processed {(currentTime - _lastProcessTime):F3}s ago)");
+                            Log.Debug($"[BaggedObject_OnEnter.Prefix] Blocking re-entry for {__instance.targetObject.name} (processed {(currentTime - _lastProcessTime):F3}s ago)");
                         return false;
                     }
                 }
@@ -141,12 +141,12 @@ namespace DrifterBossGrabMod.Patches
                             if (currentCount >= effectiveCapacity)
                             {
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[BaggedObject_OnEnter.Prefix] Client BLOCKING grab of {targetObject.name} - bag full ({currentCount}/{effectiveCapacity})");
+                                    Log.Debug($"[BaggedObject_OnEnter.Prefix] Client BLOCKING grab of {targetObject.name} - bag full ({currentCount}/{effectiveCapacity})");
                                 return false;
                             }
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity}) but FLAGGING to block seat assignment");
+                        Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity}) but FLAGGING to block seat assignment");
 
                             InitializingPassenger = targetObject;
 
@@ -164,12 +164,12 @@ namespace DrifterBossGrabMod.Patches
                             if (currentCount > effectiveCapacity)
                             {
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[BaggedObject_OnEnter.Prefix] Client BLOCKING CYCLING of {targetObject!.name} - bag over capacity ({currentCount}/{effectiveCapacity})");
+                                    Log.Debug($"[BaggedObject_OnEnter.Prefix] Client BLOCKING CYCLING of {targetObject!.name} - bag over capacity ({currentCount}/{effectiveCapacity})");
                                 return false;
                             }
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for CYCLING of {targetObject!.name} (capacity={effectiveCapacity})");
+                        Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for CYCLING of {targetObject!.name} (capacity={effectiveCapacity})");
                         }
 
 
@@ -226,7 +226,7 @@ namespace DrifterBossGrabMod.Patches
                             
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                Log.Info($"[DEBUG] [BaggedObject_OnEnter] Restored main seat breakout timer for {targetObject!.name} to {savedState.elapsedBreakoutTime:F2}s");
+                                Log.Debug($"[DEBUG] [BaggedObject_OnEnter] Restored main seat breakout timer for {targetObject!.name} to {savedState.elapsedBreakoutTime:F2}s");
                             }
                         }
 
@@ -258,7 +258,7 @@ namespace DrifterBossGrabMod.Patches
                     if (effectiveCapacity > 1 && !isAlreadyTracked && !prioritize)
                     {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[BaggedObject_OnEnter.Postfix] Client skipping main seat population for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity})");
+                        Log.Debug($"[BaggedObject_OnEnter.Postfix] Client skipping main seat population for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity})");
                         // Skip main seat population - server will handle seat assignment via DoSync
                     }
                     else
@@ -281,10 +281,12 @@ namespace DrifterBossGrabMod.Patches
                 }
 
             // Also ensure it's in BaggedObjects list (always do this, regardless of main seat state)
-            var list = BagPatches.GetState(bagController).BaggedObjects;
+            var state = BagPatches.GetState(bagController);
+            var list = state.BaggedObjects;
             if (list != null && !list.Contains(targetObject))
             {
                 list.Add(targetObject);
+                state.AddInstanceId(targetObject.GetInstanceID());
                 BagHelpers.AddTracker(bagController, targetObject);
                 wasNewlyAddedToBag = true;
             }
@@ -455,7 +457,7 @@ namespace DrifterBossGrabMod.Patches
                     var currentStateName = bagStateMachine?.state?.GetType().Name ?? "null";
                     var currentTarget = bagStateMachine?.state is BaggedObject bagged ? bagged.targetObject : null;
 
-                    Log.Info($"[BaggedObject_OnExit.Prefix] CALLED: InstanceTarget={( __instance.targetObject ? __instance.targetObject.name : "null")}, StateTarget={(currentTarget ? currentTarget.name : "null")}, State={currentStateName}, MainPassenger={(currentMain ? currentMain.name : "null")}");
+                    Log.Debug($"[BaggedObject_OnExit.Prefix] CALLED: InstanceTarget={GetSafeName(__instance?.targetObject)}, StateTarget={GetSafeName(currentTarget)}, State={currentStateName}, MainPassenger={GetSafeName(currentMain)}");
                 }
 
                 // Check if we should keep the overrides (i.e. object is still being held/tracked)
@@ -466,7 +468,7 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Validate target object
-                if (__instance.targetObject == null)
+                if (__instance == null || __instance.targetObject == null)
                 {
                     Log.Warning("[BaggedObject_OnExit.Prefix] targetObject is null - likely deserialization failure or object destroyed");
                     NetworkUtils.LogObjectDetails(__instance?.outer?.gameObject, "BaggedObject_OnExit.Prefix");
@@ -599,6 +601,39 @@ namespace DrifterBossGrabMod.Patches
                 bool isDead = false;
                 if (__instance?.targetObject != null)
                 {
+                    var isInAdditionalSeat = (bagController != null) && BagHelpers.GetAdditionalSeat(bagController, __instance.targetObject) != null;
+                    if (!isInAdditionalSeat)
+                    {
+                        var restoreTarget = __instance.targetObject;
+                        var bagState = (bagController != null) ? BagPatches.GetState(bagController) : null;
+                        if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(restoreTarget, out var states))
+                        {
+                            BodyColliderCache.RestoreMovementColliders(states);
+                            bagState.DisabledCollidersByObject.Remove(restoreTarget, out _);
+                            
+                        }
+
+                        // Ensure visual model is synced for world transition
+                        var modelLocator = restoreTarget.GetComponent<ModelLocator>();
+                        var characterBody = restoreTarget.GetComponent<CharacterBody>();
+                        var restoredData = bagController != null ? BaggedObjectPatches.LoadObjectState(bagController, restoreTarget) : null;
+
+                        if (restoredData != null && characterBody != null)
+                        {
+                            restoredData.ApplyToCharacterBody(characterBody);
+                        }
+
+                        if (modelLocator != null)
+                        {
+                            modelLocator.autoUpdateModelTransform = restoredData != null ? restoredData.originalAutoUpdateModelTransform : true;
+                            modelLocator.dontDetatchFromParent = true;
+
+                            // Refresh visual state to clear pink textures or shader artifacts
+                            VisualRefreshUtility.Refresh(restoreTarget);
+                        }
+                        
+                        
+                    }
                     isDead = __instance.targetObject.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
                 }
 
@@ -612,7 +647,7 @@ namespace DrifterBossGrabMod.Patches
                     if (__instance != null)
                     {
                         TrySpawnJunkForSkippedOnExit(__instance, $"dead/dying {GetSafeName(__instance?.targetObject)}");
-                        RemoveWalkSpeedPenalty(__instance);
+                        RemoveWalkSpeedPenalty(__instance!);
                     }
                     return false;
                 }
@@ -732,7 +767,7 @@ namespace DrifterBossGrabMod.Patches
 
             // When we skip vanilla OnExit (targetObject is null/destroyed or dead),
             // manually trigger junk spawning since vanilla OnExit.ExecuteBody() won't run.
-            private static void TrySpawnJunkForSkippedOnExit(BaggedObject instance, string reason)
+            private static void TrySpawnJunkForSkippedOnExit(BaggedObject? instance, string reason)
             {
                 try
                 {
@@ -750,7 +785,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     // Method 2: Fallback to GetComponent via outer
-                    if (drifterBagController == null && instance.outer != null && instance.outer.gameObject != null)
+                    if (drifterBagController == null && instance != null && instance.outer != null && instance.outer.gameObject != null)
                     {
                         drifterBagController = instance.outer.gameObject.GetComponent<DrifterBagController>();
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -831,12 +866,35 @@ namespace DrifterBossGrabMod.Patches
                         }
                         else
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {GetSafeName(instance?.targetObject)}");
-                            drifterBagController!.ExecuteBody();
-                        }
+                            if (drifterBagController.baggedBody != null && instance != null && drifterBagController.baggedBody != instance.targetObject)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[TrySpawnJunk] >>> baggedBody changed (auto-promoted)! Manually spawning junk for {GetSafeName(instance?.targetObject)} to protect new passenger {GetSafeName(drifterBagController.baggedBody)}.");
+                                
+                                // Decrease invisibility for the actual target
+                                if (instance != null && instance.targetObject != null)
+                                {
+                                    var characterModel = instance.targetObject.GetComponent<ModelLocator>()?.modelTransform?.GetComponent<CharacterModel>();
+                                    if (characterModel != null) characterModel.invisibilityCount--;
+                                }
 
-                        drifterBagController.ResetBaggedObject();
+                                // Spawn junk manually based on the actual target's attributes
+                                var targetAttributes = (instance != null && instance.targetObject != null) ? instance.targetObject.GetComponent<SpecialObjectAttributes>() : null;
+                                var drifterBody = drifterBagController.GetComponent<CharacterBody>();
+                                Vector3 dropLocation = drifterBody ? drifterBody.corePosition : drifterBagController.transform.position;
+                                
+                                int scrapCount = 4; // Default fallback for medium enemies
+                                var junkCtrl = ReflectionCache.DrifterBagController.JunkController?.GetValue(drifterBagController) as JunkController;
+                                if (junkCtrl != null) junkCtrl.CallCmdGenerateJunkQuantity(dropLocation, scrapCount);
+                            }
+                            else
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {GetSafeName(instance?.targetObject)}");
+                                drifterBagController!.ExecuteBody();
+                                drifterBagController.ResetBaggedObject();
+                            }
+                        }
                     }
                     else if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {

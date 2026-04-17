@@ -30,8 +30,7 @@ namespace DrifterBossGrabMod.UI
         private int _cachedTargetInstanceId = 0;
         private bool _cacheValid = false;
 
-        // Static cache key for invalidation across all overlays
-        private static int _globalCacheVersion = 0;
+
 
         private void Awake()
         {
@@ -227,7 +226,7 @@ namespace DrifterBossGrabMod.UI
         // Invalidate all damage preview caches.
         public static void InvalidateAllCaches()
         {
-            _globalCacheVersion++;
+
 
             // Find all DamagePreviewOverlay instances and invalidate their caches
             var overlays = UnityEngine.Object.FindObjectsByType<DamagePreviewOverlay>(UnityEngine.FindObjectsSortMode.None);

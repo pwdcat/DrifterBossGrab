@@ -10,6 +10,12 @@ using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod
 {
+    public enum EnemyRecoveryMode
+    {
+        Kill = 0,
+        Recover = 1
+    }
+
     public enum ProjectileGrabbingMode
     {
         None = 0,
@@ -147,11 +153,17 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; } = null!;
         public ConfigEntry<float> SearchRadiusMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCombatDirectorPatches { get; private set; } = null!;
         public ConfigEntry<ComponentChooserSortMode> ComponentChooserSortModeEntry { get; private set; } = null!;
         public ConfigEntry<ComponentChooserDummy> ComponentChooserDummyEntry { get; private set; } = null!;
         public ConfigEntry<bool> EnableConfigSync { get; private set; } = null!;
         public ConfigEntry<PresetType> SelectedPreset { get; private set; } = null!;
         public ConfigEntry<PresetType> LastSelectedPreset { get; private set; } = null!;
+
+        // Recovery
+        public ConfigEntry<bool> EnableRecoveryFeature { get; private set; } = null!;
+        public ConfigEntry<EnemyRecoveryMode> EnemyRecoveryMode { get; private set; } = null!;
+
 
         // Bottomless Bag
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
@@ -366,6 +378,8 @@ namespace DrifterBossGrabMod
         internal ICachedValue<HashSet<string>> _blacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCache = null!;
         internal ICachedValue<HashSet<string>> _recoveryBlacklistCacheWithClones = null!;
+        internal ICachedValue<HashSet<string>> _persistenceBlacklistCache = null!;
+        internal ICachedValue<HashSet<string>> _persistenceBlacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _grabbableComponentTypesCache = null!;
         internal ICachedValue<HashSet<string>> _grabbableKeywordBlacklistCache = null!;
         private readonly List<IGrabbingStrategy> _grabbingStrategies = new List<IGrabbingStrategy>
@@ -383,6 +397,11 @@ namespace DrifterBossGrabMod
         {
             if (string.IsNullOrEmpty(name)) return false;
             return Instance._recoveryBlacklistCacheWithClones.Value.Contains(name);
+        }
+        public static bool IsPersistenceBlacklisted(string? name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            return Instance._persistenceBlacklistCacheWithClones.Value.Contains(name);
         }
         public static bool IsKeywordBlacklisted(string? name)
         {
@@ -492,6 +511,11 @@ namespace DrifterBossGrabMod
                 "Example: Teleporter1,Chest1,ShrineChance\n" +
                 "Automatically handles (Clone) - just enter the base name.\n" +
                 "Use debug logs to see object names, case-insensitive matching");
+
+            Instance.EnableRecoveryFeature = cfg.Bind("Recovery", "EnableRecoveryFeature", true, "Enable the out-of-bounds recovery system.\nWhen enabled, bagged items and projectiles that fall off the map are returned to the player or a safe spot.");
+            Instance.EnemyRecoveryMode = cfg.Bind("Recovery", "EnemyRecoveryMode", DrifterBossGrabMod.EnemyRecoveryMode.Recover, "Behavior for bagged enemies falling off the map:\n- Kill: Enemies die (vanilla style)\n- Recover: Enemies are returned safely");
+
+
             Instance.GrabbableComponentTypes = cfg.Bind("Hidden", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
                 "Comma-separated list of component type names that make objects grabbable.\n" +
                 "Objects must have at least one of these components to be grabbable.\n" +
@@ -503,12 +527,12 @@ namespace DrifterBossGrabMod
                 "Example: 'Master' prevents grabbing enemy masters\n" +
                 "Case-insensitive matching, partial matches allowed.");
             Instance.ComponentChooserSortModeEntry = cfg.Bind("Hidden", "ComponentChooserSortMode", ComponentChooserSortMode.ByFrequency,
-                "How to sort the components when clicking the Component Chooser.\n" +
-                "ByFrequency: Sorts by how many times the component appears in the scene.\n" +
-                "ByProximity: Sorts by how close the component's GameObject is to the player's camera.\n" +
-                "ByRaycast: Sorts by components hit directly by looking at them (raycast).");
+                "How to sort components when clicking on Component Chooser.\n" +
+                "- ByFrequency: Sorts by how many times component appears in scene.\n" +
+                "- ByProximity: Sorts by how close component's GameObject is to the player's camera.\n" +
+                "- ByRaycast: Sorts by components hit directly by looking at them (raycast).");
             Instance.ComponentChooserDummyEntry = cfg.Bind("Hidden", "ComponentChooserDummy", ComponentChooserDummy.SelectToToggle,
-                "Dummy setting for the Component Chooser UI.");
+                "Dummy setting for Component Chooser UI.");
             Instance.EnableConfigSync = cfg.Bind("General", "EnableConfigSync", true,
                 "Enable synchronization of configuration settings.\n" +
                 "Host: When enabled, sends config to clients when they join.\n" +
@@ -1212,9 +1236,37 @@ namespace DrifterBossGrabMod
                         .Where(s => !string.IsNullOrEmpty(s))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase));
 
+            Instance._grabbableComponentTypesCache = new LazyCachedValue<HashSet<string>>(() =>
+                string.IsNullOrEmpty(Instance.GrabbableComponentTypes.Value)
+                    ? new HashSet<string>()
+                    : Instance.GrabbableComponentTypes.Value.Split(',')
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToHashSet(StringComparer.Ordinal));
+
+            Instance._persistenceBlacklistCache = new LazyCachedValue<HashSet<string>>(() =>
+                string.IsNullOrEmpty(Instance.PersistenceBlacklist.Value)
+                    ? new HashSet<string>()
+                    : Instance.PersistenceBlacklist.Value.Split(',')
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+            Instance._persistenceBlacklistCacheWithClones = new LazyCachedValue<HashSet<string>>(() =>
+            {
+                var baseSet = Instance._persistenceBlacklistCache.Value;
+                var withClones = new HashSet<string>(baseSet, StringComparer.OrdinalIgnoreCase);
+                foreach (var item in baseSet)
+                {
+                    withClones.Add(item + Constants.CloneSuffix);
+                }
+                return withClones;
+            });
+
             // Wire invalidation on config changes
             Instance.BodyBlacklist.SettingChanged += (sender, args) => { Instance._blacklistCache.Invalidate(); Instance._blacklistCacheWithClones.Invalidate(); };
             Instance.RecoveryObjectBlacklist.SettingChanged += (sender, args) => { Instance._recoveryBlacklistCache.Invalidate(); Instance._recoveryBlacklistCacheWithClones.Invalidate(); };
+            Instance.PersistenceBlacklist.SettingChanged += (sender, args) => { Instance._persistenceBlacklistCache.Invalidate(); Instance._persistenceBlacklistCacheWithClones.Invalidate(); };
             Instance.GrabbableComponentTypes.SettingChanged += (sender, args) => Instance._grabbableComponentTypesCache.Invalidate();
             Instance.GrabbableKeywordBlacklist.SettingChanged += (sender, args) => Instance._grabbableKeywordBlacklistCache.Invalidate();
 

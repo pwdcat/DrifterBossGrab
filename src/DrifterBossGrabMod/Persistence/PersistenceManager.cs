@@ -8,8 +8,8 @@ namespace DrifterBossGrabMod
     // Delegates to specialized handlers for network messaging, scene handling, and object management.
     public static class PersistenceManager
     {
-        // Tracking for objects that should have TeleporterInteraction disabled
-        private static readonly HashSet<GameObject> _teleportersToDisable = new HashSet<GameObject>();
+        // Tracking for objects that are currently inside a Drifter bag
+        private static readonly HashSet<GameObject> _teleportersCurrentlyBagged = new HashSet<GameObject>();
         private static readonly object _teleporterLock = new object();
 
         // Initialization - delegate to object manager
@@ -114,35 +114,51 @@ namespace DrifterBossGrabMod
             return PersistenceObjectManager.IsObjectPersisted(obj);
         }
 
-        // Check if teleporter should be disabled
-        public static bool ShouldDisableTeleporter(GameObject obj)
+        // Check if teleporter is currently in a bag
+        public static bool IsTeleporterCurrentlyBagged(GameObject obj)
         {
             lock (_teleporterLock)
             {
-                return _teleportersToDisable.Contains(obj);
+                return _teleportersCurrentlyBagged.Contains(obj);
             }
         }
 
-        // Mark teleporter for disabling
-        public static void MarkTeleporterForDisabling(GameObject obj)
+        // Mark teleporter as currently bagged
+        public static void MarkTeleporterAsBagged(GameObject obj)
         {
             if (obj == null) return;
             lock (_teleporterLock)
             {
-                _teleportersToDisable.Add(obj);
+                _teleportersCurrentlyBagged.Add(obj);
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" Marked {obj.name} for teleporter disabling, total marked: {_teleportersToDisable.Count}");
+                    Log.Info($" Marked {obj.name} as bagged, total bagged: {_teleportersCurrentlyBagged.Count}");
                 }
             }
         }
 
-        // Clear teleporter disabling marks
-        public static void ClearTeleporterDisablingMarks()
+        // Unmark teleporter as bagged (when ejected)
+        public static void UnmarkTeleporterAsBagged(GameObject obj)
+        {
+            if (obj == null) return;
+            lock (_teleporterLock)
+            {
+                if (_teleportersCurrentlyBagged.Remove(obj))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Unmarked {obj.name} as bagged, total remaining: {_teleportersCurrentlyBagged.Count}");
+                    }
+                }
+            }
+        }
+
+        // Clear all bagged teleporters marks
+        public static void ClearBaggedTeleporters()
         {
             lock (_teleporterLock)
             {
-                _teleportersToDisable.Clear();
+                _teleportersCurrentlyBagged.Clear();
             }
         }
     }

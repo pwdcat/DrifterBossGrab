@@ -101,7 +101,8 @@ namespace DrifterBossGrabMod.ProperSave
                 Delegate.CreateDelegate(onLoadingStartedEvent.EventHandlerType!, onLoadingStartedMethod));
 
             _initialized = true;
-            Log.Info($"[ProperSave] Integration initialized with {_serializerPlugins.Count} plugins");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Integration initialized with {_serializerPlugins.Count} plugins");
         }
 
         public static void Cleanup()
@@ -314,7 +315,8 @@ namespace DrifterBossGrabMod.ProperSave
             if (plugin == null) return;
             _serializerPlugins.Add(plugin);
             _serializerPlugins.Sort((a, b) => b.Priority.CompareTo(a.Priority));
-            Log.Info($"[Serializer] Registered plugin: {plugin.GetType().Name} (Priority: {plugin.Priority})");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[Serializer] Registered plugin: {plugin.GetType().Name} (Priority: {plugin.Priority})");
         }
 
         public static List<IObjectSerializerPlugin> GetSerializerPlugins()
@@ -468,7 +470,7 @@ namespace DrifterBossGrabMod.ProperSave
                     Log.Info($"[CaptureObjectData] Capturing body/object {obj.name}");
             }
 
-            string? masterName = null;
+            string? masterName = master?.name;
 
             // Check if object is currently in a seat
             bool? isMainSeatObject = null;
@@ -700,7 +702,8 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             // Now restore all objects after they're spawned
-            Log.Info($"[ProperSave] Spawning complete, restoring {objectsToRestore.Count} objects...");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Spawning complete, restoring {objectsToRestore.Count} objects...");
             Run.instance.StartCoroutine(RestoreAllObjects(objectsToRestore));
         }
 
@@ -736,14 +739,16 @@ namespace DrifterBossGrabMod.ProperSave
                         {
                             objectToAutoGrab = body.gameObject;
                             isCharacterMaster = false;
-                            Log.Info($"[RestoreAllObjects] Auto-grabbing body {body.name} from master {master.name}");
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Debug($"[RestoreAllObjects] Auto-grabbing body {body.name} from master {master.name}");
                         }
                     }
                 }
 
                 try
                 {
-                    Log.Info($"[RestoreAllObjects] Restoring {obj.name} (frame {Time.frameCount})");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[RestoreAllObjects] Restoring {obj.name} (frame {Time.frameCount})");
 
                     // Refresh BodyColliderCache to ensure it has valid collider references
                     var colliderCache = obj.GetComponent<BodyColliderCache>();
@@ -758,9 +763,9 @@ namespace DrifterBossGrabMod.ProperSave
 
                     // Check health before restoration
                     var healthBefore = obj.GetComponent<RoR2.HealthComponent>();
-                    if (healthBefore != null)
+                    if (healthBefore != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[RestoreAllObjects] Health BEFORE restoration: health={healthBefore.health}, fullHealth={healthBefore.fullHealth}");
+                        Log.Debug($"[RestoreAllObjects] Health BEFORE restoration: health={healthBefore.health}, fullHealth={healthBefore.fullHealth}");
                     }
 
                     // Now restore the object state
@@ -768,9 +773,9 @@ namespace DrifterBossGrabMod.ProperSave
 
                     // Check health after restoration
                     var healthAfter = obj.GetComponent<RoR2.HealthComponent>();
-                    if (healthAfter != null)
+                    if (healthAfter != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[RestoreAllObjects] Health AFTER restoration: health={healthAfter.health}, fullHealth={healthAfter.fullHealth}, healthFraction={healthAfter.healthFraction}");
+                        Log.Debug($"[RestoreAllObjects] Health AFTER restoration: health={healthAfter.health}, fullHealth={healthAfter.fullHealth}, healthFraction={healthAfter.healthFraction}");
                     }
 
                     if (!isCharacterMaster)
@@ -791,7 +796,8 @@ namespace DrifterBossGrabMod.ProperSave
                 }
             }
 
-            Log.Info($"[ProperSave] Restoration complete: {successCount} success, {failureCount} failed");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Restoration complete: {successCount} success, {failureCount} failed");
         }
 
         private static void ScheduleAutoGrab(GameObject obj, string ownerPlayerId)
@@ -863,20 +869,53 @@ namespace DrifterBossGrabMod.ProperSave
                 {
                     var plugin = _serializerPlugins.FirstOrDefault(p => p.PluginName == entry.PluginName);
 
-                    if (plugin != null && plugin.CanHandle(obj))
+                    if (plugin != null)
                     {
-                        var state = new Dictionary<string, object>();
+                        GameObject targetObj = obj;
 
-                        foreach (var value in entry.Values)
+                        if (!plugin.CanHandle(targetObj))
                         {
-                            var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
-                            if (deserializedValue != null)
+                            // If dealing with a CharacterBody but the plugin wants a master
+                            var body = targetObj.GetComponent<RoR2.CharacterBody>();
+                            if (body != null && body.master != null && plugin.CanHandle(body.master.gameObject))
                             {
-                                state[value.Key] = deserializedValue;
+                                targetObj = body.master.gameObject;
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ProperSave] Cross-resolved CharacterBody to CharacterMaster {body.master.name} for plugin '{entry.PluginName}'");
+                            }
+                            else
+                            {
+                                // If dealing with a CharacterMaster but the plugin wants a body
+                                var master = targetObj.GetComponent<RoR2.CharacterMaster>();
+                                if (master != null && master.GetBody() != null && plugin.CanHandle(master.GetBody().gameObject))
+                                {
+                                    targetObj = master.GetBody().gameObject;
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[ProperSave] Cross-resolved CharacterMaster to CharacterBody {master.GetBody().name} for plugin '{entry.PluginName}'");
+                                }
                             }
                         }
 
-                        plugin.RestoreState(obj, state);
+                        if (plugin.CanHandle(targetObj))
+                        {
+                            var state = new Dictionary<string, object>();
+
+                            foreach (var value in entry.Values)
+                            {
+                                var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
+                                if (deserializedValue != null)
+                                {
+                                    state[value.Key] = deserializedValue;
+                                }
+                            }
+
+                            plugin.RestoreState(targetObj, state);
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[ProperSave] Plugin '{entry.PluginName}' handled {targetObj.name}, restored {state.Count} values");
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)

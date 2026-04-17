@@ -777,7 +777,7 @@ namespace DrifterBossGrabMod.UI
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[BaggedObjectCarousel] Health info for {passenger.name}: health={healthComponent.health}, fullHealth={healthComponent.fullHealth}, fullCombinedHealth={healthComponent.fullCombinedHealth}, baseMaxHealth={body.baseMaxHealth}");
+                        Log.Debug($"[BaggedObjectCarousel] Health info for {passenger.name}: health={healthComponent.health}, fullHealth={healthComponent.fullHealth}, fullCombinedHealth={healthComponent.fullCombinedHealth}, baseMaxHealth={body.baseMaxHealth}");
                     }
 
                     if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
@@ -796,7 +796,7 @@ namespace DrifterBossGrabMod.UI
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[BaggedObjectCarousel] SpecialObjectAttributes for {passenger!.name}: durability={specialObjectAttributes.durability}, maxDurability={specialObjectAttributes.maxDurability}");
+                        Log.Debug($"[BaggedObjectCarousel] SpecialObjectAttributes for {passenger!.name}: durability={specialObjectAttributes.durability}, maxDurability={specialObjectAttributes.maxDurability}");
                     }
 
                     if (baggedCardController.healthBar != null && baggedCardController.healthBar.altSource == specialObjectAttributes)
@@ -945,7 +945,7 @@ namespace DrifterBossGrabMod.UI
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[BaggedObjectCarousel] Health info for {passenger!.name}: health={healthComponent!.health}, fullHealth={healthComponent!.fullHealth}, fullCombinedHealth={healthComponent!.fullCombinedHealth}, baseMaxHealth={body!.baseMaxHealth}");
+                        Log.Debug($"[BaggedObjectCarousel] Health info for {passenger!.name}: health={healthComponent!.health}, fullHealth={healthComponent!.fullHealth}, fullCombinedHealth={healthComponent!.fullCombinedHealth}, baseMaxHealth={body!.baseMaxHealth}");
                     }
 
                     if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)

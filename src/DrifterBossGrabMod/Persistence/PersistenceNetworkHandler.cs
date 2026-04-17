@@ -61,6 +61,38 @@ namespace DrifterBossGrabMod
                             }
                         }
                         message.collidersDisabled.Add(collidersDisabled);
+
+                        // Capture original autoUpdateModelTransform state
+                        var autoUpdate = true;
+                        
+                        // Find state data
+                        BaggedObjectStateData? state = null;
+                        if (owner != null)
+                        {
+                            state = BaggedObjectPatches.LoadObjectState(owner, obj);
+                        }
+                        else
+                        {
+                            foreach (var ctrl in BagPatches.GetAllControllers())
+                            {
+                                state = BaggedObjectPatches.LoadObjectState(ctrl, obj);
+                                if (state != null) break;
+                            }
+                        }
+
+                        if (state != null)
+                        {
+                            autoUpdate = state.originalAutoUpdateModelTransform;
+                        }
+                        else
+                        {
+                            // Fallback to current state if no data exists
+                            var ml = obj.GetComponent<ModelLocator>();
+                            if (ml != null) autoUpdate = ml.autoUpdateModelTransform;
+                        }
+                        
+                        message.autoUpdateModelTransforms.Add(autoUpdate);
+                        
                     }
                 }
             }
@@ -111,14 +143,32 @@ namespace DrifterBossGrabMod
                     return;
                 }
 
-                // Process the object - add to persistence and add ModelStatePreserver
-                var existingPreserver = obj.GetComponent<ModelStatePreserver>();
-                var modelLocator = obj.GetComponent<ModelLocator>();
-
-                if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null)
+                // Only patch stale references for special objects (teleporters, etc) during scene restoration, not during cycling/network sync
+                if (PersistenceSceneHandler.IsRestoringFromSceneChange())
                 {
-                    obj.AddComponent<ModelStatePreserver>();
+                    PersistenceSceneHandler.HandleSpecialObjectRestoration(obj, duringSceneRestoration: true);
                 }
+                else
+                {
+                    // During cycling, just register as secondary without applying state changes
+                    var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
+                    if (teleporterInteraction != null)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
+                        }
+                        MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
+                    }
+                }
+
+                // Refresh visual state to clear pink textures or shader artifacts after stage transition
+                if (PersistenceSceneHandler.IsRestoringFromSceneChange())
+                {
+                    VisualRefreshUtility.Refresh(obj);
+                }
+
+                var modelLocator = obj.GetComponent<ModelLocator>();
 
                 PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
 
@@ -154,9 +204,10 @@ namespace DrifterBossGrabMod
                     }
                 }
 
-                if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
+                if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null)
                 {
-                    modelLocator.autoUpdateModelTransform = true;
+                    // Use restored state from message instead of forcing true
+                    modelLocator.autoUpdateModelTransform = (i < message.autoUpdateModelTransforms.Count) ? message.autoUpdateModelTransforms[i] : true;
                 }
             }
         }
@@ -209,30 +260,34 @@ namespace DrifterBossGrabMod
             var bagState = BagPatches.GetState(controller);
             if (bagState == null) return;
 
-            var currentObjects = bagState.BaggedObjects;
-            if (currentObjects == null) return;
-
-            var receivedObjects = new List<GameObject>();
-            if (msg.baggedIds != null)
+            if (!NetworkServer.active)
             {
-                foreach (var netId in msg.baggedIds)
+                var currentObjects = bagState.BaggedObjects;
+                if (currentObjects != null)
                 {
-                    var obj = FindObjectByNetId(new NetworkInstanceId(netId));
-                    if (obj != null)
+                    var receivedObjects = new List<GameObject>();
+                    if (msg.baggedIds != null)
                     {
-                        receivedObjects.Add(obj);
+                        foreach (var netId in msg.baggedIds)
+                        {
+                            var obj = FindObjectByNetId(new NetworkInstanceId(netId));
+                            if (obj != null)
+                            {
+                                receivedObjects.Add(obj);
+                            }
+                        }
                     }
-                }
-            }
 
-            foreach (var obj in currentObjects.ToList())
-            {
-                if (obj == null || !obj || !receivedObjects.Contains(obj))
-                {
-                    if (obj != null)
+                    foreach (var obj in currentObjects.ToList())
                     {
-                        currentObjects.Remove(obj);
-                        bagState.RemoveInstanceId(obj.GetInstanceID());
+                        if (obj == null || !obj || !receivedObjects.Contains(obj))
+                        {
+                            if (obj != null)
+                            {
+                                currentObjects.Remove(obj);
+                                bagState.RemoveInstanceId(obj.GetInstanceID());
+                            }
+                        }
                     }
                 }
             }
@@ -244,19 +299,18 @@ namespace DrifterBossGrabMod
                     var obj = FindObjectByNetId(new NetworkInstanceId(netId));
                     if (obj != null)
                     {
+                        /* ModelStatePreserver removed - model stability handled by autoUpdateModelTransform below */
                         var modelLocator = obj.GetComponent<ModelLocator>();
-                        var existingPreserver = obj.GetComponent<ModelStatePreserver>();
  
-                        if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && modelLocator.modelTransform != null && existingPreserver == null)
+                        if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null)
                         {
-                            obj.AddComponent<ModelStatePreserver>();
+                            // Restore state from stored state data if available
+                            var state = BaggedObjectPatches.LoadObjectState(controller, obj);
+                            if (state != null)
+                            {
+                                modelLocator.autoUpdateModelTransform = state.originalAutoUpdateModelTransform;
+                            }
                         }
- 
-                        if (PluginConfig.Instance.EnableObjectPersistence.Value && modelLocator != null && !modelLocator.autoUpdateModelTransform)
-                        {
-                            modelLocator.autoUpdateModelTransform = true;
-                        }
- 
                         // Apply collider disabled state if needed
                         int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
                         if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
@@ -277,7 +331,6 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
- 
             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection);
         }
 

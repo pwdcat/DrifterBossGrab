@@ -113,7 +113,8 @@ namespace DrifterBossGrabMod.Networking
         [NetworkMessageHandler(msgType = Constants.Network.SyncConfigMessageType, client = true, server = false)]
         public static void HandleSyncConfigMessage(NetworkMessage netMsg)
         {
-            // Check if client has config sync enabled
+            if (NetworkServer.active) return;
+
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)

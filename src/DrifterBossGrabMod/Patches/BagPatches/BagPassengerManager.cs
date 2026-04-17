@@ -19,6 +19,7 @@ namespace DrifterBossGrabMod.Patches
     // Provides static helper methods for managing bag passengers and mass calculation
     public static class BagPassengerManager
     {
+        private static string GetSafeName(UnityEngine.Object? obj) => obj ? obj!.name : "null";
         // Cached reflection fields - using centralized ReflectionCache
         private static readonly FieldInfo _baggedMassField = ReflectionCache.DrifterBagController.BaggedMass;
         private static readonly FieldInfo _walkSpeedModifierField = ReflectionCache.BaggedObject.WalkSpeedModifier;
@@ -131,7 +132,7 @@ namespace DrifterBossGrabMod.Patches
                             try
                             {
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[RemoveBaggedObject] About to eject passenger from main seat: {obj.name}");
+                                    Log.Info($"[RemoveBaggedObject] About to eject passenger from main seat: {GetSafeName(obj)}");
 
                                 controller.vehicleSeat.EjectPassenger(obj);
 
@@ -187,10 +188,8 @@ namespace DrifterBossGrabMod.Patches
             {
                 BagHelpers.CleanupEmptyAdditionalSeats(controller);
             }
-
-            // Clean up object state when object is truly removed
-            // Keep state if object is moving to additional seat
-            if (isDestroying || isThrowing)
+            
+            if (isDestroying || (isThrowing == false && !DrifterBossGrabPlugin.IsSwappingPassengers)) 
             {
                 if (controller != null && obj != null)
                 {
@@ -203,8 +202,10 @@ namespace DrifterBossGrabMod.Patches
                 }
                 
                 // Clean up initialization tracking
-                BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(obj);
+                if (obj != null) BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(obj);
             }
+            
+            
 
             if (obj != null)
             {
@@ -271,12 +272,7 @@ namespace DrifterBossGrabMod.Patches
 
               if (obj != null && !isDestroying && !isThrowing)
               {
-                  var preserver = obj.GetComponent<ModelStatePreserver>();
-                  if (preserver != null)
-                  {
-                      preserver.RestoreOriginalState(false);
-                      UnityEngine.Object.Destroy(preserver);
-                  }
+                  /* ModelStatePreserver removed - replaced by BodyColliderCache below */
 
                   // Ensure colliders are restored when removing ungrabbable enemies from the bag manually
                   if (controller != null)
@@ -291,6 +287,26 @@ namespace DrifterBossGrabMod.Patches
                           {
                               Log.Info($"[RemoveBaggedObject] Restored movement colliders for ungrabbable enemy {obj.name}");
                           }
+                      }
+                  }
+              }
+
+
+              // Re-enable teleporter interaction when ejected from bag
+              if (PluginConfig.Instance.EnableObjectPersistence.Value)
+              {
+                  var teleporterInteraction = (obj != null) ? obj.GetComponent<RoR2.TeleporterInteraction>() : null;
+                  if (teleporterInteraction != null && obj != null)
+                  {
+                      PersistenceManager.UnmarkTeleporterAsBagged(obj);
+                      teleporterInteraction.enabled = true;
+                      MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
+                      
+                      // Restore the primary singleton reference in case OnEnable overwrote it
+                      var primary = MultiTeleporterTracker.GetPrimary();
+                      if (primary != null)
+                      {
+                          TeleporterInteraction.instance = primary;
                       }
                   }
               }

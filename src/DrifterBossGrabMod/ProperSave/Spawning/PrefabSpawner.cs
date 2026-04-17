@@ -65,7 +65,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                 if (prefab != null)
                 {
-                    Log.Info($"[PrefabSpawner] Found prefab by AssetId in Resources: {prefab.name}");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[PrefabSpawner] Found prefab by AssetId in Resources: {prefab.name}");
                 }
             }
 
@@ -104,13 +105,15 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (characterMaster != null)
             {
-                Log.Info($"[PrefabSpawner] Found CharacterMaster {spawnedObject.name}");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[PrefabSpawner] Found CharacterMaster {spawnedObject.name}");
 
                 // Get saved team index from save data, default to Monster team
                 var savedTeamIndex = GetSavedTeamIndex(objData);
                 characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
-                Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                   Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
                 // Find the body prefab for this master
                 var bodyPrefab = BodyCatalog.FindBodyPrefab(objData.PrefabName);
@@ -121,7 +124,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             }
 
             // Spawn the master on network BEFORE spawning body
-            Log.Info($"[PrefabSpawner] Spawning master on network...");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[PrefabSpawner] Spawning master on network...");
             if (NetworkServer.active)
             {
                 NetworkServer.Spawn(spawnedObject);
@@ -134,14 +138,18 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             // Now spawn the body (after master is network-spawned)
             if (characterMaster != null)
             {
-                Log.Info($"[PrefabSpawner] Spawning body from master...");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[PrefabSpawner] Spawning body from master...");
                 spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
 
                 if (spawnedBody != null)
                 {
-                    Log.Info($"[PrefabSpawner] Spawned body {spawnedBody.name} from master {spawnedObject.name}");
-                    Log.Info($"[PrefabSpawner] Body {spawnedBody.name} master: {spawnedBody.master?.name ?? "null"}");
-                    Log.Info($"[PrefabSpawner] Master {spawnedObject.name} body: {characterMaster.GetBody()?.name ?? "null"}");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[PrefabSpawner] Spawned body {spawnedBody.name} from master {spawnedObject.name}");
+                        Log.Info($"[PrefabSpawner] Body {spawnedBody.name} master: {spawnedBody.master?.name ?? "null"}");
+                        Log.Info($"[PrefabSpawner] Master {spawnedObject.name} body: {characterMaster.GetBody()?.name ?? "null"}");
+                    }
 
                     spawnedObject = spawnedBody.gameObject;
                 }
@@ -157,7 +165,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedObject, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
             }
 
-            Log.Info($"[PrefabSpawner] Successfully spawned prefab: {spawnedObject.name}");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[PrefabSpawner] Successfully spawned prefab: {spawnedObject.name}");
             return spawnedObject;
         }
 
@@ -213,7 +222,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return;
             }
 
-            Log.Info($"[RestoreObjectState] Restoring state for {spawnedObject.name} (ID: {instanceId}), {objData.ComponentStates.Count} component entries");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[RestoreObjectState] Restoring state for {spawnedObject.name} (ID: {instanceId}), {objData.ComponentStates.Count} component entries");
 
             EnsureSOAFromSaveData(spawnedObject, objData);
 
@@ -225,7 +235,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                 if (plugin != null && plugin.CanHandle(spawnedObject))
                 {
-                    Log.Info($"[RestoreObjectState] Processing plugin '{entry.PluginName}' for {spawnedObject.name} with {entry.Values.Count} values");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[RestoreObjectState] Processing plugin '{entry.PluginName}' for {spawnedObject.name} with {entry.Values.Count} values");
 
                     var state = new System.Collections.Generic.Dictionary<string, object>();
 
@@ -235,7 +246,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                         if (deserializedValue != null)
                         {
                             state[value.Key] = deserializedValue;
-                            Log.Info($"[RestoreObjectState]   - {value.Key} = {deserializedValue} (type: {value.Type})");
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[RestoreObjectState]   - {value.Key} = {deserializedValue} (type: {value.Type})");
                         }
                     }
 
@@ -249,7 +261,8 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             // Mark this object as restored
             _restoredObjectIds.Add(instanceId);
-            Log.Info($"[RestoreObjectState] Finished restoring state for {spawnedObject.name} (marked ID {instanceId} as restored)");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Info($"[RestoreObjectState] Finished restoring state for {spawnedObject.name} (marked ID {instanceId} as restored)");
         }
 
         private static void PositionObjectNearPlayer(GameObject obj, string? ownerPlayerId)

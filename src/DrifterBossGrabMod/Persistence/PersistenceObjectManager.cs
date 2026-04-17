@@ -76,14 +76,16 @@ namespace DrifterBossGrabMod
                     }
                     // Move to persistence container
                     obj.transform.SetParent(_persistenceContainer!.transform, true);
-                    // Also persist the model if it exists and ModelLocator is enabled
+                    // Keep the model attached to the root instead of the container base
                     var modelLocator = obj.GetComponent<ModelLocator>();
-                    if (modelLocator != null && modelLocator.enabled && modelLocator.modelTransform != null)
+                    if (modelLocator != null && modelLocator.modelTransform != null)
                     {
+                        modelLocator.dontDetatchFromParent = true;
                         var modelObj = modelLocator.modelTransform.gameObject;
-                        if (modelObj != obj) // Only if it's a separate object
+                        
+                        if (modelObj.transform.parent != obj.transform)
                         {
-                            modelObj.transform.SetParent(_persistenceContainer.transform, true);
+                            modelObj.transform.SetParent(obj.transform, true);
                         }
                     }
                     // Also persist the master for CharacterBody objects
@@ -121,11 +123,12 @@ namespace DrifterBossGrabMod
                         SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
                     }
 
-                    // Also remove model from persistence if it exists
+                    // Clean up model state if needed
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null)
                     {
                         var modelObj = modelLocator.modelTransform.gameObject;
+                        // If it was somehow moved to the container base, move it back to active scene
                         if (modelObj.transform.parent == _persistenceContainer!.transform)
                         {
                             modelObj.transform.SetParent(null, true);
@@ -208,8 +211,8 @@ namespace DrifterBossGrabMod
             {
                 return false;
             }
-            // Check blacklist
-            if (PluginConfig.IsBlacklisted(obj.name))
+            // Check persistence blacklist
+            if (PluginConfig.IsPersistenceBlacklisted(obj.name))
             {
                 return false;
             }

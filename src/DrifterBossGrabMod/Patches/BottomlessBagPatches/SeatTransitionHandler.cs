@@ -39,7 +39,6 @@ namespace DrifterBossGrabMod.Patches
                     if (stateData.targetObject == null) stateData.CalculateFromObject(actualMainPassenger, bagController);
                     stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                     BaggedObjectPatches.SaveObjectState(bagController, actualMainPassenger, stateData);
-                    
                 }
             }
 
@@ -342,7 +341,6 @@ namespace DrifterBossGrabMod.Patches
                         if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
                         stateData.CaptureBreakoutStateFromBaggedObject(currentState);
                         BaggedObjectPatches.SaveObjectState(bagController, currentObject, stateData);
-
                     }
                 }
 

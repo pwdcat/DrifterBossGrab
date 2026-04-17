@@ -49,16 +49,21 @@ namespace DrifterBossGrabMod
         private BottomlessBagFeature? _bottomlessBagFeature;
         private PersistenceFeature? _persistenceFeature;
         private BalanceFeature? _balanceFeature;
+        private RecoveryFeature? _recoveryFeature;
 
         private Harmony? _drifterGrabHarmony;
         private Harmony? _bottomlessBagHarmony;
         private Harmony? _persistenceHarmony;
         private Harmony? _balanceHarmony;
-
+        private Harmony? _recoveryHarmony;
+        
         private bool _wasBottomlessBagEnabled;
         private bool _wasPersistenceEnabled;
         private bool _wasBalanceEnabled;
         private bool _wasDrifterGrabEnabled;
+        private bool _wasRecoveryEnabled;
+
+
 
 
         private void InitializeInstance()
@@ -92,10 +97,9 @@ namespace DrifterBossGrabMod
             _balanceFeature = new BalanceFeature();
             _balanceFeature.Initialize(_balanceHarmony);
 
-            _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
-            _wasPersistenceEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
-            _wasBalanceEnabled = PluginConfig.Instance.EnableBalance.Value;
-            _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
+            _recoveryHarmony = new Harmony(Constants.PluginGuid + ".recovery");
+            _recoveryFeature = new RecoveryFeature();
+            _recoveryFeature.Initialize(_recoveryHarmony);
 
             PersistenceManager.Initialize();
         }
@@ -127,6 +131,11 @@ namespace DrifterBossGrabMod
 
             ProperSave.ProperSaveIntegration.Initialize();
             ProperSave.Spawning.ObjectSpawner.Initialize();
+
+            // Might make future teleporter feature
+            new Harmony(Constants.PluginGuid + ".teleportersafety").PatchAll(typeof(Patches.TeleporterSafetyPatches));
+
+            new Harmony(Constants.PluginGuid + ".combatdirector").PatchAll(typeof(Patches.CombatDirectorPatches));
         }
 
         private void RegisterGameEvents()
@@ -262,6 +271,7 @@ namespace DrifterBossGrabMod
             _bottomlessBagFeature?.Cleanup(_bottomlessBagHarmony!);
             _persistenceFeature?.Cleanup(_persistenceHarmony!);
             _balanceFeature?.Cleanup(_balanceHarmony!);
+            _recoveryFeature?.Cleanup(_recoveryHarmony!);
         }
 
         private void StopCoroutines()

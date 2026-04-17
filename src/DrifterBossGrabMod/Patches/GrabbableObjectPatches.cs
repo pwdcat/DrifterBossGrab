@@ -151,23 +151,6 @@ namespace DrifterBossGrabMod.Patches
             return PluginConfig.IsGrabbable(obj.transform.root.gameObject) ? obj.transform.root.gameObject : obj;
         }
         
-        // Helper method to get the full hierarchy path of a GameObject for debugging
-        private static string GetGameObjectPath(GameObject obj)
-        {
-            if (obj == null) return "null";
-            
-            var path = obj.name;
-            var current = obj.transform.parent;
-            
-            // Build path from bottom up
-            while (current != null && path.Length < 200) // Limit path length
-            {
-                path = current.name + "/" + path;
-                current = current.parent;
-            }
-            
-            return path;
-        }
         
         public static void AddSpecialObjectAttributesToGrabbableObject(GameObject obj)
         {
