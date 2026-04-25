@@ -79,14 +79,14 @@ namespace DrifterBossGrabMod
 
     public enum PresetType
     {
-        Vanilla,       // All features disabled, vanilla behavior
-        Intended,      // Boss grab only
-        Minimal,       // Basic grabbing (boss + NPC + environment) without extra features
-        Default,       // All features in DrifterGrabFeature + bottomless bag and persistence
-        Balance,       // Default + balance features
-        Hardcore,      // Boss grab with strict balance (limited capacity, no persistence)
-        Caveman,       // INF capacity, balance on, most broken settings, able to grab everything
-        Custom         // User has modified settings
+        Vanilla,
+        Intended,
+        Minimal,
+        Default,
+        Balance,
+        Hardcore,
+        Caveman,
+        Custom
     }
 
     public interface ICachedValue<T>
@@ -160,12 +160,9 @@ namespace DrifterBossGrabMod
         public ConfigEntry<PresetType> SelectedPreset { get; private set; } = null!;
         public ConfigEntry<PresetType> LastSelectedPreset { get; private set; } = null!;
 
-        // Recovery
         public ConfigEntry<bool> EnableRecoveryFeature { get; private set; } = null!;
         public ConfigEntry<EnemyRecoveryMode> EnemyRecoveryMode { get; private set; } = null!;
 
-
-        // Bottomless Bag
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
@@ -177,7 +174,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> AutoPromoteMainSeat { get; private set; } = null!;
         public ConfigEntry<bool> PrioritizeMainSeat { get; private set; } = null!;
 
-        // Persistence
         public ConfigEntry<bool> EnableObjectPersistence { get; private set; } = null!;
         public ConfigEntry<bool> EnableAutoGrab { get; private set; } = null!;
         public ConfigEntry<bool> PersistBaggedBosses { get; private set; } = null!;
@@ -186,12 +182,10 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> PersistenceBlacklist { get; private set; } = null!;
         public ConfigEntry<float> AutoGrabDelay { get; private set; } = null!;
 
-        // HUD
         public ConfigEntry<bool> EnableCarouselHUD { get; private set; } = null!;
         public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
 
-        // HUD - Slot UI Controls
         public ConfigEntry<HudElementType> SelectedHudElement { get; private set; } = null!;
         public ConfigEntry<float> CenterSlotX { get; private set; } = null!;
         public ConfigEntry<float> CenterSlotY { get; private set; } = null!;
@@ -212,14 +206,12 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> SideSlotShowHealthBar { get; private set; } = null!;
         public ConfigEntry<bool> SideSlotShowSlotNumber { get; private set; } = null!;
 
-        // HUD - Bag Info UI
         public ConfigEntry<bool> EnableBaggedObjectInfo { get; private set; } = null!;
         public ConfigEntry<float> BaggedObjectInfoX { get; private set; } = null!;
         public ConfigEntry<float> BaggedObjectInfoY { get; private set; } = null!;
         public ConfigEntry<float> BaggedObjectInfoScale { get; private set; } = null!;
         public ConfigEntry<Color> BaggedObjectInfoColor { get; private set; } = null!;
 
-        // HUD - Visual Styling
         public ConfigEntry<bool> UseNewWeightIcon { get; private set; } = null!;
         public ConfigEntry<WeightDisplayMode> WeightDisplayMode { get; private set; } = null!;
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
@@ -249,7 +241,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> MassCap { get; private set; } = null!;
         public ConfigEntry<string> MaxLaunchSpeed { get; private set; } = null!;
 
-        // Balance - Mathematics & State Tracking
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
         public ConfigEntry<float> OverencumbranceMax { get; private set; } = null!;
         public ConfigEntry<string> SlotScalingFormula { get; private set; } = null!;
@@ -257,7 +248,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> MovespeedPenaltyFormula { get; private set; } = null!;
         public ConfigEntry<string> SlamDamageFormula { get; private set; } = null!;
 
-        // Balance - Flag Multipliers
         public ConfigEntry<string> EliteFlagMultiplier { get; private set; } = null!;
         public ConfigEntry<string> BossFlagMultiplier { get; private set; } = null!;
         public ConfigEntry<string> ChampionFlagMultiplier { get; private set; } = null!;
@@ -270,26 +260,21 @@ namespace DrifterBossGrabMod
         public ConfigEntry<CharacterFlagType> SelectedFlag { get; private set; } = null!;
         public ConfigEntry<string> SelectedFlagMultiplier { get; private set; } = null!;
         public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
-        // Mapping of setting tokens to HUD sub-tabs (for element-specific settings)
-        // Mapping of setting tokens to HUD sub-tabs (for element-specific settings)
         public static readonly Dictionary<string, HudElementType[]> HudSettingToSubTab = new()
         {
-            // Carousel settings (shared)
-            // SelectedHudElement dropdown should always be visible regardless of selected sub-tab
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] { 
-                HudElementType.All, 
-                HudElementType.MainSlot, 
-                HudElementType.SideSlots, 
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] {
+                HudElementType.All,
+                HudElementType.MainSlot,
+                HudElementType.SideSlots,
                 HudElementType.WeightIcon,
-                HudElementType.DamagePreview, 
-                HudElementType.CapacityUI, 
-                HudElementType.StatsPanel 
+                HudElementType.DamagePreview,
+                HudElementType.CapacityUI,
+                HudElementType.StatsPanel
             },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.VERTICAL_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
 
-            // Main Slot settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
@@ -300,7 +285,6 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
 
-            // Side Slots settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
@@ -311,18 +295,15 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
 
-            // Weight icon and display settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.USE_NEW_WEIGHT_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHT_DISPLAY_MODE.CHOICE"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SCALE_WEIGHT_COLOR.CHECKBOX"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_TOTAL_MASS.CHECKBOX"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_OVERENCUMBERED_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
 
-            // Damage preview settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_DAMAGE_PREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGE_PREVIEW_COLOR.COLOR"] = new[] { HudElementType.DamagePreview },
 
-            // Capacity UI settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAPACITY_UI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_X_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
@@ -336,7 +317,6 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_MID.COLOR"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_END.COLOR"] = new[] { HudElementType.CapacityUI },
 
-            // Stats Panel settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_STATS_PANEL.CHECKBOX"] = new[] { HudElementType.StatsPanel },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_X_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
@@ -344,27 +324,22 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_COLOR.COLOR"] = new[] { HudElementType.StatsPanel }
         };
 
-        // Mapping of setting tokens to Balance sub-tabs
         public static readonly Dictionary<string, BalanceSubTabType[]> BalanceSettingToSubTab = new()
         {
-            // Capacity settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLOT_SCALING_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
 
-            // Multipliers settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.CHARACTER_FLAGS.ALL_FLAG_MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
 
-            // Penalty settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_OVERENCUMBRANCE_(%).FLOAT_FIELD"] = new[] { BalanceSubTabType.Penalty },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATE_CALCULATION.CHOICE"] = new[] { BalanceSubTabType.Penalty },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_MULTIPLIER_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SPEED_PENALTY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
 
-            // Misc settings
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Misc },
@@ -483,7 +458,6 @@ namespace DrifterBossGrabMod
 
         public static void Init(ConfigFile cfg)
         {
-            // Preset selection
             Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
                 "Select a preset to apply all settings at once.\n" +
                 "- Vanilla: all features disabled, vanilla behavior\n" +
@@ -595,7 +569,6 @@ namespace DrifterBossGrabMod
             Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation in seconds.\n" +
                 "Time for carousel items to animate into position when cycling.");
 
-            // Per-slot backing configs (CenterSlot)
             Instance.CenterSlotX = cfg.Bind("Hud", "CenterSlotX", 25.0f, "X position offset for center slot.");
             Instance.CenterSlotY = cfg.Bind("Hud", "CenterSlotY", 50.0f, "Y position offset for center slot.");
             Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot (0.0 to 2.0).");
@@ -606,7 +579,6 @@ namespace DrifterBossGrabMod
             Instance.CenterSlotShowHealthBar = cfg.Bind("Hud", "CenterSlotShowHealthBar", true, "Show health bar in center slot.");
             Instance.CenterSlotShowSlotNumber = cfg.Bind("Hud", "CenterSlotShowSlotNumber", true, "Show slot number in center slot.");
 
-            // Per-slot backing configs (SideSlot)
             Instance.SideSlotX = cfg.Bind("Hud", "SideSlotX", 20.0f, "X position offset for side slots.");
             Instance.SideSlotY = cfg.Bind("Hud", "SideSlotY", 5.0f, "Y position offset for side slots.");
             Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots (0.0 to 2.0).");
@@ -655,7 +627,6 @@ namespace DrifterBossGrabMod
                 "When enabled, cycling through the bag automatically updates the main seat.");
             Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "When enabled, newly grabbed objects are placed in the main seat first instead of additional seats.\n" +
                 "When disabled (default), new objects go directly to additional seats.");
-            // Moved down to Balance block
             Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI for displaying bag capacity status.\n" +
                 "Shows current mass vs capacity as a progress bar.");
             Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "Horizontal position offset for the Mass Capacity UI.\n" +
@@ -677,7 +648,6 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
 
-            // Balance configuration bindings
             Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable balance features (capacity scaling, elite mass bonus, overencumbrance).\n" +
                 "When disabled, all balance features are bypassed and vanilla behavior is used.");
             Instance.SlotScalingFormula = cfg.Bind("Balance", "SlotScalingFormula", "0",
@@ -701,7 +671,7 @@ namespace DrifterBossGrabMod
                 "Constants: pi, e, INF\n" +
                 "Examples: '0' = no penalty, 'clamp((T/M) * 0.5, 0, 0.8)' = 50% at full capacity, capped at 80%\n" +
                 "Set to '0' for no penalty.");
-            
+
             Instance.SlamDamageFormula = cfg.Bind("Balance", "SlamDamageFormula",
                 "BASE_COEF + (MASS_SCALING * BM / MC)",
                 "Formula for slam damage coefficient.\n" +
@@ -760,7 +730,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.EliteFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.EliteFlagMultiplier.Value = "1";
 
             Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1",
                 "Formula-based mass multiplier for Boss entities.\n" +
@@ -768,7 +738,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.BossFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.BossFlagMultiplier.Value = "1";
 
             Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1",
                 "Formula-based mass multiplier for Champion entities.\n" +
@@ -776,7 +746,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.ChampionFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.ChampionFlagMultiplier.Value = "1";
 
             Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1",
                 "Formula-based mass multiplier for Player-controlled entities.\n" +
@@ -784,7 +754,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.PlayerFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.PlayerFlagMultiplier.Value = "1";
 
             Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1",
                 "Formula-based mass multiplier for Minion entities.\n" +
@@ -792,7 +762,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.MinionFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.MinionFlagMultiplier.Value = "1";
 
             Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1",
                 "Formula-based mass multiplier for Drone entities.\n" +
@@ -800,7 +770,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.DroneFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.DroneFlagMultiplier.Value = "1";
 
             Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1",
                 "Formula-based mass multiplier for Mechanical entities.\n" +
@@ -808,7 +778,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.MechanicalFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.MechanicalFlagMultiplier.Value = "1";
 
             Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1",
                 "Formula-based mass multiplier for Void entities.\n" +
@@ -816,7 +786,7 @@ namespace DrifterBossGrabMod
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.VoidFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.VoidFlagMultiplier.Value = "1";
 
             Instance.AllFlagMultiplier = cfg.Bind(
                 new ConfigDefinition("Character Flags", "all Flag Multiplier"),
@@ -833,27 +803,24 @@ namespace DrifterBossGrabMod
             // Risk of Options UI controls (not saved to config file, used for UI only)
             Instance.SelectedFlag = cfg.Bind("Hidden", "SelectedFlag", CharacterFlagType.All,
                 "Select which flag to modify (UI only)");
-            Instance.SelectedFlag.Value = CharacterFlagType.All; // Set default
+            Instance.SelectedFlag.Value = CharacterFlagType.All;
             Instance.SelectedFlagMultiplier = cfg.Bind("Hidden", "FlagMultiplier", "1",
                 "Mass Multiplier for selected flag (UI only).\n" +
                                 "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
                 "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
                 "Constants: pi, e, INF\n" +
                 "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
-            Instance.SelectedFlagMultiplier.Value = "1"; // Initialize with default
+            Instance.SelectedFlagMultiplier.Value = "1";
 
-            // Balance sub-tab selection
             Instance.SelectedBalanceSubTab = cfg.Bind("Hidden", "SelectedBalanceSubTab", BalanceSubTabType.All,
                 "Select which Balance settings group to view (UI only).\n" +
                 "- Capacity: Capacity uncap and scaling settings\n" +
                 "- Multipliers: Flag and mass multiplier settings\n" +
                 "- Penalty: Penalty formula and stat calculation mode\n" +
                 "- Misc: Performance and visual caps");
-            Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All; // Set default
+            Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
 
-            // Moved up to General
 
-            // Moved up to Balance block
 
             // Force EnableCarouselHUD to true if BottomlessBagEnabled is true
             if (Instance.BottomlessBagEnabled.Value && !Instance.EnableCarouselHUD.Value)
@@ -861,7 +828,6 @@ namespace DrifterBossGrabMod
                 Instance.EnableCarouselHUD.Value = true;
             }
 
-            // Add event handlers for live updates
             Instance.BottomlessBagEnabled.SettingChanged += (sender, args) =>
             {
                 // Force EnableCarouselHUD to true when BottomlessBagEnabled is true
@@ -871,7 +837,6 @@ namespace DrifterBossGrabMod
                 }
             };
             Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            // Per-slot backing config change handlers (trigger UI updates)
             Instance.CenterSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
@@ -901,10 +866,8 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceGradientColorMid.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
             Instance.OverencumbranceGradientColorEnd.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
 
-            // Balance config change handlers
             Instance.SlotScalingFormula.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger capacity recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.SlotScalingFormula.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid SlotScalingFormula: {error}");
@@ -917,7 +880,6 @@ namespace DrifterBossGrabMod
 
             Instance.MassCapacityFormula.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger capacity recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.MassCapacityFormula.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid MassCapacityFormula: {error}");
@@ -930,7 +892,6 @@ namespace DrifterBossGrabMod
             Instance.AddedCapacity.SettingChanged += (sender, args) =>
             {
                 Instance.RefreshCachedConfigStrings();
-                // Trigger capacity recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     CapacityScalingSystem.RecalculateCapacity(bagController);
@@ -939,17 +900,14 @@ namespace DrifterBossGrabMod
 
             Instance.StateCalculationMode.SettingChanged += (sender, args) =>
             {
-                // Trigger state recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     CapacityScalingSystem.RecalculateState(bagController);
                 }
             };
 
-
             Instance.MovespeedPenaltyFormula.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger penalty recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.MovespeedPenaltyFormula.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid MovespeedPenaltyFormula: {error}");
@@ -962,7 +920,6 @@ namespace DrifterBossGrabMod
             Instance.BagScaleCap.SettingChanged += (sender, args) =>
             {
                 Instance.RefreshCachedConfigStrings();
-                // Trigger bag scale recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     BagPassengerManager.ForceRecalculateMass(bagController);
@@ -972,17 +929,14 @@ namespace DrifterBossGrabMod
             Instance.MassCap.SettingChanged += (sender, args) =>
             {
                 Instance.RefreshCachedConfigStrings();
-                // Trigger mass recalculation for all bag controllers
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
                 }
             };
 
-            // Flag multiplier formula change handlers
             Instance.EliteFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.EliteFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid EliteFlagMultiplier: {error}");
@@ -994,7 +948,6 @@ namespace DrifterBossGrabMod
 
             Instance.BossFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.BossFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid BossFlagMultiplier: {error}");
@@ -1006,7 +959,6 @@ namespace DrifterBossGrabMod
 
             Instance.ChampionFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.ChampionFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid ChampionFlagMultiplier: {error}");
@@ -1018,7 +970,6 @@ namespace DrifterBossGrabMod
 
             Instance.PlayerFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.PlayerFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid PlayerFlagMultiplier: {error}");
@@ -1030,7 +981,6 @@ namespace DrifterBossGrabMod
 
             Instance.MinionFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.MinionFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid MinionFlagMultiplier: {error}");
@@ -1042,7 +992,6 @@ namespace DrifterBossGrabMod
 
             Instance.DroneFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.DroneFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid DroneFlagMultiplier: {error}");
@@ -1054,7 +1003,6 @@ namespace DrifterBossGrabMod
 
             Instance.MechanicalFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.MechanicalFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid MechanicalFlagMultiplier: {error}");
@@ -1066,7 +1014,6 @@ namespace DrifterBossGrabMod
 
             Instance.VoidFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate and trigger mass recalculation for all bag controllers
                 var error = FormulaParser.Validate(Instance.VoidFlagMultiplier.Value);
                 if (error != null)
                     Log.Warning($"[PluginConfig] Invalid VoidFlagMultiplier: {error}");
@@ -1078,14 +1025,12 @@ namespace DrifterBossGrabMod
 
             Instance.SlamDamageFormula.SettingChanged += (sender, args) =>
             {
-                // Validate the formula
                 var error = FormulaParser.Validate(Instance.SlamDamageFormula.Value);
                 if (error != null)
                 {
                     Log.Warning($"[PluginConfig] Invalid SlamDamageFormula: {error}");
                 }
-                
-                // Update damage preview overlays in the scene
+
                 var overlays = UnityEngine.Object.FindObjectsByType<UI.DamagePreviewOverlay>(FindObjectsSortMode.None);
                 foreach (var overlay in overlays)
                 {
@@ -1093,10 +1038,8 @@ namespace DrifterBossGrabMod
                 }
             };
 
-            // SelectedFlagMultiplier change handler - syncs to the appropriate flag's formula config
             Instance.SelectedFlagMultiplier.SettingChanged += (sender, args) =>
             {
-                // Validate the formula
                 var error = FormulaParser.Validate(Instance.SelectedFlagMultiplier.Value);
                 if (error != null)
                 {
@@ -1104,7 +1047,6 @@ namespace DrifterBossGrabMod
                     return;
                 }
 
-                // Update the appropriate flag's formula config based on the selected flag
                 var selectedFlag = Instance.SelectedFlag.Value;
                 string newFormula = Instance.SelectedFlagMultiplier.Value;
 
@@ -1140,7 +1082,6 @@ namespace DrifterBossGrabMod
                 }
             };
 
-            // SelectedFlag change handler - updates SelectedFlagMultiplier to show the current flag's formula
             Instance.SelectedFlag.SettingChanged += (sender, args) =>
             {
                 var selectedFlag = Instance.SelectedFlag.Value;
@@ -1177,11 +1118,9 @@ namespace DrifterBossGrabMod
                         break;
                 }
 
-                // Update SelectedFlagMultiplier to show the current flag's formula
                 Instance.SelectedFlagMultiplier.Value = currentFormula;
             };
 
-            // Initialize lazy caches
             Instance._blacklistCache = new LazyCachedValue<HashSet<string>>(() =>
                 string.IsNullOrEmpty(Instance.BodyBlacklist.Value)
                     ? new HashSet<string>()
@@ -1277,6 +1216,7 @@ namespace DrifterBossGrabMod
             EventHandler debugLogsHandler,
             EventHandler blacklistHandler,
             EventHandler recoveryBlacklistHandler,
+            EventHandler persistenceBlacklistHandler,
             EventHandler grabbableComponentTypesHandler,
             EventHandler grabbableKeywordBlacklistHandler,
             EventHandler bossGrabbingHandler,
@@ -1288,6 +1228,7 @@ namespace DrifterBossGrabMod
             Instance.EnableDebugLogs.SettingChanged -= debugLogsHandler;
             Instance.BodyBlacklist.SettingChanged -= blacklistHandler;
             Instance.RecoveryObjectBlacklist.SettingChanged -= recoveryBlacklistHandler;
+            Instance.PersistenceBlacklist.SettingChanged -= persistenceBlacklistHandler;
             Instance.GrabbableComponentTypes.SettingChanged -= grabbableComponentTypesHandler;
             Instance.GrabbableKeywordBlacklist.SettingChanged -= grabbableKeywordBlacklistHandler;
             Instance.EnableBossGrabbing.SettingChanged -= bossGrabbingHandler;
@@ -1306,6 +1247,11 @@ namespace DrifterBossGrabMod
             Instance._recoveryBlacklistCache.Invalidate();
             Instance._recoveryBlacklistCacheWithClones.Invalidate();
         }
+        public static void ClearPersistenceBlacklistCache()
+        {
+            Instance._persistenceBlacklistCache.Invalidate();
+            Instance._persistenceBlacklistCacheWithClones.Invalidate();
+        }
         public static void ClearGrabbableComponentTypesCache()
         {
             Instance._grabbableComponentTypesCache.Invalidate();
@@ -1320,6 +1266,8 @@ namespace DrifterBossGrabMod
             Instance._blacklistCacheWithClones.Invalidate();
             Instance._recoveryBlacklistCache.Invalidate();
             Instance._recoveryBlacklistCacheWithClones.Invalidate();
+            Instance._persistenceBlacklistCache.Invalidate();
+            Instance._persistenceBlacklistCacheWithClones.Invalidate();
             Instance._grabbableComponentTypesCache.Invalidate();
             Instance._grabbableKeywordBlacklistCache.Invalidate();
         }

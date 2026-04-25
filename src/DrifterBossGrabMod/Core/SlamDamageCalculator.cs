@@ -20,7 +20,6 @@ namespace DrifterBossGrabMod.Core
         public const float DefaultMassScaling = Constants.Multipliers.SlamMassScaling;
 
         // Calculates predicted damage
-        // Uses DryRunDamageCalculator
         // param: bagController - The DrifterBagController
         // param: target - The target bagged object
         // returns: Absolute damage value, or 0 if can't calculate
@@ -48,18 +47,20 @@ namespace DrifterBossGrabMod.Core
             // Calculate base damage
             float baseDamage = drifterBody.damage * effectiveCoef;
 
-            // Get target body for dry run calculation
+            // Apply item damage modifiers
+            float itemDamageMultiplier = GetItemDamageMultiplier(drifterBody);
+            float damage = baseDamage * itemDamageMultiplier;
+
+            // Apply armor reduction if target has CharacterBody
             var targetBody = target!.GetComponent<CharacterBody>();
-            if (targetBody == null)
+            if (targetBody != null)
             {
-                // Fallback for non-CharacterBody targets
-                // Still apply item damage modifiers (e.g., Delicate Watch) even without a CharacterBody target
-                float itemDamageMultiplier = GetItemDamageMultiplier(drifterBody);
-                return baseDamage * itemDamageMultiplier;
+                float armor = targetBody.armor;
+                float armorFactor = armor >= 0 ? (100f / (100f + armor)) : (2f - (100f / (100f - armor)));
+                damage = Mathf.Max(1f, damage * armorFactor);
             }
 
-            // Use dry run calculation to get accurate damage including item modifiers
-            return DryRunDamageCalculator.GetPredictedDamage(drifterBody, targetBody, baseDamage);
+            return damage;
         }
         public static float GetPredictedDamageFraction(DrifterBagController bagController, GameObject target)
         {
@@ -116,7 +117,7 @@ namespace DrifterBossGrabMod.Core
             var body = bagController?.GetComponent<CharacterBody>();
             float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
 
-            // Create local variables specific to slam damage
+
             var localVars = new Dictionary<string, float>
             {
                 { "BASE_COEF", DefaultBaseDamageCoef },
@@ -128,7 +129,7 @@ namespace DrifterBossGrabMod.Core
             string formula = PluginConfig.Instance.SlamDamageFormula.Value;
             float result = FormulaParser.Evaluate(formula, body, localVars);
 
-            // Validate result
+
             if (float.IsNaN(result))
             {
                 Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned NaN. Using default calculation.");
@@ -175,7 +176,7 @@ namespace DrifterBossGrabMod.Core
             return itemDamageMultiplier;
         }
 
-        // Logs the detailed damage calculation for debugging.
+
         public static void LogDetails(DrifterBagController bagController, GameObject target)
         {
             if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
@@ -199,7 +200,7 @@ namespace DrifterBossGrabMod.Core
                 }
             }
 
-            // Calculation logic matching GetEffectiveCoefficient
+
             float mass = bagController ? bagController!.baggedMass : 0f;
             float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
             float massFraction = bagController ? (bagController!.baggedMass / maxCapacity) : 0f;
@@ -208,27 +209,12 @@ namespace DrifterBossGrabMod.Core
             var drifterBody = bagController ? bagController!.GetComponent<CharacterBody>() : null;
             float damageStat = drifterBody ? drifterBody!.damage : 0f;
             float baseDamage = damageStat * effectiveCoef;
-            float armor = 0f;
-
-            // Calculate armor reduction
-            var targetBody = target.GetComponent<CharacterBody>();
-            if (targetBody) armor = targetBody.armor;
-            float armorFactor = armor >= 0 ? (100f / (100f + armor)) : (2f - (100f / (100f - armor)));
-            float mitigatedDamage = baseDamage * armorFactor;
 
             float finalDamage = GetPredictedDamage(bagController, target);
 
-            // Use DryRunDamageCalculator for accurate damage prediction
-            var dryRunResult = default(DryRunDamageCalculator.DryRunResult);
-            if (drifterBody && targetBody != null)
-            {
-                float dryRunBaseDamage = damageStat * effectiveCoef;
-                dryRunResult = DryRunDamageCalculator.CalculateDamage(drifterBody!, targetBody, dryRunBaseDamage);
-            }
-
             // Priority 0: JunkCubeController
             var junkController = target.GetComponent<JunkCubeController>();
-            var body = target.GetComponent<CharacterBody>(); // Move declaration up
+            var body = target.GetComponent<CharacterBody>();
 
             if (junkController)
             {

@@ -10,7 +10,6 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            // Register the new MapZone hooks
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.MapZone_TryZoneStart_Patch)).Patch();
         }
     }

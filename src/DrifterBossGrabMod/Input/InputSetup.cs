@@ -162,7 +162,7 @@ namespace DrifterBossGrabMod.Input
                         var body = method.GetMethodBody();
                         int localCount = body?.LocalVariables.Count ?? 0;
                         Log.Info($"[InputSetup] Found candidate method: {method.Name} (locals={localCount}, IL instructions={instructions.Count})");
-                        
+
                         // Pick the candidate with the most local variables (the init method is the biggest)
                         if (localCount > bestLocalCount)
                         {

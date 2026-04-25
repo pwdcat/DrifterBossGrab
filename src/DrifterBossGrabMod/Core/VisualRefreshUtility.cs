@@ -18,8 +18,8 @@ namespace DrifterBossGrabMod.Core
             {
                 // 1. Determine the model transform
                 var modelLocator = target.GetComponent<ModelLocator>();
-                Transform modelTransform = (modelLocator != null && modelLocator.modelTransform != null) 
-                    ? modelLocator.modelTransform 
+                Transform modelTransform = (modelLocator != null && modelLocator.modelTransform != null)
+                    ? modelLocator.modelTransform
                     : target.transform;
 
                 // 2. Force a renderer refresh by briefly toggling activation
@@ -75,7 +75,7 @@ namespace DrifterBossGrabMod.Core
             {
                 bool needsUpdate = false;
                 var sharedMats = r.sharedMaterials;
-                
+
                 if (sharedMats == null || sharedMats.Length == 0)
                 {
                     r.sharedMaterials = new Material[] { fallbackMaterial };
@@ -110,11 +110,11 @@ namespace DrifterBossGrabMod.Core
         {
             if (mat == null) return false;
             if (mat.shader == null) return false;
-            
+
             string shaderName = mat.shader.name;
             // Detect common Unity error shaders
-            return !shaderName.Contains("InternalError") && 
-                   !shaderName.Contains("Error") && 
+            return !shaderName.Contains("InternalError") &&
+                   !shaderName.Contains("Error") &&
                    shaderName != "Hidden/InternalErrorShader";
         }
 

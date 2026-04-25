@@ -12,7 +12,7 @@ namespace DrifterBossGrabMod.Config.UI
         private string _customDescription;
         private string _customCategory;
 
-        public ComponentChooserOption(ConfigEntryBase configEntry, string name, string description, string category = "General") 
+        public ComponentChooserOption(ConfigEntryBase configEntry, string name, string description, string category = "General")
             : base(configEntry)
         {
             _customName = name;
@@ -38,7 +38,7 @@ namespace DrifterBossGrabMod.Config.UI
 
             var newController = button.AddComponent<DynamicDropDownController>();
             newController.nameToken = GetNameToken();
-            
+
             var nameLabelComponent = button.transform.Find("Label");
             if (nameLabelComponent)
             {

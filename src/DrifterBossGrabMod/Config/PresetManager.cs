@@ -22,7 +22,7 @@ namespace DrifterBossGrabMod.Config
         {
             if (presetType == PresetType.Custom)
             {
-                // Don't apply "Custom" - it's just a state indicator
+                // "Custom" preset is auto-set on manual config changes; it's a state indicator, not a real preset
                 return;
             }
 
@@ -94,11 +94,11 @@ namespace DrifterBossGrabMod.Config
                             }
                             else
                             {
-                                // Handle enum values
+                                // ConfigEntry.SetCurrentValue lacks public enum overload; reflection required for type safety
                                 var configEntryType = configEntry.GetType().GetGenericArguments().FirstOrDefault();
                                 if (configEntryType != null && configEntryType.IsEnum && setting.Value.GetType() == configEntryType)
                                 {
-                                    // Use reflection to set enum value
+                                    // Public API doesn't expose enum type handling; private reflection ensures correct enum assignment
                                     var valueProperty = configEntry.GetType().GetProperty("Value");
                                     if (valueProperty != null)
                                     {
@@ -115,7 +115,7 @@ namespace DrifterBossGrabMod.Config
                     }
                 }
 
-                // Update the preset dropdown
+                // Sync UI to show "Custom" after manual setting changes
                 PluginConfig.Instance.SelectedPreset.Value = presetType;
                 PluginConfig.Instance.LastSelectedPreset.Value = presetType;
 
@@ -142,8 +142,7 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Refresh all RiskOfOptions UI components to show updated config values.
-        // Forces re-rendering by deactivating and reactivating all settings.
+        // Forces RiskOfOptions UI refresh by toggling GameObject states (bypasses internal caches)
         private static void RefreshAllRiskOfOptionsUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
@@ -153,7 +152,6 @@ namespace DrifterBossGrabMod.Config
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshAllRiskOfOptionsUIInternal()
         {
-            // Find all ModSetting components in the scene
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
 
             foreach (var setting in allSettings)
@@ -168,23 +166,17 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Called when any setting is modified to auto-switch to Custom preset.
+        // Auto-switch to Custom preset on manual setting change (prevents preset override).
         public static void OnSettingModified()
         {
-            // Don't auto-switch if we're currently applying a preset
-            if (_isApplyingPreset)
-            {
-                return;
-            }
-
-            // Auto-switch to Custom if not already
+            if (_isApplyingPreset) return;
             if (PluginConfig.Instance.SelectedPreset.Value != PresetType.Custom)
             {
                 PluginConfig.Instance.SelectedPreset.Value = PresetType.Custom;
             }
         }
 
-        // Refreshes the preset dropdown UI to show the current preset value
+        // Syncs RiskOfOptions UI to display current preset selection
         public static void RefreshPresetDropdownUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
@@ -194,7 +186,6 @@ namespace DrifterBossGrabMod.Config
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshPresetDropdownUIInternal()
         {
-            // Find all ModSetting components in scene
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
 
             foreach (var setting in allSettings)
@@ -209,9 +200,7 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Get a ConfigEntry by its category and key.
-        // param settingKey: Format: "Category.SettingName"
-        // returns: The ConfigEntry if found, null otherwise.
+        // Maps category.key strings to config entries for preset value assignment
         private static ConfigEntryBase? GetConfigEntry(string settingKey)
         {
             var parts = settingKey.Split('.');

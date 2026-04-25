@@ -83,7 +83,7 @@ namespace DrifterBossGrabMod
                 {
                     if (!originalStates.ContainsKey(collider))
                         originalStates[collider] = collider.enabled;
-                    
+
                     if (!cache.OriginalStates.ContainsKey(collider))
                         cache.OriginalStates[collider] = collider.enabled;
 
@@ -100,7 +100,7 @@ namespace DrifterBossGrabMod
                 if (kvp.Key != null)
                 {
                     kvp.Key.enabled = kvp.Value;
-                    
+
                     // Also clear from the cache if possible
                     var cache = kvp.Key.GetComponentInParent<BodyColliderCache>();
                     if (cache != null)

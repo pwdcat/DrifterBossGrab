@@ -28,6 +28,9 @@ namespace DrifterBossGrabMod.Core
         // Incoming object for predictive capacity
         public GameObject? IncomingObject { get; set; }
 
+        // Tracks user scroll intent for upcoming passenger assignments (-1 = no intent)
+        public int IntendedSelectedIndex { get; set; } = -1;
+
         // Uncapped bag scale component
         public UncappedBagScaleComponent? UncappedBagScale { get; set; }
 
@@ -46,7 +49,6 @@ namespace DrifterBossGrabMod.Core
             _massDirty = true;
         }
 
-        // Clears the mass dirty flag after recalculation
         internal void ClearMassDirty()
         {
             _massDirty = false;
@@ -58,13 +60,11 @@ namespace DrifterBossGrabMod.Core
             return _baggedObjectIds.Contains(instanceId);
         }
 
-        // Track an object's InstanceID
         public void AddInstanceId(int instanceId)
         {
             _baggedObjectIds.Add(instanceId);
         }
 
-        // Untrack an object's InstanceID
         public void RemoveInstanceId(int instanceId)
         {
             _baggedObjectIds.Remove(instanceId);

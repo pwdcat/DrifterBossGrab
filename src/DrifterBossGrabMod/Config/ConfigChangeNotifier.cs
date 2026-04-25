@@ -36,7 +36,6 @@ namespace DrifterBossGrabMod
 
         public static void Init()
         {
-            // Subscribe to all config entries
             PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged += configChangedHandler;
@@ -68,7 +67,6 @@ namespace DrifterBossGrabMod
 
         public static void Cleanup()
         {
-            // Unsubscribe from all config entries
             PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged -= configChangedHandler;

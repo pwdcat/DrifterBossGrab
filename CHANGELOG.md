@@ -3,30 +3,44 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.3]
+## [1.8.0]
 
 ### Added
 - API
-    - Bag states (GetBaggedObjects, GetBagCount, GetBagCapacity, GetTotalMass)
-    - Mass and encumbrance calculations (GetMassRatio, GetEncumbranceLevel, IsOverencumbered)
-    - Object management (AddBaggedObject, RemoveBaggedObject, SetMainPassenger, ClearBag)
-    - Formula variable registry
-    - Events (OnObjectGrabbed, OnObjectReleased, OnBagFull, OnOverencumbered, etc)
+    - This is mainly for me since I want to make some gimmick mods/for debugging
+    - Check out BagCrafting for an example of how to use it
 - ProperSave support
 - BodyColliderCache and ReflectionCache
+- Multi Teleporter support
 
 ### Changed
 - Config Reorganization
 - UI/UX Improvements
-- Refactoring
+- Refactoring/Reworked
+    - ModelStatePerserver/State Management
+    - Recovery
+    - EntityStates
 
 ### Fixed
 - Autopromote and Mainseat for clients
+- Lobotomized enemies after more than 1 persistence
 - Bagged UI (Now StatsPanel) to be applied to clients correctly
-- State Management causing invisible objects on throw for clients
-    - Now will only apply for ungrabbables, might lose support for other mods
+- State Management causing invisible objects on throw for clients (removed StateManagement)
+- Carousel Slot UI edge cases causing issues when updating on destroyed passenger
+- Destroyed passenger ejection
+- Persistence + Save autograb bag order
+- AdditonalseatBreakout fixes, resets properly + collision 
 
-## [1.7.2]
+### Removed
+- ModelStatePerserver and StateManagement, code was straight buns and it was old
+- Purged stupid fallbacks that probably wont execute, hopefully
+- Removed bandaid fix for persisting teleporters
+    - Persisted teleporters will work properly now
+    - Carries over charge state but be reset to 0% and shrine counter, new boss + rewards in new stage
+- Removed bandaid fix for cycling mid repossess
+    - did a proper fix
+
+## [1.7.2]  
 
 ### Added
 - Bagged Object Info UI Values
@@ -43,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clamp with repossess refresh again, cleaned it up and should be finialized
 - Additional Seat Breakout
 - Collider disabled state sync after bagging for clients
+- Bottomless Bag + Grabbing other survivors
 - Updated ConfigSync
     - Clients can choose to not sync configs
     - Added more sync settings

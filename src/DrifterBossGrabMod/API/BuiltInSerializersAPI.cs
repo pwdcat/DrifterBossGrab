@@ -468,7 +468,7 @@ namespace DrifterBossGrabMod.API
                 state[prefix + "equipmentIndex"] = (int)equipment.equipmentIndex;
                 state[prefix + "equipmentCharges"] = (int)equipment.charges;
             }
-            
+
             state[prefix + "infusionBonus"] = (int)inventory.infusionBonus;
         }
 

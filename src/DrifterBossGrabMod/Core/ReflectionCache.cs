@@ -59,14 +59,14 @@ namespace DrifterBossGrabMod
             public static readonly PropertyInfo Networkpassenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "Networkpassenger");
             public static readonly PropertyInfo Passenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "passenger");
         }
-        
+
         // ProjectileStickOnImpact members
         public static class ProjectileStickOnImpact
         {
             public static readonly FieldInfo RunStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "runStickEvent");
             public static readonly FieldInfo AlreadyRanStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "alreadyRanStickEvent");
         }
-        
+
         // SpecialObjectAttributes members
         public static class SpecialObjectAttributes
         {
@@ -75,25 +75,25 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo CollidersToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collidersToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
             public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
         }
-        
+
         // HackingMainState members
         public static class HackingMainState
         {
             public static readonly FieldInfo SphereSearch = typeof(EntityStates.CaptainSupplyDrop.HackingMainState).GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
         }
-        
+
         // EntityState members
         public static class EntityState
         {
             public static readonly PropertyInfo FixedAge = AccessTools.Property(typeof(EntityStates.EntityState), "fixedAge");
         }
-        
+
         // GenericSkill members
         public static class GenericSkill
         {
             public static readonly FieldInfo SkillOverrides = AccessTools.Field(typeof(RoR2.GenericSkill), "skillOverrides");
         }
-        
+
         // BaggedObject (duplicate entries for different patches - these are the same as above but I'll keep them for now)
         public static class Misc
         {

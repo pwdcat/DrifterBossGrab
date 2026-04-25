@@ -5,11 +5,12 @@ using UnityEngine;
 namespace DrifterBossGrabMod.Config
 {
     // Hardcoded preset definitions for DrifterBossGrabMod.
+    // Provides curated configurations for different playstyles and use cases
     public static class PresetDefinitions
     {
         public static readonly Dictionary<PresetType, Dictionary<string, object>> Presets = new()
         {
-            // Vanilla: All features disabled, vanilla behavior
+            // Vanilla: Disables all mod features for pure vanilla Drifter gameplay
             [PresetType.Vanilla] = new Dictionary<string, object>
             {
                 // General settings
@@ -120,8 +121,8 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MassCap"] = "700",
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
-            
-            // Intended: Boss grab only
+
+            // Intended: Boss-only grabbing for balanced vanilla-style gameplay
             [PresetType.Intended] = new Dictionary<string, object>
             {
                 // General settings
@@ -142,22 +143,22 @@ namespace DrifterBossGrabMod.Config
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
-                
+
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = false,
-                
+
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableDamagePreview"] = false,
                 ["Hud.EnableMassCapacityUI"] = false,
                 ["Hud.EnableBaggedObjectInfo"] = false,
-                
+
                 // Balance settings
                 ["Balance.EnableBalance"] = false,
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
-            
-            // Default: All features in DrifterGrabFeature + bottomless bag and persistence
+
+            // Default: Full feature set with bottomless bag and persistence enabled
             [PresetType.Default] = new Dictionary<string, object>
             {
                 // General settings
@@ -194,7 +195,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.EnableBalance"] = false,
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
-            
+
             // Balance: Default + balance features
             [PresetType.Balance] = new Dictionary<string, object>
             {
@@ -220,13 +221,13 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedNPCs"] = true,
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.PersistenceBlacklist"] = "",
-                
+
                 // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
                 ["BottomlessBag.AddedCapacity"] = "INF",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
-                
+
                 // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableDamagePreview"] = true,
@@ -242,7 +243,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.WeightDisplayMode"] = WeightDisplayMode.KiloGrams,
                 ["Hud.ScaleWeightColor"] = true,
                 ["Hud.ShowTotalMassOnWeightIcon"] = true,
-                
+
                 // Balance settings
                 ["Balance.EnableBalance"] = true,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Split,
@@ -269,7 +270,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.MaxSmacks"] = 3,
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
-            
+
             // Minimal: Basic grabbing (boss + NPC + environment) without extra features
             [PresetType.Minimal] = new Dictionary<string, object>
             {

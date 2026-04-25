@@ -95,7 +95,7 @@ namespace DrifterBossGrabMod.Networking
         {
             NetworkManagerSystem.onStartClientGlobal -= OnStartClientGlobal;
             NetworkManagerSystem.onStartServerGlobal -= OnStartServerGlobal;
-            
+
             _clientHandlers.Clear();
             _serverHandlers.Clear();
 

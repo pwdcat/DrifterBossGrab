@@ -145,6 +145,8 @@ namespace DrifterBossGrabMod.Networking
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController != null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Debug($"[CycleNetworkHandler.HandleCycleRequestMessage] Processing request: Controller={bagController.name}, Amount={msg.amount}.");
                 PassengerCycler.ServerCyclePassengers(bagController, msg.amount);
             }
         }

@@ -12,13 +12,13 @@ using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.API
 {
-    // drifter bag encumbrance level
+    // Encumbrance level affects movement speed penalty and damage multiplier calculations
     public enum EncumbranceLevel
     {
-        None,       // < 50% capacity
-        Light,      // 50-75% capacity
-        Heavy,      // 75-100% capacity
-        Over        // > 100% capacity
+        None,       // Minimal impact on performance
+        Light,      // Noticeable speed reduction
+        Heavy,      // Significant speed and jump penalty
+        Over        // Severe penalties; movement may be impaired
     }
 
     public static class DrifterBagAPI
@@ -30,40 +30,39 @@ namespace DrifterBossGrabMod.API
             return new List<GameObject>(BagPatches.GetState(controller).BaggedObjects ?? new List<GameObject>());
         }
 
-        // Returns the number of objects currently in the bag.
+        // Count includes all bagged objects (main seat + additional seats), not just visible ones
         public static int GetBagCount(DrifterBagController controller)
         {
             return BagCapacityCalculator.GetCurrentBaggedCount(controller);
         }
 
-        // Returns the maximum capacity of the bag in slots.
-        // Returns int.MaxValue if the bag is effectively bottomless.
+        // Returns effective capacity (base slots + utility stock bonuses); returns int.MaxValue for bottomless bags
+        // Maximum capacity of the bag in slots.
         public static int GetBagCapacity(DrifterBagController controller)
         {
             return BagCapacityCalculator.GetUtilityMaxStock(controller);
         }
 
-        // Returns true if the bag has room for at least one more object.
+        // Check bag capacity BEFORE attempting grab to prevent overfilling exceptions
         public static bool HasRoom(DrifterBagController controller)
         {
             return BagCapacityCalculator.HasRoomForGrab(controller);
         }
 
-        // Returns the total mass of all objects currently in the bag.
+        // Total mass = sum of bagged objects + incoming object. Critical for overencumbrance checks.
         public static float GetTotalMass(DrifterBagController controller)
         {
             return BagCapacityCalculator.GetBaggedObjectMass(controller);
         }
 
-        // Returns the mass of a specific object in the bag.
-        // Returns 0 if the object is null or not in the bag.
+        // Returns 0 if object is null or not in the bag; used for mass validation
         public static float GetObjectMass(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return 0f;
             return controller.CalculateBaggedObjectMass(obj);
         }
 
-        // Returns the display name of a bagged object (either from CharacterBody or GameObject name).
+        // Use CharacterBody.GetDisplayName() for friendly names; fallback to GameObject.name for non-CharacterBody objects (props, items)
         public static string GetObjectName(GameObject obj)
         {
             if (obj == null) return "Unknown";
@@ -85,7 +84,7 @@ namespace DrifterBossGrabMod.API
             return null;
         }
 
-        // Returns true if the specified object is currently in the bag.
+        // Performs O(1) InstanceID lookup in BagState registry; prevents duplicate grabs.
         public static bool IsObjectInBag(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;
@@ -93,24 +92,23 @@ namespace DrifterBossGrabMod.API
             return list != null && list.Contains(obj);
         }
 
-        // Returns the object currently in the main seat of the bag.
+        // Returns the main seat object; null if empty; determines which object receives skill inputs
         public static GameObject? GetMainPassenger(DrifterBagController controller)
         {
             return BagPatches.GetMainSeatObject(controller);
         }
 
-        // Checks if an object name is blacklisted from being grabbed.
+        // Blacklist prevents grabbing specific objects that cause issues (teleporter interactables, boss masters)
         public static bool IsBlacklisted(string objectName)
         {
             return PluginConfig.IsBlacklisted(objectName);
         }
 
-        // Swaps the current main seat object with an object already in the bag.
-        // Returns True if the object was found in the bag and the swap was scheduled.
+        // Used for manual passenger selection via UI; swaps without releasing to air (unlike throw+grab sequence)
         public static bool SetMainPassenger(DrifterBagController controller, GameObject objRef)
         {
             if (controller == null || objRef == null) return false;
-            
+
             var list = GetBaggedObjects(controller);
             if (!list.Contains(objRef)) return false;
 
@@ -120,18 +118,18 @@ namespace DrifterBossGrabMod.API
             return true;
         }
 
-        // Programmatically adds an object to the Drifter's bag
+        // API for external mods; bypasses normal grab cooldown and input checks
         public static bool AddBaggedObject(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;
 
-            // Ensure the object is prepared for grabbing (adds SpecialObjectAttributes, ESM, etc.)
+            // SpecialObjectAttributes required for grab detection; ESM enables state machine synchronization
             GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
 
-            // Suppress the accidental throw during automated assignments
+            // Auto-grab shouldn't throw; suppress throw flag to prevent immediate release
             BaggedObjectPatches.SuppressExitForObject(obj);
 
-            // Trigger the assignment logic
+            // AssignPassenger handles seat assignment, skill binding, and network sync
             controller.AssignPassenger(obj);
 
             // If this object is now in the main seat, we must transition the state machine
@@ -158,7 +156,7 @@ namespace DrifterBossGrabMod.API
             return true;
         }
 
-        // Removes a specific object from the bag.
+        // Removes object from any seat (main or additional). Triggers OnObjectReleased event.
         public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false)
         {
             if (controller == null || obj == null) return;
@@ -172,7 +170,7 @@ namespace DrifterBossGrabMod.API
             BagPassengerManager.ForceRecalculateMass(controller);
         }
 
-        // Removes all objects from the bag.
+        // Clears all seats. Used on death, scene transitions, and bag reset.
         public static void ClearBag(DrifterBagController controller, bool isDestroying = false)
         {
             if (controller == null) return;
@@ -184,12 +182,12 @@ namespace DrifterBossGrabMod.API
             InvokeOnBagCleared(controller, isDestroying);
         }
 
-        // Schedules an object to be auto-grabbed after a delay.
+        // Used for respawn auto-grab; delay ensures object fully initializes before grab attempt
         public static void ScheduleAutoGrab(DrifterBagController controller, GameObject obj, float delay = 0.5f)
         {
             if (controller == null || obj == null) return;
-            
-            // Create a coroutine runner to execute the delayed grab
+
+            // Unity coroutine needed for async delay since we can't use Task in this context
             var coroutineRunner = new GameObject("AutoGrabRunner_" + obj.GetInstanceID());
             var runner = coroutineRunner.AddComponent<AutoGrabCoroutineRunner>();
             runner.StartCoroutine(DelayedAutoGrabCoroutine(controller, obj, delay));
@@ -197,7 +195,7 @@ namespace DrifterBossGrabMod.API
 
         private static IEnumerator DelayedAutoGrabCoroutine(DrifterBagController controller, GameObject obj, float delay)
         {
-            // Wait for object to fully initialize
+            // Some objects (like spawned enemies) aren't ready immediately; wait prevents null reference
             yield return new WaitForSeconds(delay);
 
             // Check if object still exists and is valid
@@ -212,7 +210,7 @@ namespace DrifterBossGrabMod.API
         private class AutoGrabCoroutineRunner : MonoBehaviour
         {
             public IEnumerator? runningCoroutine;
-            
+
             public new void StartCoroutine(IEnumerator coroutine)
             {
                 runningCoroutine = coroutine;
@@ -410,7 +408,7 @@ namespace DrifterBossGrabMod.API
         {
             GameObject? heaviest = null;
             float maxMass = 0f;
-            
+
             foreach (var obj in GetBaggedObjects(controller))
             {
                 float mass = GetObjectMass(controller, obj);
@@ -420,7 +418,7 @@ namespace DrifterBossGrabMod.API
                     heaviest = obj;
                 }
             }
-            
+
             return heaviest;
         }
 
@@ -429,7 +427,7 @@ namespace DrifterBossGrabMod.API
         {
             GameObject? lightest = null;
             float minMass = float.MaxValue;
-            
+
             foreach (var obj in GetBaggedObjects(controller))
             {
                 float mass = GetObjectMass(controller, obj);
@@ -439,7 +437,7 @@ namespace DrifterBossGrabMod.API
                     lightest = obj;
                 }
             }
-            
+
             return lightest;
         }
 
@@ -492,16 +490,16 @@ namespace DrifterBossGrabMod.API
         public static string GetFormattedBagSummary(DrifterBagController controller)
         {
             if (controller == null) return "Bag: N/A";
-            
+
             int count = GetBagCount(controller);
             int capacity = GetBagCapacity(controller);
             float totalMass = GetTotalMass(controller);
             float massCap = GetMassCapacity(controller);
             float ratio = GetMassRatio(controller);
-            
+
             string countStr = capacity == int.MaxValue ? $"{count}/∞" : $"{count}/{capacity}";
             string massCapStr = massCap == float.MaxValue ? "∞" : massCap.ToString("F0");
-            
+
             return $"Bag: {countStr} | Mass: {totalMass:F0}/{massCapStr} ({ratio:P0})";
         }
 

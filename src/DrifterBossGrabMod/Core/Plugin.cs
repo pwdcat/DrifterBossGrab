@@ -48,23 +48,23 @@ namespace DrifterBossGrabMod
         private DrifterGrabFeature? _drifterGrabFeature;
         private BottomlessBagFeature? _bottomlessBagFeature;
         private PersistenceFeature? _persistenceFeature;
+        private TeleporterFeature? _teleporterFeature;
         private BalanceFeature? _balanceFeature;
         private RecoveryFeature? _recoveryFeature;
 
         private Harmony? _drifterGrabHarmony;
         private Harmony? _bottomlessBagHarmony;
         private Harmony? _persistenceHarmony;
+        private Harmony? _teleporterHarmony;
         private Harmony? _balanceHarmony;
         private Harmony? _recoveryHarmony;
-        
+
         private bool _wasBottomlessBagEnabled;
         private bool _wasPersistenceEnabled;
+        private bool _wasTeleporterEnabled;
         private bool _wasBalanceEnabled;
         private bool _wasDrifterGrabEnabled;
         private bool _wasRecoveryEnabled;
-
-
-
 
         private void InitializeInstance()
         {
@@ -83,6 +83,7 @@ namespace DrifterBossGrabMod
             _drifterGrabHarmony = new Harmony(Constants.PluginGuid + ".driftergrab");
             _bottomlessBagHarmony = new Harmony(Constants.PluginGuid + ".bottomlessbag");
             _persistenceHarmony = new Harmony(Constants.PluginGuid + ".persistence");
+            _teleporterHarmony = new Harmony(Constants.PluginGuid + ".teleporter");
             _balanceHarmony = new Harmony(Constants.PluginGuid + ".balance");
 
             _drifterGrabFeature = new DrifterGrabFeature();
@@ -93,6 +94,9 @@ namespace DrifterBossGrabMod
 
             _persistenceFeature = new PersistenceFeature();
             _persistenceFeature.Initialize(_persistenceHarmony);
+
+            _teleporterFeature = new TeleporterFeature();
+            _teleporterFeature.Initialize(_teleporterHarmony);
 
             _balanceFeature = new BalanceFeature();
             _balanceFeature.Initialize(_balanceHarmony);
@@ -108,6 +112,7 @@ namespace DrifterBossGrabMod
         {
             InitializeInstance();
             InitializeCoreSystems();
+
             InitializeFeatures();
             ConfigChangeNotifier.Init();
             ConfigChangeNotifier.AddObserver(this);
@@ -115,9 +120,9 @@ namespace DrifterBossGrabMod
             SetupFeatureToggleHandlers();
             SetupClientPreferenceHandlers();
             InitializeFormulaVariables();
-            
+
             Config.SettingChanged += OnConfigSettingChangedEvent;
-            
+
             PresetManager.CheckAndApplyPresetOnStartup();
 
             SyncFeatureTrackingState();
@@ -132,7 +137,6 @@ namespace DrifterBossGrabMod
             ProperSave.ProperSaveIntegration.Initialize();
             ProperSave.Spawning.ObjectSpawner.Initialize();
 
-            // Might make future teleporter feature
             new Harmony(Constants.PluginGuid + ".teleportersafety").PatchAll(typeof(Patches.TeleporterSafetyPatches));
 
             new Harmony(Constants.PluginGuid + ".combatdirector").PatchAll(typeof(Patches.CombatDirectorPatches));
@@ -262,6 +266,7 @@ namespace DrifterBossGrabMod
             Networking.BagStateSync.Cleanup();
             Networking.NetworkMessageRegistry.Cleanup();
             ProperSave.ProperSaveIntegration.Cleanup();
+
         }
 
         private void CleanupFeatures()
@@ -270,6 +275,7 @@ namespace DrifterBossGrabMod
             _drifterGrabFeature?.Cleanup(_drifterGrabHarmony!);
             _bottomlessBagFeature?.Cleanup(_bottomlessBagHarmony!);
             _persistenceFeature?.Cleanup(_persistenceHarmony!);
+            _teleporterFeature?.Cleanup(_teleporterHarmony!);
             _balanceFeature?.Cleanup(_balanceHarmony!);
             _recoveryFeature?.Cleanup(_recoveryHarmony!);
         }

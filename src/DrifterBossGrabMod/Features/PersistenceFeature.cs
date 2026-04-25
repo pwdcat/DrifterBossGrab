@@ -12,8 +12,6 @@ namespace DrifterBossGrabMod
         {
             harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches.SceneExitController_OnEnable)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches.SceneExitController_OnDisable)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.TeleporterPatches)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.BossGroupPatches)).Patch();
             Patches.RunLifecyclePatches.Initialize();
         }
 

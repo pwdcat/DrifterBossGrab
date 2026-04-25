@@ -5,12 +5,12 @@ namespace DrifterBossGrabMod
     internal static class Constants
     {
         public const string CloneSuffix = "(Clone)";
-        // Version info
+        // Version format: Major.Minor.Patch. Increment when breaking changes, new features, or bug fixes.
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
         public const string PluginVersion = "1.8.0";
 
-        // Timeout values for various operations
+        // Timeouts prevent infinite hangs on network operations or object initialization failures
         public static class Timeouts
         {
             public const float SyncStateTimeout = 2.0f;
@@ -20,7 +20,7 @@ namespace DrifterBossGrabMod
             public const float SyncWaitIncrement = 0.1f;
         }
 
-        // Limit values for capacity and mass
+        // Safety limits prevent integer overflow and performance issues with extreme values
         public static class Limits
         {
             public const float MaxMass = 700f;
@@ -46,17 +46,17 @@ namespace DrifterBossGrabMod
             public const float PercentageDivisor = 100.0f;
             public const float CapacityRatioThreshold = 1f;
             public const float ScalingMultiplierBase = 1f;
-            
-            // Slam Damage
+
+            // Base damage coefficient for suffocate slam. Multiplied by mass ratio for scaling.
             public const float SlamBaseDamageCoef = 2.8f;
             public const float SlamMassScaling = 5.0f;
-            
-            // Item Bonuses
+
+            // Per-item damage bonuses applied during slam calculation. Used when target lacks CharacterBody.
             public const float DelicateWatchDamageBonus = 0.2f;
             public const float NearbyDamageBonus = 0.2f;
         }
 
-        // Network message types
+        // Network message IDs for client-server sync. Must match between client and server.
         public static class Network
         {
             public const short BaggedObjectsPersistenceMessageType = 201;

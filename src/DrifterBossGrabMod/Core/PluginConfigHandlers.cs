@@ -13,31 +13,33 @@ namespace DrifterBossGrabMod
         {
             _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
             _wasPersistenceEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
+            _wasTeleporterEnabled = PluginConfig.Instance.EnableObjectPersistence.Value && !PluginConfig.IsPersistenceBlacklisted("Teleporter");
             _wasBalanceEnabled = PluginConfig.Instance.EnableBalance.Value;
             _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
         }
 
         private void InitializeFormulaVariables()
         {
-            Balance.FormulaRegistry.RegisterVariable("H", 
+            Balance.FormulaRegistry.RegisterVariable("H",
                 (body) => body?.maxHealth ?? 0f,
                 "Character's max health");
-            
-            Balance.FormulaRegistry.RegisterVariable("L", 
+
+            Balance.FormulaRegistry.RegisterVariable("L",
                 (body) => body?.level ?? 1f,
                 "Character's level");
-            
-            Balance.FormulaRegistry.RegisterVariable("C", 
+
+            Balance.FormulaRegistry.RegisterVariable("C",
                 (body) => body != null && body.skillLocator != null && body.skillLocator.utility != null
                     ? body.skillLocator.utility.maxStock : 1f,
                 "Utility stock count");
-            
-            Balance.FormulaRegistry.RegisterVariable("S", 
+
+            Balance.FormulaRegistry.RegisterVariable("S",
                 (body) => Run.instance ? Run.instance.stageClearCount + 1 : 1,
                 "Current stage number");
-            
-            Balance.FormulaRegistry.RegisterVariable("MC", 
-                (body) => {
+
+            Balance.FormulaRegistry.RegisterVariable("MC",
+                (body) =>
+                {
                     string massCapStr = PluginConfig.Instance.MassCap.Value;
                     if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
@@ -47,15 +49,15 @@ namespace DrifterBossGrabMod
                     return float.TryParse(massCapStr, out float massCap) ? massCap : 700f;
                 },
                 "Mass capacity limit (from config)");
-            
-            Balance.FormulaRegistry.RegisterVariable("BH", 
+
+            Balance.FormulaRegistry.RegisterVariable("BH",
                 (body) => body?.baseMaxHealth ?? 0f,
                 "Character's base max health");
-            
-            Balance.FormulaRegistry.RegisterVariable("B", 
+
+            Balance.FormulaRegistry.RegisterVariable("B",
                 (body) => 0f,
                 "Base mass (for flag multipliers)");
-            
+
             Log.Info("[FormulaInit] Default variables initialized");
         }
 
@@ -97,6 +99,12 @@ namespace DrifterBossGrabMod
                 PluginConfig.ClearRecoveryBlacklistCache();
             };
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged += recoveryBlacklistHandler;
+
+            persistenceBlacklistHandler = (sender, args) =>
+            {
+                PluginConfig.ClearPersistenceBlacklistCache();
+            };
+            PluginConfig.Instance.PersistenceBlacklist.SettingChanged += persistenceBlacklistHandler;
         }
 
         private void SetupVelocityHandlers()

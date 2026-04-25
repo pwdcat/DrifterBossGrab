@@ -13,6 +13,7 @@ namespace DrifterBossGrabMod
         private EventHandler? debugLogsHandler;
         private EventHandler? blacklistHandler;
         private EventHandler? recoveryBlacklistHandler;
+        private EventHandler? persistenceBlacklistHandler;
         private EventHandler? grabbableComponentTypesHandler;
         private EventHandler? grabbableKeywordBlacklistHandler;
         private EventHandler? bossGrabbingHandler;
@@ -24,6 +25,7 @@ namespace DrifterBossGrabMod
         private EventHandler? autoGrabHandler;
         private EventHandler? bottomlessBagToggleHandler;
         private EventHandler? persistenceToggleHandler;
+        private EventHandler? teleporterToggleHandler;
         private EventHandler? balanceToggleHandler;
         private EventHandler? recoveryToggleHandler;
 
@@ -38,7 +40,7 @@ namespace DrifterBossGrabMod
         private void OnClientPreferenceSettingChanged(object sender, EventArgs args)
         {
             if (!NetworkClient.active) return;
-            
+
             foreach (var playerController in PlayerCharacterMasterController.instances)
             {
                 if (playerController.hasAuthority && playerController.master && playerController.master.GetBody())
@@ -88,6 +90,18 @@ namespace DrifterBossGrabMod
             };
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged += persistenceToggleHandler;
 
+            teleporterToggleHandler = (sender, args) =>
+            {
+                bool isEnabled = PluginConfig.Instance.EnableObjectPersistence.Value && !PluginConfig.IsPersistenceBlacklisted("Teleporter");
+                if (isEnabled != _wasTeleporterEnabled)
+                {
+                    _teleporterFeature?.Toggle(_teleporterHarmony!, isEnabled);
+                    _wasTeleporterEnabled = isEnabled;
+                }
+            };
+            PluginConfig.Instance.EnableObjectPersistence.SettingChanged += teleporterToggleHandler;
+            PluginConfig.Instance.PersistenceBlacklist.SettingChanged += teleporterToggleHandler;
+
             balanceToggleHandler = (sender, args) =>
             {
                 bool isEnabled = PluginConfig.Instance.EnableBalance.Value;
@@ -124,6 +138,7 @@ namespace DrifterBossGrabMod
                 debugLogsHandler ?? ((sender, args) => { }),
                 blacklistHandler ?? ((sender, args) => { }),
                 recoveryBlacklistHandler ?? ((sender, args) => { }),
+                persistenceBlacklistHandler ?? ((sender, args) => { }),
                 grabbableComponentTypesHandler ?? ((sender, args) => { }),
                 grabbableKeywordBlacklistHandler ?? ((sender, args) => { }),
                 bossGrabbingHandler ?? ((sender, args) => { }),
@@ -144,6 +159,8 @@ namespace DrifterBossGrabMod
         {
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= bottomlessBagToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceToggleHandler;
+            PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= teleporterToggleHandler;
+            PluginConfig.Instance.PersistenceBlacklist.SettingChanged -= teleporterToggleHandler;
             PluginConfig.Instance.EnableBalance.SettingChanged -= balanceToggleHandler;
             PluginConfig.Instance.EnableRecoveryFeature.SettingChanged -= recoveryToggleHandler;
         }
