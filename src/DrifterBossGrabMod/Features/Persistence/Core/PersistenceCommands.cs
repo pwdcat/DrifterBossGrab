@@ -5,14 +5,14 @@ using RoR2;
 
 namespace DrifterBossGrabMod
 {
-    // Command interface for persistence operations
+    // The command pattern is used to decouple the request for persistence from the underlying state management logic.
     public interface IPersistenceCommand
     {
         void Execute();
         void Undo();
     }
 
-    // Concrete command for adding a persisted object
+    // Encapsulating addition logic allows for easy rollback if a stage transition is cancelled or fails.
     public class AddPersistedObjectCommand : IPersistenceCommand
     {
         private readonly GameObject _obj;
@@ -35,7 +35,7 @@ namespace DrifterBossGrabMod
         }
     }
 
-    // Concrete command for removing a persisted object
+    // Removing an object requires tracking its destruction state to ensure we don't attempt to "Undo" onto a null reference.
     public class RemovePersistedObjectCommand : IPersistenceCommand
     {
         private readonly GameObject _obj;
@@ -58,7 +58,7 @@ namespace DrifterBossGrabMod
         }
     }
 
-    // Concrete command for clearing all persisted objects
+    // Clearing the entire registry is an expensive operation that is primarily used during run termination.
     public class ClearPersistedObjectsCommand : IPersistenceCommand
     {
         private GameObject[] _clearedObjects = null!;
@@ -81,7 +81,7 @@ namespace DrifterBossGrabMod
         }
     }
 
-    // Command invoker for managing persistence commands
+    // The invoker maintains a history stack to support the "Undo" feature in the persistence UI.
     public class PersistenceCommandInvoker
     {
         private readonly System.Collections.Generic.Stack<IPersistenceCommand> _commandHistory = new System.Collections.Generic.Stack<IPersistenceCommand>();

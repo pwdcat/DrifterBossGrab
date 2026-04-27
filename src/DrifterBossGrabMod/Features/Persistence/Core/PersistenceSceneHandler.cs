@@ -25,10 +25,6 @@ namespace DrifterBossGrabMod
             HarmonyLib.AccessTools.Field(typeof(ClientScene), "s_LocalObjects");
         private static IDictionary<NetworkInstanceId, NetworkIdentity>? _clientSceneObjects;
 
-        // Cached NetworkUser dictionary for O(1) lookups
-        private static readonly System.Collections.Generic.Dictionary<string, NetworkUser> _networkUserCache = new System.Collections.Generic.Dictionary<string, NetworkUser>();
-
-        // Initialize static fields
         static PersistenceSceneHandler()
         {
             // Cache reflection result at initialization
@@ -43,102 +39,78 @@ namespace DrifterBossGrabMod
                     _clientSceneObjects = null;
                 }
             }
-
-            // Subscribe to NetworkUser events for cache management
-            NetworkUser.onNetworkUserDiscovered += OnNetworkUserDiscovered;
-            NetworkUser.onNetworkUserLost += OnNetworkUserLost;
-
-            // Initialize cache with existing NetworkUsers
-            RefreshNetworkUserCache();
-        }
-
-        // Helper methods for NetworkUser cache management
-        private static void RefreshNetworkUserCache()
-        {
-            _networkUserCache.Clear();
-            foreach (var nu in NetworkUser.readOnlyInstancesList)
-            {
-                var id = nu.id;
-                var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-                _networkUserCache[idString] = nu;
-            }
-        }
-
-        private static void OnNetworkUserDiscovered(NetworkUser user)
-        {
-            var id = user.id;
-            var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-            _networkUserCache[idString] = user;
-        }
-
-        private static void OnNetworkUserLost(NetworkUser user)
-        {
-            var id = user.id;
-            var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-            _networkUserCache.Remove(idString);
         }
 
         private static NetworkUser? FindNetworkUserById(string playerId)
         {
             if (string.IsNullOrEmpty(playerId)) return null;
-            _networkUserCache.TryGetValue(playerId, out var user);
-            return user;
-        }
 
-        // Handle scene change
-        public void OnSceneChanged(Scene oldScene, Scene newScene)
-        {
+            var users = NetworkUser.readOnlyInstancesList;
+
+            // First attempt: Exact match against live IDs
+            foreach (var user in users)
+            {
+                if (Networking.NetworkUtils.GetPlayerIdString(user.id) == playerId)
+                {
+                    return user;
+                }
+            }
+
+            // Fallback for single-player
+            if (users.Count == 1)
+            {
+                var onlyUser = users[0];
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[FindNetworkUserById] ID mismatch '{playerId}' != '{Networking.NetworkUtils.GetPlayerIdString(onlyUser.id)}', but only one player found. Using fallback.");
+                }
+                return onlyUser;
+            }
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Info($" OnSceneChanged called - EnablePersistence: {PersistenceObjectManager.GetCachedEnablePersistence()}, from {oldScene.name} to {newScene.name}");
+                Log.Warning($"[FindNetworkUserById] Failed to find owner {playerId} among {users.Count} players.");
             }
-            // Network handlers are now registered via [NetworkMessageHandler] attributes
-            // Invalidate teleporter registry and cache on scene change
-            MultiTeleporterTracker.Clear();
+
+            return null;
+        }
+
+        public void OnSceneChanged(Scene oldScene, Scene newScene)
+        {
             if (!PersistenceObjectManager.GetCachedEnablePersistence())
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($" Persistence disabled, skipping scene change handling");
+                    Log.Info($" Persistence disabled, skipping scene change handling for {newScene.name}");
                 }
                 return;
             }
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($" Scene changed from {oldScene.name} to {newScene.name}, restoring {PersistenceObjectManager.GetPersistedObjectsCount()} persisted objects");
             }
+
             var coroutineRunner = new GameObject("PersistenceCoroutineRunner");
             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
             isRestoringFromSceneChange = true;
             runner.StartCoroutine(DelayedRestorePersistedObjects());
         }
 
-        // Coroutine to delay restoration until player is ready
+        // Coroutine to delay restoration until player is ready.
         private static System.Collections.IEnumerator DelayedRestorePersistedObjects()
         {
             PersistenceCoroutineRunner? runner = null;
             try
             {
-                // Get the current runner reference for cleanup
                 runner = UnityEngine.Object.FindFirstObjectByType<PersistenceCoroutineRunner>();
-                // Wait one frame for initial scene setup
                 yield return null;
-                // Wait additional frames until any player body is available
+
                 int maxWaitFrames = 120;
                 int framesWaited = 0;
                 while (framesWaited < maxWaitFrames)
                 {
-                    CharacterBody? anyBody = null;
-                    foreach (var nu in _networkUserCache.Values)
-                    {
-                        var body = nu.master?.GetBody();
-                        if (body != null)
-                        {
-                            anyBody = body;
-                            break;
-                        }
-                    }
-                    if (anyBody != null)
+                    if (AnyPlayerHasBody())
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
@@ -147,32 +119,14 @@ namespace DrifterBossGrabMod
                         break;
                     }
 
-                    // Early exit if all players are ready
-                    if (AllPlayersReady())
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" All players ready after {framesWaited} frames, proceeding with restoration");
-                        }
-                        break;
-                    }
-
                     framesWaited++;
                     yield return null;
                 }
-                if (framesWaited >= maxWaitFrames)
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Timeout waiting for any player body after {maxWaitFrames} frames, proceeding with restoration anyway");
-                    }
-                }
-                // Restore persisted objects to new scene
+
                 RestorePersistedObjects();
             }
             finally
             {
-                // Always clean up the coroutine runner, even if an exception occurs
                 if (runner != null)
                 {
                     UnityEngine.Object.Destroy(runner.gameObject);
@@ -180,41 +134,19 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Check if all players are ready (early exit condition)
-        private static bool AllPlayersReady()
+        private static bool AnyPlayerHasBody()
         {
-            // Check if we have any persisted objects to restore
-            var persistedCount = PersistenceObjectManager.GetPersistedObjectsCount();
-            if (persistedCount == 0)
+            foreach (var nu in NetworkUser.readOnlyInstancesList)
             {
-                return true; // Nothing to restore, can proceed
+                if (nu.master?.GetBody() != null) return true;
             }
-
-            // Check if all network users have a valid body
-            bool allUsersHaveBodies = false;
-            foreach (var nu in _networkUserCache.Values)
-            {
-                if (nu.master?.GetBody() != null)
-                {
-                    allUsersHaveBodies = true;
-                    break; // Early exit once found
-                }
-            }
-
-            if (allUsersHaveBodies && _networkUserCache.Count > 0)
-            {
-                return true;
-            }
-
-            return allUsersHaveBodies;
+            return false;
         }
 
-        // Helper class for running coroutines
         private class PersistenceCoroutineRunner : MonoBehaviour
         {
             private void OnDestroy()
             {
-                // Ensure cleanup even if coroutine fails
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($" PersistenceCoroutineRunner destroyed - cleanup completed");
@@ -222,7 +154,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Helper class for delayed BossGroup cleanup to avoid InvalidCastException during scene loading
         private class BossGroupCleanupRunner : MonoBehaviour
         {
             private CharacterMaster? _characterMaster;
@@ -235,7 +166,6 @@ namespace DrifterBossGrabMod
             }
             private System.Collections.IEnumerator DelayedBossGroupCleanup()
             {
-                // Wait one frame for scene initialization to complete
                 yield return null;
                 try
                 {
@@ -257,12 +187,10 @@ namespace DrifterBossGrabMod
                 {
                     Log.Error($"[DelayedBossGroupCleanup] Error: {ex.Message}");
                 }
-                // Clean up this runner
                 UnityEngine.Object.Destroy(gameObject);
             }
         }
 
-        // Restore persisted objects
         public static void RestorePersistedObjects()
         {
             var persistedObjects = PersistenceObjectManager.GetPersistedObjectsSet();
@@ -286,6 +214,18 @@ namespace DrifterBossGrabMod
                         continue;
                     }
 
+                    // Check if blacklisted before restoration logic
+                    if (PluginConfig.IsPersistenceBlacklisted(obj))
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[RestorePersistedObjects] Skipping restoration of {obj.name}: Object is blacklisted.");
+
+                        // Destroy it if it's already in the persistence container to prevent scene clutter
+                        UnityEngine.Object.Destroy(obj);
+                        objectsToRemove.Add(obj);
+                        continue;
+                    }
+
                     var healthComp = obj.GetComponent<RoR2.HealthComponent>();
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -297,7 +237,6 @@ namespace DrifterBossGrabMod
 
                     if (isAlreadyInScene)
                     {
-                        // Already in scene (Fresh Networked Object), skip restoration
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             Log.Info($"[RestorePersistedObjects] Skipping object {obj.name} (NetID: {networkIdentity?.netId}) - already in active scene.");
@@ -309,17 +248,13 @@ namespace DrifterBossGrabMod
                         continue;
                     }
 
-                    // Object is in DontDestroyOnLoad (Stale/Persistence)
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($" Restoring object {obj.name} to scene (currently parented to: {obj.transform.parent?.name ?? "null"}) from {obj.scene.name}");
                     }
-
-                    // Move back to scene and remove from DontDestroyOnLoad root
                     obj.transform.SetParent(null, true);
                     SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
 
-                    // Refresh BodyColliderCache after model re-parenting to ensure it has valid collider references
                     var colliderCache = obj.GetComponent<BodyColliderCache>();
                     if (colliderCache != null)
                     {
@@ -432,14 +367,9 @@ namespace DrifterBossGrabMod
                     {
                         if (NetworkServer.active)
                         {
-                            // Server: Delay AutoGrab to allow Spawn message to propagate to Clients
                             var coroutineRunner = new GameObject("ServerAutoGrabRunner_" + obj.name);
                             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
                             runner.StartCoroutine(DelayedAutoGrab(obj, runner, PluginConfig.Instance.AutoGrabDelay.Value));
-                        }
-                        else
-                        {
-                            // Client: AutoGrab is handled by Network Sync
                         }
                     }
 
@@ -492,7 +422,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Helper to restore renderers
+        // Renderers are re-enabled to fix visual bugs
         private static void RestoreRenderers(GameObject obj)
         {
             var renderers = obj.GetComponentsInChildren<Renderer>(true);
@@ -507,7 +437,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Coroutine to ensure object doesn't fall while waiting for Server Sync
+        // TODO: Needs more testing. This is just to prevent objects from falling through the floor after scene transition.
         private static System.Collections.IEnumerator ClientSafetyFloat(GameObject obj, PersistenceCoroutineRunner runner)
         {
             yield return new WaitForSeconds(Constants.Timeouts.OverencumbranceDebuffRemovalDelay);
@@ -529,7 +459,7 @@ namespace DrifterBossGrabMod
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
         }
 
-        // Helper class to seek owner body if not immediately found (Server Side)
+        // If the owner hasn't spawned yet, we keep the object in limbo and periodically check for their appearance.
         private class PersistedObjectSeeker : MonoBehaviour
         {
             private string _ownerPlayerId = string.Empty;
@@ -589,7 +519,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Position object near player. Returns true if specific owner found, false if fallback used.
+        // Objects are placed in front of the player
         private static bool PositionNearPlayer(GameObject obj)
         {
             // First, try to find the owner Drifter by player id
@@ -599,7 +529,8 @@ namespace DrifterBossGrabMod
 
             if (!string.IsNullOrEmpty(ownerPlayerId))
             {
-                // Find the NetworkUser associated with this player id using cached lookup
+                // Find the NetworkUser associated with this player id.
+                // FindNetworkUserById handles single-player fallbacks. Needs more testing.
                 var matchedUser = FindNetworkUserById(ownerPlayerId);
                 if (matchedUser != null)
                 {
@@ -610,18 +541,20 @@ namespace DrifterBossGrabMod
 
             if (targetBody == null)
             {
-                // Fallback to host's body (any body)
-                var hostUser = _networkUserCache.Values.FirstOrDefault(nu => nu.isServer);
+                // Fallback to host's body if no specific owner is found.
+                var hostUser = NetworkUser.readOnlyInstancesList.FirstOrDefault(nu => nu.isServer);
                 if (hostUser != null && hostUser.master != null)
                 {
                     targetBody = hostUser.master.GetBody();
                 }
             }
+
             if (targetBody == null)
             {
-                // Last resort to local player
+                // Final resort to local player if all else fails.
                 targetBody = NetworkUser.readOnlyLocalPlayersList.Count > 0 ? NetworkUser.readOnlyLocalPlayersList[0]?.master?.GetBody() : null;
             }
+
 
             if (targetBody != null)
             {
@@ -667,7 +600,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Coroutine to delay auto-grab to allow client network spawn to complete
+        // A short delay ensures the NetworkServer.Spawn message has propagated to all clients before we attempt to assign the object to a bag.
         private static System.Collections.IEnumerator DelayedAutoGrab(GameObject obj, PersistenceCoroutineRunner runner, float delay)
         {
             yield return new WaitForSeconds(delay);
@@ -680,17 +613,17 @@ namespace DrifterBossGrabMod
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
         }
 
-        // Try to auto-grab a restored object
+        // Auto-grab restores the previous "bagged" state, allowing the player to continue their run without manual re-collection.
         private static void TryAutoGrabObject(GameObject obj)
         {
             if (!NetworkServer.active) return; // only Host handles auto-grab assignment
 
-            if (obj == null)
+            if (obj == null) return;
+
+            if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" TryAutoGrabObject called with null object");
-                }
+                    Log.Info($"[TryAutoGrabObject] Aborting auto-grab for {obj.name}: Object is blacklisted.");
                 return;
             }
             // Skip CharacterMaster objects
@@ -747,6 +680,18 @@ namespace DrifterBossGrabMod
                 {
                     if (!string.IsNullOrEmpty(ownerPlayerId))
                     {
+                        var user = FindNetworkUserById(ownerPlayerId);
+                        Log.Info($"[TryAutoGrabObject DEBUG] ownerPlayerId: {ownerPlayerId}");
+                        Log.Info($"[TryAutoGrabObject DEBUG] user found: {user != null}");
+                        if (user != null)
+                        {
+                            Log.Info($"[TryAutoGrabObject DEBUG] user.master found: {user.master != null}");
+                            if (user.master != null)
+                            {
+                                Log.Info($"[TryAutoGrabObject DEBUG] user.master.GetBody() found: {user.master.GetBody() != null}");
+                            }
+                        }
+
                         Log.Info($" Owner Drifter (player ID: {ownerPlayerId}) not found in scene yet for {obj.name}. Object will remain ungrabbed until owner spawns.");
                     }
                     else
@@ -822,7 +767,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Schedule auto-grab for Drifter
+        // Immediate auto-grab is used when a Drifter respawns mid-stage to recover their previously held items.
         public void ScheduleAutoGrab(CharacterMaster master)
         {
             if (!NetworkServer.active) return;
@@ -1100,21 +1045,21 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Handle special restoration logic
+        // Certain objects like Teleporters and Bosses require specialized cleanup to prevent breaking the core game loop in the new stage.
         public static void HandleSpecialObjectRestoration(GameObject obj, bool duringSceneRestoration = false)
         {
             if (obj == null) return;
-
-            // Skip objects with TeleporterInteraction if Teleporter is blacklisted
-            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
-            if (teleporterInteraction != null && PluginConfig.IsPersistenceBlacklisted("Teleporter"))
+            if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[HandleSpecialObjectRestoration] Skipping teleporter object {obj.name} (Teleporter is blacklisted)");
+                    Log.Info($"[HandleSpecialObjectRestoration] Destroying blacklisted object {obj.name}");
                 }
+                UnityEngine.Object.Destroy(obj);
                 return;
             }
+
+            var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
 
             string objName = obj.name.ToLower();
             // Handle teleporters - disable if there's another active teleporter
@@ -1211,9 +1156,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-
-
-        // Helper method to register object with ClientScene using cached Reflection
+        // Client-side registration
         private static void RegisterLocalObjectReflectively(NetworkIdentity networkIdentity)
         {
             try

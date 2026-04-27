@@ -515,7 +515,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[GrabPatch] Failed to add attributes to {go?.name ?? "null"}: {ex.Message}");
+                    Log.Error($"[GrabPatch] Failed to add attributes to {(!go ? "null" : go.name)}: {ex.Message}");
                 }
 
                 count++;

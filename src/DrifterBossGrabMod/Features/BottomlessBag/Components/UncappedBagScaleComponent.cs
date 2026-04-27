@@ -5,7 +5,7 @@ using RoR2;
 
 namespace DrifterBossGrabMod.Features
 {
-    // Component that applies uncapped bag scaling
+    // Applies dynamic vertex-level scaling to the Drifter's bag mesh
     public class UncappedBagScaleComponent : MonoBehaviour
     {
         private DrifterBagController? _bagController;
@@ -17,7 +17,6 @@ namespace DrifterBossGrabMod.Features
         private float _currentScale = 1f;
         private bool _isInitialized = false;
 
-        // Gets whether the component has been successfully initialized.
         public bool IsInitialized => _isInitialized;
 
         public float TargetScale
@@ -25,12 +24,11 @@ namespace DrifterBossGrabMod.Features
             get => _targetScale;
             set
             {
-                _targetScale = Mathf.Max(value, 1.0f); // Minimum scale to prevent issues
+                _targetScale = Mathf.Max(value, 1.0f);
             }
         }
         public void Initialize(DrifterBagController bagController)
         {
-            // Prevent duplicate initialization
             if (_isInitialized)
             {
                 Log.Debug("[UncappedBagScaleComponent] Already initialized, skipping duplicate initialization");
@@ -63,14 +61,12 @@ namespace DrifterBossGrabMod.Features
         {
             Transform? foundTransform = null;
 
-            // Try to find CharacterBody to access modelLocator
             var characterBody = _bagController != null ? _bagController.GetComponent<CharacterBody>() : null;
             if (characterBody != null && characterBody.modelLocator != null)
             {
                 var modelTransform = characterBody.modelLocator.modelTransform;
                 if (modelTransform != null)
                 {
-                    // Try to find meshBag as a child of model transform
                     foundTransform = modelTransform.Find("meshBag");
 
                     if (foundTransform != null)
@@ -87,6 +83,7 @@ namespace DrifterBossGrabMod.Features
                 _bones = _skinnedMeshRenderer.bones;
             }
         }
+        // Only specific "bulge" bones are scaled
         private void FilterAndCacheBagBones()
         {
             if (_bones == null || _skinnedMeshRenderer == null) return;
@@ -142,7 +139,7 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
-        // Check if a bone should be scaled based on keywords
+        // Bone filtering is case-insensitive to account for naming variations, probably not needed
         private bool ShouldScaleBone(string boneName, string[] keywords)
         {
             string boneNameLower = boneName.ToLower();
@@ -156,8 +153,7 @@ namespace DrifterBossGrabMod.Features
             return false;
         }
 
-        // Update bag scale based on current mass
-        // Only scales if mass exceeds maxCapacity (default 700), otherwise uses original animation system
+        // Allows the original animation system to handle loads, only taking over for "overstuffed" scenarios.
         public void UpdateScaleFromMass(float mass)
         {
             if (!_isInitialized)
@@ -187,8 +183,7 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            // Only apply uncapped scaling if mass exceeds maxCapacity
-            // Calculate scale based on mass, similar to original formula but uncapped
+            // The scale formula is linear but uncapped, allowing the bag to grow indefinitely as more mass is added.
             float value = Mathf.Max(mass, 1f);
 
             float t = (value - 1f) / (maxCapacity - 1f);
@@ -211,6 +206,7 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
+        // LateUpdate is used to override any bone modifications applied by the standard animation system in the same frame.
         private void LateUpdate()
         {
             if (!_isInitialized)
@@ -228,7 +224,7 @@ namespace DrifterBossGrabMod.Features
             // Early return optimization: if current scale is already at target scale, skip calculations
             if (Mathf.Approximately(_currentScale, _targetScale)) return;
 
-            // Smoothly interpolate current scale to target scale
+            // Lerping provides a smooth expansion effect rather than jarring "pops" when mass changes instantly.
             _currentScale = Mathf.Lerp(_currentScale, _targetScale, Time.deltaTime * 10f);
 
             int bonesUpdated = 0;
@@ -255,8 +251,6 @@ namespace DrifterBossGrabMod.Features
             _isInitialized = false;
         }
 
-        // Resets all bag bones to their original scales.
-        // Can be called externally if needed for cleanup.
         public void ResetBoneScales()
         {
             if (_filteredBones == null || _originalBoneScales == null) return;

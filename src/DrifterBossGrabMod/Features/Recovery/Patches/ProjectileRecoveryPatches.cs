@@ -6,6 +6,7 @@ using HarmonyLib;
 using RoR2;
 using RoR2.Projectile;
 using RoR2.HudOverlay;
+using RoR2.Navigation;
 using UnityEngine;
 using UnityEngine.Networking;
 using DrifterBossGrabMod;
@@ -50,6 +51,49 @@ namespace DrifterBossGrabMod.Patches
         public static void RecoverObject(GameObject passenger)
         {
             if (passenger == null) return;
+
+            if (PluginConfig.IsRecoveryBlacklisted(passenger.name))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[Recovery] {passenger.name} is blacklisted from recovery, letting vanilla handle");
+                return;
+            }
+
+            // Check recovery type-specific toggles before proceeding
+            var characterBody = passenger.GetComponent<RoR2.CharacterBody>();
+            if (characterBody != null)
+            {
+                if (characterBody.isBoss || characterBody.isChampion)
+                {
+                    // Boss recovery toggle
+                    if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Recovery] Boss recovery disabled for {passenger.name}, letting vanilla handle");
+                        return;
+                    }
+                }
+                else
+                {
+                    // NPC recovery toggle (non-boss, non-champion characters)
+                    if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Info($"[Recovery] NPC recovery disabled for {passenger.name}, letting vanilla handle");
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                // Environment object recovery toggle (non-character objects)
+                if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[Recovery] Environment object recovery disabled for {passenger.name}, letting vanilla handle");
+                    return;
+                }
+            }
 
             // Get the DrifterBagController associated with this object.
             DrifterBagController? bagController = null;
@@ -248,25 +292,9 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[ProcessThrownObject] CLIENT: Removing {passengerName} from local tracking");
-
-                            // Restore hitboxes/state before launching (crucial for additional seats)
-                            BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
-
-                            BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
-                            PersistenceObjectsTracker.UntrackBaggedObject(passenger, isDestroying: false);
-                            Log.Info($"[ProcessThrownObject] CLIENT: {passengerName} throw processed, carousel updated");
-                        }
-                        else
-                        {
-                            // Restore hitboxes/state before launching (crucial for additional seats)
-                            BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
-
-                            BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true);
-                            PersistenceObjectsTracker.UntrackBaggedObject(passenger, isDestroying: false);
-                        }
+                        BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
+                        BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true, preserveStateDuringThrow: true);
+                        PersistenceObjectsTracker.UntrackBaggedObject(passenger, isDestroying: false);
                     }
                 }
                 else
@@ -332,6 +360,13 @@ namespace DrifterBossGrabMod.Patches
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[Recovery] Tracked object {target.name} hit OOB zone {__instance.name}");
 
+                        if (PluginConfig.IsRecoveryBlacklisted(target.name))
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[Recovery] {target.name} is blacklisted from recovery, letting vanilla handle");
+                            return true;
+                        }
+
                         bool isEnemy = body != null && body.teamComponent && body.teamComponent.teamIndex != TeamIndex.Player;
 
                         // If behavior is set to Kill for enemies, let vanilla handle it
@@ -340,6 +375,41 @@ namespace DrifterBossGrabMod.Patches
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 Log.Info($"[Recovery] Letting vanilla handle OOB for enemy {body!.name} (Kill mode)");
                             return true;
+                        }
+
+                        // Check recovery type-specific toggles before proceeding (same logic as RecoverObject)
+                        if (body != null)
+                        {
+                            if (body.isBoss || body.isChampion)
+                            {
+                                // Boss recovery toggle
+                                if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
+                                {
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[Recovery] Boss recovery disabled for {body.name}, letting vanilla handle");
+                                    return true;
+                                }
+                            }
+                            else
+                            {
+                                // NPC recovery toggle (non-boss, non-champion characters)
+                                if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
+                                {
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[Recovery] NPC recovery disabled for {body.name}, letting vanilla handle");
+                                    return true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Environment object recovery toggle (non-character objects)
+                            if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[Recovery] Environment object recovery disabled for {target.name}, letting vanilla handle");
+                                return true;
+                            }
                         }
 
                         // Intercept and recover

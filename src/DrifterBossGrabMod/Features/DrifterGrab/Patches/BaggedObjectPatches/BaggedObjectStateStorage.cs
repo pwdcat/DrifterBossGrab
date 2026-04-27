@@ -88,7 +88,7 @@ namespace DrifterBossGrabMod.Patches
                         if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                         {
                             Log.Error($"[LoadObjectState] CRITICAL: Loaded STUB STATE for {obj.name}! This will cause instant death!");
-                            Log.Error($"[LoadObjectState] Stub state details: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}, targetObject={(state.targetObject?.name ?? "null")}");
+                            Log.Error($"[LoadObjectState] Stub state details: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}, targetObject={(!state.targetObject ? "null" : state.targetObject!.name)}");
                         }
 
                         return state;
@@ -111,10 +111,17 @@ namespace DrifterBossGrabMod.Patches
         // Removes the state data for a specific object from a bag controller
         // controller: The bag controller to cleanup state from
         // obj: The game object to remove state for
-        public static void CleanupObjectState(DrifterBagController controller, GameObject obj)
+        // preserveForThrow: If true, preserves state for throw operations (prevents client-side state loss)
+        public static void CleanupObjectState(DrifterBagController controller, GameObject obj, bool preserveForThrow = false)
         {
             if (controller == null || obj == null)
             {
+                return;
+            }
+
+            if (preserveForThrow)
+            {
+                PreserveStateForThrow(controller, obj);
                 return;
             }
 
@@ -133,6 +140,67 @@ namespace DrifterBossGrabMod.Patches
             catch (Exception ex)
             {
                 Log.Error($" [CleanupObjectState] Error cleaning up state: {ex.Message}");
+            }
+        }
+
+        // Temporary storage to preserve state during throw operations (prevents client-side state loss)
+        private static Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>> _temporaryPreservedStates
+            = new Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>>();
+
+        // Preserve state before throw cleanup to prevent client-side state loss
+        public static void PreserveStateForThrow(DrifterBagController controller, GameObject obj)
+        {
+            var state = LoadObjectState(controller, obj);
+            if (state != null)
+            {
+                if (!_temporaryPreservedStates.TryGetValue(controller, out var tempStates))
+                {
+                    tempStates = new Dictionary<int, BaggedObjectStateData>();
+                    _temporaryPreservedStates[controller] = tempStates;
+                }
+                int instanceId = obj.GetInstanceID();
+                tempStates[instanceId] = state;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[PreserveStateForThrow] Preserved state for {obj.name}");
+            }
+        }
+
+        // Restore preserved state during bag state update
+        public static void RestorePreservedState(DrifterBagController controller, GameObject obj)
+        {
+            int instanceId = obj.GetInstanceID();
+            if (_temporaryPreservedStates.TryGetValue(controller, out var tempStates) &&
+                tempStates.TryGetValue(instanceId, out var preservedState))
+            {
+                if (!_perObjectStateStorage.TryGetValue(controller, out var objectStates))
+                {
+                    objectStates = new Dictionary<int, BaggedObjectStateData>();
+                    _perObjectStateStorage[controller] = objectStates;
+                }
+                objectStates[instanceId] = preservedState;
+                tempStates.Remove(instanceId);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[RestorePreservedState] Restored preserved state for {obj.name}");
+            }
+        }
+
+        // Clear temporary preservation for specific object
+        public static void ClearTemporaryPreservation(DrifterBagController controller, GameObject obj)
+        {
+            int instanceId = obj.GetInstanceID();
+            if (_temporaryPreservedStates.TryGetValue(controller, out var tempStates))
+            {
+                tempStates.Remove(instanceId);
+            }
+        }
+
+        // Clear all temporary preserved states for a controller
+        public static void ClearAllTemporaryPreservation(DrifterBagController controller)
+        {
+            if (_temporaryPreservedStates.TryGetValue(controller, out var tempStates))
+            {
+                tempStates.Clear();
+                _temporaryPreservedStates.Remove(controller);
             }
         }
     }

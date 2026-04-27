@@ -42,7 +42,7 @@ namespace DrifterBossGrabMod.Patches
         }
 
         // Removes a bagged object from the controller
-        public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false, bool skipStateReset = false)
+        public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false, bool skipStateReset = false, bool preserveStateDuringThrow = false)
         {
             if (ReferenceEquals(obj, null)) return;
 
@@ -200,7 +200,14 @@ namespace DrifterBossGrabMod.Patches
                 BagHelpers.CleanupEmptyAdditionalSeats(controller);
             }
 
-            if (isDestroying || (isThrowing == false && !DrifterBossGrabPlugin.IsSwappingPassengers))
+            if (preserveStateDuringThrow)
+            {
+                if (controller != null && obj != null)
+                {
+                    BaggedObjectStateStorage.PreserveStateForThrow(controller, obj);
+                }
+            }
+            else if (isDestroying || (isThrowing == false && !DrifterBossGrabPlugin.IsSwappingPassengers))
             {
                 if (controller != null && obj != null)
                 {

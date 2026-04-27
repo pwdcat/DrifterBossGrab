@@ -23,7 +23,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[AssignPassenger_StateCalculation] Called with passengerObject={passengerObject?.name ?? "null"}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}.");
+                    Log.Info($"[AssignPassenger_StateCalculation] Called with passengerObject={(!passengerObject ? "null" : passengerObject.name)}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}.");
                 }
 
                 if (passengerObject == null)

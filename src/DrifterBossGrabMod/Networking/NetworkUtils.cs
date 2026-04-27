@@ -7,7 +7,7 @@ using RoR2;
 
 namespace DrifterBossGrabMod.Networking
 {
-    // Helper utilities for safe network operations with retry logic and comprehensive logging.
+    // Provides reliable object lookups across the network to mitigate the risk of NullReferenceExceptions during high-latency syncs.
     public static class NetworkUtils
     {
         // Configuration
@@ -20,7 +20,7 @@ namespace DrifterBossGrabMod.Networking
         private static readonly object _readyObjectCacheLock = new object();
         private const float CacheValidityDuration = 5f;
 
-        // Safely finds a local object by NetworkInstanceId with retry logic.
+        // Retry logic accounts for the non-deterministic timing of Unity's object spawning and registration.
         public static GameObject? FindLocalObjectSafe(NetworkInstanceId netId, int maxRetries = DefaultMaxRetries, float retryDelay = DefaultRetryDelay, string? context = null)
         {
             if (netId == NetworkInstanceId.Invalid)
@@ -70,7 +70,7 @@ namespace DrifterBossGrabMod.Networking
             return null;
         }
 
-        // Finds a local object by NetworkInstanceId with detailed logging on failure.
+        // Detailed logging is essential for diagnosing synchronization failures that only occur in multi-player environments.
         public static GameObject? FindLocalObjectWithLogging(NetworkInstanceId netId, string operation, bool isServer = true)
         {
             var obj = NetworkServer.FindLocalObject(netId);
@@ -117,7 +117,7 @@ namespace DrifterBossGrabMod.Networking
             return null;
         }
 
-        // Validates that an object is ready for network operations.
+        // Validation ensures that we don't attempt operations on objects that are partially initialized or already marked for destruction.
         public static bool ValidateObjectReady(GameObject? obj)
         {
             if (obj == null)
@@ -171,7 +171,7 @@ namespace DrifterBossGrabMod.Networking
             return true;
         }
 
-        // Clears the ready object cache for a specific object or all objects.
+        // Cache invalidation prevents "ghost" references when an object ID is recycled by the engine.
         public static void InvalidateReadyCache(GameObject? obj)
         {
             if (obj == null) return;
@@ -196,7 +196,7 @@ namespace DrifterBossGrabMod.Networking
             Log.Info("[NetworkUtils.ClearReadyCache] Cleared all object ready cache entries");
         }
 
-        // Gets a NetworkIdentity component safely with null checking.
+        // Safe access wrappers prevent common crash scenarios when components are missing on specialized interactables.
         public static NetworkIdentity? GetNetworkIdentitySafe(GameObject? obj)
         {
             if (obj == null)
@@ -214,7 +214,7 @@ namespace DrifterBossGrabMod.Networking
             return netId;
         }
 
-        // Logs detailed information about a GameObject for debugging.
+        // Comprehensive state dumps are the primary tool for debugging complex race conditions in the vehicle system.
         public static void LogObjectDetails(GameObject? obj, string context)
         {
             if (obj == null)
@@ -234,7 +234,7 @@ namespace DrifterBossGrabMod.Networking
             Log.Info($"  Parent: {(obj.transform.parent != null ? obj.transform.parent.name : "null")}");
         }
 
-        // Checks if a GameObject reference is valid
+        // Reference validation is required because Unity's implicit null checks don't always detect destroyed C# objects.
         public static bool IsValidGameObjectReference(GameObject? obj)
         {
             if (obj == null) return false;
@@ -254,7 +254,7 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        // Gets a safe object name for logging (handles null/destroyed objects).
+        // Safe naming prevents diagnostic logs from crashing if the target object has already been garbage collected.
         public static string GetSafeObjectName(GameObject? obj)
         {
             if (obj == null) return "null";
@@ -268,7 +268,7 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        // Logs a network operation with comprehensive context.
+        // Contextual logging allows us to trace the flow of network messages between the server and specific client instances.
         public static void LogNetworkOperation(string operation, GameObject? obj, bool isServer, Dictionary<string, object>? additionalContext = null)
         {
             var logBuilder = new System.Text.StringBuilder();
@@ -293,7 +293,7 @@ namespace DrifterBossGrabMod.Networking
             Log.Info(logBuilder.ToString());
         }
 
-        // Cleans up stale cache entries
+        // Periodic cleanup prevents memory pressure and lookup slowdowns in extremely long runs.
         public static void CleanupStaleCacheEntries()
         {
             lock (_readyObjectCacheLock)
@@ -318,6 +318,15 @@ namespace DrifterBossGrabMod.Networking
                     Log.Info($"[NetworkUtils.CleanupStaleCacheEntries] Cleaned up {keysToRemove.Count} stale cache entries");
                 }
             }
+        }
+        // Stable string IDs are required because raw numeric IDs can shift when players transition between offline and online states.
+        public static string GetPlayerIdString(NetworkUserId id)
+        {
+            // Prefer the string value if it exists (usually for specialized platforms)
+            if (id.strValue != null) return id.strValue;
+
+            // Fallback to value_subId format which is stable and unique for Steam/Local users
+            return $"{id.value}_{id.subId}";
         }
     }
 }

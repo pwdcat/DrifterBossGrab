@@ -336,7 +336,7 @@ namespace DrifterBossGrabMod.Patches
                     string netIdStr = netIdentity != null ? netIdentity.netId.ToString() : "null";
                     Log.Info($"[BaggedObject_OnEnter.Postfix] {targetObject.name}: " +
                             $"seatHasTarget={seatHasTarget}, " +
-                            $"tracked={tracked?.name ?? "null"}, " +
+                            $"tracked={(!tracked ? "null" : tracked!.name)}, " +
                             $"trackedHasTarget={trackedHasTarget}, " +
                             $"isInAdditionalSeat={isInAdditionalSeat}. " +
                             $"NetId: {netIdStr}.");
@@ -693,7 +693,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 var body = instance.outer?.GetComponent<CharacterBody>();
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[BaggedObjectStatePatches.UnsetAllOverrides] Starting cleanup for instance of {instance.GetType().Name} on {body?.name}.");
+                    Log.Debug($"[BaggedObjectStatePatches.UnsetAllOverrides] Starting cleanup for instance of {instance.GetType().Name} on {(!body ? "null" : body!.name)}.");
 
                 if (ReflectionCache.BaggedObject.OverriddenUtility != null && ReflectionCache.BaggedObject.UtilityOverride != null)
                 {
@@ -779,7 +779,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     drifterBagController = instance.outer.gameObject.GetComponent<DrifterBagController>();
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($" [TrySpawnJunk] Traverse returned null, GetComponent returned: {(drifterBagController != null ? drifterBagController.name : "null")}");
+                        Log.Info($" [TrySpawnJunk] Traverse returned null, GetComponent returned: {(!drifterBagController ? "null" : drifterBagController!.name)}");
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -1171,7 +1171,7 @@ namespace DrifterBossGrabMod.Patches
                 // Suppress the vanilla penalty update
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[BaggedObject_UpdateBaggedObjectMass] Suppressing vanilla penalty update for {__instance.targetObject?.name ?? "null"}");
+                    Log.Info($"[BaggedObject_UpdateBaggedObjectMass] Suppressing vanilla penalty update for {(!__instance.targetObject ? "null" : __instance.targetObject!.name)}");
                 }
                 return false;
             }

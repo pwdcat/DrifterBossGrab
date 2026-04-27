@@ -28,6 +28,13 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = false,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
+                ["Recovery.RecoverBaggedBosses"] = false,
+                ["Recovery.RecoverBaggedNPCs"] = false,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
+
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.EnableAutoGrab"] = false,
@@ -140,6 +147,13 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = true,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
+                ["Recovery.RecoverBaggedBosses"] = true,
+                ["Recovery.RecoverBaggedNPCs"] = false,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
+
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
@@ -175,6 +189,14 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
+
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = true,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
+                ["Recovery.RecoverBaggedBosses"] = true,
+                ["Recovery.RecoverBaggedNPCs"] = true,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = true,
+
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
                 ["Persistence.PersistBaggedBosses"] = true,
@@ -213,6 +235,13 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
+
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = true,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
+                ["Recovery.RecoverBaggedBosses"] = true,
+                ["Recovery.RecoverBaggedNPCs"] = true,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = true,
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
@@ -288,6 +317,15 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
+
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = false,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
+                ["Recovery.RecoverBaggedBosses"] = false,
+                ["Recovery.RecoverBaggedNPCs"] = false,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
+
+                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
                 ["BottomlessBag.EnableBottomlessBag"] = false,
@@ -316,6 +354,13 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableKeywordBlacklist"] = "Master,Controller",
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
+
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = false,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
+                ["Recovery.RecoverBaggedBosses"] = false,
+                ["Recovery.RecoverBaggedNPCs"] = false,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
@@ -375,6 +420,13 @@ namespace DrifterBossGrabMod.Config
                 ["General.RecoveryObjectBlacklist"] = "",
                 ["General.GrabbableComponentTypes"] = "MeshRenderer",
                 ["General.GrabbableKeywordBlacklist"] = "",
+
+                // Recovery settings
+                ["Recovery.EnableRecoveryFeature"] = true,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
+                ["Recovery.RecoverBaggedBosses"] = true,
+                ["Recovery.RecoverBaggedNPCs"] = true,
+                ["Recovery.RecoverBaggedEnvironmentObjects"] = true,
 
                 // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,

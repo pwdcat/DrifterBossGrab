@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,22 +10,22 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod
 {
+    // Handles life-cycle and state management for objects that need to survive stage transitions.
     public static class PersistenceObjectManager
     {
-        // Singleton instance
         private static GameObject? _persistenceContainer;
         private static readonly HashSet<GameObject> _persistedObjects = new HashSet<GameObject>();
         private static readonly Dictionary<GameObject, string> _persistedObjectOwnerPlayerIds = new Dictionary<GameObject, string>();
         private static readonly Dictionary<GameObject, CharacterMaster> _bodyToMasterMap = new Dictionary<GameObject, CharacterMaster>();
         private static readonly object _lock = new object();
         private static readonly PersistenceCommandInvoker _commandInvoker = new PersistenceCommandInvoker();
-        // Cached config values for performance
+
         private static bool _cachedEnablePersistence;
         private static bool _cachedEnableAutoGrab;
-        // Constants
+
         private const string PERSISTENCE_CONTAINER_NAME = "DBG_PersistenceContainer";
 
-        // Initialization
+        // We use a dedicated container in DontDestroyOnLoad to act as a safe harbor for persisted objects.
         public static void Initialize()
         {
             if (_persistenceContainer != null) return;
@@ -32,7 +33,6 @@ namespace DrifterBossGrabMod
             UnityEngine.Object.DontDestroyOnLoad(_persistenceContainer);
         }
 
-        // Cleanup
         public static void Cleanup()
         {
             ClearPersistedObjects();
@@ -40,62 +40,60 @@ namespace DrifterBossGrabMod
             if (_persistenceContainer != null)
             {
                 UnityEngine.Object.Destroy(_persistenceContainer);
-                _persistenceContainer = null!;
+                _persistenceContainer = null;
             }
         }
 
-        // Update cached configuration values
         public static void UpdateCachedConfig()
         {
             _cachedEnablePersistence = PluginConfig.Instance.EnableObjectPersistence.Value;
             _cachedEnableAutoGrab = PluginConfig.Instance.EnableAutoGrab.Value;
         }
 
-        // Add object to persistence
         public static void AddPersistedObject(GameObject obj, string? ownerPlayerId = null)
         {
+            if (obj == null) return;
+
+            if (PluginConfig.IsPersistenceBlacklisted(obj))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AddPersistedObject] Refusing to add {obj.name}: Object is blacklisted.");
+                }
+                return;
+            }
             var command = new AddPersistedObjectCommand(obj, ownerPlayerId);
             _commandInvoker.ExecuteCommand(command);
         }
 
-        // Internal method for adding object to persistence
         internal static void AddPersistedObjectInternal(GameObject obj, string? ownerPlayerId = null)
         {
-            if (obj == null || !_cachedEnablePersistence)
-            {
-                return;
-            }
+            if (obj == null || !_cachedEnablePersistence) return;
+
             lock (_lock)
             {
                 if (_persistedObjects.Add(obj))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        var health = obj.GetComponent<RoR2.HealthComponent>();
-                        Log.Info($"[DEBUG] [AddPersistedObjectInternal] {obj.name}: alive={health?.alive}");
-                    }
-                    // Store the owner player id if provided
+                    // Track who owned this object so we can give it back after scene transitions.
                     if (!string.IsNullOrEmpty(ownerPlayerId))
                     {
                         _persistedObjectOwnerPlayerIds[obj] = ownerPlayerId;
                     }
-                    // Move to persistence container
+
                     obj.transform.SetParent(_persistenceContainer!.transform, true);
-                    // Keep's model attached to the root instead of the container base
                     var modelLocator = obj.GetComponent<ModelLocator>();
                     if (modelLocator != null && modelLocator.modelTransform != null)
                     {
                         modelLocator.dontDetatchFromParent = true;
-                        var modelObj = modelLocator.modelTransform.gameObject;
-
-                        if (modelObj.transform.parent != obj.transform)
+                        if (modelLocator.modelTransform.parent != obj.transform)
                         {
-                            modelObj.transform.SetParent(obj.transform, true);
+                            modelLocator.modelTransform.SetParent(obj.transform, true);
                         }
                     }
-                    // Also persist the master for CharacterBody objects
+
+                    // Also persist the AI master
                     var characterBody = obj.GetComponent<CharacterBody>();
-                    if (characterBody != null && characterBody.master != null && characterBody.master.gameObject != null && IsValidForPersistence(characterBody.master.gameObject))
+                    if (characterBody != null && characterBody.master != null && IsValidForPersistence(characterBody.master.gameObject))
                     {
                         AddPersistedObjectInternal(characterBody.master.gameObject, ownerPlayerId);
                     }
@@ -103,133 +101,171 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Remove object from persistence
         public static void RemovePersistedObject(GameObject obj, bool isDestroying = false)
         {
             var command = new RemovePersistedObjectCommand(obj, isDestroying);
             _commandInvoker.ExecuteCommand(command);
         }
 
-        // Internal method for removing object from persistence (used by commands)
         internal static void RemovePersistedObjectInternal(GameObject obj, bool isDestroying = false)
         {
             if (ReferenceEquals(obj, null)) return;
+
             lock (_lock)
             {
                 if (_persistedObjects.Remove(obj))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        var health = obj.GetComponent<RoR2.HealthComponent>();
-                        Log.Info($"[DEBUG] [RemovePersistedObjectInternal] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
-                    }
-                    // Remove from owners dictionary
                     _persistedObjectOwnerPlayerIds.Remove(obj);
 
-                    // Remove from persistence container
                     if (!isDestroying)
                     {
                         obj.transform.SetParent(null, true);
                         SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
                     }
 
-                    // Clean up model state if needed
-                    var modelLocator = obj.GetComponent<ModelLocator>();
-                    if (modelLocator != null && modelLocator.modelTransform != null)
-                    {
-                        var modelObj = modelLocator.modelTransform.gameObject;
-                        // If it was somehow moved to the container base, move it back to active scene
-                        if (modelObj.transform.parent == _persistenceContainer!.transform)
-                        {
-                            modelObj.transform.SetParent(null, true);
-                            SceneManager.MoveGameObjectToScene(modelObj, SceneManager.GetActiveScene());
-                        }
-                    }
-
-                    // Also remove master from persistence if it exists
+                    // Clean up associated master if this was a body.
                     var master = GetMasterForBody(obj);
-                    var masterObj = master?.gameObject;
-                    if (masterObj != null)
+                    if (master != null && master.gameObject != null)
                     {
-                        _persistedObjects.Remove(masterObj);
-                        _persistedObjectOwnerPlayerIds.Remove(masterObj);
+                        _persistedObjects.Remove(master.gameObject);
+                        _persistedObjectOwnerPlayerIds.Remove(master.gameObject);
 
-                        if (masterObj.transform.parent == _persistenceContainer!.transform)
+                        if (master.gameObject.transform.parent == _persistenceContainer!.transform)
                         {
-                            masterObj.transform.SetParent(null, true);
-                            SceneManager.MoveGameObjectToScene(masterObj, SceneManager.GetActiveScene());
-
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[PersistenceObjectManager] Removed master {masterObj.name} from persistence container for body {obj.name}");
-                            }
+                            master.gameObject.transform.SetParent(null, true);
+                            SceneManager.MoveGameObjectToScene(master.gameObject, SceneManager.GetActiveScene());
                         }
                     }
-
                     _bodyToMasterMap.Remove(obj);
-
-                    // Re-attach model if it exists
-                    if (modelLocator != null && modelLocator.modelTransform != null)
-                    {
-                        var temp = modelLocator.modelTransform;
-                        modelLocator.modelTransform = null;
-                        modelLocator.modelTransform = temp;
-                    }
                 }
             }
         }
 
-        // Clear all persisted objects
         public static void ClearPersistedObjects()
         {
             var command = new ClearPersistedObjectsCommand();
             _commandInvoker.ExecuteCommand(command);
         }
 
-        // Internal method for clearing all persisted objects (used by commands)
         internal static void ClearPersistedObjectsInternal()
         {
             lock (_lock)
             {
                 foreach (var obj in _persistedObjects.ToArray())
                 {
-                    if (obj != null)
-                    {
-                        UnityEngine.Object.Destroy(obj);
-                    }
+                    if (obj != null) UnityEngine.Object.Destroy(obj);
                 }
                 _persistedObjects.Clear();
                 _persistedObjectOwnerPlayerIds.Clear();
             }
         }
 
-        // Check if object is valid for persistence
+        // Validation prevents transient objects like projectiles from being saved and causing state bloat.
         public static bool IsValidForPersistence(GameObject obj)
         {
-            if (obj == null)
-            {
-                return false;
-            }
-            // Check if already persisted
-            if (_persistedObjects.Contains(obj))
-            {
-                return false;
-            }
-            // Always exclude thrown objects from persistence
+            if (obj == null) return false;
+            if (_persistedObjects.Contains(obj)) return false;
+
             var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
             if (projectileController != null)
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Is a transient projectile.");
                 return false;
             }
-            // Check persistence blacklist
-            if (PluginConfig.IsPersistenceBlacklisted(obj.name))
+
+            if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Matched persistence blacklist.");
                 return false;
             }
+
             return true;
         }
 
-        // Move objects to persistence container
+        public static void CaptureCurrentlyBaggedObjects()
+        {
+            if (!_cachedEnablePersistence) return;
+
+            // Prune existing persisted objects that are blacklisted (config change)
+            lock (_lock)
+            {
+                var toRemove = _persistedObjects.Where(obj => obj != null && PluginConfig.IsPersistenceBlacklisted(obj)).ToList();
+                foreach (var obj in toRemove)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[CaptureCurrentlyBaggedObjects] Pruning now-blacklisted object: {obj.name}");
+                    RemovePersistedObjectInternal(obj, false);
+                }
+            }
+
+            // Find all objects held by any Drifter.
+            var baggedObjects = PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
+
+            foreach (var obj in baggedObjects)
+            {
+                if (IsValidForPersistence(obj))
+                {
+                    var ownerPlayerId = GetBaggedObjectOwnerPlayerId(obj);
+                    AddPersistedObject(obj, ownerPlayerId);
+                }
+            }
+        }
+
+        internal static string? GetBaggedObjectOwnerPlayerId(GameObject obj)
+        {
+            if (obj == null) return null;
+
+            var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
+            if (bagControllers == null) return null;
+
+            foreach (var bagController in bagControllers)
+            {
+                // Check the primary bag seat.
+                if (bagController.vehicleSeat != null && bagController.vehicleSeat.NetworkpassengerBodyObject == obj)
+                {
+                    var master = bagController.GetComponent<CharacterMaster>() ?? bagController.GetComponentInParent<CharacterMaster>();
+                    if (master?.playerCharacterMasterController?.networkUser != null)
+                    {
+                        return Networking.NetworkUtils.GetPlayerIdString(master.playerCharacterMasterController.networkUser.id);
+                    }
+                }
+
+                var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
+                if (seatDict != null)
+                {
+                    foreach (var kvp in seatDict)
+                    {
+                        if (kvp.Value.NetworkpassengerBodyObject == obj)
+                        {
+                            var master = bagController.GetComponent<CharacterMaster>() ?? bagController.GetComponentInParent<CharacterMaster>();
+                            if (master?.playerCharacterMasterController?.networkUser != null)
+                            {
+                                return Networking.NetworkUtils.GetPlayerIdString(master.playerCharacterMasterController.networkUser.id);
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        internal static CharacterMaster? GetMasterForBody(GameObject bodyObj)
+        {
+            if (bodyObj == null) return null;
+            lock (_lock)
+            {
+                if (_bodyToMasterMap.TryGetValue(bodyObj, out var master)) return master;
+
+                var cb = bodyObj.GetComponent<CharacterBody>();
+                if (cb != null && cb.master != null)
+                {
+                    _bodyToMasterMap[bodyObj] = cb.master;
+                    return cb.master;
+                }
+                return null;
+            }
+        }
+
         public static void MoveObjectsToPersistenceContainer()
         {
             lock (_lock)
@@ -244,214 +280,38 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Capture currently bagged objects
-        public static void CaptureCurrentlyBaggedObjects()
-        {
-            if (!_cachedEnablePersistence)
-            {
-                return;
-            }
-            // Always capture currently bagged objects for persistence
-            var baggedObjects = GetCurrentlyBaggedObjects();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[DEBUG] [CaptureCurrentlyBaggedObjects] Capturing {baggedObjects.Count} bagged objects for persistence");
-            }
-            foreach (var obj in baggedObjects)
-            {
-                var healthComp = obj.GetComponent<RoR2.HealthComponent>();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[DEBUG] [CaptureCurrentlyBaggedObjects LOOP] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
-                }
-                if (IsValidForPersistence(obj))
-                {
-                    // Get the owner player ID from the bagged object
-                    var ownerPlayerId = GetBaggedObjectOwnerPlayerId(obj);
-                    AddPersistedObject(obj, ownerPlayerId);
-                }
-                else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    var projectile = obj.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>();
-                    Log.Info($"[DEBUG] [CaptureCurrentlyBaggedObjects] Skipping {obj.name}: IsValidForPersistence=false (isProjectile={projectile != null})");
-                }
-            }
-        }
-
-        // Get all objects currently in Drifter bags
-        public static List<GameObject> GetCurrentlyBaggedObjects()
-        {
-            // Use of centralized tracking system that tracks ALL bagged objects (main + additional seats)
-            var result = PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[DEBUG] [GetCurrentlyBaggedObjects] Returning {result.Count} bagged objects");
-                foreach (var obj in result)
-                {
-                    var healthComp = obj.GetComponent<RoR2.HealthComponent>();
-                    Log.Info($"[DEBUG] [GetCurrentlyBaggedObjects] - {obj.name}: alive={healthComp?.alive}");
-                }
-            }
-            return result;
-        }
-
-        // Get current persisted objects count
-        public static int GetPersistedObjectsCount()
-        {
-            lock (_lock)
-            {
-                return _persistedObjects.Count;
-            }
-        }
-
-        // Get current persisted objects
-        public static GameObject[] GetPersistedObjects()
-        {
-            lock (_lock)
-            {
-                return _persistedObjects.ToArray();
-            }
-        }
-
-        // Check if object is persisted
         public static bool IsObjectPersisted(GameObject obj)
         {
-            lock (_lock)
-            {
-                return _persistedObjects.Contains(obj);
-            }
+            lock (_lock) return _persistedObjects.Contains(obj);
         }
 
-        // Undo the last persistence command
-        public static void UndoLastCommand()
+        public static List<GameObject> GetCurrentlyBaggedObjects()
         {
-            _commandInvoker.UndoLastCommand();
+            return PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
         }
 
-        // Get the command history count
-        public static int GetCommandHistoryCount()
-        {
-            return _commandInvoker.GetHistoryCount();
-        }
+        public static void UndoLastCommand() => _commandInvoker.UndoLastCommand();
 
-        // Clear command history
-        public static void ClearCommandHistory()
-        {
-            _commandInvoker.ClearHistory();
-        }
+        public static int GetCommandHistoryCount() => _commandInvoker.GetHistoryCount();
 
-        // Get persisted objects (internal access for other handlers)
-        internal static HashSet<GameObject> GetPersistedObjectsSet()
-        {
-            return _persistedObjects;
-        }
+        // Prevents action history from leaking into new game sessions.
+        public static void ClearCommandHistory() => _commandInvoker.ClearHistory();
 
-        // Get lock object (internal access for other handlers)
-        internal static object GetLock()
-        {
-            return _lock;
-        }
+        public static int GetPersistedObjectsCount() { lock (_lock) return _persistedObjects.Count; }
 
-        // Get cached enable auto grab
-        internal static bool GetCachedEnableAutoGrab()
-        {
-            return _cachedEnableAutoGrab;
-        }
+        public static GameObject[] GetPersistedObjects() { lock (_lock) return _persistedObjects.ToArray(); }
 
-        // Get cached enable persistence
-        internal static bool GetCachedEnablePersistence()
-        {
-            return _cachedEnablePersistence;
-        }
+        internal static HashSet<GameObject> GetPersistedObjectsSet() => _persistedObjects;
 
-        // Get the owner player id of a persisted object
+        internal static object GetLock() => _lock;
+
         internal static string? GetPersistedObjectOwnerPlayerId(GameObject obj)
         {
-            lock (_lock)
-            {
-                return _persistedObjectOwnerPlayerIds.TryGetValue(obj, out var playerId) ? playerId : null;
-            }
+            lock (_lock) return _persistedObjectOwnerPlayerIds.TryGetValue(obj, out var id) ? id : null;
         }
 
-        // Get the owner player id of a currently bagged object
-        // This is used when capturing objects for persistence to determine which player owns each object
-        internal static string? GetBaggedObjectOwnerPlayerId(GameObject obj)
-        {
-            if (obj == null) return null;
+        internal static bool GetCachedEnablePersistence() => _cachedEnablePersistence;
 
-            // Try to find which DrifterBagController currently has this object
-            var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
-            if (bagControllers == null || bagControllers.Length == 0)
-            {
-                return null;
-            }
-
-            foreach (var bagController in bagControllers)
-            {
-                // Check if this object is in the bag controller's main seat
-                if (bagController.vehicleSeat != null && bagController.vehicleSeat.NetworkpassengerBodyObject == obj)
-                {
-                    // Found it in main seat - get player ID from this Drifter
-                    var characterMaster = bagController.GetComponent<CharacterMaster>();
-                    if (characterMaster == null)
-                    {
-                        characterMaster = bagController.GetComponentInParent<CharacterMaster>();
-                    }
-                    if (characterMaster != null && characterMaster.playerCharacterMasterController != null)
-                    {
-                        var playerId = characterMaster.playerCharacterMasterController.networkUser.id.ToString();
-                        return playerId;
-                    }
-                }
-
-                // Check if this object is in any additional seats
-                var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
-                if (seatDict != null)
-                {
-                    foreach (var kvp in seatDict)
-                    {
-                        if (kvp.Value.NetworkpassengerBodyObject == obj)
-                        {
-                            // Found it in additional seat - get player ID from this Drifter
-                            var characterMaster = bagController.GetComponent<CharacterMaster>();
-                            if (characterMaster == null)
-                            {
-                                characterMaster = bagController.GetComponentInParent<CharacterMaster>();
-                            }
-                            if (characterMaster != null && characterMaster.playerCharacterMasterController != null)
-                            {
-                                var playerId = characterMaster.playerCharacterMasterController.networkUser.id.ToString();
-                                return playerId;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        // Get the master associated with a body
-        internal static CharacterMaster? GetMasterForBody(GameObject bodyObj)
-        {
-            if (bodyObj == null) return null;
-            lock (_lock)
-            {
-                if (_bodyToMasterMap.TryGetValue(bodyObj, out var master) && master != null)
-                {
-                    return master;
-                }
-
-                // Fallback to searching component
-                var characterBody = bodyObj.GetComponent<CharacterBody>();
-                if (characterBody != null && characterBody.master != null)
-                {
-                    _bodyToMasterMap[bodyObj] = characterBody.master;
-                    return characterBody.master;
-                }
-
-                return null;
-            }
-        }
+        internal static bool GetCachedEnableAutoGrab() => _cachedEnableAutoGrab;
     }
 }

@@ -326,12 +326,22 @@ namespace DrifterBossGrabMod.Networking
                     if (obj != null)
                     {
                         bagState.BaggedObjects.Add(obj);
+
+                        // Restore preserved state if missing (happens after client-side throw)
+                        var existingState = BaggedObjectPatches.LoadObjectState(bagController, obj);
+                        if (existingState == null && msg.isThrowOperation)
+                        {
+                            BaggedObjectPatches.RestorePreservedState(bagController, obj);
+                        }
                     }
                     else
                     {
                         Log.Warning($"[HandleBagStateUpdatedMessage] Could not find object for netId={idValue}, skipping");
                     }
                 }
+
+                // Clean up all temporary preserved states for this controller
+                BaggedObjectPatches.ClearAllTemporaryPreservation(bagController);
             }
 
             Log.Info($"[HandleBagStateUpdatedMessage] Bag state updated for {bagController.name} - new selectedIndex={netController.selectedIndex}");

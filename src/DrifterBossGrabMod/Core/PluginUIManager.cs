@@ -75,6 +75,9 @@ namespace DrifterBossGrabMod
             // Recovery Category
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableRecoveryFeature, new CheckBoxConfig { name = "Enable Recovery Feature", category = "Recovery" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.EnemyRecoveryMode, new ChoiceConfig { name = "Enemy Recovery Mode", category = "Recovery" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedBosses, new CheckBoxConfig { name = "Recover Bosses", category = "Recovery" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedNPCs, new CheckBoxConfig { name = "Recover NPCs", category = "Recovery" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedEnvironmentObjects, new CheckBoxConfig { name = "Recover Environment Objects", category = "Recovery" }));
 
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist, new InputFieldConfig { name = "Recovery Blacklist", category = "Recovery" }));
 

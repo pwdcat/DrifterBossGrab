@@ -162,6 +162,9 @@ namespace DrifterBossGrabMod
 
         public ConfigEntry<bool> EnableRecoveryFeature { get; private set; } = null!;
         public ConfigEntry<EnemyRecoveryMode> EnemyRecoveryMode { get; private set; } = null!;
+        public ConfigEntry<bool> RecoverBaggedBosses { get; private set; } = null!;
+        public ConfigEntry<bool> RecoverBaggedNPCs { get; private set; } = null!;
+        public ConfigEntry<bool> RecoverBaggedEnvironmentObjects { get; private set; } = null!;
 
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
@@ -378,6 +381,25 @@ namespace DrifterBossGrabMod
             if (string.IsNullOrEmpty(name)) return false;
             return Instance._persistenceBlacklistCacheWithClones.Value.Contains(name);
         }
+        public static bool IsPersistenceBlacklisted(GameObject? obj)
+        {
+            if (obj == null) return false;
+
+            // Check by name first (handles clones automatically via cache)
+            if (IsPersistenceBlacklisted(obj.name)) return true;
+
+            // Special case for Teleporters: if "Teleporter" is in the blacklist, 
+            // any object with a TeleporterInteraction component is blocked.
+            if (Instance._persistenceBlacklistCache.Value.Contains("Teleporter"))
+            {
+                if (obj.GetComponent<RoR2.TeleporterInteraction>() != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
         public static bool IsKeywordBlacklisted(string? name)
         {
             if (string.IsNullOrEmpty(name)) return false;
@@ -488,6 +510,10 @@ namespace DrifterBossGrabMod
 
             Instance.EnableRecoveryFeature = cfg.Bind("Recovery", "EnableRecoveryFeature", true, "Enable the out-of-bounds recovery system.\nWhen enabled, bagged items and projectiles that fall off the map are returned to the player or a safe spot.");
             Instance.EnemyRecoveryMode = cfg.Bind("Recovery", "EnemyRecoveryMode", DrifterBossGrabMod.EnemyRecoveryMode.Recover, "Behavior for bagged enemies falling off the map:\n- Kill: Enemies die (vanilla style)\n- Recover: Enemies are returned safely");
+            Instance.RecoverBaggedBosses = cfg.Bind("Recovery", "RecoverBaggedBosses", true, "Allow recovery of bagged boss enemies that fall off the map.\nWhen disabled, bagged bosses will die instead of being recovered.");
+            Instance.RecoverBaggedNPCs = cfg.Bind("Recovery", "RecoverBaggedNPCs", true, "Allow recovery of bagged NPCs that fall off the map.\nWhen disabled, bagged NPCs will die instead of being recovered.");
+            Instance.RecoverBaggedEnvironmentObjects = cfg.Bind("Recovery", "RecoverBaggedEnvironmentObjects", true, "Allow recovery of bagged environment objects that fall off the map.\nWhen disabled, bagged environment objects will be destroyed instead of being recovered.");
+
 
 
             Instance.GrabbableComponentTypes = cfg.Bind("Hidden", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
