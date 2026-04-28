@@ -214,13 +214,13 @@ namespace DrifterBossGrabMod.Patches
                     BaggedObjectPatches.CleanupObjectState(controller, obj);
                 }
 
-                if (wasMainPassenger && controller != null && obj != null)
-                {
-                    BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
-                }
-
                 // Clean up initialization tracking
                 if (obj != null) BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(obj);
+            }
+
+            if (wasMainPassenger && controller != null && obj != null)
+            {
+                BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
             }
 
             if (obj != null)

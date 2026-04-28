@@ -258,7 +258,7 @@ namespace DrifterBossGrabMod
                 bool isNowEnabled = selectedPreset != PresetType.Vanilla;
                 if (isNowEnabled != _wasDrifterGrabEnabled)
                 {
-                    _drifterGrabFeature?.Toggle(_drifterGrabHarmony!, isNowEnabled);
+                    _drifterGrabFeature?.Toggle(isNowEnabled);
                     _wasDrifterGrabEnabled = isNowEnabled;
                 }
             };

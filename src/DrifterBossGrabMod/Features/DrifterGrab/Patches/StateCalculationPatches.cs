@@ -14,38 +14,6 @@ namespace DrifterBossGrabMod.Patches
     // Harmony patches for state calculation integration
     public static class StateCalculationPatches
     {
-        // Patch to ensure state calculation is applied when a new passenger is assigned to the bag
-        [HarmonyPatch(typeof(DrifterBagController), "AssignPassenger")]
-        public class DrifterBagController_AssignPassenger_StateCalculation
-        {
-            [HarmonyPostfix]
-            public static void Postfix(DrifterBagController __instance, GameObject passengerObject)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AssignPassenger_StateCalculation] Called with passengerObject={(!passengerObject ? "null" : passengerObject.name)}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}.");
-                }
-
-                if (passengerObject == null)
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AssignPassenger_StateCalculation] Returning early - passengerObject is null");
-                    }
-                    return;
-                }
-
-                // Trigger state recalculation with current mode
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AssignPassenger_StateCalculation] Calling SynchronizeBaggedObjectState for {passengerObject.name}");
-                }
-                BaggedObjectPatches.SynchronizeBaggedObjectState(__instance, passengerObject);
-            }
-        }
-
-
-
         // Patch BluntForceHit3.OnEnter to apply the configured slam damage formula to bludgeon hits
         [HarmonyPatch(typeof(BluntForceHit3), "OnEnter")]
         public class BluntForceHit3_OnEnter_UseFormula

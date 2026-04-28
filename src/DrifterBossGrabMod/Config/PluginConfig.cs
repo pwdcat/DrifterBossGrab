@@ -481,124 +481,75 @@ namespace DrifterBossGrabMod
         public static void Init(ConfigFile cfg)
         {
             Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
-                "Select a preset to apply all settings at once.\n" +
-                "- Vanilla: all features disabled, vanilla behavior\n" +
-                "- Intended: Boss grab only\n" +
-                "- Default: all features in DrifterGrabFeature + bottomless bag and persistence\n" +
-                "- Balance: Default + balance features\n" +
-                "- Custom: User has modified settings (auto-switched)");
+                "Preset to load. Changes are auto-applied.");
 
             Instance.LastSelectedPreset = cfg.Bind("Hidden", "LastSelectedPreset", PresetType.Intended,
-                "Internal tracker of the last applied preset");
+                "Internal tracker of the last applied preset.");
 
-            Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Enable grabbing of boss enemies.\nWhen disabled, boss enemies cannot be repossessed.");
-            Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Enable grabbing of NPCs with ungrabbable flag.\nWhen enabled, allows grabbing NPCs that are normally marked as ungrabbable.");
-            Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Enable grabbing of environment objects like teleporters, chests, shrines.\nWhen enabled, allows repossessing interactable world objects.");
-            Instance.EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Enable grabbing of locked objects.\nWhen enabled, allows grabbing objects that are currently locked (e.g., locked chests).");
-            Instance.ProjectileGrabbingMode = cfg.Bind("General", "ProjectileGrabbingMode", DrifterBossGrabMod.ProjectileGrabbingMode.None, "Mode for projectile grabbing:\n- None: Cannot grab projectiles\n- SurvivorOnly: Can only grab survivor projectiles\n- AllProjectiles: Can grab all projectiles");
-            Instance.EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Enable debug logging.\nWhen enabled, logs detailed information about grabbing mechanics for debugging.");
+            Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Allow grabbing bosses.");
+            Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Allow grabbing normally-ungrabbable NPCs.");
+            Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Allow grabbing environment objects.");
+            Instance.EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Allow grabbing locked objects.");
+            Instance.ProjectileGrabbingMode = cfg.Bind("General", "ProjectileGrabbingMode", DrifterBossGrabMod.ProjectileGrabbingMode.None, "Projectile grab mode.");
+            Instance.EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Log grab mechanics for debugging.");
             Instance.BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,ThrownObjectProjectile,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,MultiShopEquipmentTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike,LunarNeedleProjectile,StickyBomb,RocketProjectile,StunAndPierceBoomerang",
-                "Comma-separated list of body and projectile names to never grab.\n" +
-                "Example: SolusWingBody,Teleporter1,ShrineHalcyonite,PortalShop,RailgunnerPistolProjectile,SyringeProjectile\n" +
-                "Automatically handles (Clone) - just enter the base name.\n" +
-                "Use debug logs to see body/projectile names, case-insensitive matching");
+                "Bodies and projectiles to never grab. Comma-separated.");
             Instance.RecoveryObjectBlacklist = cfg.Bind("General", "RecoveryObjectBlacklist", "",
-                "Comma-separated list of object names to never recover from the abyss.\n" +
-                "Example: Teleporter1,Chest1,ShrineChance\n" +
-                "Automatically handles (Clone) - just enter the base name.\n" +
-                "Use debug logs to see object names, case-insensitive matching");
+                "Objects to never recover from the abyss. Comma-separated.");
 
-            Instance.EnableRecoveryFeature = cfg.Bind("Recovery", "EnableRecoveryFeature", true, "Enable the out-of-bounds recovery system.\nWhen enabled, bagged items and projectiles that fall off the map are returned to the player or a safe spot.");
-            Instance.EnemyRecoveryMode = cfg.Bind("Recovery", "EnemyRecoveryMode", DrifterBossGrabMod.EnemyRecoveryMode.Recover, "Behavior for bagged enemies falling off the map:\n- Kill: Enemies die (vanilla style)\n- Recover: Enemies are returned safely");
-            Instance.RecoverBaggedBosses = cfg.Bind("Recovery", "RecoverBaggedBosses", true, "Allow recovery of bagged boss enemies that fall off the map.\nWhen disabled, bagged bosses will die instead of being recovered.");
-            Instance.RecoverBaggedNPCs = cfg.Bind("Recovery", "RecoverBaggedNPCs", true, "Allow recovery of bagged NPCs that fall off the map.\nWhen disabled, bagged NPCs will die instead of being recovered.");
-            Instance.RecoverBaggedEnvironmentObjects = cfg.Bind("Recovery", "RecoverBaggedEnvironmentObjects", true, "Allow recovery of bagged environment objects that fall off the map.\nWhen disabled, bagged environment objects will be destroyed instead of being recovered.");
+            Instance.EnableRecoveryFeature = cfg.Bind("Recovery", "EnableRecoveryFeature", true, "Return bagged items that fall off the map.");
+            Instance.EnemyRecoveryMode = cfg.Bind("Recovery", "EnemyRecoveryMode", DrifterBossGrabMod.EnemyRecoveryMode.Recover, "Behavior for bagged enemies falling off the map.");
+            Instance.RecoverBaggedBosses = cfg.Bind("Recovery", "RecoverBaggedBosses", true, "Recover bagged bosses from the abyss.");
+            Instance.RecoverBaggedNPCs = cfg.Bind("Recovery", "RecoverBaggedNPCs", true, "Recover bagged NPCs from the abyss.");
+            Instance.RecoverBaggedEnvironmentObjects = cfg.Bind("Recovery", "RecoverBaggedEnvironmentObjects", true, "Recover bagged environment objects from the abyss.");
 
-
-
-            Instance.GrabbableComponentTypes = cfg.Bind("Hidden", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
-                "Comma-separated list of component type names that make objects grabbable.\n" +
-                "Objects must have at least one of these components to be grabbable.\n" +
-                "Example: SurfaceDefProvider,EntityStateMachine,JumpVolume\n" +
-                "Use exact component type names (case-sensitive).");
+            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
+                "Component type names that make objects grabbable. Comma-separated.");
             Instance.GrabbableKeywordBlacklist = cfg.Bind("General", "GrabbableKeywordBlacklist", "Master,Controller",
-                "Comma-separated list of keywords that make objects not grabbable if found in their name.\n" +
-                "Objects with these keywords in their name will be excluded from grabbing.\n" +
-                "Example: 'Master' prevents grabbing enemy masters\n" +
-                "Case-insensitive matching, partial matches allowed.");
+                "Keywords that prevent grabbing if found in name. Comma-separated.");
             Instance.ComponentChooserSortModeEntry = cfg.Bind("Hidden", "ComponentChooserSortMode", ComponentChooserSortMode.ByFrequency,
-                "How to sort components when clicking on Component Chooser.\n" +
-                "- ByFrequency: Sorts by how many times component appears in scene.\n" +
-                "- ByProximity: Sorts by how close component's GameObject is to the player's camera.\n" +
-                "- ByRaycast: Sorts by components hit directly by looking at them (raycast).");
+                "How to sort components in the UI.");
             Instance.ComponentChooserDummyEntry = cfg.Bind("Hidden", "ComponentChooserDummy", ComponentChooserDummy.SelectToToggle,
-                "Dummy setting for Component Chooser UI.");
+                "Dummy setting for UI.");
             Instance.EnableConfigSync = cfg.Bind("General", "EnableConfigSync", true,
-                "Enable synchronization of configuration settings.\n" +
-                "Host: When enabled, sends config to clients when they join.\n" +
-                "Client: When enabled, receives and applies config from the host.\n" +
-                "When disabled, keeps your local configuration settings.");
+                "Sync configuration from host to clients.");
             Instance.EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence",
                 false,
-                "Enable persistence of grabbed objects across stage transitions.\n" +
-                "When enabled, bagged objects are saved and restored when changing stages.");
+                "Save and restore bagged objects across stages.");
             Instance.EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab",
                 false,
-                "Automatically re-grab persisted objects on Drifter respawn.\n" +
-                "When enabled, persisted objects are automatically repossessed after Drifter respawns.");
+                "Auto-grab persisted objects on stage start.");
             Instance.PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses",
                 true,
-                "Allow persistence of bagged boss enemies.\n" +
-                "When disabled, boss enemies will not persist across stages.");
+                "Allow bosses to persist across stages.");
             Instance.PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs",
                 true,
-                "Allow persistence of bagged NPCs.\n" +
-                "When disabled, NPCs will not persist across stages.");
+                "Allow NPCs to persist across stages.");
             Instance.PersistBaggedEnvironmentObjects = cfg.Bind("Persistence", "PersistBaggedEnvironmentObjects",
                 true,
-                "Allow persistence of bagged environment objects.\n" +
-                "When disabled, environment objects will not persist across stages.");
+                "Allow environment objects to persist across stages.");
             Instance.PersistenceBlacklist = cfg.Bind("Persistence", "PersistenceBlacklist", "",
-                "Comma-separated list of object names to never persist.\n" +
-                "Example: Teleporter1,Chest1,ShrineChance\n" +
-                "Automatically handles (Clone) - just enter the base name.\n" +
-                "Use debug logs to see object names, case-insensitive matching");
-            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Delay before auto-grabbing persisted objects on stage start (seconds).\n" +
-                "Determines how long to wait after stage start before auto-grabbing persisted objects.");
+                "Objects to never persist. Comma-separated.");
+            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Delay before auto-grabbing persisted objects (seconds).");
             Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
-                "Allows the scroll wheel to cycle through stored passengers.\n" +
-                "When enabled, bag capacity scales with the number of repossesses.\n" +
-                "Formula: TotalCapacity = UtilityMaxStocks + AddedCapacity + (UtilityMaxStocks × CapacityScalingBonus)");
-            Instance.AddedCapacity = cfg.Bind("Bottomless Bag", "AddedCapacity", "0", "Added capacity for bottomless bag, added to utility max stocks. Use 'INF' for infinity.\n" +
-                "Formula: TotalCapacity = UtilityMaxStocks + AddedCapacity + CapacityScalingBonus");
-            Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "When enabled, Repossess stock refresh is clamped to max stocks minus number of bagged items.\n" +
-                "Formula: RefreshedStocks = MaxStocks - BaggedItemCount\n" +
-                "Prevents refreshing more stocks than available slots.");
-            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "When enabled, utility stock only refreshes after a successful grab if stock is 0.\n" +
-                "This allows successive grabs to refresh your stock.\n" +
-                "When disabled, stock refreshes normally based on recharge timer.");
-            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles (seconds).\n" +
-                "Minimum time between scroll wheel cycles to prevent rapid switching.");
-            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "When enabled, plays the bag grab animation when cycling to a new passenger.\n" +
-                "Disabled by default to reduce visual noise when cycling.");
-            Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Enable mouse wheel scrolling for cycling passengers.\n" +
-                "When enabled, mouse wheel can be used to cycle through bagged objects.");
-            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert the mouse wheel scrolling direction.\n" +
-                "When enabled, scrolling up goes to previous object, down goes to next.");
+                "Store multiple objects and cycle through them.");
+            Instance.AddedCapacity = cfg.Bind("Bottomless Bag", "AddedCapacity", "0", "Flat extra bag capacity.");
+            Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "Clamp stock refresh to empty slots.");
+            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "Refresh stock only after a successful grab at 0.");
+            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles.");
+            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "Play grab animation when cycling.");
+            Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Cycle passengers via mouse wheel.");
+            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert mouse wheel cycle direction.");
 
-            Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD for Drifter's bag.\n" +
-                "When disabled, reverts to vanilla UI behavior.\n" +
-                "Note: Automatically enabled when BottomlessBag is enabled.");
-            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items.\n" +
-                "Distance between adjacent items in the carousel.");
-            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation in seconds.\n" +
-                "Time for carousel items to animate into position when cycling.");
+            Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD.");
+            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items.");
+            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation.");
 
             Instance.CenterSlotX = cfg.Bind("Hud", "CenterSlotX", 25.0f, "X position offset for center slot.");
             Instance.CenterSlotY = cfg.Bind("Hud", "CenterSlotY", 50.0f, "Y position offset for center slot.");
-            Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot (0.0 to 2.0).");
-            Instance.CenterSlotOpacity = cfg.Bind("Hud", "CenterSlotOpacity", 1.0f, "Opacity for center slot (0.0 to 1.0).");
+            Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot.");
+            Instance.CenterSlotOpacity = cfg.Bind("Hud", "CenterSlotOpacity", 1.0f, "Opacity for center slot.");
             Instance.CenterSlotShowIcon = cfg.Bind("Hud", "CenterSlotShowIcon", true, "Show icon in center slot.");
             Instance.CenterSlotShowWeightIcon = cfg.Bind("Hud", "CenterSlotShowWeightIcon", true, "Show weight icon in center slot.");
             Instance.CenterSlotShowName = cfg.Bind("Hud", "CenterSlotShowName", true, "Show name in center slot.");
@@ -607,8 +558,8 @@ namespace DrifterBossGrabMod
 
             Instance.SideSlotX = cfg.Bind("Hud", "SideSlotX", 20.0f, "X position offset for side slots.");
             Instance.SideSlotY = cfg.Bind("Hud", "SideSlotY", 5.0f, "Y position offset for side slots.");
-            Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots (0.0 to 2.0).");
-            Instance.SideSlotOpacity = cfg.Bind("Hud", "SideSlotOpacity", 0.3f, "Opacity for side slots (0.0 to 1.0).");
+            Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots.");
+            Instance.SideSlotOpacity = cfg.Bind("Hud", "SideSlotOpacity", 0.3f, "Opacity for side slots.");
             Instance.SideSlotShowIcon = cfg.Bind("Hud", "SideSlotShowIcon", true, "Show icon in side slots.");
             Instance.SideSlotShowWeightIcon = cfg.Bind("Hud", "SideSlotShowWeightIcon", true, "Show weight icon in side slots.");
             Instance.SideSlotShowName = cfg.Bind("Hud", "SideSlotShowName", true, "Show name in side slots.");
@@ -616,234 +567,96 @@ namespace DrifterBossGrabMod
             Instance.SideSlotShowSlotNumber = cfg.Bind("Hud", "SideSlotShowSlotNumber", true, "Show slot number in side slots.");
 
             Instance.SelectedHudElement = cfg.Bind("Hidden", "SelectedHudElement", HudElementType.All,
-                "Select which HUD element group to configure (UI only).\n" +
-                "- Main Slot: Center slot settings\n" +
-                "- Side Slots: Side slot settings\n" +
-                "- Weight Icon: Weight icon and display settings\n" +
-                "- Damage Preview: Damage preview overlay settings\n" +
-                "- Capacity UI: Mass capacity bar and gradient settings\n" +
-                "- Stats Panel: Bagged object info panel settings");
+                "Select which HUD element group to configure.");
             Instance.SelectedHudElement.Value = HudElementType.All;
 
-            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel on the Info Screen (Tab).");
-            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for the Bagged Object Info panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 0.0f, "Y position offset for the Bagged Object Info panel.");
-            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale value for the Bagged Object Info panel.");
-            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Main text color for the Bagged Object Info panel.");
-            Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show a damage preview overlay on bagged object health bars.\n" +
-                "Indicates predicted slam damage to the object.");
-            Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for the damage preview overlay.\n" +
-                "RGBA color for the damage preview indicator.");
-            Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the new custom weight icon instead of the original.\n" +
-                "When enabled, uses a custom weight icon design.");
-            Instance.WeightDisplayMode = cfg.Bind("Hud", "WeightDisplayMode", DrifterBossGrabMod.WeightDisplayMode.Multiplier, "Mode for displaying weight:\n" +
-                "- None: No weight display\n" +
-                "- Multiplier: Show as mass multiplier (e.g., 2.5x)\n" +
-                "- Pounds: Show in pounds (lb)\n" +
-                "- KiloGrams: Show in kilograms (kg)");
-            Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale the weight icon color based on capacity usage.\n" +
-                "When enabled, weight icon color uses the capacity gradient (green to red) based on mass/capacity ratio.");
-            Instance.ShowTotalMassOnWeightIcon = cfg.Bind("Hud", "ShowTotalMassOnWeightIcon", false, "Show total bag mass on the center slot weight icon.\n" +
-                "When enabled, the center slot displays total bag mass instead of the selected object's mass.\n" +
-                "The icon color uses the overencumbrance gradient based on capacity percentage.");
-            Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show the overencumbrance icon over the new weight icon when overencumbered.\n" +
-                "Replaces the weight text with a scaled down version of the custom arrow icon.\n" +
-                "only applies when ShowTotalMassOnWeightIcon is enabled.");
-            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Automatically promote the next object in the bag to the main seat when the current main object is removed.\n" +
-                "When enabled, cycling through the bag automatically updates the main seat.");
-            Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "When enabled, newly grabbed objects are placed in the main seat first instead of additional seats.\n" +
-                "When disabled (default), new objects go directly to additional seats.");
-            Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI for displaying bag capacity status.\n" +
-                "Shows current mass vs capacity as a progress bar.");
-            Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "Horizontal position offset for the Mass Capacity UI.\n" +
-                "X position offset from the default location.");
-            Instance.MassCapacityUIPositionY = cfg.Bind("Hud", "MassCapacityUIPositionY", 0.0f, "Vertical position offset for the Mass Capacity UI.\n" +
-                "Y position offset from the default location.");
-            Instance.MassCapacityUIScale = cfg.Bind("Hud", "MassCapacityUIScale", 0.8f, "Scale multiplier for the Mass Capacity UI.\n" +
-                "Size multiplier for the UI element.");
-            Instance.EnableSeparators = cfg.Bind("Hud", "EnableSeparators", true, "Enable dynamic separators (threshold pips) on the Mass Capacity UI.\n" +
-                "Shows boundaries for each slot, or dynamically based on mass.");
-            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 1.0f, "Intensity of the gradient color on the Mass Capacity UI.\n" +
-                "0.0 is no gradient (solid mid color), 1.0 is full intensity.");
+            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel.");
+            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for stats panel.");
+            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 0.0f, "Y position offset for stats panel.");
+            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale for stats panel.");
+            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for stats panel.");
+            Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show damage preview overlay.");
+            Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for damage preview.");
+            Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the custom weight icon.");
+            Instance.WeightDisplayMode = cfg.Bind("Hud", "WeightDisplayMode", DrifterBossGrabMod.WeightDisplayMode.Multiplier, "Mode for weight display.");
+            Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale weight icon color by capacity.");
+            Instance.ShowTotalMassOnWeightIcon = cfg.Bind("Hud", "ShowTotalMassOnWeightIcon", false, "Show total bag mass on center slot.");
+            Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show overencumbrance icon.");
+            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Auto-promote next object when main is removed.");
+            Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "New objects go to main seat first.");
+            Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI bar.");
+            Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "X offset for Mass Capacity UI.");
+            Instance.MassCapacityUIPositionY = cfg.Bind("Hud", "MassCapacityUIPositionY", 0.0f, "Y offset for Mass Capacity UI.");
+            Instance.MassCapacityUIScale = cfg.Bind("Hud", "MassCapacityUIScale", 0.8f, "Scale for Mass Capacity UI.");
+            Instance.EnableSeparators = cfg.Bind("Hud", "EnableSeparators", true, "Show threshold pips on Mass Capacity UI.");
+            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 1.0f, "Intensity of the gradient color.");
 
-            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.0f, 1.0f, 0.0f, 1.0f), "Start color (low mass) for standard capacity gradient.");
-            Instance.CapacityGradientColorMid = cfg.Bind("Hud", "CapacityGradientColorMid", new Color(1.0f, 1.0f, 0.0f, 1.0f), "Mid color (medium mass) for standard capacity gradient.");
-            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.0f, 0.0f, 1.0f), "End color (high mass) for standard capacity gradient.");
+            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.0f, 1.0f, 0.0f, 1.0f), "Start color for standard capacity gradient.");
+            Instance.CapacityGradientColorMid = cfg.Bind("Hud", "CapacityGradientColorMid", new Color(1.0f, 1.0f, 0.0f, 1.0f), "Mid color for standard capacity gradient.");
+            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.0f, 0.0f, 1.0f), "End color for standard capacity gradient.");
 
-            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color (low encumbrance) for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color (medium encumbrance) for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color (high encumbrance) for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color for overencumbrance gradient.");
+            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color for overencumbrance gradient.");
 
-            Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable balance features (capacity scaling, elite mass bonus, overencumbrance).\n" +
-                "When disabled, all balance features are bypassed and vanilla behavior is used.");
-            Instance.SlotScalingFormula = cfg.Bind("Balance", "SlotScalingFormula", "0",
-                "Formula for extra bag slots. Result is auto-floored to an integer.\n" +
-                "Variables: H = max health, L = level, C = utility stocks, MC = mass cap, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: 'H/100 + L' = 1 slot per 100 HP + 1 per level, 'floor(H/200) + floor(L/3)' = discrete steps\n" +
-                "Set to '0' to disable extra slot scaling.");
-            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC",
-                "Formula for mass capacity limit.\n" +
-                "Variables: H = max health, L = level, C = utility stocks, MC = mass cap, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: 'C * MC' = linear 100 per stock, 'MC * 1.5^(C-1)' = exponential\n" +
-                "Use 'INF' for unlimited mass capacity.");
-            Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0",
-                "Formula for movement speed penalty.\n" +
-                "Variables: T = Total mass, M = Mass capacity, C = Bag capacity (slots), H = Max health, L = Level, MC = mass cap, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '0' = no penalty, 'clamp((T/M) * 0.5, 0, 0.8)' = 50% at full capacity, capped at 80%\n" +
-                "Set to '0' for no penalty.");
+            Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable mass and penalty systems.");
+            Instance.SlotScalingFormula = cfg.Bind("Balance", "SlotScalingFormula", "0", "Formula for extra bag slots. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
+            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC", "Formula for mass capacity limit. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
+            Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0", "Formula for movement speed penalty. Supported: T (Total Mass), M (Mass Cap limit), C (Total Cap), H (Max HP), L (Level), MC (Mass Cap config), S (Stage).");
 
             Instance.SlamDamageFormula = cfg.Bind("Balance", "SlamDamageFormula",
                 "BASE_COEF + (MASS_SCALING * BM / MC)",
-                "Formula for slam damage coefficient.\n" +
-                "This formula determines how much damage the Drifter deals when slamming grabbed enemies.\n" +
-                "Final damage = Drifter's base damage × formula result.\n\n" +
-                "Local Variables (specific to slam damage):\n" +
-                "  BASE_COEF - Base damage coefficient (default: 2.8)\n" +
-                "  MASS_SCALING - Mass scaling factor (default: 5.0)\n" +
-                "  BM - Current bagged mass (total mass of grabbed objects)\n" +
-                "  MC - Max mass capacity (dynamic based on utility stocks)\n\n" +
-                "Global Variables (available in all formulas):\n" +
-                "  H - Drifter's max health\n" +
-                "  L - Drifter's level\n" +
-                "  C - Utility stock count\n" +
-                "  S - Current stage number\n" +
-                "  MC - Mass cap configuration value\n" +
-                "  BH - Base max health\n" +
-                "  B - Base mass\n\n" +
-                "Available Functions:\n" +
-                "  floor, ceil, round, abs, sqrt, log, ln, min, max, clamp, sin, cos, tan, sign, pow\n\n" +
-                "Available Constants:\n" +
-                "  pi, e, inf, infinity\n\n" +
-                "Examples:\n" +
-                "  'BASE_COEF + (MASS_SCALING * BM / MC)' - Default formula (scales with bagged mass)\n" +
-                "  'BASE_COEF + (MASS_SCALING * clamp(BM/MC, 0, 1))' - Capped scaling at 100% capacity\n" +
-                "  'BASE_COEF + (MASS_SCALING * min(BM/MC, 0.5))' - Scaling capped at 50% capacity\n" +
-                "  '0.8' - Fixed coefficient (no mass scaling)\n" +
-                "  'H / 1000' - Health-based damage (ignores bagged mass)\n" +
-                "  'L * 0.1 + 0.5' - Level-based damage\n" +
-                "  'clamp(BASE_COEF + (MASS_SCALING * BM / MC), 0, 5.0)' - Capped between 0 and 5.0");
-            Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "Mode for calculating bagged object state:\n" +
-                "- Current: only the currently selected object affects Drifter's stats\n" +
-                "- all: all bagged objects are aggregated for stat calculation.");
-            Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Mode for AoE damage distribution:\n" +
-                "- None: AoE slam damage disabled\n" +
-                "- Full: Each object takes full damage (total damage × object count)\n" +
-                "- Split: Damage is divided among objects (total damage ÷ object count)");
-            Instance.OverencumbranceMax = cfg.Bind("Balance", "OverencumbranceMax", 100.0f, "Maximum overencumbrance percentage.\n" +
-                "0 = no overencumbrance allowed, 100% = double capacity, 50% = 1.5x capacity.\n" +
-                "Formula: MaxMass = Capacity × (1 + OverencumbranceMax / 100)");
+                "Formula for slam damage coefficient. Supported: BASE_COEF, MASS_SCALING, BM (Bagged Mass), MC (Mass Cap).");
+            Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "State calculation mode for stats.");
+            Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Mode for AoE damage distribution.");
+            Instance.OverencumbranceMax = cfg.Bind("Balance", "OverencumbranceMax", 100.0f, "Maximum overencumbrance percentage.");
 
-            Instance.SearchRadiusMultiplier = cfg.Bind("Balance", "SearchRadiusMultiplier", 1.0f, "Multiplier for the grab reach distance.\nIncrease this to more easily grab large objects like rocks and teleporters.");
-            Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for how long bagged enemies take to break out.\nFormula: FinalBreakoutTime = BaseBreakoutTime × BreakoutTimeMultiplier");
-            Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Maximum number of hits before bagged enemies break out.\nBagged enemies will break out after receiving this many hits.", new AcceptableValueRange<int>(1, 100)));
-            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for broken-out enemies.\nUse 'INF' or 'INFINITY' for no cap.\nUseful when uncapping mass to prevent enemies from launching across the map.");
-            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap. Set to 'INF' or 'Infinity' to uncap completely, continuing to grow based on mass.\n" +
-                "Formula: BagScale = 0.5 + 0.5 × ((Mass - 1) / (MaxMass - 1))");
-            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities. Set to 'INF' or 'Infinity' to remove the mass cap.");
+            Instance.SearchRadiusMultiplier = cfg.Bind("Balance", "SearchRadiusMultiplier", 1.0f, "Multiplier for grab reach distance.");
+            Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for breakout time.");
+            Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Hits before breakout.", new AcceptableValueRange<int>(1, 100)));
+            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for breakout.");
+            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap.");
+            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities.");
 
-
-
-            // Formula-based flag multiplier configurations (one per flag type)
-            Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1",
-                "Formula-based mass multiplier for Elite entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1", "Mass multiplier for Elite entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.EliteFlagMultiplier.Value = "1";
 
-            Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1",
-                "Formula-based mass multiplier for Boss entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1", "Mass multiplier for Boss entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.BossFlagMultiplier.Value = "1";
 
-            Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1",
-                "Formula-based mass multiplier for Champion entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1", "Mass multiplier for Champion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.ChampionFlagMultiplier.Value = "1";
 
-            Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1",
-                "Formula-based mass multiplier for Player-controlled entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1", "Mass multiplier for Player entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.PlayerFlagMultiplier.Value = "1";
 
-            Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1",
-                "Formula-based mass multiplier for Minion entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1", "Mass multiplier for Minion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.MinionFlagMultiplier.Value = "1";
 
-            Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1",
-                "Formula-based mass multiplier for Drone entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1", "Mass multiplier for Drone entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.DroneFlagMultiplier.Value = "1";
 
-            Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1",
-                "Formula-based mass multiplier for Mechanical entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1", "Mass multiplier for Mechanical entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.MechanicalFlagMultiplier.Value = "1";
 
-            Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1",
-                "Formula-based mass multiplier for Void entities.\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+            Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1", "Mass multiplier for Void entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.VoidFlagMultiplier.Value = "1";
 
             Instance.AllFlagMultiplier = cfg.Bind(
                 new ConfigDefinition("Character Flags", "all Flag Multiplier"),
                 "1",
-                new ConfigDescription(
-                    "Universal multiplier that applies to all enemies. Stacks with specific flags.\n" +
-                    "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                    "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                    "Constants: pi, e, INF\n" +
-                    "Examples: '1' = no change, 'BH/max(B,1)' = base health becomes mass, 'H/max(B,1)' = scaled health becomes mass"
-                )
+                new ConfigDescription("Universal multiplier for all enemies. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).")
             );
 
-            // Risk of Options UI controls (not saved to config file, used for UI only)
             Instance.SelectedFlag = cfg.Bind("Hidden", "SelectedFlag", CharacterFlagType.All,
-                "Select which flag to modify (UI only)");
+                "Select which flag to modify.");
             Instance.SelectedFlag.Value = CharacterFlagType.All;
             Instance.SelectedFlagMultiplier = cfg.Bind("Hidden", "FlagMultiplier", "1",
-                "Mass Multiplier for selected flag (UI only).\n" +
-                                "Variables: H = max health (scaled), BH = base max health (unscaled), L = level, B = base mass, S = current stage\n" +
-                "Functions: floor, ceil, round, min, max, abs, sqrt, log, ln, clamp, sin, cos, pow\n" +
-                "Constants: pi, e, INF\n" +
-                "Examples: '1.5' = 1.5x mass, 'H/1000' = 0.1% of max health, 'H/max(B,1)' = Health becomes mass");
+                "Mass multiplier for selected flag.");
             Instance.SelectedFlagMultiplier.Value = "1";
 
             Instance.SelectedBalanceSubTab = cfg.Bind("Hidden", "SelectedBalanceSubTab", BalanceSubTabType.All,
-                "Select which Balance settings group to view (UI only).\n" +
-                "- Capacity: Capacity uncap and scaling settings\n" +
-                "- Multipliers: Flag and mass multiplier settings\n" +
-                "- Penalty: Penalty formula and stat calculation mode\n" +
-                "- Misc: Performance and visual caps");
+                "Select which Balance settings group to view.");
             Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
 
 

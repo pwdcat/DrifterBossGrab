@@ -293,6 +293,12 @@ namespace DrifterBossGrabMod.Patches
             return BaggedObjectStateStorage.LoadObjectState(controller, obj);
         }
 
+        public static BaggedObjectStateData? FindStateForObject(GameObject obj)
+        {
+            return BaggedObjectStateStorage.FindStateForObject(obj);
+        }
+
+
         public static void CleanupObjectState(DrifterBagController controller, GameObject obj, bool preserveForThrow = false)
         {
             BaggedObjectStateStorage.CleanupObjectState(controller, obj, preserveForThrow);
@@ -388,6 +394,8 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController == null) return true;
                 var targetObject = __instance.targetObject;
+                if (targetObject == null) return false;
+
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
 
                 var trackedMain = BagPatches.GetMainSeatObject(bagController);
@@ -465,6 +473,8 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController == null) return true;
                 var targetObject = __instance.targetObject;
+                if (targetObject == null) return false;
+
                 bool isMainSeatOccupant = IsInMainSeat(bagController, targetObject);
 
                 var trackedMain = BagPatches.GetMainSeatObject(bagController);

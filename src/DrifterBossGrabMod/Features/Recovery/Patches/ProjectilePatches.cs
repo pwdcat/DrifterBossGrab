@@ -62,24 +62,5 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(ProjectileController), "OnDestroy")]
-        public class ProjectileController_OnDestroy_Patch
-        {
-            [HarmonyPrefix]
-            public static void Prefix(ProjectileController __instance)
-            {
-                if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
-                if (__instance == null) return;
-
-                // Check if it's one of our tracked or survivor projectiles
-                bool isSurvivor = IsSurvivorProjectile(__instance);
-                string name = __instance.name;
-                if (isSurvivor || name.Contains("Teleporter") || name.Contains("Shrine") || name.Contains("ThrownObjectProjectile"))
-                {
-                    var pos = __instance.transform.position;
-                    Log.Info($"[Recovery] DESTRUCTION TRACE: {name} | Pos: ({pos.x:F1}, {pos.y:F1}, {pos.z:F1}) | Owner: {(__instance.owner != null ? __instance.owner.name : "null")}");
-                }
-            }
-        }
     }
 }

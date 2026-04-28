@@ -8,56 +8,57 @@ namespace DrifterBossGrabMod
     {
         public abstract string FeatureName { get; }
         public abstract bool IsEnabled { get; }
+        public Harmony Harmony { get; }
 
         protected abstract void ApplyPatches(Harmony harmony);
 
         private bool _isPatchesApplied = false;
 
-        public void Initialize(Harmony harmony)
+        protected FeatureToggleBase()
+        {
+            Harmony = new Harmony(Constants.PluginGuid + "." + FeatureName.ToLowerInvariant());
+        }
+
+        public virtual void Initialize()
         {
             if (IsEnabled)
             {
-                ApplyPatches(harmony);
+                ApplyPatches(Harmony);
                 _isPatchesApplied = true;
             }
         }
 
-        public virtual void Cleanup(Harmony harmony)
+        public virtual void Cleanup()
         {
-            harmony.UnpatchSelf();
+            Harmony.UnpatchSelf();
             _isPatchesApplied = false;
         }
 
-        public void Enable(Harmony harmony)
+        public void Enable()
         {
-            if (!IsEnabled)
+            if (!IsEnabled || _isPatchesApplied)
             {
                 return;
             }
 
-            if (_isPatchesApplied)
-            {
-                return;
-            }
-
-            ApplyPatches(harmony);
+            ApplyPatches(Harmony);
             _isPatchesApplied = true;
         }
 
-        public void Disable(Harmony harmony)
+        public void Disable()
         {
-            Cleanup(harmony);
+            Cleanup();
         }
 
-        public void Toggle(Harmony harmony, bool enable)
+        public void Toggle(bool enable)
         {
             if (enable)
             {
-                Enable(harmony);
+                Enable();
             }
             else
             {
-                Disable(harmony);
+                Disable();
             }
         }
     }

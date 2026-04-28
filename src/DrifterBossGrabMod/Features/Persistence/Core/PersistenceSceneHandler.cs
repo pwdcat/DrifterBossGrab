@@ -447,13 +447,25 @@ namespace DrifterBossGrabMod
                 var rb = obj.GetComponent<Rigidbody>();
                 if (rb)
                 {
-                    rb.isKinematic = false; // Re-enable physics
-                    rb.velocity = Vector3.zero; // Reset velocity just in case
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    var existingState = BaggedObjectPatches.FindStateForObject(obj);
+                    if (existingState != null && existingState.hasCapturedRigidbodyState)
                     {
-                        Log.Info($"[ClientSafetyFloat] Re-enabled physics for {obj.name} at {obj.transform.position}");
+                        rb.isKinematic = existingState.originalIsKinematic;
+                        rb.useGravity = existingState.originalUseGravity;
+                        rb.mass = existingState.originalMass;
+                        rb.drag = existingState.originalDrag;
+                        rb.angularDrag = existingState.originalAngularDrag;
+                        rb.detectCollisions = true;
                     }
+                    else
+                    {
+                        rb.isKinematic = false;
+                        rb.detectCollisions = true;
+                    }
+
+                    rb.velocity = Vector3.zero;
                 }
+
             }
 
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
@@ -463,59 +475,64 @@ namespace DrifterBossGrabMod
         private class PersistedObjectSeeker : MonoBehaviour
         {
             private string _ownerPlayerId = string.Empty;
-            private float _timeout = 60f;
-            private float _timer = 0f;
+
 
             public void Initialize(string ownerId)
             {
                 _ownerPlayerId = ownerId;
+                StartCoroutine(SeekOwnerCoroutine());
             }
 
-            private void FixedUpdate()
+            private System.Collections.IEnumerator SeekOwnerCoroutine()
             {
-                if (!NetworkServer.active)
-                {
-                    Destroy(this);
-                    return;
-                }
+                float elapsed = 0f;
+                const float checkInterval = 0.5f;
+                const float timeout = 60f;
 
-                _timer += Time.fixedDeltaTime;
-                if (_timer > _timeout)
+                while (elapsed < timeout)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[PersistedObjectSeeker] Timeout seeking owner for {name}. Staying at current position.");
-                    Destroy(this);
-                    return;
-                }
-
-                // Try to find the NetworkUser associated with this player id using cached lookup
-                NetworkUser? matchedUser = FindNetworkUserById(_ownerPlayerId);
-
-                if (matchedUser != null)
-                {
-                    var targetBody = matchedUser.master?.GetBody();
-                    if (targetBody != null)
+                    if (!NetworkServer.active)
                     {
-                        // Found owner body! Teleport.
-                        var playerPos = targetBody.transform.position;
-                        var playerForward = targetBody.transform.forward;
-                        var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
-
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[PersistedObjectSeeker] Found owner {targetBody.name} after {_timer:F2}s. Teleporting {name} to {targetPos}");
-
-                        transform.position = targetPos;
-                        transform.rotation = Quaternion.identity;
-
-                        if (TryGetComponent<Rigidbody>(out var rb))
-                        {
-                            rb.velocity = Vector3.zero;
-                            rb.angularVelocity = Vector3.zero;
-                        }
-
                         Destroy(this);
+                        yield break;
+                    }
+
+                    yield return new WaitForSeconds(checkInterval);
+                    elapsed += checkInterval;
+
+                    // Try to find the NetworkUser associated with this player id using cached lookup
+                    NetworkUser? matchedUser = FindNetworkUserById(_ownerPlayerId);
+
+                    if (matchedUser != null)
+                    {
+                        var targetBody = matchedUser.master?.GetBody();
+                        if (targetBody != null)
+                        {
+                            // Found owner body! Teleport.
+                            var playerPos = targetBody.transform.position;
+                            var playerForward = targetBody.transform.forward;
+                            var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
+
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Info($"[PersistedObjectSeeker] Found owner {targetBody.name} after {elapsed:F2}s. Teleporting {name} to {targetPos}");
+
+                            transform.position = targetPos;
+                            transform.rotation = Quaternion.identity;
+
+                            if (TryGetComponent<Rigidbody>(out var rb))
+                            {
+                                rb.velocity = Vector3.zero;
+                                rb.angularVelocity = Vector3.zero;
+                            }
+
+                            Destroy(this);
+                            yield break;
+                        }
                     }
                 }
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info($"[PersistedObjectSeeker] Timeout seeking owner for {name}. Staying at current position.");
+                Destroy(this);
             }
         }
 

@@ -120,10 +120,35 @@ namespace DrifterBossGrabMod.Patches
                 var targetObject = __instance?.targetObject;
                 if (targetObject == null)
                 {
-                    // This can happen when deserialization fails or object was destroyed
-                    Log.Warning("[BaggedObject_OnEnter.Prefix] targetObject is null - likely deserialization failure or object destroyed");
-                    NetworkUtils.LogObjectDetails(__instance?.outer?.gameObject, "BaggedObject_OnEnter.Prefix");
-                    return false; // Skip to original OnEnter to prevent NRE
+                    // Recovery for clients: targetObject may be null due to network ordering
+                    if (!NetworkServer.active && bagController != null)
+                    {
+                        GameObject? recovered = bagController.baggedObject;
+                        if (recovered == null && bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger)
+                        {
+                            recovered = bagController.vehicleSeat.NetworkpassengerBodyObject;
+                        }
+
+                        if (recovered == null)
+                        {
+                            recovered = BagPatches.GetMainSeatObject(bagController);
+                        }
+
+                        if (recovered != null)
+                        {
+                            __instance!.targetObject = recovered;
+                            targetObject = recovered;
+                            BaggedObjectPatches.UpdateTargetFields(__instance);
+                            Log.Info($"[BaggedObject_OnEnter.Prefix] RECOVERED targetObject from controller/seat: {recovered.name}");
+                        }
+                    }
+
+                    if (targetObject == null)
+                    {
+                        Log.Warning("[BaggedObject_OnEnter.Prefix] targetObject is null - likely deserialization failure or object destroyed");
+                        NetworkUtils.LogObjectDetails(__instance?.outer?.gameObject, "BaggedObject_OnEnter.Prefix");
+                        return true;
+                    }
                 }
 
                 // Validate that the target object is ready for network operations
@@ -134,16 +159,16 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 // Check if object is currently undergoing throw operation
-                if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(targetObject))
+                if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(targetObject!))
                 {
-                    Log.Warning($"[BaggedObject_OnEnter.Prefix] Blocking grab of {targetObject.name} - object is currently undergoing throw operation");
+                    Log.Warning($"[BaggedObject_OnEnter.Prefix] Blocking grab of {targetObject!.name} - object is currently undergoing throw operation");
                     return false;
                 }
 
                 // Log the OnEnter operation
-                Networking.NetworkUtils.LogNetworkOperation("BaggedObject_OnEnter", targetObject, NetworkServer.active, new Dictionary<string, object>
+                Networking.NetworkUtils.LogNetworkOperation("BaggedObject_OnEnter", targetObject!, NetworkServer.active, new Dictionary<string, object>
                 {
-                    { "bagController", bagController.name },
+                    { "bagController", bagController!.name },
                     { "isAuthority", bagController.hasAuthority }
                 });
 
@@ -1008,7 +1033,6 @@ namespace DrifterBossGrabMod.Patches
 
                     return;
                 }
-
                 if (bagController != null && __instance.targetObject != null)
                 {
                     BagPassengerManager.RemoveBaggedObject(bagController, __instance.targetObject);
@@ -1032,6 +1056,8 @@ namespace DrifterBossGrabMod.Patches
             // Throttle debug logging to avoid spamming every FixedUpdate frame
             private static float _lastFixedUpdateLogTime;
             private static string _lastFixedUpdateBlockReason = "";
+            private static int _recoveryRetryCount = 0;
+            private const int MAX_RECOVERY_RETRIES = 120; // ~2 seconds of FixedUpdates at 60Hz
 
             [HarmonyPrefix]
             public static bool Prefix(BaggedObject __instance)
@@ -1042,14 +1068,45 @@ namespace DrifterBossGrabMod.Patches
 
                     if (__instance == null || __instance.targetObject == null)
                     {
+                        // Attempt recovery on client
+                        if (!NetworkServer.active && __instance != null)
+                        {
+                            var bagCtrl = __instance.outer?.GetComponent<DrifterBagController>();
+                            if (bagCtrl != null)
+                            {
+                                GameObject? recovered = bagCtrl.baggedObject
+                                    ?? bagCtrl.vehicleSeat?.NetworkpassengerBodyObject
+                                    ?? BagPatches.GetMainSeatObject(bagCtrl);
+
+                                if (recovered != null)
+                                {
+                                    __instance.targetObject = recovered;
+                                    BaggedObjectPatches.UpdateTargetFields(__instance);
+                                    _recoveryRetryCount = 0;
+                                    Log.Info($"[BaggedObject_FixedUpdate] RECOVERED targetObject: {recovered.name}");
+                                    return true;
+                                }
+                            }
+
+                            _recoveryRetryCount++;
+                            if (_recoveryRetryCount > MAX_RECOVERY_RETRIES)
+                            {
+                                Log.Warning($"[BaggedObject_FixedUpdate] Recovery failed after {MAX_RECOVERY_RETRIES} frames. Forcing exit to Main.");
+                                __instance.outer?.SetNextStateToMain();
+                                _recoveryRetryCount = 0;
+                                return false;
+                            }
+                        }
+
                         if (shouldLog && _lastFixedUpdateBlockReason != "null_instance")
                         {
                             _lastFixedUpdateBlockReason = "null_instance";
                             _lastFixedUpdateLogTime = Time.time;
-                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: instance or targetObject is null");
+                            Log.Info($"[BaggedObject_FixedUpdate] BLOCKED: instance or targetObject is null (retries={_recoveryRetryCount})");
                         }
                         return false;
                     }
+                    _recoveryRetryCount = 0;
 
                     // 1. Check isBody flag
                     var isBodyVal = ReflectionCache.BaggedObject.IsBody?.GetValue(__instance);
@@ -1190,42 +1247,36 @@ namespace DrifterBossGrabMod.Patches
                     if (bagController != null)
                     {
                         var passenger = BagPatches.GetMainSeatObject(bagController);
-                        if (passenger == null && bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger)
+                        if (passenger == null)
                         {
-                            passenger = bagController.vehicleSeat.NetworkpassengerBodyObject;
+                            passenger = bagController.baggedObject;
+
+                            if (passenger == null && bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger)
+                            {
+                                passenger = bagController.vehicleSeat.NetworkpassengerBodyObject;
+                            }
                         }
 
                         if (passenger != null)
                         {
-                            // Check if the passenger is actually tracked as a bagged object
-                            // Check if passenger is actually tracked as a bagged object
-                            // For capacity=1, check mainSeatDict (authoritative for main seat objects)
-                            // For capacity>1, check BaggedObjects list (includes stashed objects)
                             bool isTracked = false;
                             var mainSeatObject = BagPatches.GetMainSeatObject(bagController);
                             if (mainSeatObject != null && ReferenceEquals(mainSeatObject, passenger))
                             {
-                                // Object is tracked as main seat occupant
                                 isTracked = true;
                             }
                             else if (BagPatches.GetState(bagController).BaggedObjects.Contains(passenger))
                             {
-                                // Object is tracked in bag (e.g., stashed in additional seat)
                                 isTracked = true;
                             }
-
-                            // Block reset if we have a passenger that is still considered "bagged"
-                            // or if it is explicitly suppressed
-                            // If it's not tracked, allow reset to Idle
-                            if (isTracked || BaggedObjectPatches.IsObjectExitSuppressed(passenger))
+                            bool isDead = BaggedObjectPatches.IsPassengerDeadOrDestroyed(passenger);
+                            if (!isDead && (isTracked || BaggedObjectPatches.IsObjectExitSuppressed(passenger)))
                             {
-
-                                return false; // Prevent reset to Idle
+                                return false;
                             }
                         }
                     }
                 }
-
                 return true;
             }
 

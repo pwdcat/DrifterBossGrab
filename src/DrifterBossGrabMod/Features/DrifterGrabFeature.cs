@@ -19,6 +19,9 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnDestroy_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_OnEnable_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_OnDisable_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.BaggedObject_OnEnter_Patch)).Patch();
 
@@ -43,6 +46,7 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.DirectorCore_TrySpawnObject_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.SpecialObjectAttributes_Start_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.BaseCaptainSupplyDropState_OnEnter_Patch)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetState)).Patch();
 

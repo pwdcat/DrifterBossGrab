@@ -163,6 +163,11 @@ namespace DrifterBossGrabMod.Patches
             // Only process objects that have the required GrabbableComponentTypes
             if (!PluginConfig.IsGrabbable(obj))
                 return;
+
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToGrabbableObject called for {objName}");
+            }
             // Special handling for SurvivorPod - wait until it lands
             if (lowerObjName.Contains("survivorpod"))
             {
@@ -351,6 +356,10 @@ namespace DrifterBossGrabMod.Patches
                 return;
             // Cache the object name to avoid repeated property access
             string objName = obj.name;
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToProjectile called for {objName}");
+            }
             // Pre-cache lowercase name for multiple string operations
             string lowerObjName = objName.ToLowerInvariant();
             // Ensure the object has a name for identification and blacklisting

@@ -11,6 +11,7 @@ using EntityStates;
 using EntityStates.Drifter;
 using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Networking;
+using DrifterBossGrabMod.Core;
 namespace DrifterBossGrabMod.Patches
 {
     public static class RepossessExitPatches
@@ -380,12 +381,22 @@ namespace DrifterBossGrabMod.Patches
                     var rb = targetObject.GetComponent<Rigidbody>();
                     if (rb)
                     {
-                        rb.isKinematic = false;
-                        rb.detectCollisions = true;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        var existingState = bagController != null ? BaggedObjectPatches.LoadObjectState(bagController, targetObject) : null;
+                        if (existingState != null && existingState.hasCapturedRigidbodyState)
                         {
-                            Log.Info($" Restored Rigidbody on {targetObject.name} (bag exit)");
+                            rb.isKinematic = existingState.originalIsKinematic;
+                            rb.useGravity = existingState.originalUseGravity;
+                            rb.mass = existingState.originalMass;
+                            rb.drag = existingState.originalDrag;
+                            rb.angularDrag = existingState.originalAngularDrag;
+                            rb.detectCollisions = true;
                         }
+                        else
+                        {
+                            rb.isKinematic = false;
+                            rb.detectCollisions = true;
+                        }
+
                     }
 
                     // Re-enable hurtboxes that were disabled during the grab.

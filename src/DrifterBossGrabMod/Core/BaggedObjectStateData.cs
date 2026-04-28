@@ -64,6 +64,13 @@ namespace DrifterBossGrabMod.Core
         public bool hasCapturedModelTransformState = false;
         public SpecialObjectAttributes? vehiclePassengerAttributes;
 
+        public bool originalIsKinematic;
+        public bool originalUseGravity;
+        public float originalMass;
+        public float originalDrag;
+        public float originalAngularDrag;
+        public bool hasCapturedRigidbodyState = false;
+
         public void CaptureFromBaggedObject(BaggedObject state)
         {
             if (state == null)
@@ -309,6 +316,18 @@ namespace DrifterBossGrabMod.Core
                 targetBody = targetObject.GetComponent<CharacterBody>();
                 isBody = healthComponent != null;
                 vehiclePassengerAttributes = targetObject.GetComponent<SpecialObjectAttributes>();
+
+                var rb = targetObject.GetComponent<Rigidbody>();
+                if (rb != null && !hasCapturedRigidbodyState)
+                {
+                    originalIsKinematic = rb.isKinematic;
+                    originalUseGravity = rb.useGravity;
+                    originalMass = rb.mass;
+                    originalDrag = rb.drag;
+                    originalAngularDrag = rb.angularDrag;
+                    hasCapturedRigidbodyState = true;
+                }
+
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {

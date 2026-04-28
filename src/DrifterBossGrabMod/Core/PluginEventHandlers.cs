@@ -73,7 +73,7 @@ namespace DrifterBossGrabMod
                 bool isEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
                 if (isEnabled != _wasBottomlessBagEnabled)
                 {
-                    _bottomlessBagFeature?.Toggle(_bottomlessBagHarmony!, isEnabled);
+                    _bottomlessBagFeature?.Toggle(isEnabled);
                     _wasBottomlessBagEnabled = isEnabled;
                 }
             };
@@ -84,7 +84,7 @@ namespace DrifterBossGrabMod
                 bool isEnabled = PluginConfig.Instance.EnableObjectPersistence.Value;
                 if (isEnabled != _wasPersistenceEnabled)
                 {
-                    _persistenceFeature?.Toggle(_persistenceHarmony!, isEnabled);
+                    _persistenceFeature?.Toggle(isEnabled);
                     _wasPersistenceEnabled = isEnabled;
                 }
             };
@@ -95,7 +95,7 @@ namespace DrifterBossGrabMod
                 bool isEnabled = PluginConfig.Instance.EnableObjectPersistence.Value && !PluginConfig.IsPersistenceBlacklisted("Teleporter");
                 if (isEnabled != _wasTeleporterEnabled)
                 {
-                    _teleporterFeature?.Toggle(_teleporterHarmony!, isEnabled);
+                    _teleporterFeature?.Toggle(isEnabled);
                     _wasTeleporterEnabled = isEnabled;
                 }
             };
@@ -107,7 +107,7 @@ namespace DrifterBossGrabMod
                 bool isEnabled = PluginConfig.Instance.EnableBalance.Value;
                 if (isEnabled != _wasBalanceEnabled)
                 {
-                    _balanceFeature?.Toggle(_balanceHarmony!, isEnabled);
+                    _balanceFeature?.Toggle(isEnabled);
                     _wasBalanceEnabled = isEnabled;
                 }
             };
@@ -118,7 +118,7 @@ namespace DrifterBossGrabMod
                 bool isEnabled = PluginConfig.Instance.EnableRecoveryFeature.Value;
                 if (isEnabled != _wasRecoveryEnabled)
                 {
-                    _recoveryFeature?.Toggle(_recoveryHarmony!, isEnabled);
+                    _recoveryFeature?.Toggle(isEnabled);
                     _wasRecoveryEnabled = isEnabled;
                 }
             };

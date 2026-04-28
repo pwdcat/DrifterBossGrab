@@ -15,9 +15,9 @@ namespace DrifterBossGrabMod
             Patches.RunLifecyclePatches.Initialize();
         }
 
-        public override void Cleanup(Harmony harmony)
+        public override void Cleanup()
         {
-            base.Cleanup(harmony);
+            base.Cleanup();
             Patches.RunLifecyclePatches.Cleanup();
         }
     }

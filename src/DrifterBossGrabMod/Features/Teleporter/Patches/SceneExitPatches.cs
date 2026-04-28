@@ -35,20 +35,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(RoR2.Run), nameof(RoR2.Run.AdvanceStage), typeof(SceneDef))]
-        public class Run_AdvanceStage
-        {
-            [HarmonyPrefix]
-            public static void Prefix(RoR2.Run __instance, SceneDef nextScene)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SceneExitPatches] Run.AdvanceStage called for next scene {nextScene?.baseSceneName}. Executing persistence capture fallback.");
-                }
-                ExecutePersistenceCapture();
-            }
-        }
-
         private static void OnBeginExit(SceneExitController exitController)
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value)

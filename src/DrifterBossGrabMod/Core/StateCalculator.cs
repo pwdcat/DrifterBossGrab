@@ -144,7 +144,12 @@ namespace DrifterBossGrabMod.Core
 
             var aggregateState = new BaggedObjectStateData();
 
-            var mainPassenger = BaggedObjectPatches.GetMainSeatOccupant(controller);
+            var mainPassenger = BagPatches.GetMainSeatObject(controller);
+            if (mainPassenger == null)
+            {
+                mainPassenger = BaggedObjectPatches.GetMainSeatOccupant(controller);
+            }
+
             if (mainPassenger != null)
             {
                 var storedMainState = BaggedObjectPatches.LoadObjectState(controller, mainPassenger);
@@ -282,10 +287,6 @@ namespace DrifterBossGrabMod.Core
             return null;
         }
 
-        // Calculates the movement penalty based on total mass
-        // controller: The DrifterBagController instance
-        // totalMass: The total mass to calculate penalty for
-        // Returns: The calculated movement penalty
         public static float CalculateMovespeedPenalty(
             DrifterBagController controller,
             float totalMass)
@@ -330,10 +331,6 @@ namespace DrifterBossGrabMod.Core
             return penalty;
         }
 
-        // Calculates the bag scale (0-1 range) from mass
-        // controller: The DrifterBagController instance
-        // mass: The mass to calculate scale for
-        // Returns: The calculated bag scale (0-1 range)
         public static float CalculateBagScale01(DrifterBagController controller, float mass)
         {
             float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;

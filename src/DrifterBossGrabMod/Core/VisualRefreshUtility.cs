@@ -1,6 +1,7 @@
 using RoR2;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DrifterBossGrabMod.Core
 {
@@ -51,59 +52,29 @@ namespace DrifterBossGrabMod.Core
         private static void FixBrokenMaterials(GameObject target, Transform modelTransform)
         {
             var allRenderers = modelTransform.GetComponentsInChildren<Renderer>(true);
-            Material? fallbackMaterial = null;
 
-            // Search for a valid, non-error material to use as a template for broken ones
             foreach (var r in allRenderers)
             {
-                if (r.sharedMaterials == null) continue;
-                foreach (var mat in r.sharedMaterials)
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+
+                var sharedMats = r.sharedMaterials;
+                if (sharedMats == null || sharedMats.Length == 0) continue;
+
+                for (int i = 0; i < sharedMats.Length; i++)
                 {
-                    if (IsValidMaterial(mat))
+                    if (sharedMats[i] == null || !IsValidMaterial(sharedMats[i]))
                     {
-                        fallbackMaterial = mat;
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            string matName = sharedMats[i] == null ? "NULL" : sharedMats[i]!.name;
+                            Log.Info($"[VisualRefreshUtility] Renderer '{r.name}' on {target.name} has invalid material at slot {i} (Mat: {matName}). Disabling renderer.");
+                        }
+
+                        r.enabled = false;
                         break;
                     }
                 }
-                if (fallbackMaterial != null) break;
             }
-
-            if (fallbackMaterial == null) return;
-
-            int fixedCount = 0;
-            foreach (var r in allRenderers)
-            {
-                bool needsUpdate = false;
-                var sharedMats = r.sharedMaterials;
-
-                if (sharedMats == null || sharedMats.Length == 0)
-                {
-                    r.sharedMaterials = new Material[] { fallbackMaterial };
-                    fixedCount++;
-                    continue;
-                }
-
-                // Check for nulls or error shaders
-                for (int i = 0; i < sharedMats.Length; i++)
-                {
-                    if (!IsValidMaterial(sharedMats[i]))
-                    {
-                        sharedMats[i] = fallbackMaterial;
-                        needsUpdate = true;
-                    }
-                }
-
-                if (needsUpdate)
-                {
-                    r.sharedMaterials = sharedMats;
-                    // Force the renderer to update its materials array
-                    r.materials = sharedMats;
-                    fixedCount++;
-                }
-            }
-
-            if (fixedCount > 0 && PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[VisualRefreshUtility] Fixed {fixedCount} broken renderer(s) on {target.name}");
         }
 
         private static bool IsValidMaterial(Material? mat)
@@ -112,11 +83,11 @@ namespace DrifterBossGrabMod.Core
             if (mat.shader == null) return false;
 
             string shaderName = mat.shader.name;
-            // Detect common Unity error shaders
             return !shaderName.Contains("InternalError") &&
                    !shaderName.Contains("Error") &&
                    shaderName != "Hidden/InternalErrorShader";
         }
+
 
         private static void CleanupStuckVisualEffects(GameObject target)
         {

@@ -23,7 +23,7 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.ProjectileManager_FireProjectile_Patch)).Patch();
 
             // State Calculation Patches
-            harmony.CreateClassProcessor(typeof(StateCalculationPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.StateCalculationPatches.SuffocateSlam_AuthorityModifyOverlapAttack_ApplyCustomDamage)).Patch();
             harmony.CreateClassProcessor(typeof(CmdDamageBaggedObject_AoE)).Patch();
 
             // Patch SuffocateSlam.OnEnter

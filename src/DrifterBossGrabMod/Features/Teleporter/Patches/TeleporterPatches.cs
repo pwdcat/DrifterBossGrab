@@ -29,9 +29,36 @@ namespace DrifterBossGrabMod.Patches
             // Track activation state
             var stateMachines = teleporter.GetComponents<EntityStateMachine>();
             var esm = stateMachines.FirstOrDefault(esm => esm.customName == "Body") ?? teleporter.GetComponent<EntityStateMachine>();
-            if (esm != null && PluginConfig.Instance.EnableDebugLogs.Value)
+            if (esm != null)
             {
-                Log.Debug($"[TeleporterPatches.State] Current State: {esm.state?.GetType().Name ?? "null"}, ActivationState: {teleporter.activationState}, shrineBonusStacks={teleporter.shrineBonusStacks}");
+                Log.Info($"[TeleporterPatches.State] Current State: {esm.state?.GetType().Name ?? "null"}, ActivationState: {teleporter.activationState}, shrineBonusStacks={teleporter.shrineBonusStacks}");
+            }
+
+            // Toggle off isInFinalSequence by kicking back to ChargedState if fully charged
+            if (esm != null && teleporter.isInFinalSequence)
+            {
+                var chargedStateType = typeof(TeleporterInteraction).GetNestedType("ChargedState", BindingFlags.NonPublic);
+                if (chargedStateType != null)
+                {
+                    var chargedState = System.Activator.CreateInstance(chargedStateType) as EntityStates.EntityState;
+                    if (chargedState != null)
+                    {
+                        Log.Info($"[TeleporterPatches.State] Teleporter is in FinishedState. Kicking back to ChargedState to allow re-interaction.");
+                        esm.SetNextState(chargedState);
+                    }
+                }
+            }
+
+            // Reset SceneExitController to allow stage advancement
+            var exitController = teleporter.GetComponent<RoR2.SceneExitController>();
+            if (exitController != null)
+            {
+                var exitStateField = typeof(RoR2.SceneExitController).GetField("exitState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (exitStateField != null)
+                {
+                    Log.Info($"[TeleporterPatches.State] Resetting SceneExitController.exitState from Finished to Idle.");
+                    exitStateField.SetValue(exitController, 0);
+                }
             }
 
             try
@@ -56,8 +83,8 @@ namespace DrifterBossGrabMod.Patches
                     // Jumpstart currentRadius so player detection works immediately
                     ReflectionCache.HoldoutZoneController.CurrentRadius?.SetValue(holdout, holdout.baseRadius);
 
-                    // Only enable HoldoutZone if not already charged
-                    holdout.enabled = !teleporter.isCharged;
+                    // Only enable HoldoutZone if charging
+                    holdout.enabled = teleporter.isCharging;
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Debug($"[TeleporterPatches.HoldoutZone] Reset charge/radius for {teleporter.name} (Enabled: {holdout.enabled})");
                 }
@@ -72,7 +99,11 @@ namespace DrifterBossGrabMod.Patches
                         Object.DestroyImmediate(locker);
 
                         var newLocker = teleporter.gameObject.AddComponent<RoR2.OutsideInteractableLocker>();
-                        if (newLocker != null) newLocker.radius = oldRadius;
+                        if (newLocker != null)
+                        {
+                            newLocker.radius = oldRadius;
+                            newLocker.enabled = teleporter.isCharging;
+                        }
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Debug("[TeleporterPatches] Replaced OutsideInteractableLocker with fresh instance.");
                     }
@@ -199,8 +230,8 @@ namespace DrifterBossGrabMod.Patches
                                  $"playerCount={Run.instance?.participatingPlayerCount ?? -1}");
                     }
 
-                    // 5. Re-trigger Boss Spawn logic if not charged
-                    if (!teleporter.isCharged)
+                    // 5. Re-trigger Boss Spawn logic if charging
+                    if (teleporter.isCharging)
                     {
                         director.enabled = true;
                         float diffCoeff = Run.instance != null ? Run.instance.compensatedDifficultyCoefficient : 1f;
@@ -239,7 +270,7 @@ namespace DrifterBossGrabMod.Patches
                     // Sync shrine bonuses to rewards
                     bossGroup.bonusRewardCount = teleporter.shrineBonusStacks;
 
-                    if (NetworkServer.active)
+                    if (NetworkServer.active && !teleporter.isCharged)
                     {
                         // 6a. Reset MonstersCleared flag to prevent instant completion
                         ReflectionCache.TeleporterInteraction.MonstersCleared?.SetValue(teleporter, false);

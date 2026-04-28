@@ -108,6 +108,33 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // Finds the state data for a specific object across all bag controllers
+        // obj: The game object to find state for
+        // Returns: The saved state data, or null if not found
+        public static BaggedObjectStateData? FindStateForObject(GameObject obj)
+        {
+            if (obj == null) return null;
+
+            try
+            {
+                int instanceId = obj.GetInstanceID();
+                foreach (var objectStates in _perObjectStateStorage.Values)
+                {
+                    if (objectStates.TryGetValue(instanceId, out var state))
+                    {
+                        return state;
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($" [FindStateForObject] Error finding state: {ex.Message}");
+                return null;
+            }
+        }
+
+
         // Removes the state data for a specific object from a bag controller
         // controller: The bag controller to cleanup state from
         // obj: The game object to remove state for
