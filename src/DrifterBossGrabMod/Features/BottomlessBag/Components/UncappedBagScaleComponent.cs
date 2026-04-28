@@ -272,49 +272,8 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
-        // Resets the component to an uninitialized state.
-        // Can be called to force re-initialization.
-        public void ResetComponent()
-        {
-            ResetBoneScales();
-            _isInitialized = false;
-            _bagController = null;
-            _skinnedMeshRenderer = null;
-            _bones = null;
-            _filteredBones = null;
-            _originalBoneScales = null;
 
-            Log.Debug("[UncappedBagScaleComponent] Component reset to uninitialized state");
-        }
     }
 
-    // Extension methods for Transform to help find children recursively
-    public static class TransformExtensions
-    {
-        public static Transform? FindInChildren(this Transform parent, string name)
-        {
-            foreach (Transform child in parent)
-            {
-                if (child.name == name)
-                    return child;
 
-                var found = FindInChildren(child, name);
-                if (found != null)
-                    return found;
-            }
-            return null;
-        }
-
-        // Get the full path of a transform in the hierarchy
-        public static string GetPath(this Transform transform)
-        {
-            string path = transform.name;
-            while (transform.parent != null)
-            {
-                transform = transform.parent;
-                path = transform.name + "/" + path;
-            }
-            return path;
-        }
-    }
 }

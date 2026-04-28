@@ -134,10 +134,7 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        public static BottomlessBagNetworkController? GetNetworkController(DrifterBagController controller)
-        {
-            return controller.GetComponent<BottomlessBagNetworkController>();
-        }
+
 
         public static void Cleanup()
         {

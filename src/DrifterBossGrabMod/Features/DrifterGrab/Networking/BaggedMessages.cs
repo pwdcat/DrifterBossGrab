@@ -63,21 +63,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // Network message for removing objects from persistence
-    public class RemoveFromPersistenceMessage : MessageBase
-    {
-        public NetworkInstanceId objectNetId;
 
-        public override void Serialize(NetworkWriter writer)
-        {
-            writer.Write(objectNetId);
-        }
-
-        public override void Deserialize(NetworkReader reader)
-        {
-            objectNetId = reader.ReadNetworkId();
-        }
-    }
 
     // Network message for syncing bag state
     public class UpdateBagStateMessage : MessageBase

@@ -37,10 +37,10 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             if (_qualityAssembly == null) return;
 
             _qualityDuplicatorType = _qualityAssembly.GetType("ItemQualities.QualityDuplicatorBehavior");
-            _qualityItemBodyType = _qualityAssembly.GetType("ItemQualities.QualityItemBodyBehavior");
+            _qualityItemBodyType = _qualityAssembly.GetType("ItemQualities.Items.QualityItemBodyBehavior");
             _itemQualityGroupType = _qualityAssembly.GetType("ItemQualities.ItemQualityGroup");
             _qualityCatalogType = _qualityAssembly.GetType("ItemQualities.QualityCatalog");
-            _qualityContentManagerType = _qualityAssembly.GetType("ItemQualities.QualityContentManager");
+            _qualityContentManagerType = _qualityAssembly.GetType("ItemQualities.ContentManagement.QualityContentManager");
         }
 
         protected override bool CanHandleObject(GameObject obj)
@@ -50,12 +50,6 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             EnsureTypesLoaded();
 
             if (_qualityDuplicatorType != null && obj.GetComponent(_qualityDuplicatorType) != null)
-                return true;
-
-            if (_qualityItemBodyType != null && obj.GetComponent(_qualityItemBodyType) != null)
-                return true;
-
-            if (_itemQualityGroupType != null && obj.GetComponent(_itemQualityGroupType) != null)
                 return true;
 
             return false;
@@ -72,28 +66,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                     var duplicator = obj.GetComponent(_qualityDuplicatorType);
                     if (duplicator != null)
                     {
-                        CaptureFieldValue(duplicator, state, "qualityTier", "DuplicatorQuality");
-                        CaptureFieldValue(duplicator, state, "qualityTierIndex", "DuplicatorQualityTier");
-                    }
-                }
-
-                if (_qualityItemBodyType != null)
-                {
-                    var qualityBody = obj.GetComponent(_qualityItemBodyType);
-                    if (qualityBody != null)
-                    {
-                        CaptureFieldValue(qualityBody, state, "qualityTier", "ItemQuality");
-                        CaptureFieldValue(qualityBody, state, "qualityTierIndex", "ItemQualityIndex");
-                    }
-                }
-
-                if (_itemQualityGroupType != null)
-                {
-                    var qualityGroup = obj.GetComponent(_itemQualityGroupType);
-                    if (qualityGroup != null)
-                    {
-                        CapturePropertyValue(qualityGroup, state, "name", "QualityGroupName");
-                        CapturePropertyValue(qualityGroup, state, "index", "QualityGroupIndex");
+                        CaptureFieldValue(duplicator, state, "_available", "Available");
                     }
                 }
             }
@@ -112,24 +85,20 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                 if (_qualityDuplicatorType != null)
                 {
                     var duplicator = obj.GetComponent(_qualityDuplicatorType);
-                    if (duplicator != null)
+                    if (duplicator != null && state.TryGetValue("Available", out var availableObj) && availableObj is bool available)
                     {
-                        RestoreFieldValue(duplicator, state, "DuplicatorQuality", "qualityTier");
-                        RestoreFieldValue(duplicator, state, "DuplicatorQualityTier", "qualityTierIndex");
+                        var setAvailableMethod = _qualityDuplicatorType.GetMethod("SetAvailable", BindingFlags.Public | BindingFlags.Instance);
+                        if (setAvailableMethod != null)
+                        {
+                            setAvailableMethod.Invoke(duplicator, new object[] { available });
+                        }
+                        else
+                        {
+                            // Fallback to setting field
+                            RestoreFieldValue(duplicator, state, "Available", "_available");
+                        }
                     }
                 }
-
-                if (_qualityItemBodyType != null)
-                {
-                    var qualityBody = obj.GetComponent(_qualityItemBodyType);
-                    if (qualityBody != null)
-                    {
-                        RestoreFieldValue(qualityBody, state, "ItemQuality", "qualityTier");
-                        RestoreFieldValue(qualityBody, state, "ItemQualityIndex", "qualityTierIndex");
-                    }
-                }
-
-                RestoreQualityGroup(obj, state);
             }
             catch (Exception ex)
             {
@@ -154,26 +123,6 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             }
         }
 
-        private void CapturePropertyValue(object obj, Dictionary<string, object> dict, string propertyName, string stateKey)
-        {
-            try
-            {
-                var property = obj.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                if (property != null)
-                {
-                    var value = property.GetValue(obj);
-                    if (value != null)
-                    {
-                        dict[stateKey] = propertyName == "name" ? value.ToString()! : value;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning($"[QualityIntegration] Failed to capture property {propertyName}: {ex.Message}");
-            }
-        }
-
         private void RestoreFieldValue(object obj, Dictionary<string, object> dict, string stateKey, string fieldName)
         {
             try
@@ -191,36 +140,6 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             catch (Exception ex)
             {
                 Log.Warning($"[QualityIntegration] Failed to restore field {fieldName}: {ex.Message}");
-            }
-        }
-
-        private void RestoreQualityGroup(GameObject obj, Dictionary<string, object> state)
-        {
-            try
-            {
-                if (_qualityCatalogType != null && _qualityContentManagerType != null &&
-                    state.TryGetValue("QualityGroupName", out var groupName) &&
-                    state.TryGetValue("QualityGroupIndex", out var groupIndex) &&
-                    !string.IsNullOrEmpty(groupName?.ToString()))
-                {
-                    var getQualityGroupMethod = _qualityCatalogType.GetMethod("GetQualityGroupByName",
-                        BindingFlags.Public | BindingFlags.Static);
-                    var applyQualityGroupMethod = _qualityContentManagerType.GetMethod("ApplyQualityGroup",
-                        BindingFlags.Public | BindingFlags.Static);
-
-                    if (getQualityGroupMethod != null && applyQualityGroupMethod != null)
-                    {
-                        var qualityGroup = getQualityGroupMethod.Invoke(null, new[] { groupName.ToString() });
-                        if (qualityGroup != null)
-                        {
-                            applyQualityGroupMethod.Invoke(null, new[] { obj, qualityGroup });
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning($"[QualityIntegration] Failed to restore quality group: {ex.Message}");
             }
         }
     }

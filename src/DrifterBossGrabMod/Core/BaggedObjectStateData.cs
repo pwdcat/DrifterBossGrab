@@ -55,7 +55,6 @@ namespace DrifterBossGrabMod.Core
         public uint skinIndex;
 
         public int junkSpawnCount;
-        public float slamDamageCoefficient;
 
         public float breakoutTime = 10f;
         public float breakoutAttempts = 0f;
@@ -477,16 +476,11 @@ namespace DrifterBossGrabMod.Core
 
                 junkSpawnCount = CalculateJunkSpawnCount(baggedMass);
 
-                float slamMaxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : RoR2.DrifterBagController.maxMass;
-                float massFraction = baggedMass / slamMaxCapacity;
-                slamDamageCoefficient = 2.8f + (5.0f * massFraction);
-
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[BaggedObjectStateData] Calculated state for {targetObject.name}: " +
                             $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
-                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}, " +
-                            $"slamDamageCoef={slamDamageCoefficient:F2}");
+                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
                 }
             }
             catch (Exception ex)

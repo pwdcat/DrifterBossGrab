@@ -333,37 +333,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static bool HasPassengerOverride(VehicleSeat seat)
-        {
-            if (seat == null) return false;
 
-            if (!PluginConfig.Instance.BottomlessBagEnabled.Value) return seat.hasPassenger;
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Debug($"[RepossessPatches.HasPassengerOverride] Checking seat: {seat.name}, OriginalHasPassenger={seat.hasPassenger}.");
-
-            var bagController = seat.GetComponentInParent<DrifterBagController>();
-            if (bagController)
-            {
-                int count = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-
-                int maxCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
-
-                if (count >= maxCapacity)
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Debug($"[RepossessPatches.HasPassengerOverride] Bag FULL ({count}/{maxCapacity}) - OVERRIDING HasPassenger to TRUE for {seat.name}");
-                    return true;
-                }
-
-                if (seat.hasPassenger)
-                {
-
-                    return false;
-                }
-            }
-
-            return seat.hasPassenger;
-        }
     }
 }

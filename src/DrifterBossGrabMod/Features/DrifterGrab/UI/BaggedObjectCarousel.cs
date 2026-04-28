@@ -18,30 +18,17 @@ namespace DrifterBossGrabMod.UI
     public class BaggedObjectCarousel : MonoBehaviour
     {
         public GameObject? slotPrefab;
+
         public float sideScale = 0.8f;
-
-        private void OnEnable()
-        {
-            BagCarouselUpdater.ActiveCarousels.Add(this);
-        }
-
-        private void OnDisable()
-        {
-            BagCarouselUpdater.ActiveCarousels.Remove(this);
-        }
 
         private static Texture2D? _weightIconTexture;
         private static Texture2D? WeightIconTexture => _weightIconTexture ??= LoadWeightIconTexture();
-
         private static Sprite? _newWeightIconSprite;
         private static Sprite? NewWeightIconSprite => _newWeightIconSprite ??= (WeightIconTexture != null ? Sprite.Create(WeightIconTexture, new Rect(0, 0, WeightIconTexture.width, WeightIconTexture.height), new Vector2(0.5f, 0.5f)) : null);
-
         private static Sprite? _oldWeightIconSprite;
         private static Sprite OldWeightIconSprite => _oldWeightIconSprite ??= Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/texMovespeedBuffIcon.tif").WaitForCompletion();
-
         private static Sprite? _overencumbranceIconSprite;
         private static Sprite? OverencumbranceIconSprite => _overencumbranceIconSprite ??= LoadOverencumbranceIconSprite();
-
         private static Sprite? LoadOverencumbranceIconSprite()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -59,7 +46,6 @@ namespace DrifterBossGrabMod.UI
                 return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
             }
         }
-
         private static Texture2D? LoadWeightIconTexture()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -76,6 +62,23 @@ namespace DrifterBossGrabMod.UI
                 texture.LoadImage(bytes);
                 return texture;
             }
+        }
+
+        private void OnEnable()
+        {
+            BagCarouselUpdater.ActiveCarousels.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            BagCarouselUpdater.ActiveCarousels.Remove(this);
+        }
+
+
+
+        public void UpdateScales()
+        {
+            PopulateCarousel(); // Refresh positions and scales
         }
 
         public void UpdateToggles()
@@ -116,10 +119,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        public void UpdateScales()
-        {
-            PopulateCarousel(); // Refresh positions and scales
-        }
+
 
         private GameObject? aboveInstance;
         private GameObject? centerInstance;
@@ -622,6 +622,11 @@ namespace DrifterBossGrabMod.UI
 
         private Dictionary<GameObject, Coroutine> _activeCoroutines = new();
 
+        private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity)
+        {
+            AnimateSlot(slot, x, y, scale, opacity, false, true);
+        }
+
         private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity, bool hideAfter, bool useFading)
         {
             if (_activeCoroutines.TryGetValue(slot, out var existing) && existing != null)
@@ -664,10 +669,7 @@ namespace DrifterBossGrabMod.UI
             group.alpha = opacity;
         }
 
-        private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity)
-        {
-            AnimateSlot(slot, x, y, scale, opacity, false, true);
-        }
+
 
         private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter, bool useFading)
         {
@@ -858,6 +860,7 @@ namespace DrifterBossGrabMod.UI
                                         image.sprite = OldWeightIconSprite;
                                     }
                                 }
+
                                 ApplyWeightIconTransform(slot);
 
                                 // Calculate overencumbrance state first, used by both color and icon replacement

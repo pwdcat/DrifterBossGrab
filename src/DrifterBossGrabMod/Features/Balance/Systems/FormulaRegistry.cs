@@ -54,7 +54,7 @@ namespace DrifterBossGrabMod.Balance
 
             _staticVariables[normalizedName] = value;
             _dynamicProviders.TryRemove(normalizedName, out _);
-            _variableInfo[normalizedName] = new VariableInfo(normalizedName, VariableType.Static, description, GetCallingModName());
+            _variableInfo[normalizedName] = new VariableInfo(normalizedName, VariableType.Static, description);
 
             // Thread-safe event invocation
             Action<string>? handler;
@@ -81,7 +81,7 @@ namespace DrifterBossGrabMod.Balance
 
             _dynamicProviders[normalizedName] = provider;
             _staticVariables.TryRemove(normalizedName, out _);
-            _variableInfo[normalizedName] = new VariableInfo(normalizedName, VariableType.Dynamic, description, GetCallingModName(), fallbackValue);
+            _variableInfo[normalizedName] = new VariableInfo(normalizedName, VariableType.Dynamic, description, fallbackValue);
 
             // Thread-safe event invocation
             Action<string>? handler;
@@ -185,14 +185,7 @@ namespace DrifterBossGrabMod.Balance
             return result;
         }
 
-        // clear all registered variables
-        public static void ClearAllVariables()
-        {
-            _staticVariables.Clear();
-            _dynamicProviders.Clear();
-            _variableInfo.Clear();
-            Log.Info("[FormulaRegistry] All variables cleared.");
-        }
+
 
         private static string NormalizeVariableName(string name)
         {
@@ -228,36 +221,7 @@ namespace DrifterBossGrabMod.Balance
             return upperName;
         }
 
-        private static string? GetCallingModName()
-        {
-            try
-            {
-                var stackTrace = new StackTrace(fNeedFileInfo: false);
-                for (int i = 2; i < stackTrace.FrameCount; i++)
-                {
-                    var frame = stackTrace.GetFrame(i);
-                    var method = frame?.GetMethod();
-                    var assembly = method?.DeclaringType?.Assembly;
-                    if (assembly != null && assembly != typeof(FormulaRegistry).Assembly)
-                    {
-                        var assemblyName = assembly.GetName();
-                        if (assemblyName != null)
-                        {
-                            var name = assemblyName.Name;
-                            if (name != null && name != "mscorlib" && name != "System" && !name.StartsWith("UnityEngine"))
-                            {
-                                return name;
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore stack trace errors
-            }
-            return null;
-        }
+
     }
 
     public class VariableInfo
@@ -265,17 +229,13 @@ namespace DrifterBossGrabMod.Balance
         public string Name { get; }
         public VariableType Type { get; }
         public string? Description { get; }
-        public string? SourceMod { get; }
-        public DateTime RegisteredAt { get; }
         public float? FallbackValue { get; }
 
-        public VariableInfo(string name, VariableType type, string? description, string? sourceMod, float? fallbackValue = null)
+        public VariableInfo(string name, VariableType type, string? description, float? fallbackValue = null)
         {
             Name = name;
             Type = type;
             Description = description;
-            SourceMod = sourceMod;
-            RegisteredAt = DateTime.Now;
             FallbackValue = fallbackValue;
         }
     }

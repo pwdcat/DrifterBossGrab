@@ -30,11 +30,7 @@ namespace DrifterBossGrabMod
             PersistenceObjectManager.UpdateCachedConfig();
         }
 
-        // Add object to persistence - delegate to object manager
-        public static void AddPersistedObject(GameObject obj)
-        {
-            PersistenceObjectManager.AddPersistedObject(obj);
-        }
+
 
         // Remove object from persistence - delegate to object manager
         public static void RemovePersistedObject(GameObject obj, bool isDestroying = false)
@@ -78,41 +74,11 @@ namespace DrifterBossGrabMod
             PersistenceSceneHandler.Instance.ScheduleAutoGrab(master);
         }
 
-        // Get current persisted objects count - delegate to object manager
-        public static int GetPersistedObjectsCount()
-        {
-            return PersistenceObjectManager.GetPersistedObjectsCount();
-        }
 
-        // Get current persisted objects - delegate to object manager
-        public static GameObject[] GetPersistedObjects()
-        {
-            return PersistenceObjectManager.GetPersistedObjects();
-        }
 
-        // Undo the last persistence command - delegate to object manager
-        public static void UndoLastCommand()
-        {
-            PersistenceObjectManager.UndoLastCommand();
-        }
 
-        // Get the command history count - delegate to object manager
-        public static int GetCommandHistoryCount()
-        {
-            return PersistenceObjectManager.GetCommandHistoryCount();
-        }
 
-        // Clear command history - delegate to object manager
-        public static void ClearCommandHistory()
-        {
-            PersistenceObjectManager.ClearCommandHistory();
-        }
 
-        // Check if object is persisted - delegate to object manager
-        public static bool IsObjectPersisted(GameObject obj)
-        {
-            return PersistenceObjectManager.IsObjectPersisted(obj);
-        }
 
         // Check if teleporter is currently in a bag
         public static bool IsTeleporterCurrentlyBagged(GameObject obj)
@@ -153,13 +119,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Clear all bagged teleporters marks
-        public static void ClearBaggedTeleporters()
-        {
-            lock (_teleporterLock)
-            {
-                _teleportersCurrentlyBagged.Clear();
-            }
-        }
+
     }
 }

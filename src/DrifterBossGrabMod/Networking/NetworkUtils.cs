@@ -21,54 +21,7 @@ namespace DrifterBossGrabMod.Networking
         private const float CacheValidityDuration = 5f;
 
         // Retry logic accounts for the non-deterministic timing of Unity's object spawning and registration.
-        public static GameObject? FindLocalObjectSafe(NetworkInstanceId netId, int maxRetries = DefaultMaxRetries, float retryDelay = DefaultRetryDelay, string? context = null)
-        {
-            if (netId == NetworkInstanceId.Invalid)
-            {
-                Log.Warning($"[NetworkUtils.FindLocalObjectSafe] Invalid NetworkInstanceId - Context: {context ?? "unknown"}");
-                return null;
-            }
 
-            string objIdentifier = $"netId={netId.Value}";
-            if (context != null)
-            {
-                objIdentifier = $"{objIdentifier} (context: {context})";
-            }
-
-            for (int attempt = 0; attempt < maxRetries; attempt++)
-            {
-                var obj = NetworkServer.FindLocalObject(netId);
-
-                if (obj != null)
-                {
-                    // Object found - validate it's ready
-                    if (ValidateObjectReady(obj))
-                    {
-                        Log.Info($"[NetworkUtils.FindLocalObjectSafe] Found {obj.name} on attempt {attempt + 1}/{maxRetries} - {objIdentifier}");
-                        return obj;
-                    }
-                    else
-                    {
-                        Log.Warning($"[NetworkUtils.FindLocalObjectSafe] Found {obj.name} but it's not ready (attempt {attempt + 1}/{maxRetries}) - {objIdentifier}");
-                    }
-                }
-                else
-                {
-                    Log.Warning($"[NetworkUtils.FindLocalObjectSafe] Object not found on attempt {attempt + 1}/{maxRetries} - {objIdentifier}");
-                }
-
-                // Don't wait on the last attempt
-                if (attempt < maxRetries - 1)
-                {
-                    // Exponential backoff with cap
-                    float delay = Math.Min(retryDelay * (float)Math.Pow(1.5, attempt), MaxRetryDelay);
-                    Log.Warning($"[NetworkUtils.FindLocalObjectSafe] Retrying in {delay:F3}s... - {objIdentifier}");
-                }
-            }
-
-            Log.Error($"[NetworkUtils.FindLocalObjectSafe] Failed to find object after {maxRetries} attempts - {objIdentifier}");
-            return null;
-        }
 
         // Detailed logging is essential for diagnosing synchronization failures that only occur in multi-player environments.
         public static GameObject? FindLocalObjectWithLogging(NetworkInstanceId netId, string operation, bool isServer = true)
@@ -186,34 +139,6 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        // Clears the entire ready object cache.
-        public static void ClearReadyCache()
-        {
-            lock (_readyObjectCacheLock)
-            {
-                _readyObjectCache.Clear();
-            }
-            Log.Info("[NetworkUtils.ClearReadyCache] Cleared all object ready cache entries");
-        }
-
-        // Safe access wrappers prevent common crash scenarios when components are missing on specialized interactables.
-        public static NetworkIdentity? GetNetworkIdentitySafe(GameObject? obj)
-        {
-            if (obj == null)
-            {
-                Log.Warning("[NetworkUtils.GetNetworkIdentitySafe] GameObject is null");
-                return null;
-            }
-
-            var netId = obj.GetComponent<NetworkIdentity>();
-            if (netId == null)
-            {
-                Log.Warning($"[NetworkUtils.GetNetworkIdentitySafe] {obj.name} does not have NetworkIdentity component");
-            }
-
-            return netId;
-        }
-
         // Comprehensive state dumps are the primary tool for debugging complex race conditions in the vehicle system.
         public static void LogObjectDetails(GameObject? obj, string context)
         {
@@ -235,24 +160,7 @@ namespace DrifterBossGrabMod.Networking
         }
 
         // Reference validation is required because Unity's implicit null checks don't always detect destroyed C# objects.
-        public static bool IsValidGameObjectReference(GameObject? obj)
-        {
-            if (obj == null) return false;
 
-            try
-            {
-                // This will throw if the object is destroyed
-                if (!obj) return false;
-
-                // Check if it has NetworkIdentity (required for network sync)
-                var netId = obj.GetComponent<NetworkIdentity>();
-                return netId != null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
 
         // Safe naming prevents diagnostic logs from crashing if the target object has already been garbage collected.
         public static string GetSafeObjectName(GameObject? obj)
@@ -294,31 +202,7 @@ namespace DrifterBossGrabMod.Networking
         }
 
         // Periodic cleanup prevents memory pressure and lookup slowdowns in extremely long runs.
-        public static void CleanupStaleCacheEntries()
-        {
-            lock (_readyObjectCacheLock)
-            {
-                var keysToRemove = new List<uint>();
 
-                foreach (var kvp in _readyObjectCache)
-                {
-                    if (Time.time - kvp.Value > CacheValidityDuration)
-                    {
-                        keysToRemove.Add(kvp.Key);
-                    }
-                }
-
-                foreach (var key in keysToRemove)
-                {
-                    _readyObjectCache.Remove(key);
-                }
-
-                if (keysToRemove.Count > 0)
-                {
-                    Log.Info($"[NetworkUtils.CleanupStaleCacheEntries] Cleaned up {keysToRemove.Count} stale cache entries");
-                }
-            }
-        }
         // Stable string IDs are required because raw numeric IDs can shift when players transition between offline and online states.
         public static string GetPlayerIdString(NetworkUserId id)
         {

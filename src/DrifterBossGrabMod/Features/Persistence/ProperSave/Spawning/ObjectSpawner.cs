@@ -344,41 +344,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
-        private static DirectorPlacementRule CreatePlacementRule(BaggedObjectSaveData objData)
-        {
-            var savedPosition = SerializationHelpers.ParseVector3(objData.Position);
 
-            // First try: Direct placement at saved position if not zero
-            if (savedPosition != Vector3.zero)
-            {
-                return new DirectorPlacementRule
-                {
-                    placementMode = DirectorPlacementRule.PlacementMode.Direct,
-                    position = savedPosition,
-                    spawnOnTarget = null
-                };
-            }
-
-            // Second try: Direct placement at owner player's position + forward*3f + up*0.5f
-            var ownerPlayer = FindOwnerPlayer(objData.OwnerPlayerId);
-            if (ownerPlayer != null)
-            {
-                return new DirectorPlacementRule
-                {
-                    placementMode = DirectorPlacementRule.PlacementMode.Direct,
-                    position = ownerPlayer.transform.position + ownerPlayer.transform.forward * ProperSaveConstants.Spawning.ForwardPlacementDistance + Vector3.up * ProperSaveConstants.Spawning.UpwardPlacementOffset,
-                    spawnOnTarget = null
-                };
-            }
-
-            // Last resort: Random placement
-            return new DirectorPlacementRule
-            {
-                placementMode = DirectorPlacementRule.PlacementMode.Random,
-                position = Vector3.zero,
-                spawnOnTarget = null
-            };
-        }
 
         private static TeamIndex? GetSavedTeamIndex(BaggedObjectSaveData objData)
         {
@@ -448,122 +414,11 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
-        private static CharacterBody? FindOwnerPlayer(string? ownerId)
-        {
-            if (string.IsNullOrEmpty(ownerId))
-            {
-                return null;
-            }
 
-            var playerCharacterBodies = PlayerCharacterMasterController.instances
-                .Where(pcm => pcm?.master?.GetBody()?.netId.ToString() == ownerId)
-                .Select(pcm => pcm.master.GetBody())
-                .FirstOrDefault();
 
-            return playerCharacterBodies;
-        }
 
-        private static void RestoreObjectState(GameObject obj, BaggedObjectSaveData objData)
-        {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ObjectSpawner] Restoring state for {obj.name}, {objData.ComponentStates?.Count ?? 0} component entries");
-                Log.Info($"  - Object components: {string.Join(", ", obj.GetComponents<Component>().Take(10).Select(c => c.GetType().Name))}");
-            }
 
-            var purchaseInteraction = obj.GetComponent<PurchaseInteraction>();
-            if (purchaseInteraction != null)
-            {
-                var costState = GetCostFromState(objData);
-                if (costState.HasValue)
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"  - Restoring PurchaseInteraction cost: {costState.Value}");
-                    }
-                    purchaseInteraction.Networkcost = costState.Value;
-                }
-            }
 
-            var allPlugins = ProperSaveIntegration.GetSerializerPlugins();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"  - Available plugins: {string.Join(", ", allPlugins.Select(p => p.GetType().Name))}");
-            }
-
-            if (objData.ComponentStates == null)
-            {
-                return;
-            }
-
-            foreach (var entry in objData.ComponentStates)
-            {
-                var plugin = allPlugins
-                    .FirstOrDefault(p => p.PluginName == entry.PluginName);
-
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"  - Looking for plugin '{entry.PluginName}' for entry with {entry.Values.Count} values");
-                    if (plugin != null)
-                    {
-                        Log.Info($"    - Found plugin: {plugin.PluginName}, Priority: {plugin.Priority}");
-                        Log.Info($"    - CanHandle({obj.name}): {plugin.CanHandle(obj)}");
-                    }
-                    else
-                    {
-                        Log.Warning($"    - Plugin '{entry.PluginName}' not found!");
-                    }
-                }
-
-                if (plugin != null && plugin.CanHandle(obj))
-                {
-                    var state = new Dictionary<string, object>();
-
-                    foreach (var value in entry.Values)
-                    {
-                        var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
-                        if (deserializedValue != null)
-                        {
-                            state[value.Key] = deserializedValue;
-                        }
-                    }
-
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"    - Calling RestoreState with {state.Count} values");
-                    }
-
-                    plugin.RestoreState(obj, state);
-
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"    - RestoreState completed for {plugin.GetType().Name}");
-                    }
-                }
-                else if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Warning($"  - Skipping plugin '{entry.PluginName}': {(plugin == null ? "not found" : "CanHandle returned false")}");
-                }
-            }
-        }
-
-        private static int? GetCostFromState(BaggedObjectSaveData objData)
-        {
-            foreach (var entry in objData.ComponentStates)
-            {
-                foreach (var value in entry.Values)
-                {
-                    if (value.Key == "purchaseCost" && value.Type == "System.Int32")
-                    {
-                        if (int.TryParse(value.Value, out var costInt))
-                        {
-                            return costInt;
-                        }
-                    }
-                }
-            }
-            return null;
-        }
     }
 }
 

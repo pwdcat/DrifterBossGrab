@@ -65,7 +65,6 @@ namespace DrifterBossGrabMod
         {
             SetupDebugLogsHandler();
             SetupBlacklistHandlers();
-            SetupVelocityHandlers();
             SetupGrabbableHandlers();
             SetupGrabbingHandlers();
             SetupPersistenceHandlers();
@@ -107,9 +106,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged += persistenceBlacklistHandler;
         }
 
-        private void SetupVelocityHandlers()
-        {
-        }
+
 
         private void SetupGrabbableHandlers()
         {

@@ -111,25 +111,7 @@ namespace DrifterBossGrabMod.Patches
             return totalMass;
         }
 
-        // Checks if bag is at or above 200% mass capacity cap
-        private static bool IsAtMassCapacityCap(DrifterBagController drifterBagController)
-        {
-            if (drifterBagController == null) return false;
 
-            // Calculate mass capacity with overencumbrance limit
-            float massCapacity = CapacityScalingSystem.CalculateMassCapacity(drifterBagController);
-            // Only apply overencumbrance settings when EnableBalance is true
-            float overencumbranceMultiplier = PluginConfig.Instance.EnableBalance.Value
-                ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
-                : Constants.Multipliers.DefaultMassMultiplier;
-            float maxMassCapacity = massCapacity * overencumbranceMultiplier;
-
-            // Get current total mass
-            float totalMass = CalculateTotalBagMass(drifterBagController);
-
-            // Check if we're at or above 200% cap
-            return totalMass >= maxMassCapacity;
-        }
 
         // Gets current count of bagged objects
         public static int GetCurrentBaggedCount(DrifterBagController controller)

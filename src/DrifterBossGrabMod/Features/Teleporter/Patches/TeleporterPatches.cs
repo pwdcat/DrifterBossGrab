@@ -18,10 +18,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (teleporter == null || teleporter.gameObject == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Debug("[TeleporterPatches] Skipping patches: Teleporter1 is blacklisted from persistence system.");
-            }
+
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Debug($"[TeleporterPatches] Patching stale references for teleporter: {teleporter.name}");

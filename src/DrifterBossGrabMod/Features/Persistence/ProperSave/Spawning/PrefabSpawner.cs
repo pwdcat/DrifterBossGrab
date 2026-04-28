@@ -13,13 +13,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 {
     public static class PrefabSpawner
     {
-        // Track which objects have been restored to prevent double restoration
-        private static readonly System.Collections.Generic.HashSet<int> _restoredObjectIds = new System.Collections.Generic.HashSet<int>();
 
-        public static void ClearRestoredObjectTracking()
-        {
-            _restoredObjectIds.Clear();
-        }
         public static GameObject? SpawnObjectFromPrefab(BaggedObjectSaveData objData, string? ownerPlayerId = null)
         {
             if (objData == null) return null;
@@ -191,79 +185,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
-        private static void EnsureSOAFromSaveData(GameObject obj, BaggedObjectSaveData objData)
-        {
-            if (obj == null || objData == null || objData.ComponentStates == null)
-                return;
 
-            bool hasSOAInSaveData = objData.ComponentStates.Any(entry =>
-                entry.PluginName.Contains("SpecialObjectAttributes", StringComparison.OrdinalIgnoreCase));
-
-            if (!hasSOAInSaveData)
-                return;
-
-            bool hasSOA = obj.GetComponent<RoR2.SpecialObjectAttributes>() != null;
-            if (hasSOA)
-                return;
-
-            Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
-        }
-
-        private static void RestoreObjectState(GameObject spawnedObject, BaggedObjectSaveData objData)
-        {
-            if (objData == null || objData.ComponentStates == null) return;
-
-            var instanceId = spawnedObject.GetInstanceID();
-
-            // Check if this object has already been restored
-            if (_restoredObjectIds.Contains(instanceId))
-            {
-                Log.Warning($"[RestoreObjectState] Skipping restoration for {spawnedObject.name} (ID: {instanceId}) - already restored");
-                return;
-            }
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[RestoreObjectState] Restoring state for {spawnedObject.name} (ID: {instanceId}), {objData.ComponentStates.Count} component entries");
-
-            EnsureSOAFromSaveData(spawnedObject, objData);
-
-            var allPlugins = ProperSaveIntegration.GetSerializerPlugins();
-
-            foreach (var entry in objData.ComponentStates)
-            {
-                var plugin = allPlugins.FirstOrDefault(p => p.PluginName == entry.PluginName);
-
-                if (plugin != null && plugin.CanHandle(spawnedObject))
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[RestoreObjectState] Processing plugin '{entry.PluginName}' for {spawnedObject.name} with {entry.Values.Count} values");
-
-                    var state = new System.Collections.Generic.Dictionary<string, object>();
-
-                    foreach (var value in entry.Values)
-                    {
-                        var deserializedValue = SerializationHelpers.DeserializeValue(value.Value, value.Type);
-                        if (deserializedValue != null)
-                        {
-                            state[value.Key] = deserializedValue;
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[RestoreObjectState]   - {value.Key} = {deserializedValue} (type: {value.Type})");
-                        }
-                    }
-
-                    plugin.RestoreState(spawnedObject, state);
-                }
-                else
-                {
-                    Log.Warning($"[RestoreObjectState] Skipping plugin '{entry.PluginName}' - plugin not found or cannot handle object");
-                }
-            }
-
-            // Mark this object as restored
-            _restoredObjectIds.Add(instanceId);
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[RestoreObjectState] Finished restoring state for {spawnedObject.name} (marked ID {instanceId} as restored)");
-        }
 
         private static void PositionObjectNearPlayer(GameObject obj, string? ownerPlayerId)
         {

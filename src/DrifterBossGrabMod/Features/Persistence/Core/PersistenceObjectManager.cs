@@ -290,12 +290,7 @@ namespace DrifterBossGrabMod
             return PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
         }
 
-        public static void UndoLastCommand() => _commandInvoker.UndoLastCommand();
 
-        public static int GetCommandHistoryCount() => _commandInvoker.GetHistoryCount();
-
-        // Prevents action history from leaking into new game sessions.
-        public static void ClearCommandHistory() => _commandInvoker.ClearHistory();
 
         public static int GetPersistedObjectsCount() { lock (_lock) return _persistedObjects.Count; }
 

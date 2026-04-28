@@ -77,48 +77,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        public void ToggleBagUIElements(GameObject bagUI)
-        {
-            var baggedCardController = bagUI.GetComponentInChildren<RoR2.UI.BaggedCardController>();
-            if (baggedCardController)
-            {
-                // Toggle portrait (assuming portraitIconImage is the portrait)
-                if (baggedCardController.portraitIconImage)
-                {
-                    baggedCardController.portraitIconImage.gameObject.SetActive(true);
-                }
 
-                // Toggle icon (LayoutElement on portrait?)
-                var layoutElement = baggedCardController.portraitIconImage?.GetComponent<UnityEngine.UI.LayoutElement>();
-                if (layoutElement)
-                {
-                    layoutElement!.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowIcon.Value);
-                }
-
-                // Toggle weight icon
-                var childLocator = bagUI.GetComponent<ChildLocator>();
-                if (childLocator)
-                {
-                    var weightIconTransform = childLocator.FindChild("WeightIcon");
-                    if (weightIconTransform)
-                    {
-                        weightIconTransform.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowWeightIcon.Value);
-                    }
-                }
-
-                // Toggle name label
-                if (baggedCardController.nameLabel)
-                {
-                    baggedCardController.nameLabel.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowName.Value);
-                }
-
-                // Toggle health bar
-                if (baggedCardController.healthBar)
-                {
-                    baggedCardController.healthBar.gameObject.SetActive(PluginConfig.Instance.CenterSlotShowHealthBar.Value);
-                }
-            }
-        }
 
         private Transform? FindDeepChild(Transform parent, string name)
         {

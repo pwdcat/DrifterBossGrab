@@ -12,7 +12,7 @@ namespace DrifterBossGrabMod.ProperSave.Core
         // Serialize methods
         public static string SerializeVector3(Vector3 v) => $"{v.x}|{v.y}|{v.z}";
         public static string SerializeQuaternion(Quaternion q) => $"{q.x}|{q.y}|{q.z}|{q.w}";
-        public static string SerializeDateTime(DateTime dt) => dt.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+
         public static string SerializeGuid(Guid? guid) => guid?.ToString() ?? string.Empty;
         public static string SerializeValue(object? value)
         {
@@ -57,13 +57,7 @@ namespace DrifterBossGrabMod.ProperSave.Core
             return new Quaternion(x, y, z, w);
         }
 
-        public static DateTime ParseDateTime(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return DateTime.Now;
-            if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
-                return dt;
-            return DateTime.Now;
-        }
+
 
         public static Guid? ParseGuid(string s)
         {

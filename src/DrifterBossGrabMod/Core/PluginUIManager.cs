@@ -214,58 +214,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
-        private void RefreshFloatFieldUI(ConfigEntry<float> configEntry)
-        {
-            if (!RooInstalled) return;
 
-            string expectedToken = $"{Constants.PluginGuid}.{configEntry.Definition.Section}.{configEntry.Definition.Key}.FLOAT_FIELD".Replace(" ", "_").ToUpper();
-
-            var floatFields = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSettingsFloatField>(UnityEngine.FindObjectsSortMode.None);
-
-            foreach (var floatField in floatFields)
-            {
-                if (floatField.settingToken == expectedToken)
-                {
-                    var newValue = configEntry.Value;
-
-                    var valueTextField = typeof(RiskOfOptions.Components.Options.ModSettingsNumericField<float>)
-                        .GetField("valueText", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-
-                    if (valueTextField != null)
-                    {
-                        var inputField = valueTextField.GetValue(floatField) as TMPro.TMP_InputField;
-
-                        if (inputField != null)
-                        {
-                            var formatStringField = typeof(RiskOfOptions.Components.Options.ModSettingsNumericField<float>)
-                                .GetField("formatString", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-
-                            string formatString = formatStringField?.GetValue(floatField) as string ?? "F2";
-
-                            var separatorProperty = typeof(RiskOfOptions.Components.Options.ModSetting)
-                                .GetProperty("Separator", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-
-                            System.Globalization.CultureInfo cultureInfo;
-                            if (separatorProperty != null)
-                            {
-                                var separator = (RiskOfOptions.Options.DecimalSeparator)separatorProperty.GetValue(null);
-                                cultureInfo = separator.GetCultureInfo();
-                            }
-                            else
-                            {
-                                cultureInfo = System.Globalization.CultureInfo.InvariantCulture;
-                            }
-
-                            var formattedValue = string.Format(cultureInfo, formatString, newValue);
-                            inputField.text = formattedValue;
-                        }
-                    }
-
-                    break;
-                }
-            }
-        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
@@ -292,29 +241,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
-        private void RefreshCheckBoxUI(ConfigEntry<bool> configEntry)
-        {
-            if (!RooInstalled) return;
 
-            string expectedToken = $"{Constants.PluginGuid}.{configEntry.Definition.Section}.{configEntry.Definition.Key}.CHECKBOX".Replace(" ", "_").ToUpper();
-
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-
-            foreach (var setting in allSettings)
-            {
-                if (setting.settingToken == expectedToken)
-                {
-                    var go = setting.gameObject;
-                    if (go != null && go.activeSelf)
-                    {
-                        go.SetActive(false);
-                        go.SetActive(true);
-                    }
-                    return;
-                }
-            }
-        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateHudSubTabVisibility()

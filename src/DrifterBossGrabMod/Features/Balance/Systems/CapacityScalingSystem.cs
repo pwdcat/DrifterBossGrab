@@ -12,12 +12,6 @@ namespace DrifterBossGrabMod.Balance
     {
         private const float MinimumMassPercentage = Constants.Limits.MinimumMassPercentage; // 10% minimum mass
 
-        // Validates if a capacity value is valid
-        public static bool IsValidCapacity(int capacity)
-        {
-            return capacity >= 0; // 0 = disabled, 1+ = enabled
-        }
-
         // Gets the total capacity (base + utility stocks)
         public static int GetTotalCapacity(DrifterBagController bagController)
         {
@@ -121,19 +115,7 @@ namespace DrifterBossGrabMod.Balance
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
 
-        // Recalculates stats when stats multiplier changes
-        public static void RecalculateStats(DrifterBagController bagController)
-        {
-            if (bagController == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CapacityScaling] Recalculating stats for bag controller");
-            }
-
-            // Force recalculate mass to apply any stats multiplier changes
-            BagPassengerManager.ForceRecalculateMass(bagController);
-        }
 
         // Recalculates penalty when penalty settings change
         public static void RecalculatePenalty(DrifterBagController bagController)

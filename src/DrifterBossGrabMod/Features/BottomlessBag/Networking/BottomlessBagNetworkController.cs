@@ -15,7 +15,6 @@ namespace DrifterBossGrabMod.Networking
         private static readonly MethodInfo _tryOverrideUtilityMethod = ReflectionCache.BaggedObject.TryOverrideUtility;
         private static readonly MethodInfo _tryOverridePrimaryMethod = ReflectionCache.BaggedObject.TryOverridePrimary;
 
-        [SyncVar]
         public int selectedIndex = -1;
 
         private List<uint> _baggedObjectNetIds = new List<uint>();
@@ -124,97 +123,7 @@ namespace DrifterBossGrabMod.Networking
             var ctrl = GetComponent<DrifterBagController>();
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
-        [Command]
-        [Server]
-        public void CmdCycle(int amount)
-        {
-            var controller = GetComponent<DrifterBagController>();
-            if (controller)
-            {
-                BottomlessBagPatches.CyclePassengers(controller, amount);
-            }
-        }
-        [Command]
-        private void CmdUpdateBagState(int index, uint[] baggedIds, uint[] seatIds)
-        {
-            var controller = GetComponent<DrifterBagController>();
-            if (controller != null)
-            {
-                foreach (var idValue in baggedIds)
-                {
-                    var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
-                    if (obj != null)
-                    {
-                        bool isInAnySeat = IsObjectInAnySeat(controller, obj);
 
-                        if (!isInAnySeat)
-                        {
-                            controller.AssignPassenger(obj);
-                        }
-                    }
-                }
-            }
-
-            int correctedIndex = index;
-            if (controller != null && index < 0 && baggedIds.Length > 0)
-            {
-                var mainSeatObj = BagPatches.GetMainSeatObject(controller);
-                if (mainSeatObj != null)
-                {
-                    var mainNetId = mainSeatObj.GetComponent<NetworkIdentity>();
-                    if (mainNetId != null)
-                    {
-                        for (int i = 0; i < baggedIds.Length; i++)
-                        {
-                            if (baggedIds[i] == mainNetId.netId.Value)
-                            {
-                                correctedIndex = i;
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[CmdUpdateBagState] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            UpdateLocalState(correctedIndex, new List<uint>(baggedIds), new List<uint>(seatIds));
-
-            if (controller != null)
-            {
-                TryFixNullTargetState(controller, new List<uint>(baggedIds));
-            }
-
-            List<bool> collidersDisabled = new List<bool>();
-            if (controller != null)
-            {
-                var bagState = Patches.BagPatches.GetState(controller);
-                if (bagState != null && bagState.DisabledCollidersByObject != null)
-                {
-                    foreach (var id in baggedIds)
-                    {
-                        var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(id));
-                        bool disabled = false;
-                        if (obj != null && bagState.DisabledCollidersByObject.TryGetValue(obj, out var disabledColliders))
-                        {
-                            disabled = disabledColliders.Count > 0;
-                        }
-                        collidersDisabled.Add(disabled);
-                    }
-                }
-            }
-
-            var msg = new UpdateBagStateMessage
-            {
-                controllerNetId = GetComponent<NetworkIdentity>().netId,
-                selectedIndex = correctedIndex,
-                baggedIds = baggedIds,
-                seatIds = seatIds,
-                scrollDirection = 0,
-                collidersDisabled = collidersDisabled.ToArray()
-            };
-            NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
-        }
 
         private bool IsObjectInAnySeat(DrifterBagController controller, GameObject obj)
         {

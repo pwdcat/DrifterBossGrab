@@ -65,14 +65,7 @@ namespace DrifterBossGrabMod.Core
             }
         }
 
-        public static bool IsPrimary(TeleporterInteraction teleporter)
-        {
-            if (!PluginConfig.Instance.EnableObjectPersistence.Value) return false;
-            lock (_lock)
-            {
-                return teleporter == _primaryTeleporter;
-            }
-        }
+
 
         public static bool IsSecondary(TeleporterInteraction teleporter)
         {
@@ -83,17 +76,7 @@ namespace DrifterBossGrabMod.Core
             }
         }
 
-        public static List<TeleporterInteraction> GetAllActive()
-        {
-            var result = new List<TeleporterInteraction>();
-            if (!PluginConfig.Instance.EnableObjectPersistence.Value) return result;
-            lock (_lock)
-            {
-                if (_primaryTeleporter != null) result.Add(_primaryTeleporter);
-                result.AddRange(_secondaryTeleporters);
-            }
-            return result;
-        }
+
 
         public static void MarkPendingInit(TeleporterInteraction teleporter)
         {
@@ -102,18 +85,9 @@ namespace DrifterBossGrabMod.Core
             lock (_lock) { _pendingInit.Add(teleporter); }
         }
 
-        public static bool IsPendingInit(TeleporterInteraction teleporter)
-        {
-            if (!PluginConfig.Instance.EnableObjectPersistence.Value) return false;
-            lock (_lock) { return _pendingInit.Contains(teleporter); }
-        }
 
-        public static void ClearPendingInit(TeleporterInteraction teleporter)
-        {
-            if (!PluginConfig.Instance.EnableObjectPersistence.Value) return;
-            if (teleporter == null) return;
-            lock (_lock) { _pendingInit.Remove(teleporter); }
-        }
+
+
 
         public static void Clear()
         {

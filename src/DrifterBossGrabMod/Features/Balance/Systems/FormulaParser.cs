@@ -144,18 +144,7 @@ namespace DrifterBossGrabMod.Balance
             return (int)Math.Floor(result);
         }
 
-        public static int EvaluateInt(string formula, RoR2.CharacterBody? body, Dictionary<string, float>? localVars = null)
-        {
-            float result = Evaluate(formula, body, localVars);
 
-            if (float.IsPositiveInfinity(result) || result >= int.MaxValue)
-                return int.MaxValue;
-
-            if (float.IsNegativeInfinity(result) || result <= int.MinValue)
-                return int.MinValue;
-
-            return (int)Math.Floor(result);
-        }
 
         // Validate a formula string for syntax errors
         public static string? Validate(string formula)
@@ -175,10 +164,7 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-        public static IEnumerable<string> GetAvailableVariableNames()
-        {
-            return FormulaRegistry.GetRegisteredVariableNames();
-        }
+
 
         #endregion
 

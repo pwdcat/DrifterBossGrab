@@ -51,7 +51,6 @@ namespace DrifterBossGrabMod.Patches
             vehicleSeat.EjectPassenger(actualMainPassenger);
             if (actualMainPassenger != null)
             {
-                BagPatches.SetMainSeatObject(bagController, null);
                 BaggedObjectPatches.RemoveUIOverlay(actualMainPassenger, bagController);
             }
             BagPatches.SetMainSeatObject(bagController, null);
@@ -86,10 +85,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
-            if (actualMainPassenger != null)
-            {
-                BagPatches.SetMainSeatObject(bagController, null);
-            }
+
             BaggedObjectPatches.RemoveUIOverlayForNullState(bagController);
         }
 
@@ -202,7 +198,6 @@ namespace DrifterBossGrabMod.Patches
                 vehicleSeat.EjectPassenger(currentObject);
                 if (currentObject != null)
                 {
-                    BagPatches.SetMainSeatObject(bagController, null);
                     BaggedObjectPatches.RemoveUIOverlay(currentObject, bagController);
                 }
                 if (targetAdditionalSeat != null)
@@ -223,7 +218,6 @@ namespace DrifterBossGrabMod.Patches
                     targetAdditionalSeat.EjectPassenger(targetObject);
                     localSeatDict.TryRemove(targetObject, out _);
                     targetAdditionalSeat.AssignPassenger(currentObject);
-                    BagPatches.SetMainSeatObject(bagController, null);
                     if (currentObject != null)
                     {
                         BaggedObjectPatches.RemoveUIOverlay(currentObject, bagController);

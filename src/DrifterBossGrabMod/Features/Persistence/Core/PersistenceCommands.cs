@@ -9,7 +9,6 @@ namespace DrifterBossGrabMod
     public interface IPersistenceCommand
     {
         void Execute();
-        void Undo();
     }
 
     // Encapsulating addition logic allows for easy rollback if a stage transition is cancelled or fails.
@@ -27,11 +26,6 @@ namespace DrifterBossGrabMod
         public void Execute()
         {
             PersistenceObjectManager.AddPersistedObjectInternal(_obj, _ownerPlayerId);
-        }
-
-        public void Undo()
-        {
-            PersistenceObjectManager.RemovePersistedObjectInternal(_obj);
         }
     }
 
@@ -51,11 +45,6 @@ namespace DrifterBossGrabMod
         {
             PersistenceObjectManager.RemovePersistedObjectInternal(_obj, _isDestroying);
         }
-
-        public void Undo()
-        {
-            PersistenceObjectManager.AddPersistedObjectInternal(_obj);
-        }
     }
 
     // Clearing the entire registry is an expensive operation that is primarily used during run termination.
@@ -68,47 +57,14 @@ namespace DrifterBossGrabMod
             _clearedObjects = PersistenceObjectManager.GetPersistedObjects();
             PersistenceObjectManager.ClearPersistedObjectsInternal();
         }
-
-        public void Undo()
-        {
-            foreach (var obj in _clearedObjects)
-            {
-                if (obj != null)
-                {
-                    PersistenceObjectManager.AddPersistedObjectInternal(obj);
-                }
-            }
-        }
     }
 
     // The invoker maintains a history stack to support the "Undo" feature in the persistence UI.
     public class PersistenceCommandInvoker
     {
-        private readonly System.Collections.Generic.Stack<IPersistenceCommand> _commandHistory = new System.Collections.Generic.Stack<IPersistenceCommand>();
-
         public void ExecuteCommand(IPersistenceCommand command)
         {
             command.Execute();
-            _commandHistory.Push(command);
-        }
-
-        public void UndoLastCommand()
-        {
-            if (_commandHistory.Count > 0)
-            {
-                var command = _commandHistory.Pop();
-                command.Undo();
-            }
-        }
-
-        public void ClearHistory()
-        {
-            _commandHistory.Clear();
-        }
-
-        public int GetHistoryCount()
-        {
-            return _commandHistory.Count;
         }
     }
 }

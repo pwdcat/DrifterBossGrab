@@ -33,10 +33,7 @@ namespace DrifterBossGrabMod.Patches
 
         // Cached reflection fields
         private static readonly FieldInfo _projectileControllerField = ReflectionCache.ThrownObjectProjectileController.ProjectileController;
-        private static readonly FieldInfo _vehicleSeatField = ReflectionCache.ThrownObjectProjectileController.VehicleSeat;
         private static readonly MethodInfo _calculatePassengerFinalPositionMethod = ReflectionCache.ThrownObjectProjectileController.CalculatePassengerFinalPosition;
-        private static readonly FieldInfo _runStickEventField = ReflectionCache.ProjectileStickOnImpact.RunStickEvent;
-        private static readonly FieldInfo _alreadyRanStickEventField = ReflectionCache.ProjectileStickOnImpact.AlreadyRanStickEvent;
 
         public static bool IsUndergoingThrowOperation(GameObject obj)
         {

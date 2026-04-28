@@ -5,7 +5,6 @@ namespace DrifterBossGrabMod
     internal static class Constants
     {
         public const string CloneSuffix = "(Clone)";
-        // Version format: Major.Minor.Patch. Increment when breaking changes, new features, or bug fixes.
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
         public const string PluginVersion = "1.8.0";
@@ -85,28 +84,6 @@ namespace DrifterBossGrabMod
             return defaultValue;
         }
 
-        public static float ParseMassString(string? value, float defaultValue = 0f)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return defaultValue;
 
-            string upperValue = value.Trim().ToUpper();
-            if (upperValue == "INF" || upperValue == "INFINITY")
-                return float.PositiveInfinity;
-
-            if (float.TryParse(value, out float parsedValue))
-                return parsedValue;
-
-            return defaultValue;
-        }
-
-        public static bool IsInfiniteString(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            string upperValue = value.Trim().ToUpper();
-            return upperValue == "INF" || upperValue == "INFINITY";
-        }
     }
 }

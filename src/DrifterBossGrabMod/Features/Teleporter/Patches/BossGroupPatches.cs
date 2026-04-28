@@ -10,12 +10,7 @@ namespace DrifterBossGrabMod.Patches
     [HarmonyPatch(typeof(BossGroup))]
     public static class BossGroupPatches
     {
-        [HarmonyPrefix]
-        [HarmonyPatch(nameof(BossGroup.OnDefeatedServer))]
-        public static void OnDefeatedServerPrefix(BossGroup __instance)
-        {
-            var members = __instance.combatSquad?.readOnlyMembersList;
-        }
+
 
         [HarmonyPrefix]
         [HarmonyPatch(nameof(BossGroup.DropRewards))]

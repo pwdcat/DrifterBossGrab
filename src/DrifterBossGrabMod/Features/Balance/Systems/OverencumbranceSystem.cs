@@ -170,32 +170,7 @@ namespace DrifterBossGrabMod.Balance
         }
 
 
-        public static bool CanGrabObject(DrifterBagController bagController, float objectMass)
-        {
-            if (bagController == null) return true;
 
-            float totalMass = GetTotalMass(bagController);
-
-            float massCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(bagController);
-
-            float newTotalMass = totalMass + objectMass;
-
-            float overencumbrancePercent = CalculateOverencumbrancePercent(newTotalMass, massCapacity);
-            float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
-                ? PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor
-                : 0f;
-
-            if (overencumbrancePercent >= maxOverencumbrancePercent)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[Overencumbrance] Cannot grab: Would exceed max overencumbrance (Current={totalMass}, New={newTotalMass}, Capacity={massCapacity})");
-                }
-                return false;
-            }
-
-            return true;
-        }
 
 
         public static void CleanupCharacterBody(CharacterBody body)

@@ -367,9 +367,7 @@ namespace DrifterBossGrabMod
                     {
                         if (NetworkServer.active)
                         {
-                            var coroutineRunner = new GameObject("ServerAutoGrabRunner_" + obj.name);
-                            var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
-                            runner.StartCoroutine(DelayedAutoGrab(obj, runner, PluginConfig.Instance.AutoGrabDelay.Value));
+                            ScheduleAutoGrabForObject(obj);
                         }
                     }
 
@@ -617,21 +615,31 @@ namespace DrifterBossGrabMod
             }
         }
 
+        public static void ScheduleAutoGrabForObject(GameObject obj, string? ownerPlayerId = null)
+        {
+            if (!NetworkServer.active) return;
+            if (obj == null) return;
+
+            var coroutineRunner = new GameObject("ServerAutoGrabRunner_" + obj.name);
+            var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
+            runner.StartCoroutine(DelayedAutoGrab(obj, ownerPlayerId, runner, PluginConfig.Instance.AutoGrabDelay.Value));
+        }
+
         // A short delay ensures the NetworkServer.Spawn message has propagated to all clients before we attempt to assign the object to a bag.
-        private static System.Collections.IEnumerator DelayedAutoGrab(GameObject obj, PersistenceCoroutineRunner runner, float delay)
+        private static System.Collections.IEnumerator DelayedAutoGrab(GameObject obj, string? ownerPlayerId, PersistenceCoroutineRunner runner, float delay)
         {
             yield return new WaitForSeconds(delay);
 
             if (obj != null)
             {
-                TryAutoGrabObject(obj);
+                TryAutoGrabObject(obj, ownerPlayerId);
             }
 
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
         }
 
         // Auto-grab restores the previous "bagged" state, allowing the player to continue their run without manual re-collection.
-        private static void TryAutoGrabObject(GameObject obj)
+        public static void TryAutoGrabObject(GameObject obj, string? ownerPlayerId = null)
         {
             if (!NetworkServer.active) return; // only Host handles auto-grab assignment
 
@@ -675,7 +683,10 @@ namespace DrifterBossGrabMod
 
             // Find the owner Drifter body
             CharacterBody? targetBody = null;
-            var ownerPlayerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj);
+            if (string.IsNullOrEmpty(ownerPlayerId))
+            {
+                ownerPlayerId = PersistenceObjectManager.GetPersistedObjectOwnerPlayerId(obj);
+            }
 
             if (!string.IsNullOrEmpty(ownerPlayerId))
             {
@@ -688,6 +699,16 @@ namespace DrifterBossGrabMod
                     {
                         Log.Info($" Found owner body {targetBody.name} for object {obj.name} via player ID {ownerPlayerId}");
                     }
+                }
+            }
+            else
+            {
+                // Fallback for single player with no owner ID
+                var users = NetworkUser.readOnlyInstancesList;
+                if (users.Count == 1)
+                {
+                    var onlyUser = users[0];
+                    targetBody = onlyUser.master?.GetBody();
                 }
             }
 
@@ -748,8 +769,23 @@ namespace DrifterBossGrabMod
                         Log.Info($" Server assigning {obj.name} to {targetBody.name}'s bag (Suppression Enabled)");
                     }
 
+                    // Clean up null references in SpecialObjectAttributes before assigning to prevent NullReferenceException in VehicleSeat.OnPassengerEnter
+                    var specAttr = obj.GetComponent<SpecialObjectAttributes>();
+                    if (specAttr != null)
+                    {
+                        specAttr.childSpecialObjectAttributes?.RemoveAll(s => s == null);
+                        specAttr.renderersToDisable?.RemoveAll(r => r == null);
+                        specAttr.behavioursToDisable?.RemoveAll(b => b == null);
+                        specAttr.childObjectsToDisable?.RemoveAll(c => c == null);
+                        specAttr.pickupDisplaysToDisable?.RemoveAll(p => p == null);
+                        specAttr.lightsToDisable?.RemoveAll(l => l == null);
+                        specAttr.objectsToDetach?.RemoveAll(o => o == null);
+                        specAttr.skillHighlightRenderers?.RemoveAll(r => r == null);
+                    }
+
                     // Suppress the accidental throw during scene initialization
                     Patches.BaggedObjectPatches.SuppressExitForObject(obj);
+
 
                     bagController.AssignPassenger(obj);
 
@@ -772,7 +808,7 @@ namespace DrifterBossGrabMod
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[TryAutoGrabObject] Error assigning passenger: {ex.Message}");
+                    Log.Error($"[TryAutoGrabObject] Error assigning passenger: {ex}");
                 }
             }
             else

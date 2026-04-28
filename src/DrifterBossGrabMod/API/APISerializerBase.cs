@@ -49,31 +49,7 @@ namespace DrifterBossGrabMod.API
         protected abstract void CaptureObjectState(GameObject obj, Dictionary<string, object> state);
         protected abstract void RestoreObjectState(GameObject obj, Dictionary<string, object> state);
 
-        protected void CaptureComponent<T>(GameObject obj, Dictionary<string, object> state, string key, Action<T, Dictionary<string, object>> capture) where T : Component
-        {
-            var component = obj.GetComponent<T>();
-            if (component != null)
-            {
-                capture(component, state);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[{PluginName}] Captured {typeof(T).Name} for {obj.name}");
-                }
-            }
-        }
 
-        protected void RestoreComponent<T>(GameObject obj, Dictionary<string, object> state, Action<T, Dictionary<string, object>> restore) where T : Component
-        {
-            var component = obj.GetComponent<T>();
-            if (component != null)
-            {
-                restore(component, state);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[{PluginName}] Restored {typeof(T).Name} for {obj.name}");
-                }
-            }
-        }
 
         protected bool TryGetValue<T>(Dictionary<string, object> state, string key, out T? value)
         {

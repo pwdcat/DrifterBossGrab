@@ -52,13 +52,12 @@ namespace DrifterBossGrabMod.Patches
         private GameObject? _newMain;
         private float _delayTime = 0f;
         private float _elapsedTime = 0f;
-        private bool _skipStateReset = false;
 
-        public static void Schedule(DrifterBagController controller, GameObject? newMain, float delay = 0.0f, bool skipStateReset = false)
+        public static void Schedule(DrifterBagController controller, GameObject? newMain, float delay = 0.0f)
         {
             if (delay <= 0f)
             {
-                ExecutePromotionImmediate(controller, newMain, skipStateReset);
+                ExecutePromotionImmediate(controller, newMain);
                 return;
             }
 
@@ -67,10 +66,9 @@ namespace DrifterBossGrabMod.Patches
             delayed._controller = controller;
             delayed._newMain = newMain;
             delayed._delayTime = delay;
-            delayed._skipStateReset = skipStateReset;
         }
 
-        private static void ExecutePromotionImmediate(DrifterBagController controller, GameObject? newMain, bool skipStateReset)
+        private static void ExecutePromotionImmediate(DrifterBagController controller, GameObject? newMain)
         {
             if (controller == null || newMain == null || ProjectileRecoveryPatches.IsInProjectileState(newMain))
                 return;
@@ -164,12 +162,7 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
-        private static GameObject? GetBaggedObjectTarget(EntityStateMachine? esm)
-        {
-            if (esm != null && esm.state is BaggedObject bagged)
-                return bagged.targetObject;
-            return null;
-        }
+
 
         private void Update()
         {
@@ -403,6 +396,7 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 bool mainSeatOccupied = __instance != null && __instance.vehicleSeat != null && __instance.vehicleSeat.hasPassenger;
+
 
                 // Fill-from-back logic: if prioritize is false OR main seat is already occupied, route to additional seat
                 if ((!prioritize || mainSeatOccupied) && TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))

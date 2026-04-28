@@ -24,12 +24,6 @@ namespace DrifterBossGrabMod.ProperSave
             public const float PostDirectorCoreWait = 0.5f;
             public const float PostRegistryRebuildWait = 0.3f;
         }
-
-        public static class Spawning
-        {
-            public const float ForwardPlacementDistance = 3f;
-            public const float UpwardPlacementOffset = 0.5f;
-        }
     }
 
     public static class ProperSaveIntegration
@@ -681,8 +675,7 @@ namespace DrifterBossGrabMod.ProperSave
                 return;
             }
 
-            // Clear restoration tracking to start fresh
-            Spawning.PrefabSpawner.ClearRestoredObjectTracking();
+
 
             var objectsToRestore = new List<(GameObject obj, BaggedObjectSaveData data)>();
             var spawnedMasters = new HashSet<int>();
@@ -794,7 +787,7 @@ namespace DrifterBossGrabMod.ProperSave
                         bool wasInSeat = objData.IsMainSeatObject == true || objData.AdditionalSeatIndex.HasValue;
                         if (wasInSeat || PersistenceObjectManager.GetCachedEnableAutoGrab())
                         {
-                            ScheduleAutoGrab(objectToAutoGrab, objData.OwnerPlayerId);
+                            PersistenceSceneHandler.ScheduleAutoGrabForObject(objectToAutoGrab, objData.OwnerPlayerId);
                         }
                     }
 
@@ -809,47 +802,6 @@ namespace DrifterBossGrabMod.ProperSave
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Debug($"[ProperSave] Restoration complete: {successCount} success, {failureCount} failed");
-        }
-
-        private static void ScheduleAutoGrab(GameObject obj, string ownerPlayerId)
-        {
-            if (!NetworkServer.active) return;
-
-            CharacterBody? targetBody = null;
-
-            // Find the Drifter body associated with this owner
-            if (!string.IsNullOrEmpty(ownerPlayerId))
-            {
-                foreach (var nu in NetworkUser.readOnlyInstancesList)
-                {
-                    var id = nu.id;
-                    var idString = id.strValue != null ? id.strValue : $"{id.value}_{id.subId}";
-                    if (idString == ownerPlayerId)
-                    {
-                        targetBody = nu.master?.GetBody();
-                        break;
-                    }
-                }
-            }
-
-            // Fallback: if no specific owner found, don't just grab the host
-            // (Previous version grabbed host by default, which caused the "host grabs everything" bug)
-            if (targetBody == null)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ScheduleAutoGrab] No specific owner found for {obj.name} (owner ID: {ownerPlayerId}). Skipping auto-grab to avoid host-capturing.");
-                }
-                return;
-            }
-
-            var bagController = targetBody.GetComponent<DrifterBagController>();
-            if (bagController == null) bagController = targetBody.GetComponentInParent<DrifterBagController>();
-
-            if (bagController != null)
-            {
-                DrifterBagAPI.ScheduleAutoGrab(bagController, obj, PluginConfig.Instance.AutoGrabDelay.Value);
-            }
         }
 
         private static void RestoreObjectState(GameObject obj, BaggedObjectSaveData objData)
@@ -941,18 +893,7 @@ namespace DrifterBossGrabMod.ProperSave
             return Chainloader.PluginInfos.ContainsKey(PROPER_SAVE_GUID);
         }
 
-        private static bool IsEnemyBody(GameObject obj)
-        {
-            var characterBody = obj.GetComponent<CharacterBody>();
-            if (characterBody == null) return false;
 
-            var cleanedName = System.Text.RegularExpressions.Regex.Replace(obj.name, @"\(Clone\)(\(\d+\))?$", "");
-            var bodyIndex = BodyCatalog.FindBodyIndex(cleanedName);
-            if (bodyIndex == BodyIndex.None) return false;
-
-            var survivorIndex = SurvivorCatalog.GetSurvivorIndexFromBodyIndex(bodyIndex);
-            return survivorIndex == SurvivorIndex.None;
-        }
 
         private static string GetSpawnCardPath(GameObject obj)
         {

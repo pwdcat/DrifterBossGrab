@@ -93,27 +93,5 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-        // Cleanup null references periodically
-        public static void CleanupNullReferences()
-        {
-            lock (_lock)
-            {
-                int beforeCount = _currentlyBaggedObjects.Count;
-                _currentlyBaggedObjects.RemoveWhere(obj => obj == null);
-                int removed = beforeCount - _currentlyBaggedObjects.Count;
-                if (removed > 0 && PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Debug($" Cleaned up {removed} null references from bagged objects tracker");
-                }
-            }
-        }
-        // Get count of currently tracked objects
-        public static int GetTrackedObjectsCount()
-        {
-            lock (_lock)
-            {
-                return _currentlyBaggedObjects.Count;
-            }
-        }
     }
 }

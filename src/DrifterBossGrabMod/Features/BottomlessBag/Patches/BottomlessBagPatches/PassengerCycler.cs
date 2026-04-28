@@ -292,24 +292,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
-            int emptySeatsCount = 0;
-            foreach (var kvp in localSeatDict)
-            {
-                if (kvp.Value != null && !kvp.Value.hasPassenger)
-                {
-                    emptySeatsCount++;
-                }
-            }
-            var childSeats = bagController.GetComponentsInChildren<RoR2.VehicleSeat>(true);
-            foreach (var childSeat in childSeats)
-            {
-                if (childSeat == bagController.vehicleSeat) continue;
-                bool isTracked = localSeatDict.Values.Contains(childSeat);
-                if (!isTracked && !childSeat.hasPassenger)
-                {
-                    emptySeatsCount++;
-                }
-            }
+
             // Determine the logical selection state
             // This is the source of truth for "where are we in the cycle" regardless of physical seat state
             bool isInNullState = actualMainPassenger == null && validObjects.Count > 0;

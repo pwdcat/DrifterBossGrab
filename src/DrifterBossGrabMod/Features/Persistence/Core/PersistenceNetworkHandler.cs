@@ -202,10 +202,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        public static void UnregisterServerHooks()
-        {
-            Stage.onServerStageComplete -= OnServerStageComplete;
-        }
+
 
         private static void ApplyBagStateUpdate(GameObject controllerObj, UpdateBagStateMessage msg)
         {

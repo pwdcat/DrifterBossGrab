@@ -94,22 +94,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Gets the current capacity for the local player.
-        public static float GetCurrentCapacity()
-        {
-            if (_massCapacityUIControllerObject == null) return 0f;
 
-            var massCapacityUIController = _massCapacityUIControllerObject.GetComponent<MassCapacityUIController>();
-            return massCapacityUIController?.CurrentCapacity ?? 0f;
-        }
-
-        // Gets the current used capacity for the local player.
-        public static float GetCurrentUsedCapacity()
-        {
-            if (_massCapacityUIControllerObject == null) return 0f;
-
-            var massCapacityUIController = _massCapacityUIControllerObject.GetComponent<MassCapacityUIController>();
-            return massCapacityUIController?.CurrentUsedCapacity ?? 0f;
-        }
     }
 }
