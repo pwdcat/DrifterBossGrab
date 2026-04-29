@@ -63,8 +63,6 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-
-
     // Network message for syncing bag state
     public class UpdateBagStateMessage : MessageBase
     {

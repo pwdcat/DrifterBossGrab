@@ -30,8 +30,6 @@ namespace DrifterBossGrabMod.UI
         private int _cachedTargetInstanceId = 0;
         private bool _cacheValid = false;
 
-
-
         private void Awake()
         {
             _healthBar = GetComponent<HealthBar>();
@@ -238,7 +236,6 @@ namespace DrifterBossGrabMod.UI
 
         public static void InvalidateAllCaches()
         {
-
 
             var overlays = UnityEngine.Object.FindObjectsByType<DamagePreviewOverlay>(UnityEngine.FindObjectsSortMode.None);
             foreach (var overlay in overlays)

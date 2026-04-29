@@ -65,8 +65,6 @@ namespace DrifterBossGrabMod.Core
             }
         }
 
-
-
         public static bool IsSecondary(TeleporterInteraction teleporter)
         {
             if (!PluginConfig.Instance.EnableObjectPersistence.Value) return false;
@@ -76,18 +74,12 @@ namespace DrifterBossGrabMod.Core
             }
         }
 
-
-
         public static void MarkPendingInit(TeleporterInteraction teleporter)
         {
             if (!PluginConfig.Instance.EnableObjectPersistence.Value) return;
             if (teleporter == null) return;
             lock (_lock) { _pendingInit.Add(teleporter); }
         }
-
-
-
-
 
         public static void Clear()
         {

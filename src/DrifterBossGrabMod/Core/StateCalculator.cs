@@ -191,28 +191,7 @@ namespace DrifterBossGrabMod.Core
                 aggregateState.targetObject = null;
             }
 
-            float totalMass = 0f;
-            int validObjectCount = 0;
-
-            foreach (var obj in baggedObjects)
-            {
-                if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                {
-                    var objState = BaggedObjectPatches.LoadObjectState(controller, obj);
-                    if (objState != null)
-                    {
-                        totalMass += objState.baggedMass;
-                        validObjectCount++;
-                    }
-                    else
-                    {
-                        totalMass += controller.CalculateBaggedObjectMass(obj);
-                        validObjectCount++;
-                    }
-                }
-            }
-
-            aggregateState.baggedMass = totalMass;
+            aggregateState.baggedMass = controller.baggedMass;
 
             float totalDamage = 0f, totalAttackSpeed = 0f, totalCrit = 0f, totalMoveSpeed = 0f;
             int totalJunkCount = 0;

@@ -179,7 +179,6 @@ namespace DrifterBossGrabMod.Patches
 
                     BagPatches.SetMainSeatObject(controller, null);
 
-
                     if (controller != null && NetworkServer.active && !controller!.hasAuthority && controller.GetComponent<Networking.BottomlessBagNetworkController>() is { } nc ? nc.autoPromoteMainSeat && list.Count > 0 : PluginConfig.Instance.AutoPromoteMainSeat.Value && list.Count > 0 && (NetworkServer.active || (controller && controller!.hasAuthority)))
                     {
                         var newMain = list[0];
@@ -307,7 +306,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-
             // Re-enable teleporter interaction when ejected from bag
             if (PluginConfig.Instance.EnableObjectPersistence.Value)
             {
@@ -333,7 +331,6 @@ namespace DrifterBossGrabMod.Patches
                 API.DrifterBagAPI.InvokeOnObjectReleased(controller, obj, isDestroying);
             }
         }
-
 
         public static void ForceRecalculateMass(DrifterBagController controller)
         {
@@ -388,27 +385,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Clamp or uncap based on config
-            bool isMassUncapped = false;
-            float maxMass = Constants.Limits.MaxMass;
-
-            if (PluginConfig.Instance.IsMassCapInfinite)
-            {
-                isMassUncapped = true;
-            }
-            else if (float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
-            {
-                maxMass = parsedMassCap;
-            }
-
-            if (!isMassUncapped)
-            {
-                totalMass = Mathf.Clamp(totalMass, 0f, maxMass);
-            }
-            else
-            {
-                totalMass = Mathf.Max(totalMass, 0f);
-            }
+            totalMass = Mathf.Max(totalMass, 0f);
 
             if (_baggedMassField != null)
             {
@@ -431,7 +408,6 @@ namespace DrifterBossGrabMod.Patches
                 // so the penalty persists even on the null slot (selectedIndex=-1)
                 UpdateModWalkSpeedPenalty(controller, totalMass);
             }
-
 
             UIPatches.UpdateMassCapacityUIOnCapacityChange(controller);
 

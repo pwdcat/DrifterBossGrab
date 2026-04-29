@@ -106,8 +106,6 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged += persistenceBlacklistHandler;
         }
 
-
-
         private void SetupGrabbableHandlers()
         {
             grabbableComponentTypesHandler = (sender, args) =>

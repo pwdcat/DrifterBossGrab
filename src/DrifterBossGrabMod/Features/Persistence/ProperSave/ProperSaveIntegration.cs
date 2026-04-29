@@ -531,7 +531,6 @@ namespace DrifterBossGrabMod.ProperSave
                 IsMainSeatObject = isMainSeatObject,
                 AdditionalSeatIndex = additionalSeatIndex
 
-
             };
 
             objData.SpawnCardPath = GetSpawnCardPath(objectToCapture);
@@ -674,8 +673,6 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Error("[ProperSave] Invalid save data");
                 return;
             }
-
-
 
             var objectsToRestore = new List<(GameObject obj, BaggedObjectSaveData data)>();
             var spawnedMasters = new HashSet<int>();
@@ -893,8 +890,6 @@ namespace DrifterBossGrabMod.ProperSave
             return Chainloader.PluginInfos.ContainsKey(PROPER_SAVE_GUID);
         }
 
-
-
         private static string GetSpawnCardPath(GameObject obj)
         {
             var networkIdentity = obj.GetComponent<NetworkIdentity>();
@@ -927,5 +922,4 @@ namespace DrifterBossGrabMod.ProperSave
         }
     }
 }
-
 

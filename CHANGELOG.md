@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - API
     - This is mainly for me since I want to make some gimmick mods/for debugging
-    - Check out BagCrafting for an example of how to use it
+    - Check out [BagCrafting](https://github.com/pwdcat/DrifterBossGrab/tree/main/src/BagCraftingMod) for an example of how to use it
 - ProperSave support
 - BodyColliderCache and ReflectionCache
-- Multi Teleporter support
+- Multi Teleporter support (put "Teleporter" in persistence blacklist to remove the patches, in case its too invasive for other mods)
+    - There are like two ways I know of without cheats for persisting charging teleporters
+- Recovery Settings
+- A proper wiki
 
 ### Changed
 - Config Reorganization
@@ -25,11 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Autopromote and Mainseat for clients
 - Lobotomized enemies after more than 1 persistence
 - Bagged UI (Now StatsPanel) to be applied to clients correctly
-- State Management causing invisible objects on throw for clients (removed StateManagement)
 - Carousel Slot UI edge cases causing issues when updating on destroyed passenger
 - Destroyed passenger ejection
 - Persistence + Save autograb bag order
-- AdditonalseatBreakout fixes, resets properly + collision 
+- AdditionalSeatBreakout fixes, resets properly + collision
+- Objects floating away after impact
 
 ### Removed
 - ModelStatePerserver and StateManagement, code was straight buns and it was old

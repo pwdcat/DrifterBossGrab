@@ -81,7 +81,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Info($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
+                            Log.Debug($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
                         }
 
                         // Warn if loading a stub state
@@ -133,7 +133,6 @@ namespace DrifterBossGrabMod.Patches
                 return null;
             }
         }
-
 
         // Removes the state data for a specific object from a bag controller
         // controller: The bag controller to cleanup state from

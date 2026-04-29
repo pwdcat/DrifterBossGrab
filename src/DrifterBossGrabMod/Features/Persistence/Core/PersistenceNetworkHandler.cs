@@ -202,8 +202,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-
-
         private static void ApplyBagStateUpdate(GameObject controllerObj, UpdateBagStateMessage msg)
         {
             var netController = controllerObj.GetComponent<BottomlessBagNetworkController>();

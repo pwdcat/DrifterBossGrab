@@ -83,18 +83,7 @@ namespace DrifterBossGrabMod.Patches
         {
             if (drifterBagController == null) return 0f;
 
-            float totalMass = 0f;
-            var list = BagPatches.GetState(drifterBagController).BaggedObjects;
-            if (list != null)
-            {
-                foreach (var obj in list)
-                {
-                    if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                    {
-                        totalMass += drifterBagController.CalculateBaggedObjectMass(obj);
-                    }
-                }
-            }
+            float totalMass = drifterBagController.baggedMass;
 
             // Include incoming object mass for predictive capacity calculation
             GameObject? predictiveIncomingObject = incomingObject;
@@ -110,8 +99,6 @@ namespace DrifterBossGrabMod.Patches
 
             return totalMass;
         }
-
-
 
         // Gets current count of bagged objects
         public static int GetCurrentBaggedCount(DrifterBagController controller)
@@ -160,18 +147,7 @@ namespace DrifterBossGrabMod.Patches
             if (PluginConfig.Instance.BottomlessBagEnabled.Value && PluginConfig.Instance.IsAddedCapacityInfinite)
             {
                 // Calculate total mass
-                float totalMass = 0f;
-                var list = BagPatches.GetState(controller).BaggedObjects;
-                if (list != null)
-                {
-                    foreach (var obj in list)
-                    {
-                        if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                        {
-                            totalMass += controller.CalculateBaggedObjectMass(obj);
-                        }
-                    }
-                }
+                float totalMass = controller.baggedMass;
 
                 // Calculate mass capacity with overencumbrance limit
                 float massCapacity = CapacityScalingSystem.CalculateMassCapacity(controller);
@@ -203,21 +179,7 @@ namespace DrifterBossGrabMod.Patches
         public static float GetBaggedObjectMass(DrifterBagController controller)
         {
             if (controller == null) return 0f;
-
-            float totalMass = 0f;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            if (list != null)
-            {
-                foreach (var obj in list)
-                {
-                    if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                    {
-                        totalMass += controller.CalculateBaggedObjectMass(obj);
-                    }
-                }
-            }
-
-            return totalMass;
+            return controller.baggedMass;
         }
     }
 }

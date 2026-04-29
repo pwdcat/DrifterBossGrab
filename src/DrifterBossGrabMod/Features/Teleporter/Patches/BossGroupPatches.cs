@@ -11,7 +11,6 @@ namespace DrifterBossGrabMod.Patches
     public static class BossGroupPatches
     {
 
-
         [HarmonyPrefix]
         [HarmonyPatch(nameof(BossGroup.DropRewards))]
         public static void DropRewardsPrefix(BossGroup __instance)

@@ -134,8 +134,6 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-
-
         public static void Cleanup()
         {
             RoR2.Networking.NetworkManagerSystem.onClientConnectGlobal -= OnClientConnect;

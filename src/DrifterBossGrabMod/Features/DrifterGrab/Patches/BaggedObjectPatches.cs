@@ -298,7 +298,6 @@ namespace DrifterBossGrabMod.Patches
             return BaggedObjectStateStorage.FindStateForObject(obj);
         }
 
-
         public static void CleanupObjectState(DrifterBagController controller, GameObject obj, bool preserveForThrow = false)
         {
             BaggedObjectStateStorage.CleanupObjectState(controller, obj, preserveForThrow);

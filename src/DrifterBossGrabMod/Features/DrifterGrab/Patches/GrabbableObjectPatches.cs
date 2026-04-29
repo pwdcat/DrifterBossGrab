@@ -151,7 +151,6 @@ namespace DrifterBossGrabMod.Patches
             return PluginConfig.IsGrabbable(obj.transform.root.gameObject) ? obj.transform.root.gameObject : obj;
         }
 
-
         public static void AddSpecialObjectAttributesToGrabbableObject(GameObject obj)
         {
             if (obj == null)

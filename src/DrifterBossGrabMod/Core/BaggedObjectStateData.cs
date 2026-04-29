@@ -327,7 +327,6 @@ namespace DrifterBossGrabMod.Core
                     hasCapturedRigidbodyState = true;
                 }
 
-
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[CalculateFromObject] targetObject={targetObject.name}, targetBody={(targetBody != null ? targetBody.name : "null")}, healthComponent={(healthComponent != null ? "exists" : "null")}");

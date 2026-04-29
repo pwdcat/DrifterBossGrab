@@ -156,7 +156,6 @@ namespace DrifterBossGrabMod.Patches
                 bagState.DisabledCollidersByObject.Remove(passenger, out _);
             }
 
-
             // Clear throw operation flag
             lock (_throwTrackingLock)
             {

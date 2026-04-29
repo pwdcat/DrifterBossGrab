@@ -1350,7 +1350,8 @@ namespace DrifterBossGrabMod.Patches
                 // Clean up
                 try
                 {
-                    BagPassengerManager.RemoveBaggedObject(controller, obj, isDestroying: true);
+                    PerformPassengerRestoration(controller, obj);
+                    BagPassengerManager.RemoveBaggedObject(controller, obj, isDestroying: false);
                     BagCarouselUpdater.UpdateCarousel(controller);
                 }
                 catch (Exception ex)

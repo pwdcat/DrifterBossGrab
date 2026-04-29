@@ -77,8 +77,6 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-
-
         private Transform? FindDeepChild(Transform parent, string name)
         {
             foreach (Transform child in parent)

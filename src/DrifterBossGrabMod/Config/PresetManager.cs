@@ -249,7 +249,6 @@ namespace DrifterBossGrabMod.Config
             };
         }
 
-
         private static ConfigEntryBase? GetPersistenceConfigEntry(string key)
         {
             var instance = PluginConfig.Instance;

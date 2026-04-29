@@ -30,8 +30,6 @@ namespace DrifterBossGrabMod
             PersistenceObjectManager.UpdateCachedConfig();
         }
 
-
-
         // Remove object from persistence - delegate to object manager
         public static void RemovePersistedObject(GameObject obj, bool isDestroying = false)
         {
@@ -74,12 +72,6 @@ namespace DrifterBossGrabMod
             PersistenceSceneHandler.Instance.ScheduleAutoGrab(master);
         }
 
-
-
-
-
-
-
         // Check if teleporter is currently in a bag
         public static bool IsTeleporterCurrentlyBagged(GameObject obj)
         {
@@ -118,7 +110,6 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-
 
     }
 }

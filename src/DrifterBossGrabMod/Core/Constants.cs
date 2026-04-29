@@ -84,6 +84,5 @@ namespace DrifterBossGrabMod
             return defaultValue;
         }
 
-
     }
 }

@@ -214,8 +214,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-
-
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
         {
@@ -240,8 +238,6 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-
-
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateHudSubTabVisibility()

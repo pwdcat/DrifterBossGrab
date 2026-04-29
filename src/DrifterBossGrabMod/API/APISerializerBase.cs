@@ -49,8 +49,6 @@ namespace DrifterBossGrabMod.API
         protected abstract void CaptureObjectState(GameObject obj, Dictionary<string, object> state);
         protected abstract void RestoreObjectState(GameObject obj, Dictionary<string, object> state);
 
-
-
         protected bool TryGetValue<T>(Dictionary<string, object> state, string key, out T? value)
         {
             if (state.TryGetValue(key, out var obj) && obj != null)

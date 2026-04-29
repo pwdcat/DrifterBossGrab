@@ -116,7 +116,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                totalMass = Mathf.Clamp(totalMass, 0f, Constants.Limits.MaxMass);
+                totalMass = Mathf.Max(totalMass, 0f);
 
                 ReflectionCache.DrifterBagController.BaggedMass.SetValue(__instance, totalMass);
 
@@ -307,8 +307,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-
-
         [HarmonyPatch(typeof(EntityStates.Drifter.AimRepossess), "OnEnter")]
         public class AimRepossess_OnEnter_Patch
         {
@@ -332,7 +330,6 @@ namespace DrifterBossGrabMod.Patches
                 __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
             }
         }
-
 
     }
 }

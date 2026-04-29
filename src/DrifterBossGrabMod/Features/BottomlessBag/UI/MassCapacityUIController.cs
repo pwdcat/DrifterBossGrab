@@ -528,7 +528,8 @@ namespace DrifterBossGrabMod.UI
                                 if (!countedInstanceIds.Contains(instanceId))
                                 {
                                     countedInstanceIds.Add(instanceId);
-                                    float mass = _bagController.CalculateBaggedObjectMass(obj);
+                                    var objState = BaggedObjectPatches.LoadObjectState(_bagController, obj);
+                                    float mass = objState != null ? objState.baggedMass : _bagController.CalculateBaggedObjectMass(obj);
                                     cumulativeMass += mass;
 
                                     float frac = cumulativeMass / _currentCapacity;
@@ -546,7 +547,8 @@ namespace DrifterBossGrabMod.UI
                     var incomingObject = BagPatches.GetState(_bagController).IncomingObject;
                     if (incomingObject != null && !ProjectileRecoveryPatches.IsInProjectileState(incomingObject))
                     {
-                        float mass = _bagController.CalculateBaggedObjectMass(incomingObject);
+                        var incomingState = BaggedObjectPatches.LoadObjectState(_bagController, incomingObject);
+                        float mass = incomingState != null ? incomingState.baggedMass : _bagController.CalculateBaggedObjectMass(incomingObject);
                         cumulativeMass += mass;
 
                         float frac = cumulativeMass / _currentCapacity;

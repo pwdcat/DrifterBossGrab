@@ -349,7 +349,8 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc }
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLAM_DAMAGE_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc }
         };
 
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;
@@ -658,8 +659,6 @@ namespace DrifterBossGrabMod
             Instance.SelectedBalanceSubTab = cfg.Bind("Hidden", "SelectedBalanceSubTab", BalanceSubTabType.All,
                 "Select which Balance settings group to view.");
             Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
-
-
 
             // Force EnableCarouselHUD to true if BottomlessBagEnabled is true
             if (Instance.BottomlessBagEnabled.Value && !Instance.EnableCarouselHUD.Value)

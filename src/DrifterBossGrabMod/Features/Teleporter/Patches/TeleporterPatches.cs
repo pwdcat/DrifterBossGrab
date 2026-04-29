@@ -18,8 +18,6 @@ namespace DrifterBossGrabMod.Patches
         {
             if (teleporter == null || teleporter.gameObject == null) return;
 
-
-
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Debug($"[TeleporterPatches] Patching stale references for teleporter: {teleporter.name}");
 

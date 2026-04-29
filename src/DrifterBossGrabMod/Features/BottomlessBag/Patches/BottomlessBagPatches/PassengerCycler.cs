@@ -30,7 +30,6 @@ namespace DrifterBossGrabMod.Patches
             // Prevent scrolling if capacity is 1 or less
             if (BagCapacityCalculator.GetUtilityMaxStock(bagController) <= 1) return;
 
-
             if (!NetworkServer.active && bagController.hasAuthority)
             {
                 Networking.CycleNetworkHandler.SendCycleRequest(bagController, amount);
@@ -42,7 +41,6 @@ namespace DrifterBossGrabMod.Patches
                 ServerCyclePassengers(bagController, amount);
             }
         }
-
 
         public static void ServerCyclePassengers(DrifterBagController bagController, int amount)
         {
@@ -126,8 +124,6 @@ namespace DrifterBossGrabMod.Patches
 
             CycleToNextObject(bagController, validObjects, amount);
         }
-
-
 
         // Cycles to the next object in the valid objects list by the specified amount - handles all seat transitions and state updates
         private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, int amount)

@@ -344,8 +344,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
-
-
         private static TeamIndex? GetSavedTeamIndex(BaggedObjectSaveData objData)
         {
             if (objData == null || objData.ComponentStates == null)
@@ -413,11 +411,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             return null;
         }
-
-
-
-
-
 
     }
 }

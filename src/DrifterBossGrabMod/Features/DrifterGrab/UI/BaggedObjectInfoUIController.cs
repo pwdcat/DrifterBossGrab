@@ -272,8 +272,6 @@ namespace DrifterBossGrabMod.UI
                 }
             }
 
-
-
             string totalsSection = $"<size=20><b>Bag Totals</b></size>\n";
 
             // Show different label based on display mode

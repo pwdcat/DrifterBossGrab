@@ -81,7 +81,6 @@ namespace DrifterBossGrabMod.Patches
             // Only run on server/authority
             if (!NetworkServer.active) return;
 
-
             try
             {
                 var body = _cachedBody ?? gameObject.GetComponent<CharacterBody>();
@@ -245,7 +244,6 @@ namespace DrifterBossGrabMod.Patches
                 _cachedProjectilePrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/ThrownObjectProjectileNoStun.prefab").WaitForCompletion();
             }
 
-
             Transform? exitTransform = null;
             if (body != null && body.modelLocator != null && body.modelLocator.modelTransform != null)
             {
@@ -279,7 +277,6 @@ namespace DrifterBossGrabMod.Patches
                 damageColorIndex = DamageColorIndex.Default,
                 target = null
             };
-
 
             GameObject spawnedProjectile = ProjectileManager.instance.FireProjectileImmediateServer(fireProjectileInfo, null, 0, 0.0);
             if (spawnedProjectile != null)

@@ -290,8 +290,6 @@ namespace DrifterBossGrabMod
             return PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
         }
 
-
-
         public static int GetPersistedObjectsCount() { lock (_lock) return _persistedObjects.Count; }
 
         public static GameObject[] GetPersistedObjects() { lock (_lock) return _persistedObjects.ToArray(); }

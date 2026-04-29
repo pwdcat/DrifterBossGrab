@@ -15,7 +15,6 @@ namespace DrifterBossGrabMod.Balance
         private const float OverencumbranceDebuffRemovalDelay = Constants.Timeouts.OverencumbranceDebuffRemovalDelay; // Seconds to wait before removing debuff
         private static readonly Dictionary<CharacterBody, Coroutine> _overencumbranceTimers = new Dictionary<CharacterBody, Coroutine>();
 
-
         public static float CalculateOverencumbrancePercent(float totalMass, float massCapacity)
         {
             if (massCapacity <= 0) return 0f;
@@ -29,7 +28,6 @@ namespace DrifterBossGrabMod.Balance
 
             return overencumbrancePercent;
         }
-
 
         public static void ApplyOverencumbrance(CharacterBody body, DrifterBagController bagController)
         {
@@ -71,7 +69,6 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-
         private static void StartRemovalTimer(CharacterBody body)
         {
             if (body == null) return;
@@ -81,7 +78,6 @@ namespace DrifterBossGrabMod.Balance
             Coroutine timerCoroutine = body.StartCoroutine(RemovalTimerCoroutine(body));
             _overencumbranceTimers[body] = timerCoroutine;
         }
-
 
         private static void StopRemovalTimer(CharacterBody body)
         {
@@ -102,7 +98,6 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-
         private static IEnumerator RemovalTimerCoroutine(CharacterBody body)
         {
             yield return new WaitForSeconds(OverencumbranceDebuffRemovalDelay);
@@ -120,7 +115,6 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-
         private static void ApplyTransferDebuff(CharacterBody body)
         {
             if (body == null) return;
@@ -134,7 +128,6 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-
         private static void RemoveTransferDebuff(CharacterBody body)
         {
             if (body == null) return;
@@ -142,36 +135,14 @@ namespace DrifterBossGrabMod.Balance
             body.RemoveBuff(DLC3Content.Buffs.TransferDebuffOnHit);
         }
 
-
         private static float GetTotalMass(DrifterBagController bagController)
         {
-            float totalMass = 0f;
+            if (bagController == null) return 0f;
 
-            if (bagController == null) return totalMass;
-
-            var baggedObjects = BagPatches.GetState(bagController).BaggedObjects;
-            if (baggedObjects != null)
-            {
-                foreach (var obj in baggedObjects)
-                {
-                    if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                    {
-                        totalMass += bagController.CalculateBaggedObjectMass(obj);
-                    }
-                }
-            }
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[Overencumbrance] GetTotalMass: {totalMass} (from {baggedObjects?.Count ?? 0} objects)");
-            }
+            float totalMass = bagController.baggedMass;
 
             return totalMass;
         }
-
-
-
-
 
         public static void CleanupCharacterBody(CharacterBody body)
         {

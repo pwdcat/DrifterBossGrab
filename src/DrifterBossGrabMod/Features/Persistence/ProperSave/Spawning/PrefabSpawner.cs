@@ -185,8 +185,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             return null;
         }
 
-
-
         private static void PositionObjectNearPlayer(GameObject obj, string? ownerPlayerId)
         {
             var targetBody = FindOwnerBody(ownerPlayerId);

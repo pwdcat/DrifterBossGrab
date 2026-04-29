@@ -23,7 +23,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-
         [HarmonyPatch(typeof(CharacterBody), nameof(CharacterBody.RecalculateStats))]
         public class CharacterBody_RecalculateStats_Patch
         {

@@ -115,8 +115,6 @@ namespace DrifterBossGrabMod.Balance
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
 
-
-
         // Recalculates penalty when penalty settings change
         public static void RecalculatePenalty(DrifterBagController bagController)
         {

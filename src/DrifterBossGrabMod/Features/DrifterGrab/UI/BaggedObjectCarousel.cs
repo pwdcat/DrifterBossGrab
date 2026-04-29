@@ -74,8 +74,6 @@ namespace DrifterBossGrabMod.UI
             BagCarouselUpdater.ActiveCarousels.Remove(this);
         }
 
-
-
         public void UpdateScales()
         {
             PopulateCarousel(); // Refresh positions and scales
@@ -118,8 +116,6 @@ namespace DrifterBossGrabMod.UI
                 PopulateCarousel();
             }
         }
-
-
 
         private GameObject? aboveInstance;
         private GameObject? centerInstance;
@@ -668,8 +664,6 @@ namespace DrifterBossGrabMod.UI
             var group = slot.GetComponent<CanvasGroup>() ?? slot.AddComponent<CanvasGroup>();
             group.alpha = opacity;
         }
-
-
 
         private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter, bool useFading)
         {

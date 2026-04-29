@@ -18,7 +18,6 @@ namespace DrifterBossGrabMod.Input
         public KeyboardKeyCode DefaultKeyboardKey { get; private set; }
         public int DefaultJoystickKey { get; private set; }
 
-
         private ActionElementMap? _defaultJoystickMap;
         public ActionElementMap DefaultJoystickMap => _defaultJoystickMap ??= new ActionElementMap(ActionId, ControllerElementType.Button, DefaultJoystickKey, Pole.Positive, AxisRange.Positive);
 

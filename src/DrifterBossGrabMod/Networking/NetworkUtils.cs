@@ -22,7 +22,6 @@ namespace DrifterBossGrabMod.Networking
 
         // Retry logic accounts for the non-deterministic timing of Unity's object spawning and registration.
 
-
         // Detailed logging is essential for diagnosing synchronization failures that only occur in multi-player environments.
         public static GameObject? FindLocalObjectWithLogging(NetworkInstanceId netId, string operation, bool isServer = true)
         {
@@ -160,7 +159,6 @@ namespace DrifterBossGrabMod.Networking
         }
 
         // Reference validation is required because Unity's implicit null checks don't always detect destroyed C# objects.
-
 
         // Safe naming prevents diagnostic logs from crashing if the target object has already been garbage collected.
         public static string GetSafeObjectName(GameObject? obj)

@@ -117,7 +117,6 @@ namespace DrifterBossGrabMod.Core
             var body = bagController?.GetComponent<CharacterBody>();
             float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
 
-
             var localVars = new Dictionary<string, float>
             {
                 { "BASE_COEF", DefaultBaseDamageCoef },
@@ -129,7 +128,6 @@ namespace DrifterBossGrabMod.Core
             string formula = PluginConfig.Instance.SlamDamageFormula.Value;
             float result = FormulaParser.Evaluate(formula, body, localVars);
 
-
             if (float.IsNaN(result))
             {
                 Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned NaN. Using default calculation.");
@@ -140,12 +138,6 @@ namespace DrifterBossGrabMod.Core
                 Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned Infinity. Using default calculation.");
                 result = DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / maxCapacity);
             }
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[SlamDamageCalculator] Formula '{formula}' = {result:F2} (BM={baggedMass:F1}, MC={maxCapacity:F1})");
-            }
-
             return result;
         }
 
@@ -176,7 +168,6 @@ namespace DrifterBossGrabMod.Core
             return itemDamageMultiplier;
         }
 
-
         public static void LogDetails(DrifterBagController bagController, GameObject target)
         {
             if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
@@ -199,7 +190,6 @@ namespace DrifterBossGrabMod.Core
                     }
                 }
             }
-
 
             float mass = bagController ? bagController!.baggedMass : 0f;
             float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;

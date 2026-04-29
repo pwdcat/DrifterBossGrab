@@ -162,8 +162,6 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
-
-
         private void Update()
         {
             _elapsedTime += Time.deltaTime;
@@ -396,7 +394,6 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 bool mainSeatOccupied = __instance != null && __instance.vehicleSeat != null && __instance.vehicleSeat.hasPassenger;
-
 
                 // Fill-from-back logic: if prioritize is false OR main seat is already occupied, route to additional seat
                 if ((!prioritize || mainSeatOccupied) && TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))

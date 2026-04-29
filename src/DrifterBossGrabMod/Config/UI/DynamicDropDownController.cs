@@ -22,7 +22,6 @@ namespace DrifterBossGrabMod.Config.UI
     {
         public RooDropdown dropdown = null!;
 
-
         private static List<string>? _cachedComponentNames;
         private static string[]? _dropdownChoices;
 

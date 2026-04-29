@@ -88,7 +88,6 @@ namespace DrifterBossGrabMod.Core
                    shaderName != "Hidden/InternalErrorShader";
         }
 
-
         private static void CleanupStuckVisualEffects(GameObject target)
         {
             // PrintControllers and DitherModel can leave objects invisible

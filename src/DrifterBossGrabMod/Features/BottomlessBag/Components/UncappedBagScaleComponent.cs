@@ -272,8 +272,6 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
-
     }
-
 
 }

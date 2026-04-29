@@ -124,7 +124,6 @@ namespace DrifterBossGrabMod.Networking
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
 
-
         private bool IsObjectInAnySeat(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;

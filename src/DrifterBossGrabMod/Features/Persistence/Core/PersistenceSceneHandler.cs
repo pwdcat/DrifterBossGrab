@@ -474,7 +474,6 @@ namespace DrifterBossGrabMod
         {
             private string _ownerPlayerId = string.Empty;
 
-
             public void Initialize(string ownerId)
             {
                 _ownerPlayerId = ownerId;
@@ -569,7 +568,6 @@ namespace DrifterBossGrabMod
                 // Final resort to local player if all else fails.
                 targetBody = NetworkUser.readOnlyLocalPlayersList.Count > 0 ? NetworkUser.readOnlyLocalPlayersList[0]?.master?.GetBody() : null;
             }
-
 
             if (targetBody != null)
             {
@@ -785,7 +783,6 @@ namespace DrifterBossGrabMod
 
                     // Suppress the accidental throw during scene initialization
                     Patches.BaggedObjectPatches.SuppressExitForObject(obj);
-
 
                     bagController.AssignPassenger(obj);
 

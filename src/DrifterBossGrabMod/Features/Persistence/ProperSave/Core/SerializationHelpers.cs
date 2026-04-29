@@ -57,8 +57,6 @@ namespace DrifterBossGrabMod.ProperSave.Core
             return new Quaternion(x, y, z, w);
         }
 
-
-
         public static Guid? ParseGuid(string s)
         {
             if (string.IsNullOrEmpty(s)) return null;

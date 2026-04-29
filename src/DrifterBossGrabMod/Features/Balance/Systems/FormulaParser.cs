@@ -144,8 +144,6 @@ namespace DrifterBossGrabMod.Balance
             return (int)Math.Floor(result);
         }
 
-
-
         // Validate a formula string for syntax errors
         public static string? Validate(string formula)
         {
@@ -163,8 +161,6 @@ namespace DrifterBossGrabMod.Balance
                 return ex.Message;
             }
         }
-
-
 
         #endregion
 

@@ -185,8 +185,6 @@ namespace DrifterBossGrabMod.Balance
             return result;
         }
 
-
-
         private static string NormalizeVariableName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -220,7 +218,6 @@ namespace DrifterBossGrabMod.Balance
 
             return upperName;
         }
-
 
     }
 
