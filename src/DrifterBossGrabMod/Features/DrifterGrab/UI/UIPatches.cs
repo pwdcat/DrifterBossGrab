@@ -20,20 +20,12 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[UIPatches] InitializeMassCapacityUI() called for {drifterBody.name}");
-            }
+            Log.DebugIfEnabled("[UIPatches] InitializeMassCapacityUI() called for {0}", drifterBody.name);
 
-            // Always add BaggedObjectInfoUIController to all Drifters so spectating works, 
-            // but the controller itself should handle visibility based on whether it's the HUD's target.
             if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
             {
                 drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] Added BaggedObjectInfoUIController to {drifterBody.name}");
-                }
+                Log.DebugIfEnabled("[UIPatches] Added BaggedObjectInfoUIController to {0}", drifterBody.name);
             }
 
             // Only add MassCapacityUIController if it's the local player's body
@@ -44,10 +36,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (!PluginConfig.Instance.EnableMassCapacityUI.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[UIPatches] MassCapacityUI is disabled in config, skipping capacity bar initialization");
-                }
+                Log.DebugIfEnabled("[UIPatches] MassCapacityUI is disabled in config, skipping capacity bar initialization");
                 return;
             }
 
@@ -57,18 +46,12 @@ namespace DrifterBossGrabMod.Patches
             {
                 drifterBody.gameObject.AddComponent<MassCapacityUIController>();
                 _massCapacityUIControllerObject = drifterBody.gameObject;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] Added MassCapacityUIController to {drifterBody.name}");
-                }
+                Log.DebugIfEnabled("[UIPatches] Added MassCapacityUIController to {0}", drifterBody.name);
             }
             else
             {
                 _massCapacityUIControllerObject = drifterBody.gameObject;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] MassCapacityUIController already exists on {drifterBody.name}");
-                }
+                Log.DebugIfEnabled("[UIPatches] MassCapacityUIController already exists on {0}", drifterBody.name);
             }
         }
 
@@ -76,10 +59,7 @@ namespace DrifterBossGrabMod.Patches
         public static void CleanupMassCapacityUI()
         {
             // No cleanup needed since component is on DrifterBody and will be destroyed with it
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[UIPatches] MassCapacityUIController cleanup not needed (component on DrifterBody)");
-            }
+            Log.DebugIfEnabled("[UIPatches] MassCapacityUIController cleanup not needed (component on DrifterBody)");
         }
 
         // Updates the Capacity UI when capacity changes.

@@ -16,17 +16,7 @@ namespace DrifterBossGrabMod.Balance
         public static int GetTotalCapacity(DrifterBagController bagController)
         {
             if (bagController == null) return 1;
-
-            var body = bagController.GetComponent<CharacterBody>();
-            if (body == null || body.skillLocator == null || body.skillLocator.utility == null)
-            {
-                return 1;
-            }
-
-            int utilityStocks = body.skillLocator.utility.maxStock;
-            int addedCapacity = Constants.ParseCapacityString(PluginConfig.Instance.AddedCapacity.Value);
-
-            return addedCapacity == int.MaxValue ? int.MaxValue : utilityStocks + addedCapacity;
+            return BagCapacityCalculator.GetUtilityMaxStock(bagController);
         }
 
         // Calculates the mass capacity limit using the MassCapacityFormula
@@ -53,17 +43,14 @@ namespace DrifterBossGrabMod.Balance
             // Validate result
             if (float.IsNaN(result))
             {
-                Log.Warning($"[CalculateMassCapacity] Formula '{formula}' returned NaN. Returning base mass capacity.");
+                Log.DebugIfEnabled($"[CalculateMassCapacity] Formula '{formula}' returned NaN. Returning base mass capacity.");
                 return DrifterBagController.maxMass;
             }
 
             // If MassCapacityFormula evaluates to 0, return unlimited (mass capacity disabled)
             if (result <= 0f && !float.IsPositiveInfinity(result))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[CalculateMassCapacity] Formula returned {result}, mass capacity is disabled (unlimited)");
-                }
+                Log.DebugIfEnabled("[CalculateMassCapacity] Formula returned {0}, mass capacity is disabled (unlimited)", result);
                 return float.MaxValue;
             }
 
@@ -78,10 +65,7 @@ namespace DrifterBossGrabMod.Balance
             int totalCapacity = GetTotalCapacity(bagController);
             float massCapacity = CalculateMassCapacity(bagController);
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CapacityScaling] Recalculating capacity: Total={totalCapacity}, MassCapacity={massCapacity}");
-            }
+            Log.DebugIfEnabled("[CapacityScaling] Recalculating capacity: Total={0}, MassCapacity={1}", totalCapacity, massCapacity);
 
             // Force recalculate mass to apply any scaling changes
             BagPassengerManager.ForceRecalculateMass(bagController);
@@ -92,10 +76,7 @@ namespace DrifterBossGrabMod.Balance
         {
             if (bagController == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CapacityScaling] Recalculating state for bag controller");
-            }
+            Log.DebugIfEnabled("[CapacityScaling] Recalculating state for bag controller");
 
             // Force recalculate mass to apply any state calculation changes
             BagPassengerManager.ForceRecalculateMass(bagController);
@@ -106,10 +87,7 @@ namespace DrifterBossGrabMod.Balance
         {
             if (bagController == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CapacityScaling] Recalculating mass for bag controller");
-            }
+            Log.DebugIfEnabled("[CapacityScaling] Recalculating mass for bag controller");
 
             // Force recalculate mass to apply any mass multiplier changes
             BagPassengerManager.ForceRecalculateMass(bagController);
@@ -120,13 +98,11 @@ namespace DrifterBossGrabMod.Balance
         {
             if (bagController == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CapacityScaling] Recalculating penalty for bag controller");
-            }
+            Log.DebugIfEnabled("[CapacityScaling] Recalculating penalty for bag controller");
 
             // Force recalculate mass to apply any penalty changes
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
     }
 }
+

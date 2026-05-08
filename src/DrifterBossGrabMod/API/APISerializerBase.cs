@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -110,10 +110,7 @@ namespace DrifterBossGrabMod.API
                 action.Capture(component, state);
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ComponentAPISerializer<{typeof(TComponent).Name}>] Captured {state.Count} values for {obj.name}");
-            }
+            Log.DebugIfEnabled("[ComponentAPISerializer<{0}>] Captured {1} values for {2}", typeof(TComponent).Name, state.Count, obj.name);
         }
 
         protected override void RestoreObjectState(GameObject obj, Dictionary<string, object> state)
@@ -126,10 +123,7 @@ namespace DrifterBossGrabMod.API
                 action.Restore(component, state);
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ComponentAPISerializer<{typeof(TComponent).Name}>] Successfully restored {obj.name}");
-            }
+            Log.DebugIfEnabled("[ComponentAPISerializer<{0}>] Successfully restored {1}", typeof(TComponent).Name, obj.name);
         }
 
         public ComponentAPISerializer<TComponent> AddAction<TValue>(
@@ -144,10 +138,7 @@ namespace DrifterBossGrabMod.API
                 Capture = (component, state) =>
                 {
                     var value = getter(component);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"  - Capturing field '{key}': {value?.ToString() ?? "null"}");
-                    }
+                    Log.DebugIfEnabled("  - Capturing field '{0}': {1}", key, value?.ToString() ?? "null");
 
                     if (asInt && value is Enum enumValue)
                     {
@@ -167,7 +158,7 @@ namespace DrifterBossGrabMod.API
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             var currentValue = getter(component);
-                            Log.Info($"  - Restoring field '{key}': {value?.ToString() ?? "null"} -> {currentValue?.ToString() ?? "null"}");
+                            Log.DebugIfEnabled("  - Restoring field '{0}': {1} -> {2}", key, value?.ToString() ?? "null", currentValue?.ToString() ?? "null");
                         }
 
                         setter(component, value!);

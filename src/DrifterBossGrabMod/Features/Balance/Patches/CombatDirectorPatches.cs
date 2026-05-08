@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using RoR2;
 using HarmonyLib;
 using DrifterBossGrabMod.Core;
@@ -16,8 +16,7 @@ namespace DrifterBossGrabMod.Patches
             if (director != null)
             {
                 _restoringTeleporterDirectors.Add(director);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[CombatDirectorPatches] Marked {director.name} as restoring (total: {_restoringTeleporterDirectors.Count})");
+                Log.DebugIfEnabled("[CombatDirectorPatches] Marked {0} as restoring (total: {1})", director.name, _restoringTeleporterDirectors.Count);
             }
         }
 
@@ -26,8 +25,7 @@ namespace DrifterBossGrabMod.Patches
             if (director != null)
             {
                 _restoringTeleporterDirectors.Remove(director);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[CombatDirectorPatches] Cleared restoring flag for {director.name} (total: {_restoringTeleporterDirectors.Count})");
+                Log.DebugIfEnabled("[CombatDirectorPatches] Cleared restoring flag for {0} (total: {1})", director.name, _restoringTeleporterDirectors.Count);
             }
         }
 
@@ -38,8 +36,7 @@ namespace DrifterBossGrabMod.Patches
             // Check if this is a teleporter director that's being restored from persistence
             if (_restoringTeleporterDirectors.Contains(__instance))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[CombatDirectorPatches] Blocking vanilla credit transfer for {__instance.name} (restoring from persistence)");
+                Log.DebugIfEnabled("[CombatDirectorPatches] Blocking vanilla credit transfer for {0} (restoring from persistence)", __instance.name);
 
                 // Remove from instances list (part of normal OnDisable behavior)
                 CombatDirector.instancesList.Remove(__instance);

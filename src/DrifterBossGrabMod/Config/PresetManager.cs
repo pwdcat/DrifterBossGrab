@@ -11,6 +11,10 @@ using RoR2;
 namespace DrifterBossGrabMod.Config
 {
     // Manages preset application and auto-switching to Custom preset.
+    // ========================================================================================
+    // PRESET MANAGER
+    // ========================================================================================
+
     public static class PresetManager
     {
         // Flag to prevent infinite loops when applying presets
@@ -18,6 +22,10 @@ namespace DrifterBossGrabMod.Config
 
         // Apply a preset to all config entries.
         // param presetType: The preset type to apply.
+        // ========================================================================================
+        // PRESET APPLICATION
+        // ========================================================================================
+
         public static void ApplyPreset(PresetType presetType)
         {
             if (presetType == PresetType.Custom)
@@ -28,7 +36,7 @@ namespace DrifterBossGrabMod.Config
 
             if (!PresetDefinitions.Presets.ContainsKey(presetType))
             {
-                Log.Warning($"[ConfigPreset] Preset {presetType} not found in definitions.");
+                Log.DebugIfEnabled($"[ConfigPreset] Preset {presetType} not found in definitions.");
                 return;
             }
 
@@ -110,7 +118,7 @@ namespace DrifterBossGrabMod.Config
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning($"[ConfigPreset] Failed to apply setting {setting.Key}: {ex.Message}");
+                            Log.DebugIfEnabled($"[ConfigPreset] Failed to apply setting {setting.Key}: {ex.Message}");
                         }
                     }
                 }
@@ -143,6 +151,10 @@ namespace DrifterBossGrabMod.Config
         }
 
         // Forces RiskOfOptions UI refresh by toggling GameObject states (bypasses internal caches)
+        // ========================================================================================
+        // UI REFRESH HELPERS
+        // ========================================================================================
+
         private static void RefreshAllRiskOfOptionsUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
@@ -167,6 +179,10 @@ namespace DrifterBossGrabMod.Config
         }
 
         // Auto-switch to Custom preset on manual setting change (prevents preset override).
+        // ========================================================================================
+        // EVENT HANDLERS
+        // ========================================================================================
+
         public static void OnSettingModified()
         {
             if (_isApplyingPreset) return;
@@ -201,6 +217,10 @@ namespace DrifterBossGrabMod.Config
         }
 
         // Maps category.key strings to config entries for preset value assignment
+        // ========================================================================================
+        // CONFIG MAPPING
+        // ========================================================================================
+
         private static ConfigEntryBase? GetConfigEntry(string settingKey)
         {
             var parts = settingKey.Split('.');
@@ -271,7 +291,7 @@ namespace DrifterBossGrabMod.Config
             return key switch
             {
                 "EnableBottomlessBag" => instance.BottomlessBagEnabled,
-                "AddedCapacity" => instance.AddedCapacity,
+                "SlotScalingFormula" => instance.SlotScalingFormula,
                 "EnableStockRefreshClamping" => instance.EnableStockRefreshClamping,
                 "EnableSuccessiveGrabStockRefresh" => instance.EnableSuccessiveGrabStockRefresh,
                 "CycleCooldown" => instance.CycleCooldown,
@@ -348,7 +368,6 @@ namespace DrifterBossGrabMod.Config
                 "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
                 "MaxSmacks" => instance.MaxSmacks,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
-                "SlotScalingFormula" => instance.SlotScalingFormula,
                 "MassCapacityFormula" => instance.MassCapacityFormula,
                 "EliteFlagMultiplier" => instance.EliteFlagMultiplier,
                 "BossFlagMultiplier" => instance.BossFlagMultiplier,
@@ -374,6 +393,10 @@ namespace DrifterBossGrabMod.Config
         }
 
         // Force refresh of all bag controllers to apply config changes.
+        // ========================================================================================
+        // STATE REFRESH
+        // ========================================================================================
+
         private static void RefreshAllBagControllers()
         {
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);
@@ -388,3 +411,4 @@ namespace DrifterBossGrabMod.Config
         }
     }
 }
+

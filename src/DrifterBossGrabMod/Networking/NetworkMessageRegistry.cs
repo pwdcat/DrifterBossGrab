@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,10 +57,7 @@ namespace DrifterBossGrabMod.Networking
                 Log.Error($"[NetworkMessageRegistry] Failed to scan NetworkMessageHandler attributes: {ex}");
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[NetworkMessageRegistry] Found {_clientHandlers.Count} client handlers and {_serverHandlers.Count} server handlers.");
-            }
+            Log.DebugIfEnabled("[NetworkMessageRegistry] Found {0} client handlers and {1} server handlers.", _clientHandlers.Count, _serverHandlers.Count);
 
             NetworkManagerSystem.onStartClientGlobal += OnStartClientGlobal;
             NetworkManagerSystem.onStartServerGlobal += OnStartServerGlobal;
@@ -71,10 +68,7 @@ namespace DrifterBossGrabMod.Networking
             foreach (var handler in _clientHandlers)
             {
                 client.RegisterHandler(handler.msgType, handler.handlerDelegate);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkMessageRegistry] Client Registered MsgId {handler.msgType} on {client.connection?.connectionId}");
-                }
+                Log.DebugIfEnabled("[NetworkMessageRegistry] Client Registered MsgId {0} on {1}", handler.msgType, client.connection?.connectionId);
             }
         }
 
@@ -83,10 +77,7 @@ namespace DrifterBossGrabMod.Networking
             foreach (var handler in _serverHandlers)
             {
                 NetworkServer.RegisterHandler(handler.msgType, handler.handlerDelegate);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkMessageRegistry] Server Registered MsgId {handler.msgType}");
-                }
+                Log.DebugIfEnabled("[NetworkMessageRegistry] Server Registered MsgId {0}", handler.msgType);
             }
         }
 
@@ -99,10 +90,7 @@ namespace DrifterBossGrabMod.Networking
             _clientHandlers.Clear();
             _serverHandlers.Clear();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[NetworkMessageRegistry] Cleanup called.");
-            }
+            Log.DebugIfEnabled("[NetworkMessageRegistry] Cleanup called.");
         }
     }
 }

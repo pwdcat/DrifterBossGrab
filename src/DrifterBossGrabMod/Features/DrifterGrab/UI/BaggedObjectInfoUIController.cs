@@ -9,6 +9,10 @@ using DrifterBossGrabMod.Balance;
 
 namespace DrifterBossGrabMod.UI
 {
+    // ========================================================================================
+    // BAGGED OBJECT INFO UI CONTROLLER
+    // ========================================================================================
+
     public class BaggedObjectInfoUIController : MonoBehaviour
     {
         private GameObject _uiPanel = null!;
@@ -17,13 +21,13 @@ namespace DrifterBossGrabMod.UI
         private DrifterBagController _bagController = null!;
         private HUD? _hud;
         private bool _cachedEnableBaggedObjectInfo;
+        // Cached state objects to avoid per-frame allocations
+        private BaggedObjectStateData _cachedAggregateState = new BaggedObjectStateData();
+        private BaggedObjectStateData _cachedIndividualState = new BaggedObjectStateData();
 
-        // Cached reflection metadata
-        private System.Reflection.PropertyInfo? _cachedInputPlayerProperty;
-        private System.Reflection.FieldInfo? _cachedInputPlayerField;
-        private System.Reflection.MethodInfo? _cachedGetButtonMethod;
-        private bool _reflectionCacheInitialized;
-        private static readonly object[] _getButtonArgs = new object[] { "info" };
+        // ========================================================================================
+        // LIFECYCLE
+        // ========================================================================================
 
         private void Start()
         {
@@ -76,27 +80,10 @@ namespace DrifterBossGrabMod.UI
                 bool showInfo = false;
                 if (_hud.localUserViewer != null)
                 {
-                    // Cache reflection metadata on first use
-                    if (!_reflectionCacheInitialized)
+                    var player = _hud.localUserViewer.inputPlayer;
+                    if (player != null)
                     {
-                        var viewerType = _hud.localUserViewer.GetType();
-                        _cachedInputPlayerProperty = viewerType.GetProperty("inputPlayer");
-                        if (_cachedInputPlayerProperty == null)
-                            _cachedInputPlayerField = viewerType.GetField("inputPlayer");
-                        _reflectionCacheInitialized = true;
-                    }
-
-                    // Get the input player value (still per-frame, but metadata lookup is cached)
-                    object? inputPlayer = _cachedInputPlayerProperty?.GetValue(_hud.localUserViewer)
-                                       ?? _cachedInputPlayerField?.GetValue(_hud.localUserViewer);
-
-                    if (inputPlayer != null)
-                    {
-                        _cachedGetButtonMethod ??= inputPlayer.GetType().GetMethod("GetButton", new[] { typeof(string) });
-                        if (_cachedGetButtonMethod != null)
-                        {
-                            showInfo = (bool)_cachedGetButtonMethod.Invoke(inputPlayer, _getButtonArgs);
-                        }
+                        showInfo = player.GetButton("info");
                     }
                 }
 
@@ -112,6 +99,10 @@ namespace DrifterBossGrabMod.UI
                 }
             }
         }
+
+        // ========================================================================================
+        // UI INITIALIZATION
+        // ========================================================================================
 
         private void InitializeUI(GameObject parentContainer)
         {
@@ -156,6 +147,10 @@ namespace DrifterBossGrabMod.UI
             rectTransform.sizeDelta = new Vector2(500, 400); // Fixed size for info
         }
 
+        // ========================================================================================
+        // STATS DISPLAY
+        // ========================================================================================
+
         private void UpdateStatsDisplay(bool showFullStats = true)
         {
             if (_statsText == null || _uiPanel == null) return;
@@ -167,7 +162,7 @@ namespace DrifterBossGrabMod.UI
                 _statsText.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
             }
 
-            var aggregateState = StateCalculator.GetAggregateState(_bagController);
+            var aggregateState = StateCalculator.GetAggregateState(_bagController, _cachedAggregateState);
             float totalMass = aggregateState.baggedMass;
             float penalty = aggregateState.movespeedPenalty * 100f;
 
@@ -183,7 +178,7 @@ namespace DrifterBossGrabMod.UI
 
             // Check if bottomless bag is enabled with INF capacity
             bool isBottomlessBag = PluginConfig.Instance.BottomlessBagEnabled.Value &&
-                PluginConfig.Instance.IsAddedCapacityInfinite;
+                PluginConfig.Instance.IsSlotScalingFormulaInfinite;
 
             string capacityStr;
             if (useSlotBasedDisplay)
@@ -211,7 +206,7 @@ namespace DrifterBossGrabMod.UI
             }
 
             // Get the main seat object for per-object stats display
-            var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
+            var mainSeatObject = API.DrifterBagAPI.GetMainPassenger(_bagController);
 
             // Calculate damage coefficient using the same formula as actual slam damage
             float massFraction = massCapacity > 0 ? (totalMass / massCapacity) : 0f;
@@ -305,7 +300,7 @@ namespace DrifterBossGrabMod.UI
             }
 
             // Use StateCalculator to get live state (reads from current BaggedObject state machine)
-            var state = StateCalculator.GetIndividualObjectState(_bagController, mainSeatObject);
+            var state = StateCalculator.GetIndividualObjectState(_bagController, mainSeatObject, _cachedIndividualState);
             if (state == null || state.targetObject == null)
             {
                 _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Loading stats...</color>\n\n" + totalsSection;
@@ -370,8 +365,10 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        // Gets the item damage multiplier from the attacker's inventory
-        // This is used to calculate damage with items like Delicate Watch
+        // ========================================================================================
+        // ITEM CALCULATIONS
+        // ========================================================================================
+
         private float GetItemDamageMultiplier(CharacterBody? targetBody = null)
         {
             if (_body == null || _body.inventory == null)

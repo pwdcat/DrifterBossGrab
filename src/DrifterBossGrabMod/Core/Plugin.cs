@@ -10,10 +10,18 @@ using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
+    // ========================================================================================
+    // DRIFTER BOSS GRAB PLUGIN
+    // ========================================================================================
+
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
     [BepInDependency("com.rune580.riskofoptions", BepInDependency.DependencyFlags.SoftDependency)]
     public partial class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
+        // ========================================================================================
+        // CORE CONSTANTS
+        // ========================================================================================
+
         public static class Timing
         {
             public const float BatchInitializationDelay = 0.2f;
@@ -35,6 +43,10 @@ namespace DrifterBossGrabMod
             public const float IconPivotX = 0.5f;
             public const float IconPivotY = 0.5f;
         }
+
+        // ========================================================================================
+        // PLUGIN STATE
+        // ========================================================================================
 
         public static DrifterBossGrabPlugin? Instance { get; private set; }
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
@@ -58,6 +70,10 @@ namespace DrifterBossGrabMod
         private bool _wasBalanceEnabled;
         private bool _wasDrifterGrabEnabled;
         private bool _wasRecoveryEnabled;
+
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
 
         private void InitializeInstance()
         {
@@ -94,6 +110,10 @@ namespace DrifterBossGrabMod
             PersistenceManager.Initialize();
         }
 
+        // ========================================================================================
+        // LIFECYCLE
+        // ========================================================================================
+
         public void Awake()
         {
             InitializeInstance();
@@ -123,6 +143,10 @@ namespace DrifterBossGrabMod
             ProperSave.ProperSaveIntegration.Initialize();
             ProperSave.Spawning.ObjectSpawner.Initialize();
         }
+
+        // ========================================================================================
+        // GAME EVENTS
+        // ========================================================================================
 
         private void RegisterGameEvents()
         {
@@ -162,6 +186,10 @@ namespace DrifterBossGrabMod
                 Instance.StartCoroutine(DelayedBatchSpecialObjectAttributesInitialization());
             }
         }
+
+        // ========================================================================================
+        // COROUTINES
+        // ========================================================================================
 
         private static System.Collections.IEnumerator DelayedEnsureSpecialObjectAttributes()
         {
@@ -231,6 +259,10 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // ========================================================================================
+        // CLEANUP
+        // ========================================================================================
+
         public void OnDestroy()
         {
             Run.onPlayerFirstCreatedServer -= OnPlayerFirstCreated;
@@ -242,12 +274,21 @@ namespace DrifterBossGrabMod
             RemovePersistenceEventHandlers();
             RemoveFeatureToggleHandlers();
             RemoveClientPreferenceHandlers();
+            RemoveDynamicHandlers();
             CleanupFeatures();
             StopCoroutines();
             Patches.UIPatches.CleanupMassCapacityUI();
             Networking.BagStateSync.Cleanup();
             Networking.NetworkMessageRegistry.Cleanup();
             ProperSave.ProperSaveIntegration.Cleanup();
+            if (RooInstalled)
+            {
+                var current = RiskOfOptions.Components.Panel.ModOptionPanelController.OnModOptionsExit;
+                if (current != null)
+                {
+                    RiskOfOptions.Components.Panel.ModOptionPanelController.OnModOptionsExit = (Action?)Delegate.Remove(current, (Action)OnRiskOfOptionsExit) ?? delegate { };
+                }
+            }
 
         }
 

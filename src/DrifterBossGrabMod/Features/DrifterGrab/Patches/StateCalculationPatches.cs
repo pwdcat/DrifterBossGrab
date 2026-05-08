@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
@@ -29,10 +29,7 @@ namespace DrifterBossGrabMod.Patches
                 // Apply formula-based coefficient to bludgeon damage
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {__instance.damageCoefficient:F2}");
-                }
+                Log.DebugIfEnabled("[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {0:F2}", __instance.damageCoefficient);
             }
         }
 
@@ -64,12 +61,9 @@ namespace DrifterBossGrabMod.Patches
                 float num2 = __instance.baseDurationBeforeInterruptable / __instance.baseDuration;
                 __instance.durationBeforeInterruptable = __instance.baseDuration * num2;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SuffocateSlam_OnEnter] Applied formula-based damage:");
-                    Log.Info($"  Damage Coef: {__instance.damageCoefficient:F2} (mass={bagController.baggedMass:F1}, capacity={damageCapacity:F1})");
-                    Log.Info($"  Base Duration: {__instance.baseDuration:F2}s");
-                }
+                Log.DebugIfEnabled("[SuffocateSlam_OnEnter] Applied formula-based damage:");
+                Log.DebugIfEnabled("  Damage Coef: {0:F2} (mass={1:F1}, capacity={2:F1})", __instance.damageCoefficient, bagController.baggedMass, damageCapacity);
+                Log.DebugIfEnabled("  Base Duration: {0:F2}s", __instance.baseDuration);
             }
         }
 
@@ -95,11 +89,8 @@ namespace DrifterBossGrabMod.Patches
                     // Apply custom damage to the OverlapAttack
                     overlapAttack.damage = drifterBody.damage * effectiveCoef;
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
-                        Log.Info($"  OverlapAttack Damage: {overlapAttack.damage:F2} (coef={effectiveCoef:F2}, baseDamage={drifterBody.damage:F2})");
-                    }
+                    Log.DebugIfEnabled("[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
+                    Log.DebugIfEnabled("  OverlapAttack Damage: {0:F2} (coef={1:F2}, baseDamage={2:F2})", overlapAttack.damage, effectiveCoef, drifterBody.damage);
                 }
             }
         }

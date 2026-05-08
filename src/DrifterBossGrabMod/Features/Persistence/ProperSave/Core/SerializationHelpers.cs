@@ -128,10 +128,11 @@ namespace DrifterBossGrabMod.ProperSave.Core
             }
             catch (Exception ex)
             {
-                Log.Warning($"[SerializationHelpers] Failed to convert value: {ex.Message}");
+                Log.DebugIfEnabled($"[SerializationHelpers] Failed to convert value: {ex.Message}");
             }
 
             return value;
         }
     }
 }
+

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using RoR2;
 using UnityEngine;
@@ -20,12 +21,25 @@ namespace DrifterBossGrabMod.API
         Over
     }
 
+    // ========================================================================================
+    // DRIFTER BAG API
+    // ========================================================================================
+
     public static class DrifterBagAPI
     {
+        public static IEnumerable<DrifterBagController> GetAllControllers()
+        {
+            return BagPatches.GetAllControllers();
+        }
+
         public static List<GameObject> GetBaggedObjects(DrifterBagController controller)
         {
             if (controller == null) return new List<GameObject>();
-            return new List<GameObject>(BagPatches.GetState(controller).BaggedObjects ?? new List<GameObject>());
+            var state = BagPatches.GetState(controller);
+            lock (state.BagLock)
+            {
+                return new List<GameObject>(state.BaggedObjects ?? new List<GameObject>());
+            }
         }
 
         public static int GetBagCount(DrifterBagController controller)
@@ -37,9 +51,9 @@ namespace DrifterBossGrabMod.API
         {
             return BagCapacityCalculator.GetUtilityMaxStock(controller);
         }
-        public static bool HasRoom(DrifterBagController controller)
+        public static bool HasRoom(DrifterBagController controller, GameObject? incomingObject = null)
         {
-            return BagCapacityCalculator.HasRoomForGrab(controller);
+            return BagCapacityCalculator.HasRoomForGrab(controller, incomingObject);
         }
 
         public static float GetTotalMass(DrifterBagController controller)
@@ -76,17 +90,134 @@ namespace DrifterBossGrabMod.API
         public static bool IsObjectInBag(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            return list != null && list.Contains(obj);
+            var state = BagPatches.GetState(controller);
+            lock (state.BagLock)
+            {
+                return state.BaggedObjects != null && state.BaggedObjects.Contains(obj);
+            }
         }
 
         public static GameObject? GetMainPassenger(DrifterBagController controller)
         {
             return BagPatches.GetMainSeatObject(controller);
         }
+
+        public static ConcurrentDictionary<GameObject, VehicleSeat> GetAdditionalSeats(DrifterBagController controller)
+        {
+            if (controller == null) return new ConcurrentDictionary<GameObject, VehicleSeat>();
+            return BagPatches.GetState(controller).AdditionalSeats;
+        }
+
+        public static GameObject? GetIncomingObject(DrifterBagController controller)
+        {
+            if (controller == null) return null;
+            return BagPatches.GetState(controller).IncomingObject;
+        }
+
+        public static void SetIncomingObject(DrifterBagController controller, GameObject? obj)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).IncomingObject = obj;
+        }
+
+        public static void MarkMassDirty(DrifterBagController controller)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).MarkMassDirty();
+        }
+
+        public static bool IsMassDirty(DrifterBagController controller)
+        {
+            if (controller == null) return false;
+            return BagPatches.GetState(controller).IsMassDirty;
+        }
+
+        public static void ClearMassDirty(DrifterBagController controller)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).ClearMassDirty();
+        }
+
+        public static void RemoveInstanceId(DrifterBagController controller, int instanceId)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).RemoveInstanceId(instanceId);
+        }
+
+        public static void AddInstanceId(DrifterBagController controller, int instanceId)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).AddInstanceId(instanceId);
+        }
+
+        public static bool ContainsInstanceId(DrifterBagController controller, int instanceId)
+        {
+            if (controller == null) return false;
+            return BagPatches.GetState(controller).ContainsInstanceId(instanceId);
+        }
+
+        public static int GetIntendedSelectedIndex(DrifterBagController controller)
+        {
+            if (controller == null) return -1;
+            return BagPatches.GetState(controller).IntendedSelectedIndex;
+        }
+
+        public static void SetIntendedSelectedIndex(DrifterBagController controller, int index)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).IntendedSelectedIndex = index;
+        }
+
+        public static bool AreCollidersDisabled(DrifterBagController controller, GameObject obj)
+        {
+            if (controller == null || obj == null) return false;
+            var state = BagPatches.GetState(controller);
+            return state.DisabledCollidersByObject.TryGetValue(obj, out var d) && d.Count > 0;
+        }
+
+        public static void SetCollidersDisabled(DrifterBagController controller, GameObject obj, Dictionary<Collider, bool> disabledStates)
+        {
+            if (controller == null || obj == null) return;
+            var state = BagPatches.GetState(controller);
+            state.DisabledCollidersByObject[obj] = disabledStates;
+        }
+
+        public static Dictionary<Collider, bool> GetOrCreateDisabledColliders(DrifterBagController controller, GameObject obj)
+        {
+            if (controller == null || obj == null) return new Dictionary<Collider, bool>();
+            var state = BagPatches.GetState(controller);
+            if (!state.DisabledCollidersByObject.ContainsKey(obj))
+            {
+                state.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
+            }
+            return state.DisabledCollidersByObject[obj];
+        }
+
+        public static void RestoreColliders(DrifterBagController controller, GameObject obj)
+        {
+            if (controller == null || obj == null) return;
+            var state = BagPatches.GetState(controller);
+            if (state.DisabledCollidersByObject.TryGetValue(obj, out var states))
+            {
+                BodyColliderCache.RestoreMovementColliders(states);
+                state.DisabledCollidersByObject.Remove(obj, out _);
+            }
+        }
         public static bool IsBlacklisted(string objectName)
         {
             return PluginConfig.IsBlacklisted(objectName);
+        }
+
+        public static UncappedBagScaleComponent? GetUncappedBagScale(DrifterBagController controller)
+        {
+            if (controller == null) return null;
+            return BagPatches.GetState(controller).UncappedBagScale;
+        }
+
+        public static void SetUncappedBagScale(DrifterBagController controller, UncappedBagScaleComponent? component)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).UncappedBagScale = component;
         }
 
         // Seat swapping is delayed by one frame to allow the previous passenger's state machine to exit cleanly.
@@ -117,10 +248,7 @@ namespace DrifterBossGrabMod.API
                     var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
                     if (bagStateMachine != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[DrifterBagAPI] Setting BaggedObject state on {targetBody.name} for {obj.name}");
-                        }
+                        Log.DebugIfEnabled("[DrifterBagAPI] Setting BaggedObject state on {0} for {1}", targetBody.name, obj.name);
                         var baggedObjectState = new BaggedObject();
                         baggedObjectState.targetObject = obj;
                         bagStateMachine.SetNextState(baggedObjectState);
@@ -129,6 +257,149 @@ namespace DrifterBossGrabMod.API
             }
 
             return true;
+        }
+
+        public static void SetAdditionalSeats(DrifterBagController controller, ConcurrentDictionary<GameObject, VehicleSeat> seats)
+        {
+            if (controller == null) return;
+            BagPatches.GetState(controller).AdditionalSeats = seats;
+        }
+
+        public static bool RemoveAdditionalSeat(DrifterBagController controller, GameObject obj)
+        {
+            if (controller == null || obj == null) return false;
+            return BagPatches.GetState(controller).AdditionalSeats.TryRemove(obj, out _);
+        }
+
+        public static void SetMainSeatObject(DrifterBagController controller, GameObject? obj)
+        {
+            if (controller == null) return;
+            BagPatches.SetMainSeatObject(controller, obj);
+        }
+
+        public static void SetBaggedObjects(DrifterBagController controller, List<GameObject> objects)
+        {
+            if (controller == null) return;
+            var state = BagPatches.GetState(controller);
+            lock (state.BagLock)
+            {
+                state.BaggedObjects = objects;
+            }
+        }
+
+        public static void SaveObjectState(DrifterBagController controller, GameObject obj, BaggedObjectStateData state)
+        {
+            BaggedObjectPatches.SaveObjectState(controller, obj, state);
+        }
+
+        public static BaggedObjectStateData? LoadObjectState(DrifterBagController controller, GameObject obj)
+        {
+            return BaggedObjectPatches.LoadObjectState(controller, obj);
+        }
+
+        public static BaggedObjectStateData? FindStateForObject(GameObject obj)
+        {
+            return BaggedObjectPatches.FindStateForObject(obj);
+        }
+
+        public static void UpdateBagScale(BaggedObject instance, float mass)
+        {
+            BaggedObjectPatches.UpdateBagScale(instance, mass);
+        }
+
+        public static void HandlePassengerExit(VehicleSeat seat, GameObject passenger)
+        {
+            BaggedObjectPatches.HandlePassengerExit(seat, passenger);
+        }
+
+        public static void RefreshUIOverlayForMainSeat(DrifterBagController controller, GameObject target)
+        {
+            BaggedObjectPatches.RefreshUIOverlayForMainSeat(controller, target);
+        }
+
+        public static void SynchronizeBaggedObjectState(DrifterBagController controller, GameObject target)
+        {
+            BaggedObjectPatches.SynchronizeBaggedObjectState(controller, target);
+        }
+
+        public static BaggedObject? FindOrCreateBaggedObjectState(DrifterBagController controller, GameObject target)
+        {
+            return BaggedObjectPatches.FindOrCreateBaggedObjectState(controller, target);
+        }
+
+        public static BaggedObject? FindExistingBaggedObjectState(DrifterBagController controller, GameObject target)
+        {
+            return BaggedObjectPatches.FindExistingBaggedObjectState(controller, target);
+        }
+
+        public static void UpdateTargetFields(BaggedObject instance)
+        {
+            BaggedObjectPatches.UpdateTargetFields(instance);
+        }
+
+        public static bool IsPassengerDeadOrDestroyed(GameObject passenger)
+        {
+            return BaggedObjectPatches.IsPassengerDeadOrDestroyed(passenger);
+        }
+
+        public static bool IsObjectExitSuppressed(GameObject passenger)
+        {
+            return BaggedObjectPatches.IsObjectExitSuppressed(passenger);
+        }
+
+        public static void RemoveUIOverlay(GameObject passenger, DrifterBagController controller)
+        {
+            BaggedObjectPatches.RemoveUIOverlay(passenger, controller);
+        }
+
+        public static void RemoveUIOverlayForNullState(DrifterBagController controller)
+        {
+            BaggedObjectPatches.RemoveUIOverlayForNullState(controller);
+        }
+
+        public static void RestorePreservedState(DrifterBagController controller, GameObject obj)
+        {
+            BaggedObjectPatches.RestorePreservedState(controller, obj);
+        }
+
+        public static void ClearAllTemporaryPreservation(DrifterBagController controller)
+        {
+            BaggedObjectPatches.ClearAllTemporaryPreservation(controller);
+        }
+
+        public static void UnsetAllOverrides(EntityStates.Drifter.Bag.BaggedObject? state, GameObject drifterObject)
+        {
+            BaggedObjectStatePatches.UnsetAllOverrides(state, drifterObject);
+        }
+
+        public static void RegisterTrackedESM(EntityStateMachine esm, Patches.BaggedObjectTracker tracker)
+        {
+            BaggedObjectStatePatches.RegisterTrackedESM(esm, tracker);
+        }
+
+        public static void UnregisterTrackedESM(EntityStateMachine esm)
+        {
+            BaggedObjectStatePatches.UnregisterTrackedESM(esm);
+        }
+
+        public static void CleanupObjectState(DrifterBagController controller, GameObject obj, bool preserveForThrow = false)
+        {
+            BaggedObjectPatches.CleanupObjectState(controller, obj, preserveForThrow);
+        }
+
+        public static void PreserveStateForThrow(DrifterBagController controller, GameObject obj)
+        {
+            BaggedObjectPatches.PreserveStateForThrow(controller, obj);
+        }
+
+        public static void ForceCleanupOverrides(DrifterBagController controller, GameObject obj)
+        {
+            BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
+        }
+
+        public static GameObject? GetMainSeatOccupant(DrifterBagController controller)
+        {
+            return BaggedObjectPatches.GetMainSeatOccupant(controller);
         }
 
         public static void RemoveBaggedObject(DrifterBagController controller, GameObject obj, bool isDestroying = false)
@@ -162,14 +433,133 @@ namespace DrifterBossGrabMod.API
             runner.StartCoroutine(DelayedAutoGrabCoroutine(controller, obj, delay));
         }
 
+        public static void ScheduleAutoGrab(GameObject obj, string? ownerPlayerId = null, float delay = 0.5f)
+        {
+            if (obj == null) return;
+            var coroutineRunner = new GameObject("AutoGrabRunner_" + obj.GetInstanceID());
+            var runner = coroutineRunner.AddComponent<AutoGrabCoroutineRunner>();
+            runner.StartCoroutine(DelayedOwnerAutoGrabCoroutine(obj, ownerPlayerId, delay, runner));
+        }
+
         private static IEnumerator DelayedAutoGrabCoroutine(DrifterBagController controller, GameObject obj, float delay)
         {
             yield return new WaitForSeconds(delay);
 
             if (obj != null && obj.activeInHierarchy)
             {
-                AddBaggedObject(controller, obj);
+                TryAutoGrab(obj);
             }
+        }
+
+        private static IEnumerator DelayedOwnerAutoGrabCoroutine(GameObject obj, string? ownerPlayerId, float delay, AutoGrabCoroutineRunner runner)
+        {
+            yield return new WaitForSeconds(delay);
+
+            if (obj != null)
+            {
+                TryAutoGrab(obj, ownerPlayerId);
+            }
+
+            if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
+        }
+
+        public static void TryAutoGrab(GameObject obj, string? ownerPlayerId = null)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active) return;
+            if (obj == null) return;
+
+            // Skip CharacterMaster objects
+            if (obj.GetComponent<CharacterMaster>() != null) return;
+
+            // Skip dead objects
+            var healthComp = obj.GetComponent<RoR2.HealthComponent>();
+            if (healthComp != null && !healthComp.alive) return;
+
+            // Resolve owner body
+            CharacterBody? targetBody = null;
+            if (!string.IsNullOrEmpty(ownerPlayerId))
+            {
+                var ownerUser = FindNetworkUserById(ownerPlayerId);
+                if (ownerUser != null && ownerUser.master != null)
+                {
+                    targetBody = ownerUser.master.GetBody();
+                }
+            }
+            else
+            {
+                // Fallback for single player
+                var users = NetworkUser.readOnlyInstancesList;
+                if (users.Count == 1)
+                {
+                    targetBody = users[0].master?.GetBody();
+                }
+            }
+
+            if (targetBody == null) return;
+
+            var bagController = targetBody.GetComponent<DrifterBagController>();
+            if (bagController == null) return;
+
+            if (HasRoom(bagController))
+            {
+                try
+                {
+                    bool isCharacterBody = obj.GetComponent<CharacterBody>() != null;
+                    if (isCharacterBody)
+                    {
+                        bool bagIsEmpty = GetBagCount(bagController) == 0;
+                        if (bagIsEmpty)
+                        {
+                            var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
+                            if (bagStateMachine != null)
+                            {
+                                BaggedObjectPatches.SuppressExitForObject(obj);
+                                var baggedObject = new BaggedObject();
+                                baggedObject.targetObject = obj;
+                                bagStateMachine.SetNextState(baggedObject);
+                                return;
+                            }
+                        }
+
+                        // If main seat is full or no state machine, use additional seat
+                        Log.DebugIfEnabled($"[DrifterBagAPI] Assigning {obj.name} to additional seat on {targetBody.name}");
+                        BaggedObjectPatches.SuppressExitForObject(obj);
+                        bagController.AssignPassenger(obj);
+                    }
+                    else
+                    {
+                        BaggedObjectPatches.SuppressExitForObject(obj);
+                        bagController.AssignPassenger(obj);
+
+                        if (GetMainPassenger(bagController) == obj)
+                        {
+                            var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
+                            if (bagStateMachine != null)
+                            {
+                                var baggedObject = new BaggedObject();
+                                baggedObject.targetObject = obj;
+                                bagStateMachine.SetNextState(baggedObject);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[DrifterBagAPI.TryAutoGrab] Error: {ex}");
+                }
+            }
+        }
+
+        public static NetworkUser? FindNetworkUserById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            foreach (var user in NetworkUser.readOnlyInstancesList)
+            {
+                if (user == null) continue;
+                string userIdStr = user.id.strValue ?? $"{user.id.value}_{user.id.subId}";
+                if (userIdStr == id) return user;
+            }
+            return null;
         }
 
         private class AutoGrabCoroutineRunner : MonoBehaviour
@@ -191,7 +581,10 @@ namespace DrifterBossGrabMod.API
             }
         }
 
-        #region Encumbrance and Status Queries
+
+        // ========================================================================================
+        // ENCUMBRANCE & STATUS
+        // ========================================================================================
 
         public static float GetMassRatio(DrifterBagController controller)
         {
@@ -233,9 +626,11 @@ namespace DrifterBossGrabMod.API
             return Core.SlamDamageCalculator.GetEffectiveCoefficient(controller);
         }
 
-        #endregion
 
-        #region Formula Variable Registry API
+        // ========================================================================================
+        // FORMULA VARIABLES
+        // ========================================================================================
+
         public static void RegisterFormulaVariable(string name, float value, string? description = null)
         {
             Balance.FormulaRegistry.RegisterVariable(name, value, description);
@@ -257,7 +652,6 @@ namespace DrifterBossGrabMod.API
             return Balance.FormulaRegistry.GetRegisteredVariableNames();
         }
 
-        // unregister formula variable by name
         // name: variable name case-insensitive
         // returns true if found and removed
         public static bool UnregisterFormulaVariable(string name)
@@ -281,9 +675,10 @@ namespace DrifterBossGrabMod.API
             return Balance.FormulaRegistry.GetVariableInfo(name);
         }
 
-        #endregion
 
-        #region Filtered Queries
+        // ========================================================================================
+        // FILTERED QUERIES
+        // ========================================================================================
 
         public static List<GameObject> GetBaggedObjectsByComponent<T>(DrifterBagController controller) where T : Component
         {
@@ -378,9 +773,10 @@ namespace DrifterBossGrabMod.API
             return lightest;
         }
 
-        #endregion
 
-        #region Utility Methods - Atomic Operations
+        // ========================================================================================
+        // OPERATIONS
+        // ========================================================================================
 
         public static bool TryGrab(DrifterBagController controller, GameObject obj)
         {
@@ -411,11 +807,11 @@ namespace DrifterBossGrabMod.API
             return count;
         }
 
-        #endregion
 
-        #region Utility Methods - Summary Methods
+        // ========================================================================================
+        // SUMMARY HELPERS
+        // ========================================================================================
 
-        // Summaries provide a human-readable snapshot of the bag's state for debugging and diagnostic logs.
         public static string GetFormattedBagSummary(DrifterBagController controller)
         {
             if (controller == null) return "Bag: N/A";
@@ -465,11 +861,11 @@ namespace DrifterBossGrabMod.API
             return counts;
         }
 
-        #endregion
 
-        #region Events
+        // ========================================================================================
+        // EVENTS
+        // ========================================================================================
 
-        // Events allow for a decoupled architecture where external systems can react to bag state changes without tight coupling.
         public static event Action<DrifterBagController, GameObject, int>? OnObjectGrabbed;
 
         // fired when object is released or ejected
@@ -504,11 +900,11 @@ namespace DrifterBossGrabMod.API
         // previousTotalMass: old mass
         public static event Action<DrifterBagController, float, float>? OnMassRecalculated;
 
-        #endregion
 
-        #region Internal Event Invokers
+        // ========================================================================================
+        // EVENT INVOKERS
+        // ========================================================================================
 
-        // Internal helper methods to invoke events from other classes
         internal static void InvokeOnObjectGrabbed(DrifterBagController controller, GameObject obj, int slotIndex)
         {
             OnObjectGrabbed?.Invoke(controller, obj, slotIndex);
@@ -544,11 +940,11 @@ namespace DrifterBossGrabMod.API
             OnMassRecalculated?.Invoke(controller, newTotalMass, previousTotalMass);
         }
 
-        #endregion
 
-        #region Serialization and Save/Load API
+        // ========================================================================================
+        // SERIALIZATION API
+        // ========================================================================================
 
-        // The plugin system allows the save/load handler to support custom data types.
         public static void RegisterSerializerPlugin(ProperSave.Serializers.IObjectSerializerPlugin plugin)
         {
             ProperSave.ProperSaveIntegration.RegisterPlugin(plugin);
@@ -560,6 +956,5 @@ namespace DrifterBossGrabMod.API
             return ProperSave.ProperSaveIntegration.GetSerializerPlugins();
         }
 
-        #endregion
     }
 }

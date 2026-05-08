@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using HarmonyLib;
 using RoR2;
 using UnityEngine.Networking;
@@ -37,10 +37,7 @@ namespace DrifterBossGrabMod.Patches
 
         private static void OnBeginExit(SceneExitController exitController)
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[SceneExitPatches] SceneExitController.onBeginExit called. Executing persistence capture.");
-            }
+            Log.DebugIfEnabled("[SceneExitPatches] SceneExitController.onBeginExit called. Executing persistence capture.");
             ExecutePersistenceCapture();
         }
 
@@ -53,10 +50,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (_hasCapturedForScene)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[SceneExitPatches] Persistence capture already executed for this scene transition. Skipping.");
-                }
+                Log.DebugIfEnabled("[SceneExitPatches] Persistence capture already executed for this scene transition. Skipping.");
                 return;
             }
 
@@ -77,10 +71,7 @@ namespace DrifterBossGrabMod.Patches
             // Move objects to persistence container
             PersistenceManager.MoveObjectsToPersistenceContainer();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Captured {baggedObjects.Count} bagged objects on scene exit{(NetworkServer.active ? " and sent persistence message" : "")}");
-            }
+            Log.DebugIfEnabled(" Captured {0} bagged objects on scene exit{1}", baggedObjects.Count, (NetworkServer.active ? " and sent persistence message" : ""));
         }
     }
 }

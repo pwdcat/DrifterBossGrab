@@ -10,6 +10,10 @@ using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod
 {
+    // ========================================================================================
+    // PLUGIN CONFIGURATION
+    // ========================================================================================
+
     public enum EnemyRecoveryMode
     {
         Kill = 0,
@@ -89,6 +93,10 @@ namespace DrifterBossGrabMod
         Custom
     }
 
+    // ========================================================================================
+    // CACHING UTILITIES
+    // ========================================================================================
+
     public interface ICachedValue<T>
     {
         T Value { get; }
@@ -136,6 +144,10 @@ namespace DrifterBossGrabMod
     public enum ComponentChooserDummy { SelectToToggle }
     public enum ComponentChooserSortMode { ByFrequency, ByProximity, ByRaycast }
 
+    // ========================================================================================
+    // CORE CONFIGURATION
+    // ========================================================================================
+
     public class PluginConfig
     {
         private static PluginConfig _instance = null!;
@@ -167,7 +179,8 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> RecoverBaggedEnvironmentObjects { get; private set; } = null!;
 
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
-        public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
+        public ConfigEntry<string> SlotScalingFormula { get; private set; } = null!;
+        public bool IsSlotScalingFormulaInfinite => string.Equals(SlotScalingFormula.Value, "INF", StringComparison.OrdinalIgnoreCase);
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<bool> EnableSuccessiveGrabStockRefresh { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
@@ -197,6 +210,12 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> CenterSlotShowIcon { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowWeightIcon { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowName { get; private set; } = null!;
+
+        public float GetMaxLaunchSpeed(float defaultValue = 30f)
+        {
+            if (IsMaxLaunchSpeedInfinite) return float.MaxValue;
+            return float.TryParse(MaxLaunchSpeed.Value, out float val) ? val : defaultValue;
+        }
         public ConfigEntry<bool> CenterSlotShowHealthBar { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowSlotNumber { get; private set; } = null!;
         public ConfigEntry<float> SideSlotX { get; private set; } = null!;
@@ -246,7 +265,6 @@ namespace DrifterBossGrabMod
 
         public ConfigEntry<StateCalculationMode> StateCalculationMode { get; private set; } = null!;
         public ConfigEntry<float> OverencumbranceMax { get; private set; } = null!;
-        public ConfigEntry<string> SlotScalingFormula { get; private set; } = null!;
         public ConfigEntry<string> MassCapacityFormula { get; private set; } = null!;
         public ConfigEntry<string> MovespeedPenaltyFormula { get; private set; } = null!;
         public ConfigEntry<string> SlamDamageFormula { get; private set; } = null!;
@@ -331,7 +349,6 @@ namespace DrifterBossGrabMod
         {
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLOT_SCALING_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
@@ -361,12 +378,11 @@ namespace DrifterBossGrabMod
         internal ICachedValue<HashSet<string>> _persistenceBlacklistCacheWithClones = null!;
         internal ICachedValue<HashSet<string>> _grabbableComponentTypesCache = null!;
         internal ICachedValue<HashSet<string>> _grabbableKeywordBlacklistCache = null!;
-        private readonly List<IGrabbingStrategy> _grabbingStrategies = new List<IGrabbingStrategy>
-        {
-            new BossGrabbingStrategy(),
-            new NPCGrabbingStrategy(),
-            new EnvironmentGrabbingStrategy()
-        };
+
+        // ========================================================================================
+        // BLACKLIST HELPERS
+        // ========================================================================================
+
         public static bool IsBlacklisted(string? name)
         {
             if (string.IsNullOrEmpty(name)) return false;
@@ -413,53 +429,68 @@ namespace DrifterBossGrabMod
             }
             return false;
         }
+        // ========================================================================================
+        // GRABBABILITY LOGIC
+        // ========================================================================================
+
         public static bool IsGrabbable(GameObject? obj)
         {
             if (obj == null) return false;
-            if (IsKeywordBlacklisted(obj.name))
-            {
-                return false;
-            }
-            if (IsBlacklisted(obj.name))
-            {
-                return false;
-            }
+            if (IsKeywordBlacklisted(obj.name)) return false;
+            if (IsBlacklisted(obj.name)) return false;
+
             bool hasRequiredComponent = false;
             foreach (var componentType in Instance._grabbableComponentTypesCache.Value)
             {
-                var component = obj.GetComponent(componentType);
-                if (component != null)
+                if (obj.GetComponent(componentType))
                 {
                     hasRequiredComponent = true;
                     break;
                 }
             }
-            if (!hasRequiredComponent)
+            if (!hasRequiredComponent) return false;
+
+            var body = obj.GetComponent<CharacterBody>();
+            if (body == null)
             {
-                return false;
+                return Instance.EnableEnvironmentGrabbing.Value;
             }
-            foreach (var strategy in Instance._grabbingStrategies)
+
+            if (body.isBoss || body.isChampion)
             {
-                if (strategy.CanGrab(obj))
-                {
-                    return true;
-                }
+                return Instance.EnableBossGrabbing.Value;
             }
-            return false;
+
+            if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable))
+            {
+                return Instance.EnableNPCGrabbing.Value;
+            }
+
+            // Standard NPC
+            return Instance.EnableNPCGrabbing.Value;
         }
+
+        public const float DefaultMassCap = 700f;
+        public const float DefaultBagScaleCap = 1f;
+        public const float DefaultMaxLaunchSpeed = 30f;
+        public const string DefaultMassCapString = "700";
+        public const string DefaultBagScaleCapString = "1";
+        public const string DefaultMaxLaunchSpeedString = "30";
+
+        // ========================================================================================
+        // PARSING UTILITIES
+        // ========================================================================================
 
         // Cached config string parsing - avoids Trim().ToUpper() allocations on hot paths
         private bool _isBagScaleCapInfinite;
         private bool _isMassCapInfinite;
-        private bool _isAddedCapacityInfinite;
         private bool _isMaxLaunchSpeedInfinite;
-        private float _parsedMassCap = 700f;
-        private float _parsedBagScaleCap = 1f;
-        private float _parsedMaxLaunchSpeed = 30f;
+        private float _parsedMassCap = DefaultMassCap;
+        private float _parsedBagScaleCap = DefaultBagScaleCap;
+        private float _parsedMaxLaunchSpeed = DefaultMaxLaunchSpeed;
 
         public bool IsBagScaleCapInfinite => _isBagScaleCapInfinite;
         public bool IsMassCapInfinite => _isMassCapInfinite;
-        public bool IsAddedCapacityInfinite => _isAddedCapacityInfinite;
         public bool IsMaxLaunchSpeedInfinite => _isMaxLaunchSpeedInfinite;
         public float ParsedMassCap => _parsedMassCap;
         public float ParsedBagScaleCap => _parsedBagScaleCap;
@@ -468,16 +499,18 @@ namespace DrifterBossGrabMod
         public void RefreshCachedConfigStrings()
         {
             _isBagScaleCapInfinite = string.Equals(BagScaleCap.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(BagScaleCap.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
-            _parsedBagScaleCap = _isBagScaleCapInfinite ? float.MaxValue : (float.TryParse(BagScaleCap.Value, out var bsc) ? bsc : 1f);
+            _parsedBagScaleCap = _isBagScaleCapInfinite ? float.MaxValue : (float.TryParse(BagScaleCap.Value, out var bsc) ? bsc : DefaultBagScaleCap);
 
             _isMassCapInfinite = string.Equals(MassCap.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MassCap.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
-            _parsedMassCap = _isMassCapInfinite ? float.MaxValue : (float.TryParse(MassCap.Value, out var mc) ? mc : 700f);
-
-            _isAddedCapacityInfinite = string.Equals(AddedCapacity.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(AddedCapacity.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+            _parsedMassCap = _isMassCapInfinite ? float.MaxValue : (float.TryParse(MassCap.Value, out var mc) ? mc : DefaultMassCap);
 
             _isMaxLaunchSpeedInfinite = string.Equals(MaxLaunchSpeed.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MaxLaunchSpeed.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
-            _parsedMaxLaunchSpeed = _isMaxLaunchSpeedInfinite ? float.MaxValue : (float.TryParse(MaxLaunchSpeed.Value, out var mls) ? mls : 30f);
+            _parsedMaxLaunchSpeed = _isMaxLaunchSpeedInfinite ? float.MaxValue : (float.TryParse(MaxLaunchSpeed.Value, out var mls) ? mls : DefaultMaxLaunchSpeed);
         }
+
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
 
         public static void Init(ConfigFile cfg)
         {
@@ -535,7 +568,7 @@ namespace DrifterBossGrabMod
             Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
                 "Store multiple objects and cycle through them.");
-            Instance.AddedCapacity = cfg.Bind("Bottomless Bag", "AddedCapacity", "0", "Flat extra bag capacity.");
+            Instance.SlotScalingFormula = cfg.Bind("Bottomless Bag", "SlotScalingFormula", "2", "Formula for extra bag slots. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
             Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "Clamp stock refresh to empty slots.");
             Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "Refresh stock only after a successful grab at 0.");
             Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles.");
@@ -601,7 +634,6 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color for overencumbrance gradient.");
 
             Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable mass and penalty systems.");
-            Instance.SlotScalingFormula = cfg.Bind("Balance", "SlotScalingFormula", "0", "Formula for extra bag slots. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
             Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC", "Formula for mass capacity limit. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
             Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0", "Formula for movement speed penalty. Supported: T (Total Mass), M (Mass Cap limit), C (Total Cap), H (Max HP), L (Level), MC (Mass Cap config), S (Stage).");
 
@@ -615,9 +647,9 @@ namespace DrifterBossGrabMod
             Instance.SearchRadiusMultiplier = cfg.Bind("Balance", "SearchRadiusMultiplier", 1.0f, "Multiplier for grab reach distance.");
             Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for breakout time.");
             Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Hits before breakout.", new AcceptableValueRange<int>(1, 100)));
-            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for breakout.");
-            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap.");
-            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities.");
+            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", DefaultMaxLaunchSpeedString, "Maximum launch speed for breakout.");
+            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", DefaultBagScaleCapString, "Bag visual size cap.");
+            Instance.MassCap = cfg.Bind("Balance", "MassCap", DefaultMassCapString, "Mass cap for caught entities.");
 
             Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1", "Mass multiplier for Elite entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
             Instance.EliteFlagMultiplier.Value = "1";
@@ -708,7 +740,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.SlotScalingFormula.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid SlotScalingFormula: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid SlotScalingFormula: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     CapacityScalingSystem.RecalculateCapacity(bagController);
@@ -720,16 +752,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.MassCapacityFormula.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MassCapacityFormula: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateCapacity(bagController);
-                }
-            };
-
-            Instance.AddedCapacity.SettingChanged += (sender, args) =>
-            {
-                Instance.RefreshCachedConfigStrings();
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid MassCapacityFormula: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     CapacityScalingSystem.RecalculateCapacity(bagController);
@@ -748,7 +771,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.MovespeedPenaltyFormula.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MovespeedPenaltyFormula: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid MovespeedPenaltyFormula: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     CapacityScalingSystem.RecalculatePenalty(bagController);
@@ -777,7 +800,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.EliteFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid EliteFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid EliteFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -788,7 +811,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.BossFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid BossFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid BossFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -799,7 +822,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.ChampionFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid ChampionFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid ChampionFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -810,7 +833,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.PlayerFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid PlayerFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid PlayerFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -821,7 +844,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.MinionFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MinionFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid MinionFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -832,7 +855,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.DroneFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid DroneFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid DroneFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -843,7 +866,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.MechanicalFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MechanicalFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid MechanicalFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -854,7 +877,7 @@ namespace DrifterBossGrabMod
             {
                 var error = FormulaParser.Validate(Instance.VoidFlagMultiplier.Value);
                 if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid VoidFlagMultiplier: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid VoidFlagMultiplier: {error}");
                 foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
                 {
                     DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
@@ -866,7 +889,7 @@ namespace DrifterBossGrabMod
                 var error = FormulaParser.Validate(Instance.SlamDamageFormula.Value);
                 if (error != null)
                 {
-                    Log.Warning($"[PluginConfig] Invalid SlamDamageFormula: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid SlamDamageFormula: {error}");
                 }
 
                 var overlays = UnityEngine.Object.FindObjectsByType<UI.DamagePreviewOverlay>(FindObjectsSortMode.None);
@@ -881,7 +904,7 @@ namespace DrifterBossGrabMod
                 var error = FormulaParser.Validate(Instance.SelectedFlagMultiplier.Value);
                 if (error != null)
                 {
-                    Log.Warning($"[PluginConfig] Invalid FlagMultiplier formula: {error}");
+                    Log.DebugIfEnabled($"[PluginConfig] Invalid FlagMultiplier formula: {error}");
                     return;
                 }
 
@@ -1061,7 +1084,8 @@ namespace DrifterBossGrabMod
             EventHandler npcGrabbingHandler,
             EventHandler environmentGrabbingHandler,
             EventHandler lockedObjectGrabbingHandler,
-            EventHandler projectileGrabbingModeHandler)
+            EventHandler projectileGrabbingModeHandler,
+            EventHandler maxSmacksHandler)
         {
             Instance.EnableDebugLogs.SettingChanged -= debugLogsHandler;
             Instance.BodyBlacklist.SettingChanged -= blacklistHandler;
@@ -1074,6 +1098,7 @@ namespace DrifterBossGrabMod
             Instance.EnableEnvironmentGrabbing.SettingChanged -= environmentGrabbingHandler;
             Instance.EnableLockedObjectGrabbing.SettingChanged -= lockedObjectGrabbingHandler;
             Instance.ProjectileGrabbingMode.SettingChanged -= projectileGrabbingModeHandler;
+            Instance.MaxSmacks.SettingChanged -= maxSmacksHandler;
         }
         public static void ClearBlacklistCache()
         {
@@ -1164,6 +1189,10 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> GetSlotShowSlotNumberConfig(HudElementType slot) =>
             slot == HudElementType.MainSlot ? Instance.CenterSlotShowSlotNumber : Instance.SideSlotShowSlotNumber;
 
+        // ========================================================================================
+        // UI REFRESH HANDLERS
+        // ========================================================================================
+
         private static void UpdateBagUIToggles()
         {
             var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);
@@ -1209,3 +1238,4 @@ namespace DrifterBossGrabMod
         }
     }
 }
+

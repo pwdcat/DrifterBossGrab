@@ -11,6 +11,10 @@ using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.Core
 {
+    // ========================================================================================
+    // STATE CALCULATOR
+    // ========================================================================================
+
     public static class StateCalculator
     {
         public static BaggedObjectStateData CalculateState(
@@ -26,19 +30,22 @@ namespace DrifterBossGrabMod.Core
             return GetAggregateState(controller);
         }
 
+        // ========================================================================================
+        // STATE RETRIEVAL
+        // ========================================================================================
+
         public static BaggedObjectStateData GetIndividualObjectState(
             DrifterBagController controller,
-            GameObject targetObject)
+            GameObject targetObject,
+            BaggedObjectStateData? output = null)
         {
             if (targetObject == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
-                return new BaggedObjectStateData();  // This creates a stub state with default values (baseMaxHealth=0)
+                Log.DebugIfEnabled("[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
+                return output ?? new BaggedObjectStateData();
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[GetIndividualObjectState] Checking for existing state for {targetObject.name}");
+            Log.DebugIfEnabled("[GetIndividualObjectState] Checking for existing state for {0}", targetObject.name);
 
             // Breakout data from current BaggedObject state before calculating new state
             float preservedBreakoutTime = 0f;
@@ -67,19 +74,27 @@ namespace DrifterBossGrabMod.Core
 
             BaggedObjectStateData state;
 
-            var storedState = BaggedObjectPatches.LoadObjectState(controller, targetObject);
+            var storedState = API.DrifterBagAPI.LoadObjectState(controller, targetObject);
             if (storedState != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE REUSE] GetIndividualObjectState reusing stored state for {targetObject.name}: baseMaxHealth={storedState.baseMaxHealth}");
-                state = storedState;
+                Log.DebugIfEnabled("[STATE REUSE] GetIndividualObjectState reusing stored state for {0}: baseMaxHealth={1}", targetObject.name, storedState.baseMaxHealth);
+                if (output != null)
+                {
+                    storedState.CopyTo(output);
+                    state = output;
+                }
+                else
+                {
+                    state = storedState;
+                }
             }
             else
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetIndividualObjectState creating new state for {targetObject.name}");
-                state = new BaggedObjectStateData();
+                Log.DebugIfEnabled("[STATE CREATION] GetIndividualObjectState creating new state for {0}", targetObject.name);
+                state = output ?? new BaggedObjectStateData();
                 state.CalculateFromObject(targetObject, controller);
+
+                API.DrifterBagAPI.SaveObjectState(controller, targetObject, state);
             }
 
             if (shouldPreserve)
@@ -103,14 +118,14 @@ namespace DrifterBossGrabMod.Core
         }
 
         public static BaggedObjectStateData GetAggregateState(
-            DrifterBagController controller)
+            DrifterBagController controller,
+            BaggedObjectStateData? output = null)
         {
-            var baggedObjects = BagPatches.GetState(controller).BaggedObjects;
+            var baggedObjects = API.DrifterBagAPI.GetBaggedObjects(controller);
             if (baggedObjects == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetAggregateState returning empty state - baggedObjects is null");
-                return new BaggedObjectStateData();
+                Log.DebugIfEnabled("[STATE CREATION] GetAggregateState returning empty state - baggedObjects is null");
+                return output ?? new BaggedObjectStateData();
             }
 
             float preservedBreakoutTime = 0f;
@@ -134,7 +149,7 @@ namespace DrifterBossGrabMod.Core
 
                 if (currentBaggedObject.targetObject != null)
                 {
-                    var msStoredState = BaggedObjectPatches.LoadObjectState(controller, currentBaggedObject.targetObject);
+                    var msStoredState = API.DrifterBagAPI.LoadObjectState(controller, currentBaggedObject.targetObject);
                     if (msStoredState != null && msStoredState.elapsedBreakoutTime > preservedElapsedBreakoutTime)
                     {
                         preservedElapsedBreakoutTime = msStoredState.elapsedBreakoutTime;
@@ -142,21 +157,20 @@ namespace DrifterBossGrabMod.Core
                 }
             }
 
-            var aggregateState = new BaggedObjectStateData();
+            var aggregateState = output ?? new BaggedObjectStateData();
 
-            var mainPassenger = BagPatches.GetMainSeatObject(controller);
+            var mainPassenger = API.DrifterBagAPI.GetMainPassenger(controller);
             if (mainPassenger == null)
             {
-                mainPassenger = BaggedObjectPatches.GetMainSeatOccupant(controller);
+                mainPassenger = API.DrifterBagAPI.GetMainSeatOccupant(controller);
             }
 
             if (mainPassenger != null)
             {
-                var storedMainState = BaggedObjectPatches.LoadObjectState(controller, mainPassenger);
+                var storedMainState = API.DrifterBagAPI.LoadObjectState(controller, mainPassenger);
                 if (storedMainState != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[GetAggregateState] Using stored state for main passenger {mainPassenger.name}: level={storedMainState.level}");
+                    Log.DebugIfEnabled("[GetAggregateState] Using stored state for main passenger {0}: level={1}", mainPassenger.name, storedMainState.level);
 
                     aggregateState.targetObject = storedMainState.targetObject ?? mainPassenger;
                     aggregateState.targetBody = storedMainState.targetBody;
@@ -181,8 +195,7 @@ namespace DrifterBossGrabMod.Core
                 }
                 else
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[GetAggregateState] No stored state for {mainPassenger.name}, calculating from object");
+                    Log.DebugIfEnabled("[GetAggregateState] No stored state for {0}, calculating from object", mainPassenger.name);
                     aggregateState.CalculateFromObject(mainPassenger, controller);
                 }
             }
@@ -201,7 +214,7 @@ namespace DrifterBossGrabMod.Core
             {
                 if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
                 {
-                    var objState = BaggedObjectPatches.LoadObjectState(controller, obj);
+                    var objState = API.DrifterBagAPI.LoadObjectState(controller, obj);
                     if (objState != null)
                     {
                         totalDamage += objState.damageStat;
@@ -222,11 +235,20 @@ namespace DrifterBossGrabMod.Core
                 aggregateState.moveSpeedStat = totalMoveSpeed / statObjectCount;
                 aggregateState.junkSpawnCount = totalJunkCount;
             }
+            else
+            {
+                // Reset stats if no objects contribute to them
+                aggregateState.damageStat = 0f;
+                aggregateState.attackSpeedStat = 0f;
+                aggregateState.critStat = 0f;
+                aggregateState.moveSpeedStat = 0f;
+                aggregateState.junkSpawnCount = 0;
+            }
 
             aggregateState.movespeedPenalty = CalculateMovespeedPenalty(
                 controller, aggregateState.baggedMass);
 
-            var mainSeatObj = BagPatches.GetMainSeatObject(controller);
+            var mainSeatObj = API.DrifterBagAPI.GetMainPassenger(controller);
             if (mainSeatObj != null)
             {
                 aggregateState.targetObject = mainSeatObj;
@@ -266,6 +288,25 @@ namespace DrifterBossGrabMod.Core
             return null;
         }
 
+        // ========================================================================================
+        // PENALTY CALCULATIONS
+        // ========================================================================================
+
+        private static readonly Dictionary<string, float> _penaltyVarsBuffer = new Dictionary<string, float>();
+        public static Dictionary<string, float> PenaltyVarsBuffer => _penaltyVarsBuffer;
+
+        public static void UpdatePenaltyVarsBuffer(float totalMass, float massCapacity, float totalCapacity, float health, float level, float massCap)
+        {
+            _penaltyVarsBuffer.Clear();
+            _penaltyVarsBuffer["T"] = totalMass;
+            _penaltyVarsBuffer["M"] = massCapacity;
+            _penaltyVarsBuffer["C"] = totalCapacity;
+            _penaltyVarsBuffer["H"] = health;
+            _penaltyVarsBuffer["L"] = level;
+            _penaltyVarsBuffer["MC"] = massCap;
+            _penaltyVarsBuffer["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1;
+        }
+
         public static float CalculateMovespeedPenalty(
             DrifterBagController controller,
             float totalMass)
@@ -293,22 +334,16 @@ namespace DrifterBossGrabMod.Core
                     massCap = 700f;
                 }
 
-                var penaltyVars = new Dictionary<string, float>
-                {
-                    ["T"] = totalMass,
-                    ["M"] = massCapacity,
-                    ["C"] = totalCapacity,
-                    ["H"] = health,
-                    ["L"] = level,
-                    ["MC"] = massCap,
-                    ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
-                };
-
-                penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);
+                UpdatePenaltyVarsBuffer(totalMass, massCapacity, totalCapacity, health, level, massCap);
+                penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, _penaltyVarsBuffer);
             }
 
             return penalty;
         }
+
+        // ========================================================================================
+        // VISUAL SCALING
+        // ========================================================================================
 
         public static float CalculateBagScale01(DrifterBagController controller, float mass)
         {

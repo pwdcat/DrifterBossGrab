@@ -19,17 +19,26 @@ namespace DrifterBossGrabMod
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Error(object data) => _logger?.LogError(data.ToString());
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Info(object data) => _logger?.LogInfo(data.ToString());
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Warning(object data) => _logger?.LogWarning(data.ToString());
 
-        [Conditional("DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Debug(object data)
+        internal static void DebugIfEnabled(object data)
         {
             if (_enableDebugLogs && _logger != null)
                 _logger.LogDebug(data.ToString());
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void DebugIfEnabled(string message)
+        {
+            if (_enableDebugLogs && _logger != null)
+                _logger.LogDebug(message);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void DebugIfEnabled(string format, params object?[] args)
+        {
+            if (_enableDebugLogs && _logger != null)
+                _logger.LogDebug(string.Format(format, args));
         }
     }
 }

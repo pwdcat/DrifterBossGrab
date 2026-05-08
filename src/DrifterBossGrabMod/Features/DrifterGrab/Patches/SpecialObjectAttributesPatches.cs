@@ -44,15 +44,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(SpecialObjectAttributes), "Start")]
-        public class SpecialObjectAttributes_Start_Patch
-        {
-            [HarmonyPostfix]
-            public static void Postfix(SpecialObjectAttributes __instance)
-            {
-            }
-        }
-
         [HarmonyPatch(typeof(BaggedObject), "OnEnter")]
         public class BaggedObject_OnEnter_Patch
         {

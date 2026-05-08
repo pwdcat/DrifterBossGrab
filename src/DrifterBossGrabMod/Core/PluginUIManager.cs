@@ -12,8 +12,16 @@ using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
+    // ========================================================================================
+    // PLUGIN UI MANAGER
+    // ========================================================================================
+
     public partial class DrifterBossGrabPlugin
     {
+        // ========================================================================================
+        // RISK OF OPTIONS SETUP
+        // ========================================================================================
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void SetupRiskOfOptions()
         {
@@ -34,12 +42,12 @@ namespace DrifterBossGrabMod
                 }
                 else
                 {
-                    Log.Warning($"[UI] Mod icon not found at: {iconPath}");
+                    Log.DebugIfEnabled($"[UI] Mod icon not found at: {iconPath}");
                 }
             }
             catch (Exception ex)
             {
-                Log.Warning($"[UI] Failed to load mod icon: {ex.Message}");
+                Log.DebugIfEnabled($"[UI] Failed to load mod icon: {ex.Message}");
             }
             AddConfigurationOptions();
 
@@ -68,6 +76,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.PersistenceBlacklist, new InputFieldConfig { name = "Persistence Blacklist" }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.AutoGrabDelay, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Auto-Grab Delay", min = 0f, max = 10f, increment = 0.1f }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist, new InputFieldConfig { name = "Grab Blacklist" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist, new InputFieldConfig { name = "Keyword Blacklist" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes, new InputFieldConfig { name = "Grabbable Components", category = "General" }));
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.ComponentChooserOption(PluginConfig.Instance.ComponentChooserDummyEntry, "Component Chooser", "Click to load and toggle components in the GrabbableComponentTypes list.", "General"));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.ComponentChooserSortModeEntry, new ChoiceConfig { name = "Chooser Sort Mode", category = "General" }));
@@ -78,28 +87,24 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedBosses, new CheckBoxConfig { name = "Recover Bosses", category = "Recovery" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedNPCs, new CheckBoxConfig { name = "Recover NPCs", category = "Recovery" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedEnvironmentObjects, new CheckBoxConfig { name = "Recover Environment Objects", category = "Recovery" }));
-
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist, new InputFieldConfig { name = "Recovery Blacklist", category = "Recovery" }));
-
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist, new InputFieldConfig { name = "Keyword Blacklist" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs, new CheckBoxConfig { name = "Enable Debug Logs" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableConfigSync, new CheckBoxConfig { name = "Enable Config Sync" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled, new CheckBoxConfig { name = "Enable Bottomless Bag" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.AddedCapacity, new InputFieldConfig { name = "Extra Bag Capacity" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlotScalingFormula, new InputFieldConfig { name = "Slot Scaling Formula" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping, new CheckBoxConfig { name = "Refresh Clamping" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSuccessiveGrabStockRefresh, new CheckBoxConfig { name = "Successive Grab Refresh" }));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CycleCooldown, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Cycle Cooldown", min = 0f, max = 1f, increment = 0.01f }));
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PlayAnimationOnCycle, new CheckBoxConfig { name = "Play Cycle Animation" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMouseWheelScrolling, new CheckBoxConfig { name = "Mouse Wheel Scrolling" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.InverseMouseWheelScrolling, new CheckBoxConfig { name = "Invert Scrolling" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CycleCooldown, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Cycle Cooldown", min = 0f, max = 1f, increment = 0.01f }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PlayAnimationOnCycle, new CheckBoxConfig { name = "Play Cycle Animation" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat, new CheckBoxConfig { name = "Auto-Promote Main Seat" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PrioritizeMainSeat, new CheckBoxConfig { name = "Prioritize Main Seat" }));
 
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab, new ChoiceConfig { name = "Balance Filter", category = "Balance" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlotScalingFormula, new InputFieldConfig { name = "Slot Scaling Formula" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula, new InputFieldConfig { name = "Mass Capacity Formula" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlamDamageFormula, new InputFieldConfig { name = "Slam Damage Formula" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula, new InputFieldConfig { name = "Speed Penalty Formula" }));
@@ -187,12 +192,34 @@ namespace DrifterBossGrabMod
                 }
                 else
                 {
-                    Log.Warning("[RiskOfOptions] Failed to find LoadOptionListFromCategory method in RiskOfOptions.");
+                    Log.DebugIfEnabled("[RiskOfOptions] Failed to find LoadOptionListFromCategory method in RiskOfOptions.");
                 }
+
+                RiskOfOptions.Components.Panel.ModOptionPanelController.OnModOptionsExit += OnRiskOfOptionsExit;
             }
             catch (Exception ex)
             {
-                Log.Warning($"[RiskOfOptions] Exception while patching RiskOfOptions: {ex}");
+                Log.DebugIfEnabled($"[RiskOfOptions] Exception while patching RiskOfOptions: {ex}");
+            }
+        }
+
+        private static void OnRiskOfOptionsExit()
+        {
+            Log.DebugIfEnabled("[RiskOfOptions] Exit detected. Forcing submission of text fields.");
+
+            // Find all input fields in mod settings
+            var allInputs = UnityEngine.Object.FindObjectsByType<TMPro.TMP_InputField>(FindObjectsSortMode.None);
+            foreach (var input in allInputs)
+            {
+                if (input == null || !input.gameObject.activeInHierarchy) continue;
+
+                // Check if this input field is part of a mod setting control
+                var control = input.GetComponentInParent<RiskOfOptions.Components.Options.ModSetting>();
+                if (control != null)
+                {
+                    Log.DebugIfEnabled($"[RiskOfOptions] Forcing submission for: {control.settingToken}");
+                    input.onEndEdit?.Invoke(input.text);
+                }
             }
         }
 
@@ -213,6 +240,10 @@ namespace DrifterBossGrabMod
                 Instance.UpdateBalanceSubTabVisibility();
             }
         }
+
+        // ========================================================================================
+        // UI REFRESH UTILITIES
+        // ========================================================================================
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
@@ -327,3 +358,4 @@ namespace DrifterBossGrabMod
         }
     }
 }
+

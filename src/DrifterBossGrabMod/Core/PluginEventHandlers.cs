@@ -28,6 +28,8 @@ namespace DrifterBossGrabMod
         private EventHandler? teleporterToggleHandler;
         private EventHandler? balanceToggleHandler;
         private EventHandler? recoveryToggleHandler;
+        private EventHandler? maxSmacksHandler;
+        private System.Collections.Generic.List<(object config, string eventName, Delegate handler)> _dynamicHandlers = new();
 
         private void OnConfigSettingChangedEvent(object sender, SettingChangedEventArgs args)
         {
@@ -145,7 +147,8 @@ namespace DrifterBossGrabMod
                 npcGrabbingHandler ?? ((sender, args) => { }),
                 environmentGrabbingHandler ?? ((sender, args) => { }),
                 lockedObjectGrabbingHandler ?? ((sender, args) => { }),
-                projectileGrabbingModeHandler ?? ((sender, args) => { })
+                projectileGrabbingModeHandler ?? ((sender, args) => { }),
+                maxSmacksHandler ?? ((sender, args) => { })
             );
         }
 
@@ -171,6 +174,16 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PrioritizeMainSeat.SettingChanged -= OnClientPreferenceSettingChanged;
         }
 
+        private void RemoveDynamicHandlers()
+        {
+            foreach (var (config, eventName, handler) in _dynamicHandlers)
+            {
+                var eventInfo = config.GetType().GetEvent(eventName);
+                eventInfo?.RemoveEventHandler(config, handler);
+            }
+            _dynamicHandlers.Clear();
+        }
+
         private void OnAutoSwitchSettingChanged(object sender, EventArgs args)
         {
             PresetManager.OnSettingModified();
@@ -192,6 +205,7 @@ namespace DrifterBossGrabMod
                     var methodInfo = typeof(DrifterBossGrabPlugin).GetMethod(nameof(OnAutoSwitchSettingChanged), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, methodInfo);
                     eventInfo.AddEventHandler(config, handler);
+                    _dynamicHandlers.Add((config, "SettingChanged", handler));
                 }
             }
         }
@@ -206,6 +220,7 @@ namespace DrifterBossGrabMod
                     var methodInfo = typeof(DrifterBossGrabPlugin).GetMethod(nameof(OnPresetOnlySettingChanged), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, methodInfo);
                     eventInfo.AddEventHandler(config, handler);
+                    _dynamicHandlers.Add((config, "SettingChanged", handler));
                 }
             }
         }

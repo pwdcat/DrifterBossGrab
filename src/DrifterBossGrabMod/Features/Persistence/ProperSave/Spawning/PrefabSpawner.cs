@@ -21,7 +21,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             var assetId = SerializationHelpers.ParseGuid(objData.AssetId);
             if (!assetId.HasValue || assetId == Guid.Empty)
             {
-                Log.Warning("[PrefabSpawner] No AssetId provided, cannot spawn from prefab");
+                Log.DebugIfEnabled("[PrefabSpawner] No AssetId provided, cannot spawn from prefab");
                 return null;
             }
 
@@ -59,14 +59,13 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                 if (prefab != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[PrefabSpawner] Found prefab by AssetId in Resources: {prefab.name}");
+                    Log.DebugIfEnabled("[PrefabSpawner] Found prefab by AssetId in Resources: {0}", prefab.name);
                 }
             }
 
             if (prefab == null)
             {
-                Log.Warning($"[PrefabSpawner] Could not find prefab with AssetId {assetId}");
+                Log.DebugIfEnabled($"[PrefabSpawner] Could not find prefab with AssetId {assetId}");
                 return null;
             }
 
@@ -99,15 +98,13 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (characterMaster != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[PrefabSpawner] Found CharacterMaster {spawnedObject.name}");
+                Log.DebugIfEnabled("[PrefabSpawner] Found CharacterMaster {0}", spawnedObject.name);
 
                 // Get saved team index from save data, default to Monster team
                 var savedTeamIndex = GetSavedTeamIndex(objData);
                 characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
+                Log.DebugIfEnabled("[PrefabSpawner] Assigned team {0} to {1}", characterMaster.teamIndex, spawnedObject.name);
 
                 // Find the body prefab for this master
                 var bodyPrefab = BodyCatalog.FindBodyPrefab(objData.PrefabName);
@@ -118,32 +115,27 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             }
 
             // Spawn the master on network BEFORE spawning body
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[PrefabSpawner] Spawning master on network...");
+            Log.DebugIfEnabled("[PrefabSpawner] Spawning master on network...");
             if (NetworkServer.active)
             {
                 NetworkServer.Spawn(spawnedObject);
             }
             else
             {
-                Log.Warning("[PrefabSpawner] NetworkServer is not active, skipping NetworkServer.Spawn");
+                Log.DebugIfEnabled("[PrefabSpawner] NetworkServer is not active, skipping NetworkServer.Spawn");
             }
 
             // Now spawn the body (after master is network-spawned)
             if (characterMaster != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[PrefabSpawner] Spawning body from master...");
+                Log.DebugIfEnabled("[PrefabSpawner] Spawning body from master...");
                 spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
 
                 if (spawnedBody != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[PrefabSpawner] Spawned body {spawnedBody.name} from master {spawnedObject.name}");
-                        Log.Info($"[PrefabSpawner] Body {spawnedBody.name} master: {spawnedBody.master?.name ?? "null"}");
-                        Log.Info($"[PrefabSpawner] Master {spawnedObject.name} body: {characterMaster.GetBody()?.name ?? "null"}");
-                    }
+                    Log.DebugIfEnabled("[PrefabSpawner] Spawned body {0} from master {1}", spawnedBody.name, spawnedObject.name);
+                    Log.DebugIfEnabled("[PrefabSpawner] Body {0} master: {1}", spawnedBody.name, spawnedBody.master?.name ?? "null");
+                    Log.DebugIfEnabled("[PrefabSpawner] Master {0} body: {1}", spawnedObject.name, characterMaster.GetBody()?.name ?? "null");
 
                     spawnedObject = spawnedBody.gameObject;
                 }
@@ -159,8 +151,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedObject, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[PrefabSpawner] Successfully spawned prefab: {spawnedObject.name}");
+            Log.DebugIfEnabled("[PrefabSpawner] Successfully spawned prefab: {0}", spawnedObject.name);
             return spawnedObject;
         }
 
@@ -251,3 +242,4 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         }
     }
 }
+

@@ -55,7 +55,6 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged += configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.AddedCapacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
 
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
@@ -86,7 +85,6 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.AddedCapacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
 
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;

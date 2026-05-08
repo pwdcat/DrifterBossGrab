@@ -15,8 +15,16 @@ using DrifterBossGrabMod.Balance;
 
 namespace DrifterBossGrabMod.UI
 {
+    // ========================================================================================
+    // BAGGED OBJECT CAROUSEL
+    // ========================================================================================
+
     public class BaggedObjectCarousel : MonoBehaviour
     {
+        // ========================================================================================
+        // RESOURCE LOADING
+        // ========================================================================================
+
         public GameObject? slotPrefab;
 
         public float sideScale = 0.8f;
@@ -117,16 +125,36 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
+        // ========================================================================================
+        // CAROUSEL CONFIGURATION
+        // ========================================================================================
+
         private GameObject? aboveInstance;
         private GameObject? centerInstance;
         private GameObject? belowInstance;
 
-        // Carousel slots management.
-        private List<GameObject> _slots = new();
-        private Dictionary<GameObject, GameObject?> _slotToPassenger = new();
-        private Dictionary<GameObject, int> _slotToIndex = new();
+        // ========================================================================================
+        // STATE TRACKING
+        // ========================================================================================
 
-        // Cached bag controller reference to avoid expensive FindObjectsByType calls
+        private List<GameObject> _slots = new List<GameObject>();
+        private Dictionary<GameObject, GameObject?> _slotToPassenger = new Dictionary<GameObject, GameObject?>();
+        private Dictionary<GameObject, int> _slotToIndex = new Dictionary<GameObject, int>();
+        private static GameObject? _emptySlotMarker;
+        private static GameObject EmptySlotMarker => _emptySlotMarker ??= CreateEmptySlotMarker();
+
+        private static GameObject CreateEmptySlotMarker()
+        {
+            var obj = new GameObject("EmptySlotMarker");
+            UnityEngine.Object.DontDestroyOnLoad(obj);
+            obj.SetActive(false);
+            return obj;
+        }
+
+        // ========================================================================================
+        // CONTROLLER ACCESS
+        // ========================================================================================
+
         private DrifterBagController? _cachedBagController = null;
 
         // Gets or refreshes the cached bag controller reference
@@ -154,56 +182,19 @@ namespace DrifterBossGrabMod.UI
             return null;
         }
 
-        // Gets the actual slot capacity for animation decisions (not mass-cap-limited)
-        // This ensures animations play normally even when at mass capacity
         private int GetAnimationCapacity(DrifterBagController bagController)
         {
-            if (bagController == null) return 1;
-
-            var body = bagController.GetComponent<CharacterBody>();
-            if (body && body.skillLocator && body.skillLocator.utility)
+            if (bagController != null)
             {
-                int addedSlots = 0;
-                if (int.TryParse(PluginConfig.Instance.AddedCapacity.Value, out int parsedAdded))
-                {
-                    addedSlots = parsedAdded;
-                }
-                int baseSlots = body.skillLocator.utility.maxStock + addedSlots;
-
-                int extraSlots = 0;
-
-                // Add Capacity slots using formula-based scaling
-                if (PluginConfig.Instance.EnableBalance.Value)
-                {
-                    var vars = new System.Collections.Generic.Dictionary<string, float>
-                    {
-                        ["H"] = body.maxHealth,
-                        ["L"] = body.level,
-                        ["C"] = body.skillLocator.utility.maxStock,
-                        ["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1
-                    };
-                    extraSlots = Balance.FormulaParser.EvaluateInt(
-                        PluginConfig.Instance.SlotScalingFormula.Value, vars);
-                }
-
-                int slotCapacity = baseSlots + extraSlots;
-
-                // If BottomlessBag is enabled with INF capacity, return a large value
-                if (PluginConfig.Instance.BottomlessBagEnabled.Value &&
-                    PluginConfig.Instance.IsAddedCapacityInfinite)
-                {
-                    return int.MaxValue;
-                }
-
-                return slotCapacity;
+                return API.DrifterBagAPI.GetBagCapacity(bagController);
             }
 
             return 1;
         }
 
-        // Sentinel for empty slot.
-        private static GameObject? _emptySlotMarker;
-        private static GameObject EmptySlotMarker => _emptySlotMarker ??= new GameObject("EmptySlotMarker");
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
 
         private void Start()
         {
@@ -239,6 +230,10 @@ namespace DrifterBossGrabMod.UI
             UpdateToggles();
         }
 
+        // ========================================================================================
+        // POPULATION LOGIC
+        // ========================================================================================
+
         public void PopulateCarousel(int direction = 0)
         {
             DrifterBagController? bagController = GetOrRefreshBagController();
@@ -255,33 +250,17 @@ namespace DrifterBossGrabMod.UI
             GameObject? mainPassenger = null;
 
             var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
-            var localList = BagPatches.GetState(bagController).BaggedObjects;
-            // Prioritize local knowledge if we have authority (local player)
-            if (bagController.hasAuthority && localList != null)
+
+            passengerList = API.DrifterBagAPI.GetBaggedObjects(bagController);
+            mainPassenger = API.DrifterBagAPI.GetMainPassenger(bagController);
+
+            if (!bagController.hasAuthority && netController != null && (passengerList == null || passengerList.Count == 0))
             {
-                localList.RemoveAll(obj => obj == null || !obj);
-                passengerList = localList;
-                mainPassenger = BagPatches.GetMainSeatObject(bagController);
-            }
-            else if (netController != null && (!NetworkServer.active || BagPatches.GetState(bagController).BaggedObjects == null))
-            {
-                // Use networked state for other players or as fallback
                 passengerList = netController.GetBaggedObjects();
                 int selectedIdx = netController.selectedIndex;
                 if (selectedIdx >= 0 && selectedIdx < passengerList.Count)
                 {
                     mainPassenger = passengerList[selectedIdx];
-                }
-            }
-            else
-            {
-                var fallbackList = BagPatches.GetState(bagController).BaggedObjects;
-                if (fallbackList != null)
-                {
-                    // Use local state on host/server for NPCs or if somehow we missed authority
-                    fallbackList.RemoveAll(obj => obj == null || !obj);
-                    passengerList = fallbackList;
-                    mainPassenger = BagPatches.GetMainSeatObject(bagController);
                 }
             }
 
@@ -310,8 +289,8 @@ namespace DrifterBossGrabMod.UI
             }
             Dictionary<int, GameObject?> targetPassengers = new();
 
-            // Calculate capacity and check if bag is full (needed for wrap-around logic below)
-            int capacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
+            // Calculate capacity and check if bag is full
+            int capacity = API.DrifterBagAPI.GetBagCapacity(bagController);
             bool isBagFull = passengerList.Count >= capacity;
 
             // Get actual slot capacity for animation decisions (not mass-cap-limited)
@@ -570,6 +549,10 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
+        // ========================================================================================
+        // ANIMATION HELPERS
+        // ========================================================================================
+
         private void AnimateToState(GameObject slot, int state, int capacity, DrifterBagController bagController, bool hideAfter = false)
         {
             var p = GetStateParams(state, capacity);
@@ -708,6 +691,10 @@ namespace DrifterBossGrabMod.UI
             _activeCoroutines.Remove(slot);
         }
 
+        // ========================================================================================
+        // DATA BINDING
+        // ========================================================================================
+
         private void SetSlotData(GameObject slot, GameObject? passenger, DrifterBagController bagController, bool isCenter, int slotIndex = -1, int totalCount = 0)
         {
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
@@ -772,10 +759,7 @@ namespace DrifterBossGrabMod.UI
 
                     if (healthComponent != null && body != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Debug($"[BaggedObjectCarousel] Health info for {passenger.name}: health={healthComponent.health}, fullHealth={healthComponent.fullHealth}, fullCombinedHealth={healthComponent.fullCombinedHealth}, baseMaxHealth={body.baseMaxHealth}");
-                        }
+                        Log.DebugIfEnabled("[BaggedObjectCarousel] Health info for {0}: health={1}, fullHealth={2}, fullCombinedHealth={3}, baseMaxHealth={4}", passenger.name, healthComponent.health, healthComponent.fullHealth, healthComponent.fullCombinedHealth, body.baseMaxHealth);
 
                         if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
                         {
@@ -785,16 +769,13 @@ namespace DrifterBossGrabMod.UI
                             }
                             catch (NullReferenceException)
                             {
-                                Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
+                                Log.DebugIfEnabled($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
                             }
                         }
                     }
                     else if (specialObjectAttributes != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Debug($"[BaggedObjectCarousel] SpecialObjectAttributes for {passenger!.name}: durability={specialObjectAttributes.durability}, maxDurability={specialObjectAttributes.maxDurability}");
-                        }
+                        Log.DebugIfEnabled("[BaggedObjectCarousel] SpecialObjectAttributes for {0}: durability={1}, maxDurability={2}", passenger!.name, specialObjectAttributes.durability, specialObjectAttributes.maxDurability);
 
                         if (baggedCardController.healthBar != null && baggedCardController.healthBar.altSource == specialObjectAttributes)
                         {
@@ -804,7 +785,7 @@ namespace DrifterBossGrabMod.UI
                             }
                             catch (NullReferenceException)
                             {
-                                Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
+                                Log.DebugIfEnabled($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
                             }
                         }
                     }
@@ -877,7 +858,7 @@ namespace DrifterBossGrabMod.UI
                                     else
                                     {
                                         percentage = (capacity > 0) ? (mass / capacity) : 0f;
-                                        isOverencumbered = (isCenter && showTotal) && percentage > 1.0f;
+                                        isOverencumbered = (isCenter && showTotal) && percentage > 1.0f && PluginConfig.Instance.OverencumbranceMax.Value > 0f;
                                     }
                                 }
                                 else
@@ -888,15 +869,11 @@ namespace DrifterBossGrabMod.UI
                                         int totalCapacitySlots = CapacityScalingSystem.GetTotalCapacity(bagController);
                                         int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                                         percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
-                                        isOverencumbered = currentSlots > totalCapacitySlots;
+                                        isOverencumbered = false; // Overencumbrance is disabled when balance is off
                                     }
                                     else
                                     {
                                         float maxMass = 700f;
-                                        if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
-                                        {
-                                            maxMass = parsedMassCap;
-                                        }
                                         percentage = maxMass > 0 ? (mass / maxMass) : 0f;
                                         isOverencumbered = false;
                                     }
@@ -941,10 +918,7 @@ namespace DrifterBossGrabMod.UI
                                 }
                                 else
                                 {
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    {
-                                        Log.Debug($"[BaggedObjectCarousel] Health info for {passenger!.name}: health={healthComponent!.health}, fullHealth={healthComponent!.fullHealth}, fullCombinedHealth={healthComponent!.fullCombinedHealth}, baseMaxHealth={body!.baseMaxHealth}");
-                                    }
+                                    Log.DebugIfEnabled("[BaggedObjectCarousel] Health info for {0}: health={1}, fullHealth={2}, fullCombinedHealth={3}, baseMaxHealth={4}", passenger!.name, healthComponent!.health, healthComponent!.fullHealth, healthComponent!.fullCombinedHealth, body!.baseMaxHealth);
 
                                     if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
                                     {
@@ -954,7 +928,7 @@ namespace DrifterBossGrabMod.UI
                                         }
                                         catch (NullReferenceException)
                                         {
-                                            Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
+                                            Log.DebugIfEnabled($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
                                         }
                                     }
                                 }
@@ -1323,3 +1297,4 @@ namespace DrifterBossGrabMod.UI
         }
     }
 }
+

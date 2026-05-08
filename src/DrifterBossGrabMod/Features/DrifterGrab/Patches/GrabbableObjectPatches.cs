@@ -16,6 +16,10 @@ using EntityStates;
 using RoR2.ContentManagement;
 namespace DrifterBossGrabMod.Patches
 {
+    // ========================================================================================
+    // GRABBABLE OBJECT PATCHES
+    // ========================================================================================
+
     public static class GrabbableObjectPatches
     {
         // Cache frequently used component types to reduce reflection overhead
@@ -24,95 +28,7 @@ namespace DrifterBossGrabMod.Patches
         private static readonly System.Type NetworkIdentityType = typeof(NetworkIdentity);
         private static readonly System.Type SpecialObjectAttributesType = typeof(SpecialObjectAttributes);
         private static readonly System.Text.RegularExpressions.Regex NumericSuffixPattern = new System.Text.RegularExpressions.Regex(@"\s*\(\d+\)$", System.Text.RegularExpressions.RegexOptions.Compiled);
-        // Object pooling for temporary collections to reduce GC pressure
-        private static class ComponentPool
-        {
-            private const int MaxPoolSize = 25;
-            private static readonly Stack<List<Renderer>> _rendererLists = new Stack<List<Renderer>>();
-            private static readonly Stack<List<Collider>> _colliderLists = new Stack<List<Collider>>();
-            private static readonly Stack<List<Light>> _lightLists = new Stack<List<Light>>();
-            private static readonly Stack<List<MonoBehaviour>> _behaviorLists = new Stack<List<MonoBehaviour>>();
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static List<Renderer> RentRendererList(int capacity = 16)
-            {
-                if (_rendererLists.Count > 0)
-                {
-                    var list = _rendererLists.Pop();
-                    list.Clear();
-                    if (list.Capacity < capacity) list.Capacity = capacity;
-                    return list;
-                }
-                return new List<Renderer>(capacity);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static void ReturnRendererList(List<Renderer> list)
-            {
-                if (list != null && _rendererLists.Count < MaxPoolSize)
-                {
-                    _rendererLists.Push(list);
-                }
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static List<Collider> RentColliderList(int capacity = 16)
-            {
-                if (_colliderLists.Count > 0)
-                {
-                    var list = _colliderLists.Pop();
-                    list.Clear();
-                    if (list.Capacity < capacity) list.Capacity = capacity;
-                    return list;
-                }
-                return new List<Collider>(capacity);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static void ReturnColliderList(List<Collider> list)
-            {
-                if (list != null && _colliderLists.Count < MaxPoolSize)
-                {
-                    _colliderLists.Push(list);
-                }
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static List<Light> RentLightList(int capacity = 8)
-            {
-                if (_lightLists.Count > 0)
-                {
-                    var list = _lightLists.Pop();
-                    list.Clear();
-                    if (list.Capacity < capacity) list.Capacity = capacity;
-                    return list;
-                }
-                return new List<Light>(capacity);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static void ReturnLightList(List<Light> list)
-            {
-                if (list != null && _lightLists.Count < MaxPoolSize)
-                {
-                    _lightLists.Push(list);
-                }
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static List<MonoBehaviour> RentBehaviorList(int capacity = 8)
-            {
-                if (_behaviorLists.Count > 0)
-                {
-                    var list = _behaviorLists.Pop();
-                    list.Clear();
-                    if (list.Capacity < capacity) list.Capacity = capacity;
-                    return list;
-                }
-                return new List<MonoBehaviour>(capacity);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static void ReturnBehaviorList(List<MonoBehaviour> list)
-            {
-                if (list != null && _behaviorLists.Count < MaxPoolSize)
-                {
-                    _behaviorLists.Push(list);
-                }
-            }
-        }
+
         private static GameObject FindEntityStateMachineTarget(GameObject obj)
         {
             // Special handling for LOD objects - prefer parent with SceneReduction
@@ -151,22 +67,21 @@ namespace DrifterBossGrabMod.Patches
             return PluginConfig.IsGrabbable(obj.transform.root.gameObject) ? obj.transform.root.gameObject : obj;
         }
 
+        // ========================================================================================
+        // SETUP LOGIC
+        // ========================================================================================
+
         public static void AddSpecialObjectAttributesToGrabbableObject(GameObject obj)
         {
-            if (obj == null)
-                return;
-            // Cache the object name to avoid repeated property access
-            string objName = obj.name;
-            // Pre-cache lowercase name for multiple string operations
-            string lowerObjName = objName.ToLowerInvariant();
-            // Only process objects that have the required GrabbableComponentTypes
-            if (!PluginConfig.IsGrabbable(obj))
-                return;
+            if (obj == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToGrabbableObject called for {objName}");
-            }
+            string objName = obj.name;
+            string lowerObjName = objName.ToLowerInvariant();
+
+            if (!PluginConfig.IsGrabbable(obj)) return;
+
+            Log.DebugIfEnabled("[GrabbableObjectPatches] AddSpecialObjectAttributesToGrabbableObject called for {0}", objName);
+
             // Special handling for SurvivorPod - wait until it lands
             if (lowerObjName.Contains("survivorpod"))
             {
@@ -176,38 +91,38 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
             }
+
             // Ensure the object has a name for identification and blacklisting
             if (string.IsNullOrEmpty(objName))
             {
                 objName = obj.name = "GrabbableObject_" + obj.GetInstanceID();
-                lowerObjName = objName.ToLowerInvariant(); // Update cached lowercase
+                lowerObjName = objName.ToLowerInvariant();
             }
-            // Find the appropriate target object for EntityStateMachine management
+
             var targetObj = FindEntityStateMachineTarget(obj);
 
-            // Ensure the target object has an EntityStateMachine for state management during grabbing
+            // Ensure the target object has an EntityStateMachine
             if (!targetObj.TryGetComponent(out EntityStateMachine esm))
             {
                 esm = targetObj.AddComponent<EntityStateMachine>();
-                esm.customName = "Body"; // Standard name for state machines
+                esm.customName = "Body";
                 esm.initialStateType = new SerializableEntityStateType(typeof(EntityStates.Uninitialized));
                 esm.mainStateType = new SerializableEntityStateType(typeof(EntityStates.Uninitialized));
                 esm.networkIndex = -1;
                 esm.AllowStartWithoutNetworker = true;
-                // Initialize the state machine with the Idle state
                 if (esm.state is EntityStates.Uninitialized)
                 {
                     esm.SetState(EntityStateCatalog.InstantiateState(ref esm.initialStateType));
                 }
             }
-            // Ensure the target object has NetworkIdentity for networking synchronization
+
+            // Ensure the target object has NetworkIdentity
             if (!targetObj.TryGetComponent(out NetworkIdentity networkIdentity))
             {
                 networkIdentity = targetObj.AddComponent<NetworkIdentity>();
                 networkIdentity.serverOnly = false;
                 networkIdentity.localPlayerAuthority = false;
 
-                // Try to spawn the object on the network
                 try
                 {
                     if (NetworkServer.active)
@@ -220,116 +135,93 @@ namespace DrifterBossGrabMod.Patches
                     Log.Error($"[GrabPatch] Failed to spawn object {objName} on network: {ex.Message}");
                 }
             }
-            // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
-            if (targetObj.TryGetComponent(out SpecialObjectAttributes existingSoa))
+
+            if (!targetObj.TryGetComponent(out SpecialObjectAttributes soa))
             {
-                // Check if this object should be grabbable
-                bool shouldBeGrabbable = PluginConfig.IsGrabbable(obj);
-                if (shouldBeGrabbable)
-                {
-                    // If it already has SpecialObjectAttributes, ensure it's configured for grabbing
-                    if (!existingSoa.grabbable || string.IsNullOrEmpty(existingSoa.breakoutStateMachineName))
-                    {
-                        existingSoa.grabbable = true;
-                        existingSoa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
-                        existingSoa.orientToFloor = true; // Like chests
-                    }
-                    // Ensure isVoid is set if not already - use pre-cached lowercase name
-                    if (!existingSoa.isVoid && lowerObjName.Contains("void"))
-                    {
-                        existingSoa.isVoid = true;
-                    }
-                    // Add any missing lights to lightsToDisable
-                    var existingLights = obj.GetComponentsInChildren<Light>(false);
-                    foreach (var light in existingLights)
-                    {
-                        if (!existingSoa.lightsToDisable.Contains(light))
-                        {
-                            existingSoa.lightsToDisable.Add(light);
-                        }
-                    }
-
-                    // Add any missing PickupDisplays to pickupDisplaysToDisable
-                    var existingPickupDisplays = obj.GetComponentsInChildren<PickupDisplay>(false);
-                    foreach (var pickupDisplay in existingPickupDisplays)
-                    {
-                        if (!existingSoa.pickupDisplaysToDisable.Contains(pickupDisplay))
-                        {
-                            existingSoa.pickupDisplaysToDisable.Add(pickupDisplay);
-                        }
-                    }
-
-                }
-                else
-                {
-                    // Object should not be grabbable, disable it
-                    existingSoa.grabbable = false;
-                }
-                return;
+                soa = targetObj.AddComponent<SpecialObjectAttributes>();
+                ConfigureSpecialObjectAttributes(obj, soa, objName, lowerObjName);
             }
-            // Add SpecialObjectAttributes to make it grabbable like chests
-            var soa = targetObj.AddComponent<SpecialObjectAttributes>();
-            // Calculate scaled attributes based on object size
+            else
+            {
+                // Update existing SOA
+                soa.grabbable = true;
+                soa.breakoutStateMachineName = "";
+                soa.orientToFloor = true;
+                if (!soa.isVoid && lowerObjName.Contains("void")) soa.isVoid = true;
+
+                // Refresh collections
+                PopulateSOACollections(obj, soa);
+            }
+        }
+
+        private static void ConfigureSpecialObjectAttributes(GameObject obj, SpecialObjectAttributes soa, string objName, string lowerObjName)
+        {
             var (scaledMass, scaledDurability) = CalculateScaledAttributes(obj, objName);
-            // Configure for grabbing (similar to chests)
             soa.grabbable = true;
-            soa.massOverride = scaledMass; // Scaled mass based on object size
-            soa.maxDurability = scaledDurability; // Scaled durability based on object size
-            soa.durability = scaledDurability; // Set current durability to max
+            soa.massOverride = scaledMass;
+            soa.maxDurability = scaledDurability;
+            soa.durability = scaledDurability;
             soa.hullClassification = HullClassification.Human;
-            soa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
-            soa.orientToFloor = true; // Like chests
-            // Use pre-cached lowercase name for display name and void check
+            soa.breakoutStateMachineName = "";
+            soa.orientToFloor = true;
+
             string displayName = objName.Replace("(Clone)", "");
-            // Remove numeric suffixes like (1), (0), etc.
             displayName = NumericSuffixPattern.Replace(displayName, "");
             soa.bestName = displayName;
-            // Use pre-cached lowercase name for void check
             soa.isVoid = lowerObjName.Contains("void");
 
-            // Set up basic state management collections
-            soa.renderersToDisable = new System.Collections.Generic.List<Renderer>(16);
-            soa.behavioursToDisable = new System.Collections.Generic.List<MonoBehaviour>(8);
-            soa.collisionToDisable = new System.Collections.Generic.List<GameObject>(16);
-            soa.childObjectsToDisable = new System.Collections.Generic.List<GameObject>(4);
-            soa.pickupDisplaysToDisable = new System.Collections.Generic.List<PickupDisplay>(2);
-            soa.lightsToDisable = new System.Collections.Generic.List<Light>(4);
-            soa.objectsToDetach = new System.Collections.Generic.List<GameObject>(2);
-            soa.childSpecialObjectAttributes = new System.Collections.Generic.List<SpecialObjectAttributes>(2);
-            soa.skillHighlightRenderers = new System.Collections.Generic.List<Renderer>(4);
-            soa.soundEventsToStop = new System.Collections.Generic.List<AkEvent>(2);
-            soa.soundEventsToPlay = new System.Collections.Generic.List<AkEvent>(2);
-            // Find and configure components using pooled collections to reduce GC pressure
-            var renderers = ComponentPool.RentRendererList();
-            obj.GetComponentsInChildren(false, renderers);
+            InitializeSOACollections(soa);
+            PopulateSOACollections(obj, soa);
+        }
+
+        private static void InitializeSOACollections(SpecialObjectAttributes soa)
+        {
+            soa.renderersToDisable = new List<Renderer>(16);
+            soa.behavioursToDisable = new List<MonoBehaviour>(8);
+            soa.collisionToDisable = new List<GameObject>(16);
+            soa.childObjectsToDisable = new List<GameObject>(4);
+            soa.pickupDisplaysToDisable = new List<PickupDisplay>(2);
+            soa.lightsToDisable = new List<Light>(4);
+            soa.objectsToDetach = new List<GameObject>(2);
+            soa.childSpecialObjectAttributes = new List<SpecialObjectAttributes>(2);
+            soa.skillHighlightRenderers = new List<Renderer>(4);
+            soa.soundEventsToStop = new List<AkEvent>(2);
+            soa.soundEventsToPlay = new List<AkEvent>(2);
+        }
+
+        private static void PopulateSOACollections(GameObject obj, SpecialObjectAttributes soa)
+        {
+            // Renderers
+            var renderers = obj.GetComponentsInChildren<Renderer>(false);
             foreach (var renderer in renderers)
             {
-                soa.renderersToDisable.Add(renderer);
-            }
-            ComponentPool.ReturnRendererList(renderers);
-            var colliders = ComponentPool.RentColliderList();
-            obj.GetComponentsInChildren(false, colliders);
-            foreach (var collider in colliders)
-            {
-                soa.collisionToDisable.Add(collider.gameObject);
-            }
-            ComponentPool.ReturnColliderList(colliders);
-            // Find and disable lights using pooled collection
-            var lights = ComponentPool.RentLightList();
-            obj.GetComponentsInChildren(false, lights);
-            foreach (var light in lights)
-            {
-                soa.lightsToDisable.Add(light);
+                if (!soa.renderersToDisable.Contains(renderer))
+                    soa.renderersToDisable.Add(renderer);
             }
 
-            ComponentPool.ReturnLightList(lights);
-            // Find and disable PickupDisplays
+            // Colliders
+            var colliders = obj.GetComponentsInChildren<Collider>(false);
+            foreach (var collider in colliders)
+            {
+                if (!soa.collisionToDisable.Contains(collider.gameObject))
+                    soa.collisionToDisable.Add(collider.gameObject);
+            }
+
+            // Lights
+            var lights = obj.GetComponentsInChildren<Light>(false);
+            foreach (var light in lights)
+            {
+                if (!soa.lightsToDisable.Contains(light))
+                    soa.lightsToDisable.Add(light);
+            }
+
+            // PickupDisplays
             var pickupDisplays = obj.GetComponentsInChildren<PickupDisplay>(false);
             foreach (var pickupDisplay in pickupDisplays)
             {
-                soa.pickupDisplaysToDisable.Add(pickupDisplay);
+                if (!soa.pickupDisplaysToDisable.Contains(pickupDisplay))
+                    soa.pickupDisplaysToDisable.Add(pickupDisplay);
             }
-
         }
         private static IEnumerator DelayedSurvivorPodSetup(GameObject survivorPod)
         {
@@ -349,35 +241,32 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        // ========================================================================================
+        // PROJECTILE SETUP
+        // ========================================================================================
+
         public static void AddSpecialObjectAttributesToProjectile(GameObject obj)
         {
-            if (obj == null)
-                return;
-            // Cache the object name to avoid repeated property access
+            if (obj == null) return;
+
             string objName = obj.name;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToProjectile called for {objName}");
-            }
-            // Pre-cache lowercase name for multiple string operations
+            Log.DebugIfEnabled("[GrabbableObjectPatches] AddSpecialObjectAttributesToProjectile called for {0}", objName);
+
             string lowerObjName = objName.ToLowerInvariant();
-            // Ensure the object has a name for identification and blacklisting
             if (string.IsNullOrEmpty(objName))
             {
                 objName = obj.name = "Projectile_" + obj.GetInstanceID();
-                lowerObjName = objName.ToLowerInvariant(); // Update cached lowercase
+                lowerObjName = objName.ToLowerInvariant();
             }
-            // For projectiles, use the object itself as the target (projectiles are usually simple objects)
+
             var targetObj = obj;
 
-            // Ensure the target object has NetworkIdentity for networking synchronization
             if (!targetObj.TryGetComponent(out NetworkIdentity networkIdentity))
             {
                 networkIdentity = targetObj.AddComponent<NetworkIdentity>();
                 networkIdentity.serverOnly = false;
                 networkIdentity.localPlayerAuthority = false;
 
-                // Try to spawn the object on the network
                 try
                 {
                     if (NetworkServer.active)
@@ -390,105 +279,41 @@ namespace DrifterBossGrabMod.Patches
                     Log.Error($"[GrabPatch] Failed to spawn projectile {objName} on network: {ex.Message}");
                 }
             }
-            // Check if already has SpecialObjectAttributes using cached type and TryGetComponent
+
             if (!targetObj.TryGetComponent(out SpecialObjectAttributes soa))
             {
-                // Add SpecialObjectAttributes to make the projectile grabbable
                 soa = targetObj.AddComponent<SpecialObjectAttributes>();
-                // Calculate scaled attributes based on object size
-                var (scaledMass, scaledDurability) = CalculateScaledAttributes(obj, objName);
-                // Configure for grabbing (similar to chests)
-                soa.grabbable = true;
-                soa.massOverride = scaledMass; // Scaled mass based on object size
-                soa.maxDurability = scaledDurability; // Scaled durability based on object size
-                soa.durability = scaledDurability; // Set current durability to max
-                soa.hullClassification = HullClassification.Human;
-                soa.breakoutStateMachineName = ""; // Required for BaggedObject to attach the object
-                soa.orientToFloor = true; // Like chests
-                // Use pre-cached lowercase name for display name and void check
-                string displayName = objName.Replace("(Clone)", "");
-                // Remove numeric suffixes like (1), (0), etc.
-                displayName = NumericSuffixPattern.Replace(displayName, "");
-                soa.bestName = displayName;
-                // Use pre-cached lowercase name for void check
-                soa.isVoid = lowerObjName.Contains("void");
+                ConfigureSpecialObjectAttributes(obj, soa, objName, lowerObjName);
             }
             else
             {
-                // Existing SpecialObjectAttributes found - preserve its configuration
-                // Only ensure grabbable is set to true if it wasn't already
-                if (!soa.grabbable)
-                {
-                    soa.grabbable = true;
-                }
-                // Ensure breakoutStateMachineName is set for grabbing to work
-                if (string.IsNullOrEmpty(soa.breakoutStateMachineName))
-                {
-                    soa.breakoutStateMachineName = "";
-                }
-                // Ensure orientToFloor is set
+                soa.grabbable = true;
+                soa.breakoutStateMachineName = "";
                 soa.orientToFloor = true;
+                if (!soa.isVoid && lowerObjName.Contains("void")) soa.isVoid = true;
+
+                PopulateSOACollections(obj, soa);
             }
 
-            // Set up basic state management collections
-            soa.renderersToDisable = new System.Collections.Generic.List<Renderer>(16);
-            soa.behavioursToDisable = new System.Collections.Generic.List<MonoBehaviour>(8);
-            soa.collisionToDisable = new System.Collections.Generic.List<GameObject>(16);
-            soa.childObjectsToDisable = new System.Collections.Generic.List<GameObject>(4);
-            soa.pickupDisplaysToDisable = new System.Collections.Generic.List<PickupDisplay>(2);
-            soa.lightsToDisable = new System.Collections.Generic.List<Light>(4);
-            soa.objectsToDetach = new System.Collections.Generic.List<GameObject>(2);
-            soa.childSpecialObjectAttributes = new System.Collections.Generic.List<SpecialObjectAttributes>(2);
-            soa.skillHighlightRenderers = new System.Collections.Generic.List<Renderer>(4);
-            soa.soundEventsToStop = new System.Collections.Generic.List<AkEvent>(2);
-            soa.soundEventsToPlay = new System.Collections.Generic.List<AkEvent>(2);
-            // Find and configure components using pooled collections to reduce GC pressure
-            var renderers = ComponentPool.RentRendererList();
-            obj.GetComponentsInChildren(false, renderers);
-            foreach (var renderer in renderers)
-            {
-                soa.renderersToDisable.Add(renderer);
-            }
-            ComponentPool.ReturnRendererList(renderers);
-            var colliders = ComponentPool.RentColliderList();
-            obj.GetComponentsInChildren(false, colliders);
-            foreach (var collider in colliders)
-            {
-                soa.collisionToDisable.Add(collider.gameObject);
-            }
-            ComponentPool.ReturnColliderList(colliders);
-            // Find and disable lights using pooled collection
-            var lights = ComponentPool.RentLightList();
-            obj.GetComponentsInChildren(false, lights);
-            foreach (var light in lights)
-            {
-                soa.lightsToDisable.Add(light);
-            }
-
-            ComponentPool.ReturnLightList(lights);
-            // Find and disable PickupDisplays
-            var pickupDisplays = obj.GetComponentsInChildren<PickupDisplay>(false);
-            foreach (var pickupDisplay in pickupDisplays)
-            {
-                soa.pickupDisplaysToDisable.Add(pickupDisplay);
-            }
-
-            // Find and disable ProjectileStickOnImpact components to prevent position reset on throw
+            // Projectile-specific behavior disabling
             var stickOnImpactComponents = obj.GetComponentsInChildren<RoR2.Projectile.ProjectileStickOnImpact>(true);
             foreach (var stickComponent in stickOnImpactComponents)
             {
-                soa.behavioursToDisable.Add(stickComponent);
-
+                if (!soa.behavioursToDisable.Contains(stickComponent))
+                    soa.behavioursToDisable.Add(stickComponent);
             }
-            // Find and disable ProjectileFuse components to prevent premature detonation
+
             var fuseComponents = obj.GetComponentsInChildren<RoR2.Projectile.ProjectileFuse>(true);
             foreach (var fuseComponent in fuseComponents)
             {
-                soa.behavioursToDisable.Add(fuseComponent);
-
+                if (!soa.behavioursToDisable.Contains(fuseComponent))
+                    soa.behavioursToDisable.Add(fuseComponent);
             }
-
         }
+        // ========================================================================================
+        // ENUMERATION HELPERS
+        // ========================================================================================
+
         public static void EnsureAllGrabbableObjectsHaveSpecialObjectAttributes()
         {
             if (DrifterBossGrabPlugin.Instance)
@@ -534,7 +359,9 @@ namespace DrifterBossGrabMod.Patches
             }
 
         }
-        #region Harmony Patches
+        // ========================================================================================
+        // HARMONY PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(DirectorCore), "TrySpawnObject")]
         public class DirectorCore_TrySpawnObject_Patch
         {
@@ -601,8 +428,9 @@ namespace DrifterBossGrabMod.Patches
 
             return (scaledMass, scaledDurability);
         }
-        #endregion
-        #region SpecialObjectAttributes Patches
+        // ========================================================================================
+        // SPECIAL OBJECT ATTRIBUTES PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(SpecialObjectAttributes), "Start")]
         public class SpecialObjectAttributes_Start_Patch
         {
@@ -622,6 +450,10 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        // ========================================================================================
+        // ICON HELPERS
+        // ========================================================================================
+
         public static string GetIconPathForObject(string lowerCaseName)
         {
             // Lunar objects (lunar, newt)
@@ -692,6 +524,5 @@ namespace DrifterBossGrabMod.Patches
                 AddSpecialObjectAttributesToGrabbableObject(__instance.outer.gameObject);
             }
         }
-        #endregion
     }
 }

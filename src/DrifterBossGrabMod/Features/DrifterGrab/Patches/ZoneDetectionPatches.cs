@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using UnityEngine;
 using RoR2;
 
@@ -6,14 +6,6 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class ZoneDetectionPatches
     {
-        // Constants for timing intervals.
-        public static class Timing
-        {
-            // Interval in seconds between MapZoneChecker checks for each projectile instance.
-            // Throttles checks to prevent excessive processing.
-            public const float MapZoneCheckInterval = 5f;
-        }
-
         // Tracks whether OutOfBounds zones are inverted in the current stage
         private static bool areOutOfBoundsZonesInverted = false;
         private static bool zoneInversionDetected = false;
@@ -25,22 +17,28 @@ namespace DrifterBossGrabMod.Patches
             int outOfBoundsCount = 0;
             bool playerInsideAnyOutOfBounds = false;
             int characterHullLayer = LayerMask.NameToLayer("CollideWithCharacterHullOnly");
+
             foreach (MapZone zone in mapZones)
             {
                 if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
                 {
                     outOfBoundsCount++;
-                    if (zone.IsPointInsideMapZone(playerPosition))
+                    bool inside = zone.IsPointInsideMapZone(playerPosition);
+                    if (inside)
                     {
                         playerInsideAnyOutOfBounds = true;
                     }
+
+                    Log.DebugIfEnabled("[ZoneDetection] Found MapZone: {0} | Type: {1} | PlayerInside: {2}", zone.name, zone.triggerType, inside);
                 }
             }
+
             if (outOfBoundsCount > 0)
             {
-                // If player is not inside OutOfBounds zones at spawn, zones are inverted
                 areOutOfBoundsZonesInverted = !playerInsideAnyOutOfBounds;
                 zoneInversionDetected = true;
+
+                Log.DebugIfEnabled("[ZoneDetection] Detection complete. Inverted: {0} (based on player spawn)", areOutOfBoundsZonesInverted);
             }
             else
             {
@@ -48,6 +46,25 @@ namespace DrifterBossGrabMod.Patches
                 areOutOfBoundsZonesInverted = false;
                 zoneInversionDetected = true;
             }
+        }
+
+        // Checks if a position is currently out of bounds
+        public static bool IsPositionOOB(Vector3 position)
+        {
+            MapZone[] mapZones = UnityEngine.Object.FindObjectsByType<MapZone>(UnityEngine.FindObjectsInactive.Exclude, UnityEngine.FindObjectsSortMode.None);
+            int characterHullLayer = LayerMask.NameToLayer("CollideWithCharacterHullOnly");
+
+            foreach (MapZone zone in mapZones)
+            {
+                if (zone.zoneType == MapZone.ZoneType.OutOfBounds && zone.gameObject.layer == characterHullLayer)
+                {
+                    bool inside = zone.IsPointInsideMapZone(position);
+
+                    if (zone.triggerType == MapZone.TriggerType.TriggerEnter && inside) return true;
+                    if (zone.triggerType == MapZone.TriggerType.TriggerExit && !inside) return true;
+                }
+            }
+            return false;
         }
 
         public static void ResetZoneInversionDetection()

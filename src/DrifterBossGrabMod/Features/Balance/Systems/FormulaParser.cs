@@ -8,11 +8,17 @@ namespace DrifterBossGrabMod.Balance
 {
     // Uses shunting-yard algorithm
     // Supports operators, functions, constants, and variables
+    // ========================================================================================
+    // FORMULA PARSER
+    // ========================================================================================
+
     public static class FormulaParser
     {
         // Cache for parsed formulas
         private static readonly Dictionary<string, List<Token>> _rpnCache = new();
-        #region Token Types
+        // ========================================================================================
+        // TOKEN TYPES
+        // ========================================================================================
 
         private enum TokenType
         {
@@ -42,9 +48,10 @@ namespace DrifterBossGrabMod.Balance
             public override string ToString() => $"{Type}({Value})";
         }
 
-        #endregion
 
-        #region Operator Definitions
+        // ========================================================================================
+        // OPERATOR DEFINITIONS
+        // ========================================================================================
 
         private static readonly Dictionary<string, (int Precedence, bool RightAssociative)> Operators = new()
         {
@@ -71,9 +78,10 @@ namespace DrifterBossGrabMod.Balance
             ["infinity"] = double.PositiveInfinity,
         };
 
-        #endregion
 
-        #region Public API
+        // ========================================================================================
+        // PUBLIC API
+        // ========================================================================================
 
         // Evaluate a formula string and return the result as a float.
         public static float Evaluate(string formula, Dictionary<string, float> variables)
@@ -123,7 +131,7 @@ namespace DrifterBossGrabMod.Balance
             {
                 if (suppressExceptions)
                 {
-                    Log.Warning($"[FormulaParser] Failed to evaluate formula '{formula}': {ex.Message}");
+                    Log.DebugIfEnabled($"[FormulaParser] Failed to evaluate formula '{formula}': {ex.Message}");
                     return 0f;
                 }
                 throw;
@@ -162,9 +170,10 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-        #endregion
 
-        #region Tokenizer
+        // ========================================================================================
+        // TOKENIZER
+        // ========================================================================================
 
         private static List<Token> Tokenize(string formula)
         {
@@ -303,9 +312,10 @@ namespace DrifterBossGrabMod.Balance
                 || last.Type == TokenType.Function;
         }
 
-        #endregion
 
-        #region Shunting-Yard Algorithm
+        // ========================================================================================
+        // SHUNTING-YARD ALGORITHM
+        // ========================================================================================
 
         private static List<Token> ShuntingYard(List<Token> tokens)
         {
@@ -400,9 +410,10 @@ namespace DrifterBossGrabMod.Balance
             return output;
         }
 
-        #endregion
 
-        #region RPN Evaluator
+        // ========================================================================================
+        // RPN EVALUATOR
+        // ========================================================================================
 
         private static double EvaluateRPN(List<Token> rpn, Dictionary<string, float> variables)
         {
@@ -560,6 +571,6 @@ namespace DrifterBossGrabMod.Balance
                 throw new FormatException($"Function '{funcName}' requires {count} argument(s) but got {stack.Count}");
         }
 
-        #endregion
     }
 }
+

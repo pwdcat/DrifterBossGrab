@@ -1,4 +1,4 @@
-using RoR2;
+﻿using RoR2;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,8 +12,7 @@ namespace DrifterBossGrabMod.Core
         {
             if (target == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[VisualRefreshUtility] Starting refresh for {target.name}");
+            Log.DebugIfEnabled("[VisualRefreshUtility] Starting refresh for {0}", target.name);
 
             try
             {
@@ -67,7 +66,7 @@ namespace DrifterBossGrabMod.Core
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             string matName = sharedMats[i] == null ? "NULL" : sharedMats[i]!.name;
-                            Log.Info($"[VisualRefreshUtility] Renderer '{r.name}' on {target.name} has invalid material at slot {i} (Mat: {matName}). Disabling renderer.");
+                            Log.DebugIfEnabled("[VisualRefreshUtility] Renderer '{0}' on {1} has invalid material at slot {2} (Mat: {3}). Disabling renderer.", r.name, target.name, i, matName);
                         }
 
                         r.enabled = false;
@@ -94,16 +93,14 @@ namespace DrifterBossGrabMod.Core
             var printControllers = target.GetComponentsInChildren<PrintController>(true);
             foreach (var pc in printControllers)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[VisualRefreshUtility] Removing stuck PrintController from {target.name}");
+                Log.DebugIfEnabled("[VisualRefreshUtility] Removing stuck PrintController from {0}", target.name);
                 Object.Destroy(pc);
             }
 
             var ditherModels = target.GetComponentsInChildren<DitherModel>(true);
             foreach (var dm in ditherModels)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[VisualRefreshUtility] Removing stuck DitherModel from {target.name}");
+                Log.DebugIfEnabled("[VisualRefreshUtility] Removing stuck DitherModel from {0}", target.name);
                 Object.Destroy(dm);
             }
         }

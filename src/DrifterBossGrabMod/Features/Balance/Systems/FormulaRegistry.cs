@@ -49,7 +49,7 @@ namespace DrifterBossGrabMod.Balance
 
             if (_staticVariables.ContainsKey(normalizedName) || _dynamicProviders.ContainsKey(normalizedName))
             {
-                Log.Warning($"[FormulaRegistry] Variable '{normalizedName}' is already registered. Overwriting.");
+                Log.DebugIfEnabled($"[FormulaRegistry] Variable '{normalizedName}' is already registered. Overwriting.");
             }
 
             _staticVariables[normalizedName] = value;
@@ -76,7 +76,7 @@ namespace DrifterBossGrabMod.Balance
 
             if (_staticVariables.ContainsKey(normalizedName) || _dynamicProviders.ContainsKey(normalizedName))
             {
-                Log.Warning($"[FormulaRegistry] Variable '{normalizedName}' is already registered. Overwriting.");
+                Log.DebugIfEnabled($"[FormulaRegistry] Variable '{normalizedName}' is already registered. Overwriting.");
             }
 
             _dynamicProviders[normalizedName] = provider;
@@ -243,3 +243,4 @@ namespace DrifterBossGrabMod.Balance
         Dynamic
     }
 }
+

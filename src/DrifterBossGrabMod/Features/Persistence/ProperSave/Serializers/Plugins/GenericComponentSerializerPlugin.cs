@@ -84,7 +84,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning($"[GenericComponentSerializer] Failed to serialize field on {networkBehaviour?.GetType().Name}: {ex.Message}");
+                        Log.DebugIfEnabled($"[GenericComponentSerializer] Failed to serialize field on {networkBehaviour?.GetType().Name}: {ex.Message}");
                     }
                 }
             }
@@ -135,7 +135,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning($"[GenericComponentSerializer] Failed to restore field on {prop.Name}: {ex.Message}");
+                        Log.DebugIfEnabled($"[GenericComponentSerializer] Failed to restore field on {prop.Name}: {ex.Message}");
                     }
                 }
             }
@@ -164,7 +164,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning($"[GenericComponentSerializer] Failed to serialize field on {component?.GetType().Name}: {ex.Message}");
+                    Log.DebugIfEnabled($"[GenericComponentSerializer] Failed to serialize field on {component?.GetType().Name}: {ex.Message}");
                 }
             }
         }
@@ -221,7 +221,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning($"[GenericComponentSerializer] Failed to set field value: {ex.Message}");
+                        Log.DebugIfEnabled($"[GenericComponentSerializer] Failed to set field value: {ex.Message}");
                     }
                 }
             }
@@ -269,3 +269,4 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
         }
     }
 }
+
