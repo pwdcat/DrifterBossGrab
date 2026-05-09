@@ -236,6 +236,7 @@ namespace DrifterBossGrabMod.UI
 
         public void PopulateCarousel(int direction = 0)
         {
+            PruneInvalidSlots();
             DrifterBagController? bagController = GetOrRefreshBagController();
 
             if (bagController == null)
@@ -291,7 +292,7 @@ namespace DrifterBossGrabMod.UI
 
             // Calculate capacity and check if bag is full
             int capacity = API.DrifterBagAPI.GetBagCapacity(bagController);
-            bool isBagFull = passengerList.Count >= capacity;
+            bool isBagFull = (passengerList.Count >= capacity);
 
             // Get actual slot capacity for animation decisions (not mass-cap-limited)
             // This ensures animations play normally even when at mass capacity
@@ -549,6 +550,26 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
+        private void PruneInvalidSlots()
+        {
+            _removeKeysBuffer.Clear();
+            foreach (var kvp in _slotToPassenger)
+            {
+                if (kvp.Value == null || (kvp.Value != EmptySlotMarker && API.DrifterBagAPI.IsPassengerDeadOrDestroyed(kvp.Value)))
+                {
+                    _removeKeysBuffer.Add(kvp.Key);
+                }
+            }
+
+            foreach (var slot in _removeKeysBuffer)
+            {
+                _slotToPassenger.Remove(slot);
+                _slotToIndex.Remove(slot);
+            }
+        }
+
+        private readonly List<GameObject> _removeKeysBuffer = new List<GameObject>();
+
         // ========================================================================================
         // ANIMATION HELPERS
         // ========================================================================================
@@ -702,8 +723,8 @@ namespace DrifterBossGrabMod.UI
             {
                 var canvasGroup = slot.GetComponent<CanvasGroup>();
 
-                // Check for empty slot marker first
-                if (passenger == EmptySlotMarker || passenger == null)
+                // Check for empty slot marker or dead/destroyed passenger
+                if (passenger == EmptySlotMarker || passenger == null || API.DrifterBagAPI.IsPassengerDeadOrDestroyed(passenger!))
                 {
                     // Empty slot state - fully invisible
                     baggedCardController.sourceBody = null;

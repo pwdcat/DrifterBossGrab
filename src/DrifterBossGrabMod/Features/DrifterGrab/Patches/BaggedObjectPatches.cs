@@ -125,7 +125,7 @@ namespace DrifterBossGrabMod.Patches
                         bagController.NetworkbaggedObject = targetObject;
                     }
 
-                    if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                    if (!DrifterBossGrabPlugin.IsSwappingPassengers || (bagController.baggedObject != targetObject))
                     {
                         var currentBaggedObj = bagController.baggedObject;
                         if (currentBaggedObj != targetObject)
@@ -142,7 +142,7 @@ namespace DrifterBossGrabMod.Patches
                 else if (bagController.hasAuthority)
                 {
                     // Check if we need to update to avoid redundant calls
-                    if (!DrifterBossGrabPlugin.IsSwappingPassengers)
+                    if (!DrifterBossGrabPlugin.IsSwappingPassengers || (bagController.baggedObject != targetObject))
                     {
                         var currentBaggedObj = bagController.baggedObject;
                         if (currentBaggedObj != targetObject)

@@ -160,10 +160,30 @@ namespace DrifterBossGrabMod.Networking
         public bool autoPromoteMainSeat;
         public bool prioritizeMainSeat;
 
+        public bool isLocallyGrabbed;
+        private float _localGrabTimer;
+        private const float LOCAL_GRAB_TIMEOUT = 1.0f;
+        private uint _locallyGrabbedNetId;
+
         public override void OnStartClient()
         {
             base.OnStartClient();
             OnBagStateChanged();
+        }
+
+        // Ew...
+        private void Update()
+        {
+            if (isLocallyGrabbed)
+            {
+                _localGrabTimer += Time.deltaTime;
+                if (_localGrabTimer >= LOCAL_GRAB_TIMEOUT)
+                {
+                    Log.DebugIfEnabled("[BottomlessBagNetworkController] Local grab guard timed out.");
+                    isLocallyGrabbed = false;
+                    _locallyGrabbedNetId = 0;
+                }
+            }
         }
 
         public override void OnStartAuthority()
@@ -214,19 +234,21 @@ namespace DrifterBossGrabMod.Networking
                     }
                 }
 
-                var msg = new UpdateBagStateMessage
+                var msg = new BagStateUpdatedMessage
                 {
                     controllerNetId = GetComponent<NetworkIdentity>().netId,
                     selectedIndex = index,
+                    removedObjectNetId = NetworkInstanceId.Invalid,
                     baggedIds = baggedIds.ToArray(),
                     seatIds = seatIds.ToArray(),
                     scrollDirection = direction,
+                    isThrowOperation = false,
                     collidersDisabled = collidersDisabled.ToArray(),
                     breakoutTimes = breakoutTimes.ToArray(),
                     elapsedBreakoutTimes = elapsedBreakoutTimes.ToArray()
                 };
 
-                NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
+                NetworkServer.SendToAll(Constants.Network.BagStateUpdatedMessageType, msg);
                 UpdateLocalState(index, baggedIds, seatIds, breakoutTimes, elapsedBreakoutTimes);
             }
             else if (hasAuthority)
@@ -238,6 +260,29 @@ namespace DrifterBossGrabMod.Networking
 
         public void ApplyStateFromMessage(int index, uint[] baggedIds, uint[] seatIds, int direction = 0, float[]? breakoutTimes = null, float[]? elapsedBreakoutTimes = null)
         {
+            if (isLocallyGrabbed && _locallyGrabbedNetId != 0)
+            {
+                bool serverHasObject = false;
+                foreach (var id in baggedIds)
+                {
+                    if (id == _locallyGrabbedNetId)
+                    {
+                        serverHasObject = true;
+                        break;
+                    }
+                }
+
+                if (!serverHasObject)
+                {
+                    Log.DebugIfEnabled("[ApplyStateFromMessage] Skipping server update - locally grabbed object {0} not yet reflected on server", _locallyGrabbedNetId);
+                    return;
+                }
+                
+                Log.DebugIfEnabled("[ApplyStateFromMessage] Server now reflects locally grabbed object {0}. Clearing guard.", _locallyGrabbedNetId);
+                isLocallyGrabbed = false;
+                _locallyGrabbedNetId = 0;
+            }
+
             _lastScrollDirection = direction;
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds),
                 breakoutTimes != null ? new List<float>(breakoutTimes) : null,
@@ -630,6 +675,14 @@ namespace DrifterBossGrabMod.Networking
             if (netId == NetworkInstanceId.Invalid) return;
             if (!_baggedObjectNetIds.Contains(netId.Value)) _baggedObjectNetIds.Add(netId.Value);
             if (!_baggedObjectNetIdsTarget.Contains(netId.Value)) _baggedObjectNetIdsTarget.Add(netId.Value);
+        }
+
+        public void SetLocallyGrabbed(uint netId)
+        {
+            isLocallyGrabbed = true;
+            _locallyGrabbedNetId = netId;
+            _localGrabTimer = 0f;
+            Log.DebugIfEnabled("[BottomlessBagNetworkController] Local grab guard set for netId={0}", netId);
         }
     }
 }

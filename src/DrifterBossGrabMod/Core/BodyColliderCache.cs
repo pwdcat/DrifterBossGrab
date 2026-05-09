@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using RoR2;
@@ -104,6 +104,16 @@ namespace DrifterBossGrabMod
                 }
             }
             originalStates.Clear();
+        }
+
+        public static void RestoreCollidersFromCache(GameObject obj)
+        {
+            var cache = obj.GetComponent<BodyColliderCache>();
+            if (cache != null && cache.OriginalStates.Count > 0)
+            {
+                Log.DebugIfEnabled("[BodyColliderCache] Fallback restoring {0} colliders for {1}", cache.OriginalStates.Count, obj.name);
+                RestoreMovementColliders(cache.OriginalStates);
+            }
         }
     }
 }

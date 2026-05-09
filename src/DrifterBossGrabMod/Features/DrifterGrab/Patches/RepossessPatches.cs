@@ -253,12 +253,20 @@ namespace DrifterBossGrabMod.Patches
                 var body = __instance.gameObject.GetComponent<CharacterBody>();
                 if (body)
                 {
-                    bool isBoss = body.isBoss;
+                    bool isBoss = body.isBoss || body.isChampion;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
-                    bool canOverride = ((isBoss && PluginConfig.Instance.EnableBossGrabbing.Value) ||
-                                        (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value)) &&
-                                       !PluginConfig.IsBlacklisted(__instance.gameObject.name);
-                    if (canOverride)
+                    
+                    bool canOverride = false;
+                    if (isBoss)
+                    {
+                        canOverride = PluginConfig.Instance.EnableBossGrabbing.Value;
+                    }
+                    else if (isUngrabbable)
+                    {
+                        canOverride = PluginConfig.Instance.EnableNPCGrabbing.Value;
+                    }
+
+                    if (canOverride && !PluginConfig.IsBlacklisted(__instance.gameObject.name))
                     {
                         __result = true;
                     }
@@ -287,17 +295,16 @@ namespace DrifterBossGrabMod.Patches
                     bool isBoss = body.isBoss || body.isChampion;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
 
-                    if (isBoss && PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.IsBlacklisted(body.name))
+                    if (isBoss)
                     {
-                        __result = true;
+                        if (PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.IsBlacklisted(body.name))
+                            __result = true;
                     }
-                    else if (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value && !PluginConfig.IsBlacklisted(body.name))
+                    else if (isUngrabbable || PluginConfig.Instance.EnableNPCGrabbing.Value)
                     {
-                        __result = true;
-                    }
-                    else if (!isBoss && !isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value && !PluginConfig.IsBlacklisted(body.name))
-                    {
-                        __result = true;
+                        // EnableNPCGrabbing allows both ungrabbable and standard NPCs
+                        if (PluginConfig.Instance.EnableNPCGrabbing.Value && !PluginConfig.IsBlacklisted(body.name))
+                            __result = true;
                     }
                 }
             }
@@ -318,10 +325,19 @@ namespace DrifterBossGrabMod.Patches
                 var body = __instance.gameObject.GetComponent<CharacterBody>();
                 if (body)
                 {
-                    bool isBoss = body.isBoss;
+                    bool isBoss = body.isBoss || body.isChampion;
                     bool isUngrabbable = body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
-                    bool shouldPrevent = (isBoss && PluginConfig.Instance.EnableBossGrabbing.Value) ||
-                                        (isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value);
+                    
+                    bool shouldPrevent = false;
+                    if (isBoss)
+                    {
+                        shouldPrevent = PluginConfig.Instance.EnableBossGrabbing.Value;
+                    }
+                    else if (isUngrabbable)
+                    {
+                        shouldPrevent = PluginConfig.Instance.EnableNPCGrabbing.Value;
+                    }
+                    
                     return !shouldPrevent;
                 }
                 return true;
