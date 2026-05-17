@@ -172,6 +172,25 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // Handles update bag state message.
+        [NetworkMessageHandler(msgType = Constants.Network.UpdateBagStateMessageType, client = true, server = false)]
+        public static void HandleUpdateBagStateMessage(NetworkMessage netMsg)
+        {
+            var msg = netMsg.ReadMessage<UpdateBagStateMessage>();
+
+            var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
+            if (controllerObj == null)
+            {
+                if (DrifterBossGrabPlugin.Instance != null)
+                {
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindController(msg));
+                }
+                return;
+            }
+
+            ApplyBagStateUpdate(controllerObj, msg);
+        }
+
         // ========================================================================================
         // LIFECYCLE HOOKS
         // ========================================================================================
@@ -182,6 +201,100 @@ namespace DrifterBossGrabMod
             {
                 Stage.onServerStageComplete += OnServerStageComplete;
             }
+        }
+
+        // ========================================================================================
+        // HELPER LOGIC
+        // ========================================================================================
+
+        private static void ApplyBagStateUpdate(GameObject controllerObj, UpdateBagStateMessage msg)
+        {
+            var netController = controllerObj.GetComponent<BottomlessBagNetworkController>();
+            if (netController == null)
+            {
+                return;
+            }
+
+            var controller = netController.GetComponent<DrifterBagController>();
+            if (controller == null) return;
+
+            // No longer needed here as we use API calls below
+
+            if (!NetworkServer.active)
+            {
+                var currentObjects = API.DrifterBagAPI.GetBaggedObjects(controller);
+                if (currentObjects != null && currentObjects.Count > 0)
+                {
+                    var receivedObjects = new List<GameObject>();
+                    if (msg.baggedIds != null)
+                    {
+                        foreach (var netId in msg.baggedIds)
+                        {
+                            var obj = FindObjectByNetId(new NetworkInstanceId(netId));
+                            if (obj != null)
+                            {
+                                receivedObjects.Add(obj);
+                            }
+                        }
+                    }
+
+                    foreach (var obj in currentObjects.ToList())
+                    {
+                        if (obj == null || !obj || !receivedObjects.Contains(obj))
+                        {
+                            if (obj != null)
+                            {
+                                API.DrifterBagAPI.RemoveBaggedObject(controller, obj);
+                                API.DrifterBagAPI.RemoveInstanceId(controller, obj.GetInstanceID());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (msg.baggedIds != null)
+            {
+                foreach (var netId in msg.baggedIds)
+                {
+                    var obj = FindObjectByNetId(new NetworkInstanceId(netId));
+                    if (obj != null)
+                    {
+                        // Apply collider disabled state if needed
+                        int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
+                        if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
+                        {
+                            var bagController = netController.GetComponent<DrifterBagController>();
+                            if (bagController != null)
+                            {
+                                var objectDisabledStates = API.DrifterBagAPI.GetOrCreateDisabledColliders(bagController, obj);
+                                // Disable colliders on client side
+                                BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
+                            }
+                        }
+                    }
+                }
+            }
+            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection, msg.breakoutTimes, msg.elapsedBreakoutTimes);
+        }
+
+        private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)
+        {
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                for (int frame = 0; frame < 10; frame++)
+                {
+                    yield return null;
+                }
+
+                var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
+                if (controllerObj != null)
+                {
+                    ApplyBagStateUpdate(controllerObj, msg);
+                    yield break;
+                }
+            }
+
+            Log.Error($"[BagStateSync] Failed to find controller object with netId {msg.controllerNetId.Value} after 10 retries");
         }
 
         private static GameObject? FindObjectByNetId(NetworkInstanceId netId)

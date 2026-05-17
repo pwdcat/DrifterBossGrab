@@ -35,7 +35,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        public static void UpdateNetworkBagState(DrifterBagController? ctrl, int direction = 0, int indexOverride = -2)
+        public static void UpdateNetworkBagState(DrifterBagController? ctrl, int direction = 0)
         {
             if (!ctrl || (!NetworkServer.active && !ctrl!.hasAuthority)) return;
 
@@ -50,20 +50,16 @@ namespace DrifterBossGrabMod.UI
                     foreach (var s in sd.Values) if (s && s.gameObject && IsValid(s.gameObject)) seats.Add(s.gameObject);
                 }
 
-                int idx = indexOverride;
-                if (idx == -2)
+                int idx = -1;
+                var main = API.DrifterBagAPI.GetMainPassenger(ctrl);
+                if (main && !IsValid(main!)) { API.DrifterBagAPI.SetMainSeatObject(ctrl, null); main = null; }
+
+                bool inMain = main && ctrl.vehicleSeat && ctrl.vehicleSeat.hasPassenger && ReferenceEquals(ctrl.vehicleSeat.NetworkpassengerBodyObject, main);
+                bool tracked = !NetworkServer.active && ctrl.hasAuthority && main && !inMain;
+
+                if (inMain || tracked)
                 {
-                    idx = -1;
-                    var main = API.DrifterBagAPI.GetMainPassenger(ctrl);
-                    if (main && !IsValid(main!)) { API.DrifterBagAPI.SetMainSeatObject(ctrl, null); main = null; }
-
-                    bool inMain = main && ctrl.vehicleSeat && ctrl.vehicleSeat.hasPassenger && ReferenceEquals(ctrl.vehicleSeat.NetworkpassengerBodyObject, main);
-                    bool tracked = !NetworkServer.active && ctrl.hasAuthority && main && !inMain;
-
-                    if (inMain || tracked)
-                    {
-                        for (int i = 0; i < bagged.Count; i++) if (bagged[i] && main && bagged[i].GetInstanceID() == main!.GetInstanceID()) { idx = i; break; }
-                    }
+                    for (int i = 0; i < bagged.Count; i++) if (bagged[i] && main && bagged[i].GetInstanceID() == main!.GetInstanceID()) { idx = i; break; }
                 }
                 net.SetBagState(idx, bagged, seats, direction);
             }
@@ -153,31 +149,18 @@ namespace DrifterBossGrabMod.UI
 
         public void UpdateCapacityUI()
         {
-            var ctrl = _ctrl;
-            bool isSlotInfinite = PluginConfig.Instance.IsSlotScalingFormulaInfinite;
-            bool isMassInfinite = PluginConfig.Instance.IsMassCapacityFormulaInfinite;
-            bool isMassZero = PluginConfig.Instance.IsMassCapacityFormulaZero;
-            bool balanceEnabled = PluginConfig.Instance.EnableBalance.Value;
+            if (!_instance || !PluginConfig.Instance.EnableMassCapacityUI.Value || !_ctrl) return;
 
-            // Truly infinite if: (Slot=INF AND Balance=Off) OR (Slot=INF AND (Mass=INF OR Mass=0))
-            bool isTrulyInfinite = isSlotInfinite && (!balanceEnabled || isMassInfinite || isMassZero);
-
-            if (!_instance || !PluginConfig.Instance.EnableMassCapacityUI.Value || ctrl == null || isTrulyInfinite)
-            {
-                _instance?.SetActive(false);
-                return;
-            }
-
-            if (balanceEnabled) { _cap = CapacityScalingSystem.CalculateMassCapacity(ctrl); _used = BagCapacityCalculator.GetBaggedObjectMass(ctrl); }
-            else { _cap = BagCapacityCalculator.GetUtilityMaxStock(ctrl); _used = BagCapacityCalculator.GetCurrentBaggedCount(ctrl); }
+            if (PluginConfig.Instance.EnableBalance.Value) { _cap = CapacityScalingSystem.CalculateMassCapacity(_ctrl!); _used = BagCapacityCalculator.GetBaggedObjectMass(_ctrl!); }
+            else { _cap = BagCapacityCalculator.GetUtilityMaxStock(_ctrl!); _used = BagCapacityCalculator.GetCurrentBaggedCount(_ctrl!); }
 
             _instance!.SetActive(_cap >= 1f);
             if (!_instance!.activeSelf) return;
 
-            float mPct = (balanceEnabled && _cap > 0) ? _used / _cap : 0;
-            int slots = BagCapacityCalculator.GetUtilityMaxStock(ctrl), count = API.DrifterBagAPI.GetBagCount(ctrl) + (API.DrifterBagAPI.GetIncomingObject(ctrl) != null ? 1 : 0);
+            float mPct = (PluginConfig.Instance.EnableBalance.Value && _cap > 0) ? _used / _cap : 0;
+            int slots = BagCapacityCalculator.GetUtilityMaxStock(_ctrl!), count = API.DrifterBagAPI.GetBagCount(_ctrl!) + (API.DrifterBagAPI.GetIncomingObject(_ctrl!) != null ? 1 : 0);
             float sPct = slots > 0 ? (float)count / slots : 0;
-            float pct = balanceEnabled ? Mathf.Max(mPct, sPct) : sPct;
+            float pct = PluginConfig.Instance.EnableBalance.Value ? Mathf.Max(mPct, sPct) : sPct;
 
             if (_fill) _fill!.fillAmount = Mathf.Clamp01(pct);
             if (_overfill)

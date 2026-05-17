@@ -57,7 +57,7 @@ namespace DrifterBossGrabMod.Patches
                 if (Mathf.Abs(_scrollAccumulator) >= SCROLL_THRESHOLD && Time.time >= _lastCycleTime + PluginConfig.Instance.CycleCooldown.Value)
                 {
                     bool up = (_scrollAccumulator > 0f) ? !PluginConfig.Instance.InverseMouseWheelScrolling.Value : PluginConfig.Instance.InverseMouseWheelScrolling.Value;
-                    cycleAmount = up ? -1 : 1;
+                    cycleAmount = up ? 1 : -1;
                     _scrollAccumulator -= Mathf.Sign(_scrollAccumulator) * SCROLL_THRESHOLD;
                     _lastCycleTime = Time.time;
                 }

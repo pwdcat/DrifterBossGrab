@@ -126,18 +126,39 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else if (chosenTarget == null && originalChosenTarget != null)
                 {
-                    // Debug logging for why it was rejected
                     var component2 = originalChosenTarget.GetComponent<CharacterBody>();
+                    Log.DebugIfEnabled("[RepossessExit Postfix] Checking body: {0}, ungrabbable: {1}",
+                        component2, (component2 && component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)));
+
                     if (component2)
                     {
                         bool isBoss = component2.isBoss || component2.isChampion;
+                        bool isElite = component2.isElite;
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
+
+                        // Vanilla rejects targets missing a Rigidbody or ModelLocator.
+                        // If it's a standard NPC that vanilla rejected, allow it if NPC grabbing is enabled.
+                        bool isStandardNPCRejectedByVanilla = !isBoss && !isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value;
+
+                        bool canGrab = (PluginConfig.Instance.EnableBossGrabbing.Value && isBoss) ||
+                                        (PluginConfig.Instance.EnableNPCGrabbing.Value && isUngrabbable) ||
+                                        isStandardNPCRejectedByVanilla ||
+                                        PluginConfig.Instance.EnableLockedObjectGrabbing.Value;
+
                         bool isBlacklisted = PluginConfig.IsBlacklisted(component2.name);
-                        
-                        Log.DebugIfEnabled("[RepossessExit Postfix] Body {0} rejected: isBoss={1}, ungrabbable={2}, isBlacklisted={3}, EnableBoss={4}, EnableNPC={5}",
-                            component2.name, isBoss, isUngrabbable, isBlacklisted,
-                            PluginConfig.Instance.EnableBossGrabbing.Value,
-                            PluginConfig.Instance.EnableNPCGrabbing.Value);
+                        Log.DebugIfEnabled("[RepossessExit Postfix] Body {0}: isBoss={1}, isElite={2}, ungrabbable={3}, isStandardRejected={4}, canGrab={5}, isBlacklisted={6}",
+                            component2.name, isBoss, isElite, isUngrabbable, isStandardNPCRejectedByVanilla, canGrab, isBlacklisted);
+
+                        if (canGrab && !isBlacklisted)
+                        {
+                            var bagController = __instance.outer?.GetComponent<DrifterBagController>();
+                            if (bagController != null && !ProjectileRecoveryPatches.IsInProjectileState(originalChosenTarget) && BagCapacityCalculator.HasRoomForGrab(bagController, originalChosenTarget))
+                            {
+                                _chosenTargetField?.SetValue(__instance, originalChosenTarget);
+                                _activatedHitpauseField?.SetValue(__instance, true);
+                                chosenTarget = originalChosenTarget;
+                            }
+                        }
                     }
                 }
 
@@ -158,16 +179,6 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Log.DebugIfEnabled("[RepossessExit Postfix] Sending grab request to host for {0}", originalChosenTarget.name);
                             CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
-
-                            var netController = bagController.GetComponent<BottomlessBagNetworkController>();
-                            if (netController != null)
-                            {
-                                var ni = originalChosenTarget.GetComponent<NetworkIdentity>();
-                                if (ni != null)
-                                {
-                                    netController.SetLocallyGrabbed(ni.netId.Value);
-                                }
-                            }
                         }
                     }
                 }

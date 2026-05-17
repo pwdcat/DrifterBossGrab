@@ -431,7 +431,6 @@ namespace DrifterBossGrabMod.Networking
         public uint[] seatIds = System.Array.Empty<uint>();
         public int scrollDirection;
         public bool isThrowOperation;
-        public bool[] collidersDisabled = System.Array.Empty<bool>();
         public float[] breakoutTimes = System.Array.Empty<float>();
         public float[] elapsedBreakoutTimes = System.Array.Empty<float>();
 
@@ -450,10 +449,6 @@ namespace DrifterBossGrabMod.Networking
             int seatCount = Math.Min(seatIds.Length, 500);
             writer.Write(seatCount);
             for (int i = 0; i < seatCount; i++) writer.Write(seatIds[i]);
-
-            int colliderCount = Math.Min(collidersDisabled.Length, 500);
-            writer.Write(colliderCount);
-            for (int i = 0; i < colliderCount; i++) writer.Write(collidersDisabled[i]);
 
             int timerCount = Math.Min(breakoutTimes.Length, 500);
             writer.Write(timerCount);
@@ -479,10 +474,6 @@ namespace DrifterBossGrabMod.Networking
             int count2 = Math.Min(reader.ReadInt32(), 500);
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
-
-            int count3 = Math.Min(reader.ReadInt32(), 500);
-            collidersDisabled = new bool[count3];
-            for (int i = 0; i < count3; i++) collidersDisabled[i] = reader.ReadBoolean();
 
             int count4 = Math.Min(reader.ReadInt32(), 500);
             breakoutTimes = new float[count4];

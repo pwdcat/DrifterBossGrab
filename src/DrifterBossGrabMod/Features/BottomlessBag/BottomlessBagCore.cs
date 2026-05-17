@@ -364,7 +364,6 @@ namespace DrifterBossGrabMod.Patches
                 PersistenceObjectsTracker.TrackBaggedObject(passengerObject);
 
                 if (__instance != null) GetState(__instance).IncomingObject = passengerObject;
-                _usingAdditionalSeat = false;
 
                 int effectiveCapacity = __instance != null ? BagCapacityCalculator.GetUtilityMaxStock(__instance!, null) : 1;
                 var list = (__instance != null) ? GetState(__instance!).BaggedObjects : null;
@@ -391,6 +390,7 @@ namespace DrifterBossGrabMod.Patches
 
                 bool mainSeatOccupied = __instance != null && __instance.vehicleSeat != null && __instance.vehicleSeat.hasPassenger;
 
+                // Fill-from-back logic
                 if ((!prioritize || mainSeatOccupied) && TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
                 {
                     Log.DebugIfEnabled("[AssignPassenger.Prefix] Redirected {0} to AdditionalSeat. _usingAdditionalSeat={1}, skipping original method.",
@@ -462,6 +462,8 @@ namespace DrifterBossGrabMod.Patches
 
                 BagPassengerManager.ForceRecalculateMass(__instance);
                 state.IncomingObject = null;
+                BagCarouselUpdater.UpdateCarousel(__instance);
+
                 if (!DrifterBossGrabPlugin.IsSwappingPassengers)
                 {
                     int finalIndex = state.IntendedSelectedIndex;
@@ -473,17 +475,21 @@ namespace DrifterBossGrabMod.Patches
                         {
                             finalIndex = list.IndexOf(currentMain);
                         }
+
+                        if (finalIndex < 0)
+                        {
+                            finalIndex = list.Count - 1;
+                        }
                     }
 
                     Log.DebugIfEnabled("[AssignPassenger.Postfix] Updating selection to {0} (Intent was {1}) for {2}",
                         finalIndex, state.IntendedSelectedIndex, passengerObject.name);
 
-                    BagCarouselUpdater.UpdateNetworkBagState(__instance, 0, finalIndex);
+                    BagCarouselUpdater.UpdateNetworkBagState(__instance, finalIndex);
 
                     // Clear intent after grab
                     state.IntendedSelectedIndex = -1;
                 }
-                BagCarouselUpdater.UpdateCarousel(__instance);
                 DamagePreviewOverlay.InvalidateAllCaches();
             }
 
@@ -495,19 +501,8 @@ namespace DrifterBossGrabMod.Patches
                 int targetIndex = state.IntendedSelectedIndex;
                 var seatDict = state.AdditionalSeats;
 
-                int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(__instance);
-                if (API.DrifterBagAPI.GetIncomingObject(__instance) != null) currentCount++;
-
-                bool isTargetingEmptySlot = targetIndex >= 0 && targetIndex >= currentCount;
-
-                if (currentCount >= effectiveCapacity && !isTargetingEmptySlot)
-                {
-                    Log.DebugIfEnabled("[TryAssignToAdditionalSeat] Bag is full ({0}/{1}) and not targeting empty slot. Falling back to main seat.", currentCount, effectiveCapacity);
-                    return false;
-                }
-
-                Log.DebugIfEnabled("[TryAssignToAdditionalSeat] Searching for seat for {0}. Capacity={1}, Count={2}, Intent={3}.",
-                    passengerObject.name, effectiveCapacity, currentCount, targetIndex);
+                Log.DebugIfEnabled("[TryAssignToAdditionalSeat] Searching for seat for {0}. Capacity={1}, Intent={2}.",
+                    passengerObject.name, effectiveCapacity, targetIndex);
 
                 // If the user is targeting a specific slot, try to accommodate that slot if it's empty
                 var newSeat = AdditionalSeatManager.FindOrCreateEmptySeat(__instance, ref seatDict);
@@ -571,7 +566,7 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active) PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(list, __instance);
                     state.IncomingObject = null;
                     BagCarouselUpdater.UpdateCarousel(__instance);
-                    if (!DrifterBossGrabPlugin.IsSwappingPassengers) BagCarouselUpdater.UpdateNetworkBagState(__instance, 0, 0);
+                    if (!DrifterBossGrabPlugin.IsSwappingPassengers) BagCarouselUpdater.UpdateNetworkBagState(__instance, 0);
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
@@ -603,7 +598,7 @@ namespace DrifterBossGrabMod.Patches
 
                     state.IncomingObject = null;
                     BagCarouselUpdater.UpdateCarousel(__instance);
-                    if (!DrifterBossGrabPlugin.IsSwappingPassengers) BagCarouselUpdater.UpdateNetworkBagState(__instance, 0, 0);
+                    if (!DrifterBossGrabPlugin.IsSwappingPassengers) BagCarouselUpdater.UpdateNetworkBagState(__instance, 0);
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
@@ -764,8 +759,7 @@ namespace DrifterBossGrabMod.Patches
             extraSlots = Balance.FormulaParser.EvaluateInt(PluginConfig.Instance.SlotScalingFormula.Value, vars);
 
             int utilityStocks = (body && body.skillLocator && body.skillLocator.utility) ? body.skillLocator.utility.maxStock : 1;
-            int formulaCapacity = extraSlots == int.MaxValue ? int.MaxValue : utilityStocks + extraSlots;
-            int slotCapacity = formulaCapacity;
+            int slotCapacity = extraSlots == int.MaxValue ? int.MaxValue : utilityStocks + extraSlots;
 
             if (PluginConfig.Instance.EnableBalance.Value && body)
             {
@@ -776,8 +770,8 @@ namespace DrifterBossGrabMod.Patches
                     ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
                     : Constants.Multipliers.DefaultMassMultiplier;
                 float maxMassCapacity = massCapacity * overencumbranceMultiplier;
-                // If heavy, capacity is capped at current count, but never above the formula limit
-                if (currentMass >= maxMassCapacity) slotCapacity = Math.Min(formulaCapacity, usedCapacity);
+
+                if (currentMass >= maxMassCapacity) slotCapacity = Math.Max(1, usedCapacity);
             }
             return slotCapacity;
         }
@@ -798,46 +792,51 @@ namespace DrifterBossGrabMod.Patches
         public static int GetCurrentBaggedCount(DrifterBagController controller)
         {
             if (controller == null) return 0;
-            if (controller.hasAuthority)
-            {
-                var list = API.DrifterBagAPI.GetBaggedObjects(controller);
-                if (list != null)
-                {
-                    int objectsInBag = 0;
-                    var countedInstanceIds = _countedInstanceIdsBuffer;
-                    countedInstanceIds.Clear();
-                    foreach (var obj in list)
-                    {
-                        if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
-                        {
-                            int instanceId = obj.GetInstanceID();
-                            if (!countedInstanceIds.Contains(instanceId))
-                            {
-                                countedInstanceIds.Add(instanceId);
-                                objectsInBag++;
-                            }
-                        }
-                    }
-                    return objectsInBag;
-                }
-            }
-
             var netController = controller.GetComponent<Networking.BottomlessBagNetworkController>();
             if (netController != null) return netController.GetTotalObjectCount();
 
-            return 0;
+            var list = API.DrifterBagAPI.GetBaggedObjects(controller);
+            if (list == null) return 0;
+
+            int objectsInBag = 0;
+            var countedInstanceIds = _countedInstanceIdsBuffer;
+            countedInstanceIds.Clear();
+
+            foreach (var obj in list)
+            {
+                if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
+                {
+                    int instanceId = obj.GetInstanceID();
+                    if (!countedInstanceIds.Contains(instanceId))
+                    {
+                        countedInstanceIds.Add(instanceId);
+                        objectsInBag++;
+                    }
+                }
+            }
+            return objectsInBag;
         }
 
         public static bool HasRoomForGrab(DrifterBagController controller, GameObject? incomingObject = null)
         {
             if (controller == null) return false;
-            
-            int currentCount = GetCurrentBaggedCount(controller);
-            if (API.DrifterBagAPI.GetIncomingObject(controller) != null) currentCount++;
+            if (PluginConfig.Instance.BottomlessBagEnabled.Value && PluginConfig.Instance.IsSlotScalingFormulaInfinite)
+            {
+                float currentMass = CalculateTotalBagMass(controller, null);
+                float massCapacity = CapacityScalingSystem.CalculateMassCapacity(controller);
+                float overencumbranceMultiplier = PluginConfig.Instance.EnableBalance.Value
+                    ? Constants.Multipliers.DefaultMassMultiplier + (PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor)
+                    : Constants.Multipliers.DefaultMassMultiplier;
+                float maxMassCapacity = massCapacity * overencumbranceMultiplier;
+
+                bool hasRoom = currentMass < maxMassCapacity;
+                if (!hasRoom) API.DrifterBagAPI.InvokeOnBagFull(controller);
+                return hasRoom;
+            }
 
             int effectiveCapacity = GetUtilityMaxStock(controller, incomingObject);
+            int currentCount = GetCurrentBaggedCount(controller);
             bool hasRoomSlot = currentCount < effectiveCapacity;
-
             if (!hasRoomSlot) API.DrifterBagAPI.InvokeOnBagFull(controller);
             return hasRoomSlot;
         }
@@ -996,7 +995,6 @@ namespace DrifterBossGrabMod.Patches
             }
 
             list.RemoveAll(x => ReferenceEquals(x, null) || (x is UnityEngine.Object uo && !uo) || (targetInstanceId != -1 && x.GetInstanceID() == targetInstanceId));
-            API.DrifterBagAPI.SetBaggedObjects(controller, list);
             if (targetInstanceId != -1) API.DrifterBagAPI.RemoveInstanceId(controller, targetInstanceId);
 
             if (wasMainPassenger)
@@ -1156,10 +1154,6 @@ namespace DrifterBossGrabMod.Patches
                 vars["MC"] = PluginConfig.Instance.ParsedMassCap;
                 vars["S"] = RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1;
                 penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, vars);
-            }
-            else if (totalMass > 0f)
-            {
-                penalty = Constants.Multipliers.WalkSpeedPenaltyMax;
             }
 
             if (totalMass <= 0f || penalty <= 0f) { RemoveModWalkSpeedPenalty(controller); return; }

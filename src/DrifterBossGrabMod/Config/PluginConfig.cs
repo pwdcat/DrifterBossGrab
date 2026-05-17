@@ -181,8 +181,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
         public ConfigEntry<string> SlotScalingFormula { get; private set; } = null!;
         public bool IsSlotScalingFormulaInfinite => string.Equals(SlotScalingFormula.Value, "INF", StringComparison.OrdinalIgnoreCase);
-        public bool IsMassCapacityFormulaInfinite => string.Equals(MassCapacityFormula.Value, "INF", StringComparison.OrdinalIgnoreCase);
-        public bool IsMassCapacityFormulaZero => string.Equals(MassCapacityFormula.Value, "0", StringComparison.OrdinalIgnoreCase);
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<bool> EnableSuccessiveGrabStockRefresh { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
@@ -441,24 +439,6 @@ namespace DrifterBossGrabMod
             if (IsKeywordBlacklisted(obj.name)) return false;
             if (IsBlacklisted(obj.name)) return false;
 
-            var body = obj.GetComponent<CharacterBody>();
-            if (body != null)
-            {
-                if (body.isBoss || body.isChampion)
-                {
-                    return Instance.EnableBossGrabbing.Value;
-                }
-
-                if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable))
-                {
-                    return Instance.EnableNPCGrabbing.Value;
-                }
-
-                // Standard NPC
-                return Instance.EnableNPCGrabbing.Value;
-            }
-
-            // Environment objects require interaction components
             bool hasRequiredComponent = false;
             foreach (var componentType in Instance._grabbableComponentTypesCache.Value)
             {
@@ -470,12 +450,24 @@ namespace DrifterBossGrabMod
             }
             if (!hasRequiredComponent) return false;
 
-            if (Instance.EnableLockedObjectGrabbing.Value && obj.TryGetComponent<SpecialObjectAttributes>(out var soa) && soa.locked)
+            var body = obj.GetComponent<CharacterBody>();
+            if (body == null)
             {
-                return true;
+                return Instance.EnableEnvironmentGrabbing.Value;
             }
 
-            return Instance.EnableEnvironmentGrabbing.Value;
+            if (body.isBoss || body.isChampion)
+            {
+                return Instance.EnableBossGrabbing.Value;
+            }
+
+            if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable))
+            {
+                return Instance.EnableNPCGrabbing.Value;
+            }
+
+            // Standard NPC
+            return Instance.EnableNPCGrabbing.Value;
         }
 
         public const float DefaultMassCap = 700f;
