@@ -22,7 +22,8 @@ namespace DrifterBossGrabMod.Patches
                 var pivot = SearchForPivot(modelLocator.modelTransform, "HologramPivot");
                 if (pivot != null)
                 {
-                    Log.DebugIfEnabled("[BossGroupPatches] Redirecting rewards for {0} to {1} at {2}", __instance.name, pivot.name, pivot.position);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[BossGroupPatches] Redirecting rewards for {__instance.name} to {pivot.name} at {pivot.position}");
                     __instance.dropPosition = pivot;
                 }
             }
@@ -35,17 +36,18 @@ namespace DrifterBossGrabMod.Patches
             var bossDropTables = Traverse.Create(__instance).Field("bossDropTables").GetValue() as System.Collections.IList;
             if (rng == null)
             {
-                Log.DebugIfEnabled($"[BossGroupDiagnostics] alert: RNG is null! Rewards will abort in vanilla code.");
+                Log.Warning($"[BossGroupDiagnostics] ALERT: RNG is null! Rewards will abort in vanilla code.");
             }
             if (__instance.dropPosition == null)
             {
-                Log.DebugIfEnabled($"[BossGroupDiagnostics] alert: dropPosition is null! No item will be spawned.");
+                Log.Warning($"[BossGroupDiagnostics] ALERT: dropPosition is null! No item will be spawned.");
             }
 
             // fail-safe
             if (__instance.dropTable == null && NetworkServer.active)
             {
-                Log.DebugIfEnabled("[BossGroup] BossGroup {0} has no dropTable! Injecting dtTier2Item fallback.", __instance.name);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Warning($"[BossGroup] BossGroup {__instance.name} has no dropTable! Injecting dtTier2Item fallback.");
                 __instance.dropTable = Addressables.LoadAssetAsync<PickupDropTable>("RoR2/Base/Common/dtTier2Item.asset").WaitForCompletion();
             }
         }
@@ -62,4 +64,3 @@ namespace DrifterBossGrabMod.Patches
         }
     }
 }
-

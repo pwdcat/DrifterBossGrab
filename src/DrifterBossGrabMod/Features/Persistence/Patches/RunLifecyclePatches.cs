@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using RoR2;
 namespace DrifterBossGrabMod.Patches
 {
@@ -23,14 +23,20 @@ namespace DrifterBossGrabMod.Patches
             // Clear any stale data from previous runs
             PersistenceManager.ClearPersistedObjects();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            Log.DebugIfEnabled(" Persistence system initialized on run start");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" Persistence system initialized on run start");
+            }
         }
         private static void OnRunDestroyGlobal(Run run)
         {
             // Cleanup persistence system
             PersistenceManager.Cleanup();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            Log.DebugIfEnabled(" Persistence system cleaned up on run destroy");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($" Persistence system cleaned up on run destroy");
+            }
         }
     }
 }

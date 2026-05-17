@@ -72,7 +72,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             }
             catch (Exception ex)
             {
-                Log.DebugIfEnabled($"[QualityIntegration] Failed to serialize quality data: {ex.Message}");
+                Log.Warning($"[QualityIntegration] Failed to serialize quality data: {ex.Message}");
             }
         }
 
@@ -102,7 +102,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             }
             catch (Exception ex)
             {
-                Log.DebugIfEnabled($"[QualityIntegration] Failed to restore quality data: {ex.Message}");
+                Log.Warning($"[QualityIntegration] Failed to restore quality data: {ex.Message}");
             }
         }
 
@@ -119,7 +119,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             }
             catch (Exception ex)
             {
-                Log.DebugIfEnabled($"[QualityIntegration] Failed to capture field {fieldName}: {ex.Message}");
+                Log.Warning($"[QualityIntegration] Failed to capture field {fieldName}: {ex.Message}");
             }
         }
 
@@ -139,9 +139,8 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
             }
             catch (Exception ex)
             {
-                Log.DebugIfEnabled($"[QualityIntegration] Failed to restore field {fieldName}: {ex.Message}");
+                Log.Warning($"[QualityIntegration] Failed to restore field {fieldName}: {ex.Message}");
             }
         }
     }
 }
-

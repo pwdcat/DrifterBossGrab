@@ -7,16 +7,8 @@ using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
-    // ========================================================================================
-    // PLUGIN CONFIG HANDLERS
-    // ========================================================================================
-
     public partial class DrifterBossGrabPlugin
     {
-        // ========================================================================================
-        // FEATURE STATE TRACKING
-        // ========================================================================================
-
         private void SyncFeatureTrackingState()
         {
             _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
@@ -26,30 +18,26 @@ namespace DrifterBossGrabMod
             _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
         }
 
-        // ========================================================================================
-        // FORMULA INITIALIZATION
-        // ========================================================================================
-
         private void InitializeFormulaVariables()
         {
-            API.DrifterBagAPI.RegisterFormulaVariable("H",
+            Balance.FormulaRegistry.RegisterVariable("H",
                 (body) => body?.maxHealth ?? 0f,
                 "Character's max health");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("L",
+            Balance.FormulaRegistry.RegisterVariable("L",
                 (body) => body?.level ?? 1f,
                 "Character's level");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("C",
+            Balance.FormulaRegistry.RegisterVariable("C",
                 (body) => body != null && body.skillLocator != null && body.skillLocator.utility != null
                     ? body.skillLocator.utility.maxStock : 1f,
                 "Utility stock count");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("S",
+            Balance.FormulaRegistry.RegisterVariable("S",
                 (body) => Run.instance ? Run.instance.stageClearCount + 1 : 1,
                 "Current stage number");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("MC",
+            Balance.FormulaRegistry.RegisterVariable("MC",
                 (body) =>
                 {
                     string massCapStr = PluginConfig.Instance.MassCap.Value;
@@ -62,20 +50,16 @@ namespace DrifterBossGrabMod
                 },
                 "Mass capacity limit (from config)");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("BH",
+            Balance.FormulaRegistry.RegisterVariable("BH",
                 (body) => body?.baseMaxHealth ?? 0f,
                 "Character's base max health");
 
-            API.DrifterBagAPI.RegisterFormulaVariable("B",
+            Balance.FormulaRegistry.RegisterVariable("B",
                 (body) => 0f,
                 "Base mass (for flag multipliers)");
 
-            Log.DebugIfEnabled("[FormulaInit] Default variables initialized");
+            Log.Info("[FormulaInit] Default variables initialized");
         }
-
-        // ========================================================================================
-        // EVENT HANDLER SETUP
-        // ========================================================================================
 
         private void SetupConfigurationEventHandlers()
         {
@@ -88,14 +72,9 @@ namespace DrifterBossGrabMod
             SetupHudSubTabHandlers();
             SetupBalanceSubTabHandlers();
             SetupPresetHandlers();
-            SetupMaxSmacksHandler();
             SetupAutoSwitchToCustomHandlers();
             PersistenceManager.UpdateCachedConfig();
         }
-
-        // ========================================================================================
-        // SPECIFIC CONFIG HANDLERS
-        // ========================================================================================
 
         private void SetupDebugLogsHandler()
         {
@@ -104,18 +83,6 @@ namespace DrifterBossGrabMod
                 Log.EnableDebugLogs = PluginConfig.Instance.EnableDebugLogs.Value;
             };
             PluginConfig.Instance.EnableDebugLogs.SettingChanged += debugLogsHandler;
-        }
-
-        private void SetupMaxSmacksHandler()
-        {
-            maxSmacksHandler = (sender, args) =>
-            {
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    bagController.maxSmacks = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.MaxSmacks.Value : 3;
-                }
-            };
-            PluginConfig.Instance.MaxSmacks.SettingChanged += maxSmacksHandler;
         }
 
         private void SetupBlacklistHandlers()
@@ -240,7 +207,7 @@ namespace DrifterBossGrabMod
                 var error = Balance.FormulaParser.Validate(formulaString);
                 if (error != null)
                 {
-                    Log.DebugIfEnabled($"[ConfigValidation] Invalid FlagMultiplier formula for {selectedFlag}: {error}");
+                    Log.Warning($"[ConfigValidation] Invalid FlagMultiplier formula for {selectedFlag}: {error}");
                     return;
                 }
 
@@ -314,6 +281,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.PersistBaggedEnvironmentObjects,
                 PluginConfig.Instance.AutoGrabDelay,
                 PluginConfig.Instance.BottomlessBagEnabled,
+                PluginConfig.Instance.AddedCapacity,
                 PluginConfig.Instance.EnableStockRefreshClamping,
                 PluginConfig.Instance.CycleCooldown,
                 PluginConfig.Instance.PlayAnimationOnCycle,
@@ -382,10 +350,6 @@ namespace DrifterBossGrabMod
             );
         }
 
-        // ========================================================================================
-        // MASS RECALCULATION
-        // ========================================================================================
-
         private void RecalculateAllBaggedMasses()
         {
             foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(UnityEngine.FindObjectsSortMode.None))
@@ -395,4 +359,3 @@ namespace DrifterBossGrabMod
         }
     }
 }
-

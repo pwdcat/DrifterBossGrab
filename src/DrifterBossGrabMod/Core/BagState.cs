@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
-using DrifterBossGrabMod.Patches;
+using DrifterBossGrabMod.Features;
 using RoR2;
 
 namespace DrifterBossGrabMod.Core

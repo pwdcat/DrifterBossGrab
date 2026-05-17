@@ -34,9 +34,9 @@ namespace DrifterBossGrabMod.Patches
             if (actualBagController == null && targetObject != null)
             {
 
-                foreach (var controller in API.DrifterBagAPI.GetAllControllers())
+                foreach (var controller in BagPatches.GetAllControllers())
                 {
-                    var msObj = API.DrifterBagAPI.GetMainPassenger(controller);
+                    var msObj = BagPatches.GetMainSeatObject(controller);
                     if (msObj != null && msObj.GetInstanceID() == targetObject.GetInstanceID())
                     {
                         actualBagController = controller;
@@ -71,7 +71,7 @@ namespace DrifterBossGrabMod.Patches
 
             }
             // Method 2: Check tracked main seat state
-            var trackedMainSeatOccupant = API.DrifterBagAPI.GetMainPassenger(actualBagController);
+            var trackedMainSeatOccupant = BagPatches.GetMainSeatObject(actualBagController);
             if (!isNowMainSeatOccupant && trackedMainSeatOccupant != null)
             {
                 isNowMainSeatOccupant = ReferenceEquals(targetObject, trackedMainSeatOccupant);
@@ -84,7 +84,7 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            API.DrifterBagAPI.SynchronizeBaggedObjectState(actualBagController, targetObject);
+            BaggedObjectPatches.SynchronizeBaggedObjectState(actualBagController, targetObject);
             return;
         }
 
@@ -101,9 +101,9 @@ namespace DrifterBossGrabMod.Patches
             // If bagController is not provided, try to find it
             if (bagController == null)
             {
-                foreach (var controller in API.DrifterBagAPI.GetAllControllers())
+                foreach (var controller in BagPatches.GetAllControllers())
                 {
-                    if (ReferenceEquals(API.DrifterBagAPI.GetMainPassenger(controller), targetObject))
+                    if (ReferenceEquals(BagPatches.GetMainSeatObject(controller), targetObject))
                     {
                         bagController = controller;
                         break;
@@ -114,7 +114,7 @@ namespace DrifterBossGrabMod.Patches
             BaggedObject? baggedObject = null;
             if (bagController != null)
             {
-                baggedObject = API.DrifterBagAPI.FindOrCreateBaggedObjectState(bagController, targetObject);
+                baggedObject = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, targetObject);
             }
 
             if (baggedObject == null)
@@ -137,12 +137,14 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
                 // Check if object is tracked as main seat
-                var currentlyTracked = API.DrifterBagAPI.GetMainPassenger(bagController);
+                var currentlyTracked = BagPatches.GetMainSeatObject(bagController);
                 bool isTrackedAsMainSeat = currentlyTracked != null && ReferenceEquals(targetObject, currentlyTracked);
 
-                if ((isActuallyInMainSeat || isTrackedAsMainSeat) && DrifterBossGrabPlugin.IsSwappingPassengers)
+                // Only remove overlay if object is neither actually in main seat nor tracked as main seat
+                if (isActuallyInMainSeat || isTrackedAsMainSeat)
                 {
-                    return; // Skip only during intentional swaps
+
+                    return; // Don't remove overlay if still in main seat
                 }
             }
             else
@@ -225,16 +227,14 @@ namespace DrifterBossGrabMod.Patches
             }
             // Only remove overlay if we're truly transitioning to null state
             // Check if there's actually a tracked main seat occupant before removing
-            bool hasTrackedMainSeat = API.DrifterBagAPI.GetMainPassenger(bagController) != null;
+            bool hasTrackedMainSeat = BagPatches.GetMainSeatObject(bagController) != null;
             // Also check if there's actually a passenger in the main seat
             bool hasActualMainSeatPassenger = false;
             if (bagController.vehicleSeat != null && bagController.vehicleSeat.hasPassenger)
             {
                 hasActualMainSeatPassenger = true;
             }
-            // During a carousel swap, we may want to skip UI removal to prevent flickering.
-            // However, during a throw or real ejection, we MUST remove it even if the tracking hasn't updated yet.
-            if ((hasTrackedMainSeat || hasActualMainSeatPassenger) && DrifterBossGrabPlugin.IsSwappingPassengers)
+            if (hasTrackedMainSeat || hasActualMainSeatPassenger)
             {
                 return; // Don't remove overlay if there's still a tracked main seat or actual passenger
             }
@@ -272,10 +272,9 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception e)
                 {
-                    Log.DebugIfEnabled($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
+                    Log.Info($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
                 }
             }
         }
     }
 }
-

@@ -19,7 +19,10 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                Log.DebugIfEnabled("[ConfigSyncHandler] Sync disabled by host config. Skipping send to client {0}", conn.connectionId);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ConfigSyncHandler] Sync disabled by host config. Skipping send to client {conn.connectionId}.");
+                }
                 return;
             }
 
@@ -56,6 +59,7 @@ namespace DrifterBossGrabMod.Networking
 
                 // Bottomless Bag
                 BottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value,
+                AddedCapacity = PluginConfig.Instance.AddedCapacity.Value,
                 EnableStockRefreshClamping = PluginConfig.Instance.EnableStockRefreshClamping.Value,
                 EnableSuccessiveGrabStockRefresh = PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value,
                 CycleCooldown = PluginConfig.Instance.CycleCooldown.Value,
@@ -83,7 +87,10 @@ namespace DrifterBossGrabMod.Networking
                 AllFlagMultiplier = PluginConfig.Instance.AllFlagMultiplier.Value,
             };
 
-            Log.DebugIfEnabled("[ConfigSyncHandler] Sending config to client {0}", conn.connectionId);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
+            }
 
             conn.Send(Constants.Network.SyncConfigMessageType, msg);
         }
@@ -110,13 +117,19 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                Log.DebugIfEnabled("[ConfigSyncHandler] Config sync disabled by client setting.");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info("[ConfigSyncHandler] Config sync disabled by client setting. Ignoring config from host.");
+                }
                 return;
             }
 
             var msg = netMsg.ReadMessage<SyncConfigMessage>();
 
-            Log.DebugIfEnabled("[ConfigSyncHandler] Received config from host.");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
+            }
 
             // Apply all config values from the message
             ApplySyncedConfig(msg);
@@ -156,6 +169,7 @@ namespace DrifterBossGrabMod.Networking
 
             // Bottomless Bag
             PluginConfig.Instance.BottomlessBagEnabled.Value = msg.BottomlessBagEnabled;
+            PluginConfig.Instance.AddedCapacity.Value = msg.AddedCapacity;
             PluginConfig.Instance.EnableStockRefreshClamping.Value = msg.EnableStockRefreshClamping;
             PluginConfig.Instance.EnableSuccessiveGrabStockRefresh.Value = msg.EnableSuccessiveGrabStockRefresh;
             PluginConfig.Instance.CycleCooldown.Value = msg.CycleCooldown;
@@ -188,7 +202,10 @@ namespace DrifterBossGrabMod.Networking
             // Trigger re-scan of grabbable objects to apply new settings to the current scene
             GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
 
-            Log.DebugIfEnabled("[ConfigSyncHandler] Local config updated and scene objects re-scanned.");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info("[ConfigSyncHandler] Local config updated and scene objects re-scanned.");
+            }
         }
 
         // Coroutine to delay config broadcast until the end of the frame,
@@ -202,11 +219,17 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                Log.DebugIfEnabled("[ConfigSyncHandler] Sync disabled by host config.");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ConfigSyncHandler] Sync disabled by host config. Skipping broadcast.");
+                }
                 yield break;
             }
 
-            Log.DebugIfEnabled("[ConfigSyncHandler] Broadcasting updated config to all connected clients.");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ConfigSyncHandler] Broadcasting updated config to all connected clients.");
+            }
 
             foreach (var conn in NetworkServer.connections)
             {

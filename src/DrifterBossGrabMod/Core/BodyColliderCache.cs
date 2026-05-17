@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using RoR2;
@@ -24,7 +24,10 @@ namespace DrifterBossGrabMod
 
         private void PopulateCache()
         {
-            Log.DebugIfEnabled("[BodyColliderCache] Populating collider cache for {0}", gameObject.name);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[BodyColliderCache] Populating collider cache for {gameObject.name}");
+            }
 
             var modelLocator = GetComponent<ModelLocator>();
             if (modelLocator != null && modelLocator.modelTransform != null)
@@ -38,7 +41,10 @@ namespace DrifterBossGrabMod
                 _colliders = GetComponentsInChildren<Collider>(true);
             }
 
-            Log.DebugIfEnabled("[BodyColliderCache] Found {0} colliders for {1}", _colliders?.Length ?? 0, gameObject.name);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[BodyColliderCache] Found {_colliders?.Length ?? 0} colliders for {gameObject.name}");
+            }
 
             _isInitialized = true;
         }

@@ -12,7 +12,7 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.DebugIfEnabled("[{0}] Applying balance patches...", FeatureName);
+            Log.Info($"[{FeatureName}] Applying balance patches...");
 
             // Overencumbrance Patches
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_RecalculateStats_Patch)).Patch();
@@ -21,11 +21,6 @@ namespace DrifterBossGrabMod
             // Launch Speed Cap Patches
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_ModifyProjectile_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.ProjectileManager_FireProjectile_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.DrifterBagController_HandlePlayerThrowVelocity_Patch)).Patch();
-
-            // Throw Fix Patches
-            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_OnEnter_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_FireProjectile_Patch)).Patch();
 
             // State Calculation Patches
             harmony.CreateClassProcessor(typeof(Patches.StateCalculationPatches.SuffocateSlam_AuthorityModifyOverlapAttack_ApplyCustomDamage)).Patch();
@@ -40,7 +35,7 @@ namespace DrifterBossGrabMod
             // Movement Penalty Fix Patch
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_UpdateBaggedObjectMass)).Patch();
 
-            Log.DebugIfEnabled("[{0}] Balance patches applied successfully.", FeatureName);
+            Log.Info($"[{FeatureName}] Balance patches applied successfully.");
         }
     }
 }

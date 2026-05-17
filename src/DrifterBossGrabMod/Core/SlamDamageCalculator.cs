@@ -38,7 +38,8 @@ namespace DrifterBossGrabMod.Core
                 PluginConfig.Instance.StateCalculationMode.Value == StateCalculationMode.All &&
                 PluginConfig.Instance.AoEDamageDistribution.Value == AoEDamageMode.Split)
             {
-                int count = API.DrifterBagAPI.GetBagCount(bagController);
+                var bagState = BagPatches.GetState(bagController);
+                int count = bagState.BaggedObjects?.Count ?? 1;
                 if (count > 1)
                     effectiveCoef /= count;
             }
@@ -129,12 +130,12 @@ namespace DrifterBossGrabMod.Core
 
             if (float.IsNaN(result))
             {
-                Log.DebugIfEnabled($"[SlamDamageCalculator] Formula '{formula}' returned NaN. Using default calculation.");
+                Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned NaN. Using default calculation.");
                 result = DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / maxCapacity);
             }
             else if (float.IsInfinity(result))
             {
-                Log.DebugIfEnabled($"[SlamDamageCalculator] Formula '{formula}' returned Infinity. Using default calculation.");
+                Log.Warning($"[SlamDamageCalculator] Formula '{formula}' returned Infinity. Using default calculation.");
                 result = DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / maxCapacity);
             }
             return result;
@@ -169,6 +170,7 @@ namespace DrifterBossGrabMod.Core
 
         public static void LogDetails(DrifterBagController bagController, GameObject target)
         {
+            if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
 
             float baseDamageCoef = DefaultBaseDamageCoef;
             float massScaling = DefaultMassScaling;
@@ -209,14 +211,14 @@ namespace DrifterBossGrabMod.Core
                 var field = typeof(JunkCubeController).GetField("_maxActivationCount", BindingFlags.NonPublic | BindingFlags.Instance);
                 int maxCount = field != null ? (int)field.GetValue(junkController) : 3;
                 float frac = maxCount > 0 ? 1f / maxCount : 0f;
-                Log.DebugIfEnabled($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
+                Log.Info($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
             }
             // Priority 1: CharacterBody (Health)
             else if (body && body.healthComponent)
             {
                 float totalHealth = body.healthComponent.fullCombinedHealth;
                 float frac = totalHealth > 0f ? Mathf.Clamp01(finalDamage / totalHealth) : 1f;
-                Log.DebugIfEnabled($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
+                Log.Info($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
             }
             // Priority 2: SpecialObjectAttributes (Durability)
             else
@@ -224,14 +226,13 @@ namespace DrifterBossGrabMod.Core
                 var attributes = target.GetComponent<SpecialObjectAttributes>();
                 if (attributes && attributes.maxDurability > 0)
                 {
-                    Log.DebugIfEnabled($"  FractionPath: DURABILITY (durability={attributes.durability}/{attributes.maxDurability}, previewFrac={1f / attributes.maxDurability:F3})");
+                    Log.Info($"  FractionPath: DURABILITY (durability={attributes.durability}/{attributes.maxDurability}, previewFrac={1f / attributes.maxDurability:F3})");
                 }
                 else
                 {
-                    Log.DebugIfEnabled($"  FractionPath: NONE (hasAttributes={attributes != null}, hasBody={body != null}, hasHC={body?.healthComponent != null})");
+                    Log.Info($"  FractionPath: NONE (hasAttributes={attributes != null}, hasBody={body != null}, hasHC={body?.healthComponent != null})");
                 }
             }
         }
     }
 }
-

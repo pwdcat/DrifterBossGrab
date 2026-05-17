@@ -20,19 +20,23 @@ namespace DrifterBossGrabMod.Networking
         private static readonly object _readyObjectCacheLock = new object();
         private const float CacheValidityDuration = 5f;
 
-        // logging
+        // Retry logic accounts for the non-deterministic timing of Unity's object spawning and registration.
+
+        // Detailed logging is essential for diagnosing synchronization failures that only occur in multi-player environments.
         public static GameObject? FindLocalObjectWithLogging(NetworkInstanceId netId, string operation, bool isServer = true)
         {
             var obj = NetworkServer.FindLocalObject(netId);
 
             if (obj != null)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.{operation}] Successfully found {obj.name} netId {netId.Value} on {(isServer ? "server" : "client")}");
+                Log.Info($"[NetworkUtils.{operation}] Successfully found {obj.name} (netId={netId.Value}) on {(isServer ? "server" : "client")}");
                 return obj;
             }
 
-            Log.Error($"[NetworkUtils.{operation}] Failed to find object netId {netId.Value} on {(isServer ? "server" : "client")}");
+            // Log detailed failure information
+            Log.Error($"[NetworkUtils.{operation}] Failed to find object (netId={netId.Value}) on {(isServer ? "server" : "client")}");
 
+            // Try to provide more context about what might be wrong
             if (netId != NetworkInstanceId.Invalid)
             {
                 // Check if the ID is in the server's lookup
@@ -49,40 +53,41 @@ namespace DrifterBossGrabMod.Networking
                 }
                 catch (Exception ex)
                 {
-                    Log.DebugIfEnabled($"[NetworkUtils.{operation}] Could not check server lookup: {ex.Message}");
+                    Log.Warning($"[NetworkUtils.{operation}] Could not check server lookup: {ex.Message}");
                 }
 
                 if (isInServerLookup)
                 {
-                    Log.Error($"[NetworkUtils.{operation}] NetworkInstanceId exists in server lookup but FindLocalObject returned null");
+                    Log.Error($"[NetworkUtils.{operation}] NetworkInstanceId exists in server lookup but FindLocalObject returned null - object may be destroyed/inactive");
                 }
                 else
                 {
-                    Log.Error($"[NetworkUtils.{operation}] NetworkInstanceId not found in server lookup");
+                    Log.Error($"[NetworkUtils.{operation}] NetworkInstanceId not found in server lookup - object may not be spawned yet or was destroyed");
                 }
             }
 
             return null;
         }
 
+        // Validation ensures that we don't attempt operations on objects that are partially initialized or already marked for destruction.
         public static bool ValidateObjectReady(GameObject? obj)
         {
             if (obj == null)
             {
-                Log.DebugIfEnabled("[NetworkUtils.ValidateObjectReady] GameObject is null");
+                Log.Warning("[NetworkUtils.ValidateObjectReady] GameObject is null");
                 return false;
             }
 
             if (!obj.activeInHierarchy)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.ValidateObjectReady] {obj.name} is not active in hierarchy");
+                Log.Warning($"[NetworkUtils.ValidateObjectReady] {obj.name} is not active in hierarchy");
                 return false;
             }
 
             var netId = obj.GetComponent<NetworkIdentity>();
             if (netId == null)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.ValidateObjectReady] {obj.name} does not have NetworkIdentity component");
+                Log.Warning($"[NetworkUtils.ValidateObjectReady] {obj.name} does not have NetworkIdentity component");
                 return false;
             }
 
@@ -92,6 +97,7 @@ namespace DrifterBossGrabMod.Networking
                 {
                     if (Time.time - cacheTime < CacheValidityDuration)
                     {
+                        // Object was validated recently and is still valid
                         return true;
                     }
                 }
@@ -99,13 +105,13 @@ namespace DrifterBossGrabMod.Networking
 
             if (!netId.isActiveAndEnabled)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.ValidateObjectReady] {obj.name} NetworkIdentity is not active/enabled");
+                Log.Warning($"[NetworkUtils.ValidateObjectReady] {obj.name} NetworkIdentity is not active/enabled");
                 return false;
             }
 
             if (obj == null)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.ValidateObjectReady] Object is being destroyed");
+                Log.Warning($"[NetworkUtils.ValidateObjectReady] Object is being destroyed");
                 return false;
             }
 
@@ -132,25 +138,27 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        // Comprehensive state dumps for debugging
+        // Comprehensive state dumps are the primary tool for debugging complex race conditions in the vehicle system.
         public static void LogObjectDetails(GameObject? obj, string context)
         {
             if (obj == null)
             {
-                Log.DebugIfEnabled($"[NetworkUtils.LogObjectDetails] {context} - GameObject is null");
+                Log.Warning($"[NetworkUtils.LogObjectDetails] {context} - GameObject is null");
                 return;
             }
 
             var netId = obj.GetComponent<NetworkIdentity>();
-            Log.DebugIfEnabled($"[NetworkUtils.LogObjectDetails] {context}:");
-            Log.DebugIfEnabled($"  Name: {obj.name}");
-            Log.DebugIfEnabled($"  activeInHierarchy: {obj.activeInHierarchy}");
-            Log.DebugIfEnabled($"  NetworkIdentity: {(netId != null ? $"netId {netId.netId.Value}" : "null")}");
-            Log.DebugIfEnabled($"  NetworkIdentity.isActiveAndEnabled: {(netId != null && netId.isActiveAndEnabled)}");
-            Log.DebugIfEnabled($"  InstanceID: {obj.GetInstanceID()}");
-            Log.DebugIfEnabled($"  Transform.position: {obj.transform.position}");
-            Log.DebugIfEnabled($"  Parent: {(obj.transform.parent != null ? obj.transform.parent.name : "null")}");
+            Log.Info($"[NetworkUtils.LogObjectDetails] {context}:");
+            Log.Info($"  Name: {obj.name}");
+            Log.Info($"  activeInHierarchy: {obj.activeInHierarchy}");
+            Log.Info($"  NetworkIdentity: {(netId != null ? $"netId={netId.netId.Value}" : "null")}");
+            Log.Info($"  NetworkIdentity.isActiveAndEnabled: {(netId != null && netId.isActiveAndEnabled)}");
+            Log.Info($"  InstanceID: {obj.GetInstanceID()}");
+            Log.Info($"  Transform.position: {obj.transform.position}");
+            Log.Info($"  Parent: {(obj.transform.parent != null ? obj.transform.parent.name : "null")}");
         }
+
+        // Reference validation is required because Unity's implicit null checks don't always detect destroyed C# objects.
 
         // Safe naming prevents diagnostic logs from crashing if the target object has already been garbage collected.
         public static string GetSafeObjectName(GameObject? obj)
@@ -188,16 +196,19 @@ namespace DrifterBossGrabMod.Networking
                 }
             }
 
-            Log.DebugIfEnabled(logBuilder.ToString());
+            Log.Info(logBuilder.ToString());
         }
+
+        // Periodic cleanup prevents memory pressure and lookup slowdowns in extremely long runs.
 
         // Stable string IDs are required because raw numeric IDs can shift when players transition between offline and online states.
         public static string GetPlayerIdString(NetworkUserId id)
         {
+            // Prefer the string value if it exists (usually for specialized platforms)
             if (id.strValue != null) return id.strValue;
 
+            // Fallback to value_subId format which is stable and unique for Steam/Local users
             return $"{id.value}_{id.subId}";
         }
     }
 }
-

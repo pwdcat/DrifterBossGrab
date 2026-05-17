@@ -11,10 +11,6 @@ using DrifterBossGrabMod.Core;
 namespace DrifterBossGrabMod
 {
     // Handles life-cycle and state management for objects that need to survive stage transitions.
-    // ========================================================================================
-    // PERSISTENCE OBJECT MANAGER
-    // ========================================================================================
-
     public static class PersistenceObjectManager
     {
         private static GameObject? _persistenceContainer;
@@ -30,10 +26,6 @@ namespace DrifterBossGrabMod
         private const string PERSISTENCE_CONTAINER_NAME = "DBG_PersistenceContainer";
 
         // We use a dedicated container in DontDestroyOnLoad to act as a safe harbor for persisted objects.
-        // ========================================================================================
-        // INITIALIZATION & CLEANUP
-        // ========================================================================================
-
         public static void Initialize()
         {
             if (_persistenceContainer != null) return;
@@ -58,17 +50,16 @@ namespace DrifterBossGrabMod
             _cachedEnableAutoGrab = PluginConfig.Instance.EnableAutoGrab.Value;
         }
 
-        // ========================================================================================
-        // TRACKING & REGISTRATION
-        // ========================================================================================
-
         public static void AddPersistedObject(GameObject obj, string? ownerPlayerId = null)
         {
             if (obj == null) return;
 
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                Log.DebugIfEnabled("[AddPersistedObject] Refusing to add {0}: Object is blacklisted.", obj.name);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AddPersistedObject] Refusing to add {obj.name}: Object is blacklisted.");
+                }
                 return;
             }
             var command = new AddPersistedObjectCommand(obj, ownerPlayerId);
@@ -170,10 +161,6 @@ namespace DrifterBossGrabMod
         }
 
         // Validation prevents transient objects like projectiles from being saved and causing state bloat.
-        // ========================================================================================
-        // VALIDATION & CAPTURE
-        // ========================================================================================
-
         public static bool IsValidForPersistence(GameObject obj)
         {
             if (obj == null) return false;
@@ -182,13 +169,13 @@ namespace DrifterBossGrabMod
             var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
             if (projectileController != null)
             {
-                Log.DebugIfEnabled("[IsValidForPersistence] Rejected {0}: Is a transient projectile.", obj.name);
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Is a transient projectile.");
                 return false;
             }
 
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                Log.DebugIfEnabled("[IsValidForPersistence] Rejected {0}: Matched persistence blacklist.", obj.name);
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Matched persistence blacklist.");
                 return false;
             }
 
@@ -205,7 +192,8 @@ namespace DrifterBossGrabMod
                 var toRemove = _persistedObjects.Where(obj => obj != null && PluginConfig.IsPersistenceBlacklisted(obj)).ToList();
                 foreach (var obj in toRemove)
                 {
-                    Log.DebugIfEnabled("[CaptureCurrentlyBaggedObjects] Pruning now-blacklisted object: {0}", obj.name);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Info($"[CaptureCurrentlyBaggedObjects] Pruning now-blacklisted object: {obj.name}");
                     RemovePersistedObjectInternal(obj, false);
                 }
             }
@@ -242,7 +230,7 @@ namespace DrifterBossGrabMod
                     }
                 }
 
-                var seatDict = API.DrifterBagAPI.GetAdditionalSeats(bagController);
+                var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
                 if (seatDict != null)
                 {
                     foreach (var kvp in seatDict)
@@ -260,10 +248,6 @@ namespace DrifterBossGrabMod
             }
             return null;
         }
-
-        // ========================================================================================
-        // UTILITIES
-        // ========================================================================================
 
         internal static CharacterMaster? GetMasterForBody(GameObject bodyObj)
         {

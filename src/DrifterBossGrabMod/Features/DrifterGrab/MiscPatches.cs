@@ -56,17 +56,13 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(ThrownObjectProjectileController __instance)
             {
-
-                if (!UnityEngine.Networking.NetworkServer.active)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    var passenger = __instance.Networkpassenger;
-                    if (passenger != null)
-                    {
-                        passenger.transform.SetParent(null);
-                    }
-                    return false;
+                    Log.Info($"[EjectPassenger] CALLED for {__instance.name} | Passenger: {(__instance.Networkpassenger != null ? __instance.Networkpassenger.name : "null")} | Server: {UnityEngine.Networking.NetworkServer.active}");
                 }
 
+                // Allow the function to run on BOTH server and client.
+                // It handles position/parenting which is crucial for client-side visual stability.
                 return true;
             }
         }

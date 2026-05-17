@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -88,7 +88,10 @@ namespace DrifterBossGrabMod
             lock (_teleporterLock)
             {
                 _teleportersCurrentlyBagged.Add(obj);
-                Log.DebugIfEnabled(" Marked {0} as bagged, total bagged: {1}", obj.name, _teleportersCurrentlyBagged.Count);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($" Marked {obj.name} as bagged, total bagged: {_teleportersCurrentlyBagged.Count}");
+                }
             }
         }
 
@@ -100,7 +103,10 @@ namespace DrifterBossGrabMod
             {
                 if (_teleportersCurrentlyBagged.Remove(obj))
                 {
-                    Log.DebugIfEnabled(" Unmarked {0} as bagged, total remaining: {1}", obj.name, _teleportersCurrentlyBagged.Count);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($" Unmarked {obj.name} as bagged, total remaining: {_teleportersCurrentlyBagged.Count}");
+                    }
                 }
             }
         }

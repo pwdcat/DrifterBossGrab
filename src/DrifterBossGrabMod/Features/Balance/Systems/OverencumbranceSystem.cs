@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -46,7 +46,10 @@ namespace DrifterBossGrabMod.Balance
                 {
                     StartRemovalTimer(body);
 
-                    Log.DebugIfEnabled("[Overencumbrance] Started removal timer for debuff");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[Overencumbrance] Started removal timer for debuff");
+                    }
                 }
                 return;
             }
@@ -59,7 +62,10 @@ namespace DrifterBossGrabMod.Balance
             {
                 ApplyTransferDebuff(body);
 
-                Log.DebugIfEnabled("[Overencumbrance] Applied debuff: Overencumbrance%={0:P1}", overencumbrancePercent);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[Overencumbrance] Applied debuff: Overencumbrance%={overencumbrancePercent:P1}");
+                }
             }
         }
 
@@ -84,7 +90,10 @@ namespace DrifterBossGrabMod.Balance
                     body.StopCoroutine(timerCoroutine);
                     _overencumbranceTimers.Remove(body);
 
-                    Log.DebugIfEnabled("[Overencumbrance] Stopped removal timer for {0}", body.name);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[Overencumbrance] Stopped removal timer for {body.name}");
+                    }
                 }
             }
         }
@@ -99,7 +108,10 @@ namespace DrifterBossGrabMod.Balance
                 RemoveTransferDebuff(body);
                 _overencumbranceTimers.Remove(body);
 
-                Log.DebugIfEnabled("[Overencumbrance] Removed debuff after {0:F1}s", OverencumbranceDebuffRemovalDelay);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[Overencumbrance] Removed debuff after {OverencumbranceDebuffRemovalDelay:F1}s");
+                }
             }
         }
 

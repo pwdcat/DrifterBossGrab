@@ -24,7 +24,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             OnRunStart(null!);
 
             _initialized = true;
-            Log.DebugIfEnabled("[SpawnCardRegistry] Initialized");
+            Log.Info("[SpawnCardRegistry] Initialized");
         }
 
         private static void OnRunStart(Run run)
@@ -55,7 +55,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
             }
 
-            Log.DebugIfEnabled($"[SpawnCardRegistry] Indexed {_spawnCardByAssetId.Count} spawn cards by AssetId");
+            Log.Info($"[SpawnCardRegistry] Indexed {_spawnCardByAssetId.Count} spawn cards by AssetId");
         }
 
         private static SpawnCard[] GetAllSpawnCards()
@@ -69,7 +69,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 if (resourceCards != null && resourceCards.Length > 0)
                 {
                     cards.AddRange(resourceCards);
-                    Log.DebugIfEnabled($"[SpawnCardRegistry] Found {resourceCards.Length} spawn cards via Resources.FindObjectsOfTypeAll");
+                    Log.Info($"[SpawnCardRegistry] Found {resourceCards.Length} spawn cards via Resources.FindObjectsOfTypeAll");
                 }
 
                 // Priority 2: DirectorCardCategorySelection pools for monsters/interactables
@@ -169,4 +169,3 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         }
     }
 }
-

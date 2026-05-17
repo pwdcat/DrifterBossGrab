@@ -84,7 +84,7 @@ namespace DrifterBossGrabMod.UI
             var barContainer = _healthBar!.barContainer;
             if (!barContainer)
             {
-                Log.DebugIfEnabled("[DamagePreviewOverlay] HealthBar.barContainer is null");
+                Log.Warning("[DamagePreviewOverlay] HealthBar.barContainer is null");
                 return;
             }
 
@@ -96,7 +96,7 @@ namespace DrifterBossGrabMod.UI
             }
             GameObject barInstance = Instantiate(barPrefab, barContainer);
             barInstance.name = "DamagePreview";
-            Log.DebugIfEnabled("[DamagePreviewOverlay] Created damage preview inside barContainer");
+            Log.Info("[DamagePreviewOverlay] Created damage preview inside barContainer");
 
             _previewRect = barInstance.GetComponent<RectTransform>();
             if (!_previewRect)
@@ -254,4 +254,3 @@ namespace DrifterBossGrabMod.UI
         }
     }
 }
-

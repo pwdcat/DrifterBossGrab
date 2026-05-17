@@ -10,16 +10,8 @@ using DrifterBossGrabMod.ProperSave.Serializers.Plugins;
 
 namespace DrifterBossGrabMod.API
 {
-    // ========================================================================================
-    // BUILT-IN SERIALIZERS API
-    // ========================================================================================
-
     public static class BuiltInSerializersAPI
     {
-        // ========================================================================================
-        // FACTORY METHODS
-        // ========================================================================================
-
         public static IObjectSerializerPlugin ForChest() =>
             new ComponentAPISerializer<RoR2.ChestBehavior>(priority: 100)
                 .AddAction("isChestOpened", c => c.isChestOpened, (c, v) => c.NetworkisChestOpened = v)
@@ -101,7 +93,10 @@ namespace DrifterBossGrabMod.API
                 .AddAction("isVoid", c => c.isVoid, (c, v) => c.isVoid = v)
                 .AddAction("bestName", c => c.bestName, (c, v) => c.bestName = v);
 
-            Log.DebugIfEnabled("[BuiltInSerializersAPI] Created SpecialObjectAttributes serializer");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info("[BuiltInSerializersAPI] Created SpecialObjectAttributes serializer");
+            }
 
             return serializer;
         }
@@ -191,7 +186,10 @@ namespace DrifterBossGrabMod.API
                 targetHealth = Mathf.Clamp(targetHealth, 0f, health.fullHealth);
                 health.Networkhealth = targetHealth;
 
-                Log.DebugIfEnabled("[RestoreJunkCubeHealth] Restored health: {0}/{1} (fraction: {2:F3}, activation: {3})", health.health, health.fullHealth, savedHealthFraction, junkCube.ActivationCount);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[RestoreJunkCubeHealth] Restored health: {health.health}/{health.fullHealth} (fraction: {savedHealthFraction:F3}, activation: {junkCube.ActivationCount})");
+                }
             }
 
             if (state.TryGetValue("shieldFraction", out var shieldFraction))
@@ -221,14 +219,6 @@ namespace DrifterBossGrabMod.API
                 .AddAction("maxTinkers", c => c.maxTinkers)
                 .AddCustomAction(CapturePurchaseInteraction, RestorePurchaseInteraction);
 
-        public static IObjectSerializerPlugin ForTeleporter() =>
-            new ComponentAPISerializer<RoR2.TeleporterInteraction>(priority: 105)
-                .AddAction("shrineBonusStacks", c => c.shrineBonusStacks, (c, v) =>
-                {
-                    c.Network_shrineBonusStacks = v;
-                    if (c.bossGroup != null) c.bossGroup.bonusRewardCount = v;
-                });
-
         public static IObjectSerializerPlugin ForQualityIntegration()
         {
             return new QualityIntegration();
@@ -238,10 +228,6 @@ namespace DrifterBossGrabMod.API
         {
             return new GenericComponentSerializerPlugin();
         }
-
-        // ========================================================================================
-        // HELPERS
-        // ========================================================================================
 
         private static void CapturePurchaseInteraction<T>(T component, Dictionary<string, object> state) where T : Component
         {
@@ -394,7 +380,7 @@ namespace DrifterBossGrabMod.API
 
                 if (stateMachine == null)
                 {
-                    Log.DebugIfEnabled($"[EntityStateMachine] Could not find state machine on {component.gameObject.name}");
+                    Log.Warning($"[EntityStateMachine] Could not find state machine on {component.gameObject.name}");
                     return;
                 }
 
@@ -425,14 +411,17 @@ namespace DrifterBossGrabMod.API
                     var newState = EntityStateCatalog.InstantiateState(stateType);
                     if (newState != null)
                     {
-                        Log.DebugIfEnabled("[EntityStateMachine] Setting state {0} on {1}", stateTypeName, component.gameObject.name);
+                        Log.Info($"[EntityStateMachine] Setting state {stateTypeName} on {component.gameObject.name}");
                         stateMachine.SetState(newState);
-                        Log.DebugIfEnabled("[EntityStateMachine] Restored {0} to state {1}", component.gameObject.name, stateTypeName);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[EntityStateMachine] Restored {component.gameObject.name} to state {stateTypeName}");
+                        }
                     }
                 }
                 else
                 {
-                    Log.DebugIfEnabled($"[EntityStateMachine] Could not find state type '{stateTypeName}' for {component.gameObject.name}");
+                    Log.Warning($"[EntityStateMachine] Could not find state type '{stateTypeName}' for {component.gameObject.name}");
                 }
             }
             catch (Exception ex)
@@ -440,10 +429,6 @@ namespace DrifterBossGrabMod.API
                 Log.Error($"[EntityStateMachine] Failed to restore state for {component.gameObject.name}: {ex.Message}");
             }
         }
-
-        // ========================================================================================
-        // INVENTORY
-        // ========================================================================================
 
         private static void CaptureMasterInventory(CharacterMaster master, Dictionary<string, object> state)
         {
@@ -466,6 +451,8 @@ namespace DrifterBossGrabMod.API
             var itemStacks = new List<int>();
             for (var i = 0; i < (int)ItemCatalog.itemCount; i++)
             {
+                // Capture ALL items, not just permanent ones, to ensure summoned enemies
+                // (like Beetle Guards) keep their full inventory in the bag.
                 var count = inventory.GetItemCountPermanent((ItemIndex)i);
                 if (count > 0)
                 {
@@ -518,4 +505,3 @@ namespace DrifterBossGrabMod.API
         }
     }
 }
-

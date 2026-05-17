@@ -11,20 +11,11 @@ using EntityStates.Drifter.Bag;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Networking;
 using DrifterBossGrabMod.Core;
-using DrifterBossGrabMod.UI;
 
 namespace DrifterBossGrabMod
 {
-    // ========================================================================================
-    // PERSISTENCE NETWORK HANDLER
-    // ========================================================================================
-
     public static class PersistenceNetworkHandler
     {
-        // ========================================================================================
-        // OUTBOUND MESSAGES
-        // ========================================================================================
-
         public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
@@ -63,7 +54,11 @@ namespace DrifterBossGrabMod
                         bool collidersDisabled = false;
                         if (owner != null)
                         {
-                            collidersDisabled = API.DrifterBagAPI.AreCollidersDisabled(owner, obj);
+                            var bagState = BagPatches.GetState(owner);
+                            if (bagState != null && bagState.DisabledCollidersByObject != null && bagState.DisabledCollidersByObject.ContainsKey(obj))
+                            {
+                                collidersDisabled = bagState.DisabledCollidersByObject[obj].Count > 0;
+                            }
                         }
                         message.collidersDisabled.Add(collidersDisabled);
 
@@ -77,10 +72,7 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // ========================================================================================
-        // INBOUND MESSAGE HANDLERS
-        // ========================================================================================
-
+        // Handles bagged objects persistence message.
         [NetworkMessageHandler(msgType = Constants.Network.BaggedObjectsPersistenceMessageType, client = true, server = false)]
         public static void HandleBaggedObjectsPersistenceMessage(NetworkMessage netMsg)
         {
@@ -131,7 +123,10 @@ namespace DrifterBossGrabMod
                     var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
                     if (teleporterInteraction != null)
                     {
-                        Log.DebugIfEnabled(" Found TeleporterInteraction on {0} during cycling. Registering as secondary only.", teleporterInteraction.gameObject.name);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
+                        }
                         MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
                     }
                 }
@@ -149,9 +144,9 @@ namespace DrifterBossGrabMod
                 {
                     // Find controller for this object
                     DrifterBagController? controller = null;
-                    foreach (var ctrl in API.DrifterBagAPI.GetAllControllers())
+                    foreach (var ctrl in Patches.BagPatches.GetAllControllers())
                     {
-                        var list = API.DrifterBagAPI.GetBaggedObjects(ctrl);
+                        var list = BagPatches.GetState(ctrl).BaggedObjects;
                         if (list != null && list.Contains(obj))
                         {
                             controller = ctrl;
@@ -161,9 +156,15 @@ namespace DrifterBossGrabMod
 
                     if (controller != null)
                     {
-                        if (controller != null)
+                        var bagState = BagPatches.GetState(controller);
+                        if (bagState != null)
                         {
-                            var objectDisabledStates = API.DrifterBagAPI.GetOrCreateDisabledColliders(controller, obj);
+                            if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
+                            {
+                                bagState.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
+                            }
+                            var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
+
                             // Disable colliders on client side
                             BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
                         }
@@ -191,10 +192,8 @@ namespace DrifterBossGrabMod
             ApplyBagStateUpdate(controllerObj, msg);
         }
 
-        // ========================================================================================
-        // LIFECYCLE HOOKS
-        // ========================================================================================
-
+        // Hook for server stage complete event.
+        // Sends persistence and bag state updates to clients.
         public static void RegisterServerHooks()
         {
             if (NetworkServer.active)
@@ -202,10 +201,6 @@ namespace DrifterBossGrabMod
                 Stage.onServerStageComplete += OnServerStageComplete;
             }
         }
-
-        // ========================================================================================
-        // HELPER LOGIC
-        // ========================================================================================
 
         private static void ApplyBagStateUpdate(GameObject controllerObj, UpdateBagStateMessage msg)
         {
@@ -218,12 +213,13 @@ namespace DrifterBossGrabMod
             var controller = netController.GetComponent<DrifterBagController>();
             if (controller == null) return;
 
-            // No longer needed here as we use API calls below
+            var bagState = BagPatches.GetState(controller);
+            if (bagState == null) return;
 
             if (!NetworkServer.active)
             {
-                var currentObjects = API.DrifterBagAPI.GetBaggedObjects(controller);
-                if (currentObjects != null && currentObjects.Count > 0)
+                var currentObjects = bagState.BaggedObjects;
+                if (currentObjects != null)
                 {
                     var receivedObjects = new List<GameObject>();
                     if (msg.baggedIds != null)
@@ -244,8 +240,8 @@ namespace DrifterBossGrabMod
                         {
                             if (obj != null)
                             {
-                                API.DrifterBagAPI.RemoveBaggedObject(controller, obj);
-                                API.DrifterBagAPI.RemoveInstanceId(controller, obj.GetInstanceID());
+                                currentObjects.Remove(obj);
+                                bagState.RemoveInstanceId(obj.GetInstanceID());
                             }
                         }
                     }
@@ -263,10 +259,15 @@ namespace DrifterBossGrabMod
                         int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
                         if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
                         {
-                            var bagController = netController.GetComponent<DrifterBagController>();
-                            if (bagController != null)
+                            var bagStateColliders = BagPatches.GetState(netController.GetComponent<DrifterBagController>());
+                            if (bagStateColliders != null)
                             {
-                                var objectDisabledStates = API.DrifterBagAPI.GetOrCreateDisabledColliders(bagController, obj);
+                                if (!bagStateColliders.DisabledCollidersByObject.ContainsKey(obj))
+                                {
+                                    bagStateColliders.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
+                                }
+                                var objectDisabledStates = bagStateColliders.DisabledCollidersByObject[obj];
+
                                 // Disable colliders on client side
                                 BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
                             }
@@ -274,7 +275,7 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
-            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection, msg.breakoutTimes, msg.elapsedBreakoutTimes);
+            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection);
         }
 
         private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)
@@ -352,9 +353,9 @@ namespace DrifterBossGrabMod
 
                 if (foundObj == null)
                 {
-                    foreach (var controller in API.DrifterBagAPI.GetAllControllers())
+                    foreach (var controller in BagPatches.GetAllControllers())
                     {
-                        var list = API.DrifterBagAPI.GetBaggedObjects(controller);
+                        var list = BagPatches.GetState(controller).BaggedObjects;
                         if (list != null)
                         {
                             foreach (var obj in list)
@@ -404,7 +405,7 @@ namespace DrifterBossGrabMod
             {
                 BagCarouselUpdater.UpdateNetworkBagState(controller, 0);
 
-                var list = API.DrifterBagAPI.GetBaggedObjects(controller);
+                var list = BagPatches.GetState(controller).BaggedObjects;
                 if (list != null)
                 {
                     SendBaggedObjectsPersistenceMessage(list, controller);

@@ -15,10 +15,6 @@ using DrifterBossGrabMod.ProperSave.Serializers;
 
 namespace DrifterBossGrabMod.ProperSave
 {
-    // ========================================================================================
-    // PROPER SAVE CONSTANTS
-    // ========================================================================================
-
     public static class ProperSaveConstants
     {
         public static class Timing
@@ -29,10 +25,6 @@ namespace DrifterBossGrabMod.ProperSave
             public const float PostRegistryRebuildWait = 0.3f;
         }
     }
-
-    // ========================================================================================
-    // PROPER SAVE INTEGRATION
-    // ========================================================================================
 
     public static class ProperSaveIntegration
     {
@@ -103,7 +95,8 @@ namespace DrifterBossGrabMod.ProperSave
                 Delegate.CreateDelegate(onLoadingStartedEvent.EventHandlerType!, onLoadingStartedMethod));
 
             _initialized = true;
-            Log.DebugIfEnabled("[ProperSave] Integration initialized with {0} plugins", _serializerPlugins.Count);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Integration initialized with {_serializerPlugins.Count} plugins");
         }
 
         public static void Cleanup()
@@ -122,22 +115,24 @@ namespace DrifterBossGrabMod.ProperSave
 
         private static void OnRunStart(Run run)
         {
-            Log.DebugIfEnabled("[ProperSave] OnRunStart called, _pendingSaveData is {0}", (_pendingSaveData == null ? "null" : $"not null ({_pendingSaveData.BaggedObjects?.Count ?? 0} objects)"));
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSave] OnRunStart called, _pendingSaveData is {(_pendingSaveData == null ? "null" : $"not null ({_pendingSaveData.BaggedObjects?.Count ?? 0} objects)")}");
+            }
         }
 
         private static void OnActiveSceneChanged(Scene prevScene, Scene nextScene)
         {
-            Log.DebugIfEnabled("[ProperSave] OnActiveSceneChanged called - prevScene: {0}, nextScene: {1}", prevScene.name, nextScene.name);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSave] OnActiveSceneChanged called - prevScene: {prevScene.name}, nextScene: {nextScene.name}");
+            }
 
             if (_pendingSaveData == null) return;
 
             // Only restore when loading a save (Single mode scene load to game scene)
             Run.instance.StartCoroutine(DelayedSceneLoadRestoration(nextScene));
         }
-
-        // ========================================================================================
-        // RESTORATION ENGINE
-        // ========================================================================================
 
         private static System.Collections.IEnumerator DelayedSceneLoadRestoration(Scene scene)
         {
@@ -148,7 +143,10 @@ namespace DrifterBossGrabMod.ProperSave
                 yield break;
             }
 
-            Log.DebugIfEnabled("[ProperSave] Starting WaitForDirectorCoreAndRestore coroutine for {0} objects", _pendingSaveData.BaggedObjects?.Count ?? 0);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSave] Starting WaitForDirectorCoreAndRestore coroutine for {_pendingSaveData.BaggedObjects?.Count ?? 0} objects");
+            }
             Run.instance.StartCoroutine(WaitForDirectorCoreAndRestore());
         }
 
@@ -194,79 +192,116 @@ namespace DrifterBossGrabMod.ProperSave
             }
             yield return new WaitForSeconds(ProperSaveConstants.Timing.PostRegistryRebuildWait);
 
-            Log.DebugIfEnabled("[ProperSave] Restoring {0} bagged objects", _pendingSaveData.BaggedObjects.Count);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSave] Restoring {_pendingSaveData.BaggedObjects.Count} bagged objects");
+            }
 
             RestoreBagState(_pendingSaveData!);
             _pendingSaveData = null;
         }
 
-        // ========================================================================================
-        // BUILT-IN PLUGINS
-        // ========================================================================================
-
         private static void RegisterBuiltInPlugins()
         {
-            Log.DebugIfEnabled("[ProperSaveIntegration] Registering built-in serializer plugins...");
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info("[ProperSaveIntegration] Registering built-in serializer plugins...");
+            }
 
             // Enemy serializers (highest priority, 1:1 restoration)
             var characterMasterSerializer = BuiltInSerializersAPI.ForCharacterMaster();
             _serializerPlugins.Add(characterMasterSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", characterMasterSerializer.GetType().Name, characterMasterSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {characterMasterSerializer.GetType().Name} (Priority: {characterMasterSerializer.Priority})");
+            }
 
             var characterBodySerializer = BuiltInSerializersAPI.ForCharacterBody();
             _serializerPlugins.Add(characterBodySerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", characterBodySerializer.GetType().Name, characterBodySerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {characterBodySerializer.GetType().Name} (Priority: {characterBodySerializer.Priority})");
+            }
 
             // Interactable serializers (API-based)
             var chestSerializer = BuiltInSerializersAPI.ForChest();
             _serializerPlugins.Add(chestSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", chestSerializer.GetType().Name, chestSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {chestSerializer.GetType().Name} (Priority: {chestSerializer.Priority})");
+            }
 
             var duplicatorSerializer = BuiltInSerializersAPI.ForDuplicator();
             _serializerPlugins.Add(duplicatorSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", duplicatorSerializer.GetType().Name, duplicatorSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {duplicatorSerializer.GetType().Name} (Priority: {duplicatorSerializer.Priority})");
+            }
 
             var shrineSerializer = BuiltInSerializersAPI.ForShrine();
             _serializerPlugins.Add(shrineSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", shrineSerializer.GetType().Name, shrineSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {shrineSerializer.GetType().Name} (Priority: {shrineSerializer.Priority})");
+            }
 
             var soaSerializer = BuiltInSerializersAPI.ForSpecialObjectAttributes();
             _serializerPlugins.Add(soaSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", soaSerializer.GetType().Name, soaSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {soaSerializer.GetType().Name} (Priority: {soaSerializer.Priority})");
+            }
 
             var junkCubeSerializer = BuiltInSerializersAPI.ForJunkCubeController();
             _serializerPlugins.Add(junkCubeSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", junkCubeSerializer.GetType().Name, junkCubeSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {junkCubeSerializer.GetType().Name} (Priority: {junkCubeSerializer.Priority})");
+            }
 
             var halcyoniteShrineSerializer = BuiltInSerializersAPI.ForHalcyoniteShrineInteractable();
             _serializerPlugins.Add(halcyoniteShrineSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", halcyoniteShrineSerializer.GetType().Name, halcyoniteShrineSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {halcyoniteShrineSerializer.GetType().Name} (Priority: {halcyoniteShrineSerializer.Priority})");
+            }
 
             var tinkerableSerializer = BuiltInSerializersAPI.ForTinkerableObjectAttributes();
             _serializerPlugins.Add(tinkerableSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", tinkerableSerializer.GetType().Name, tinkerableSerializer.Priority);
-
-            var teleporterSerializer = BuiltInSerializersAPI.ForTeleporter();
-            _serializerPlugins.Add(teleporterSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", teleporterSerializer.GetType().Name, teleporterSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {tinkerableSerializer.GetType().Name} (Priority: {tinkerableSerializer.Priority})");
+            }
 
             var purchaseSerializer = BuiltInSerializersAPI.ForPurchaseInteraction();
             _serializerPlugins.Add(purchaseSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", purchaseSerializer.GetType().Name, purchaseSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {purchaseSerializer.GetType().Name} (Priority: {purchaseSerializer.Priority})");
+            }
 
             // Reflection-based fallbacks and integrations
             var genericSerializer = BuiltInSerializersAPI.ForGenericComponentSerializer();
             _serializerPlugins.Add(genericSerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", genericSerializer.GetType().Name, genericSerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {genericSerializer.GetType().Name} (Priority: {genericSerializer.Priority})");
+            }
 
             var qualitySerializer = BuiltInSerializersAPI.ForQualityIntegration();
             _serializerPlugins.Add(qualitySerializer);
-            Log.DebugIfEnabled("  - Added: {0} (Priority: {1})", qualitySerializer.GetType().Name, qualitySerializer.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {qualitySerializer.GetType().Name} (Priority: {qualitySerializer.Priority})");
+            }
 
             // Sort by priority
             _serializerPlugins.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 
-            Log.DebugIfEnabled("[ProperSaveIntegration] Total registered plugins: {0}", _serializerPlugins.Count);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSaveIntegration] Total registered plugins: {_serializerPlugins.Count}");
+            }
         }
 
         public static void RegisterPlugin(IObjectSerializerPlugin plugin)
@@ -274,17 +309,14 @@ namespace DrifterBossGrabMod.ProperSave
             if (plugin == null) return;
             _serializerPlugins.Add(plugin);
             _serializerPlugins.Sort((a, b) => b.Priority.CompareTo(a.Priority));
-            Log.DebugIfEnabled("[Serializer] Registered plugin: {0} (Priority: {1})", plugin.GetType().Name, plugin.Priority);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[Serializer] Registered plugin: {plugin.GetType().Name} (Priority: {plugin.Priority})");
         }
 
         public static List<IObjectSerializerPlugin> GetSerializerPlugins()
         {
             return new List<IObjectSerializerPlugin>(_serializerPlugins);
         }
-
-        // ========================================================================================
-        // SAVE/LOAD HANDLERS
-        // ========================================================================================
 
         private static void OnGatherSaveData(Dictionary<string, object> gatheredData)
         {
@@ -296,7 +328,10 @@ namespace DrifterBossGrabMod.ProperSave
             var saveData = CreateSaveData();
             gatheredData[SAVE_KEY] = saveData;
 
-            Log.DebugIfEnabled("[ProperSave] Saved {0} bagged objects", saveData.BaggedObjects.Count);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"[ProperSave] Saved {saveData.BaggedObjects.Count} bagged objects");
+            }
         }
 
         private static void OnLoadingStarted(object saveFile)
@@ -326,17 +361,16 @@ namespace DrifterBossGrabMod.ProperSave
                 }
 
                 _pendingSaveData = saveData;
-                Log.DebugIfEnabled("[ProperSave] Queued {0} bagged objects for restoration", saveData.BaggedObjects.Count);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ProperSave] Queued {saveData.BaggedObjects.Count} bagged objects for restoration");
+                }
             }
             catch (Exception ex)
             {
                 Log.Error($"[ProperSave] Failed to queue bag data: {ex.Message}");
             }
         }
-
-        // ========================================================================================
-        // DATA CAPTURE
-        // ========================================================================================
 
         private static DrifterBagSaveData CreateSaveData()
         {
@@ -357,13 +391,18 @@ namespace DrifterBossGrabMod.ProperSave
             foreach (var controller in controllers)
             {
                 if (controller == null) continue;
-                var baggedObjects = API.DrifterBagAPI.GetBaggedObjects(controller);
-                for (int i = 0; i < baggedObjects.Count; i++)
+                var state = Patches.BagPatches.GetState(controller);
+                if (state?.BaggedObjects == null) continue;
+
+                lock (state.BagLock)
                 {
-                    var bagObj = baggedObjects[i];
-                    if (bagObj != null)
+                    for (int i = 0; i < state.BaggedObjects.Count; i++)
                     {
-                        bagSlotIndexMap[bagObj.GetInstanceID()] = i;
+                        var bagObj = state.BaggedObjects[i];
+                        if (bagObj != null)
+                        {
+                            bagSlotIndexMap[bagObj.GetInstanceID()] = i;
+                        }
                     }
                 }
             }
@@ -376,7 +415,10 @@ namespace DrifterBossGrabMod.ProperSave
                 var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
                 if (teleporterInteraction != null && PluginConfig.IsPersistenceBlacklisted("Teleporter"))
                 {
-                    Log.DebugIfEnabled("[ProperSaveIntegration] Skipping teleporter object {0} (Teleporter is blacklisted)", obj.name);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[ProperSaveIntegration] Skipping teleporter object {obj.name} (Teleporter is blacklisted)");
+                    }
                     continue;
                 }
 
@@ -416,7 +458,10 @@ namespace DrifterBossGrabMod.ProperSave
                 int instanceId = objectToCapture.GetInstanceID();
                 if (capturedInstanceIds.Contains(instanceId))
                 {
-                    Log.DebugIfEnabled("[CaptureObjectData] Skipping duplicate capture for {0} (from source {1})", objectToCapture.name, obj.name);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[CaptureObjectData] Skipping duplicate capture for {objectToCapture.name} (from source {obj.name})");
+                    }
                     return null;
                 }
                 capturedInstanceIds.Add(instanceId);
@@ -425,9 +470,9 @@ namespace DrifterBossGrabMod.ProperSave
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 if (isSavingMaster && master != null)
-                    Log.DebugIfEnabled($"[CaptureObjectData] Capturing master {master.name} for object {obj.name}");
+                    Log.Info($"[CaptureObjectData] Capturing master {master.name} for object {obj.name}");
                 else
-                    Log.DebugIfEnabled($"[CaptureObjectData] Capturing body/object {obj.name}");
+                    Log.Info($"[CaptureObjectData] Capturing body/object {obj.name}");
             }
 
             string? masterName = master?.name;
@@ -439,21 +484,21 @@ namespace DrifterBossGrabMod.ProperSave
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.DebugIfEnabled("[CaptureObjectData] Capturing data for {0}", obj.name);
+                Log.Info($"[CaptureObjectData] Capturing data for {obj.name}");
                 var components = obj.GetComponents<Component>();
-                Log.DebugIfEnabled("[CaptureObjectData] Components on object ({0} total): {1}", components.Length, string.Join(", ", components.Take(10).Select(c => c.GetType().Name)));
+                Log.Info($"[CaptureObjectData] Components on object ({components.Length} total): {string.Join(", ", components.Take(10).Select(c => c.GetType().Name))}");
 
                 var masterComponent = obj.GetComponent<RoR2.CharacterMaster>();
                 if (masterComponent != null)
                 {
-                    Log.DebugIfEnabled("[CaptureObjectData] Object has CharacterMaster component: {0}", masterComponent.name);
+                    Log.Info($"[CaptureObjectData] Object HAS CharacterMaster component: {masterComponent.name}");
                 }
                 else
                 {
-                    Log.DebugIfEnabled("[CaptureObjectData] Object does not have CharacterMaster component");
+                    Log.Info($"[CaptureObjectData] Object does not have CharacterMaster component");
                     if (characterBody != null && characterBody.master != null)
                     {
-                        Log.DebugIfEnabled("[CaptureObjectData] CharacterBody's master is: {0} (saved as: {1})", characterBody.master.name, masterName);
+                        Log.Info($"[CaptureObjectData] CharacterBody's master is: {characterBody.master.name} (saved as: {masterName})");
                     }
                 }
             }
@@ -497,7 +542,10 @@ namespace DrifterBossGrabMod.ProperSave
                     var state = plugin.CaptureState(objectToCapture);
                     if (state != null)
                     {
-                        Log.DebugIfEnabled("[ProperSaveIntegration] Plugin '{0}' handled {1}, captured {2} values", plugin.PluginName, obj.name, state.Count);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[ProperSaveIntegration] Plugin '{plugin.PluginName}' handled {obj.name}, captured {state.Count} values");
+                        }
 
                         var entry = new ComponentStateEntry
                         {
@@ -528,11 +576,14 @@ namespace DrifterBossGrabMod.ProperSave
                 }
             }
 
-            if (objData.ComponentStates.Count > 0)
+            if (PluginConfig.Instance.EnableDebugLogs.Value && objData.ComponentStates.Count > 0)
             {
-                Log.DebugIfEnabled("[ProperSaveIntegration] Total serializers handling {0}: {1}", obj.name, objData.ComponentStates.Count);
+                Log.Info($"[ProperSaveIntegration] Total serializers handling {obj.name}: {objData.ComponentStates.Count}");
             }
-            Log.DebugIfEnabled("[ProperSaveIntegration] No serializers handled {0}!", obj.name);
+            else if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Warning($"[ProperSaveIntegration] No serializers handled {obj.name}!");
+            }
 
             return objData;
         }
@@ -547,18 +598,19 @@ namespace DrifterBossGrabMod.ProperSave
             {
                 if (controller == null) continue;
 
+                var state = Patches.BagPatches.GetState(controller);
+                if (state == null) continue;
+
                 // Check main seat
-                var mainSeat = API.DrifterBagAPI.GetMainPassenger(controller);
-                if (mainSeat != null && mainSeat.GetInstanceID() == obj.GetInstanceID())
+                if (state.MainSeatObject != null && state.MainSeatObject.GetInstanceID() == obj.GetInstanceID())
                 {
                     isMainSeatObject = true;
                     return;
                 }
 
                 // Check additional seats
-                var additionalSeats = API.DrifterBagAPI.GetAdditionalSeats(controller);
                 int seatIndex = 0;
-                foreach (var kvp in additionalSeats)
+                foreach (var kvp in state.AdditionalSeats)
                 {
                     if (kvp.Key != null && kvp.Key.GetInstanceID() == obj.GetInstanceID())
                     {
@@ -582,10 +634,6 @@ namespace DrifterBossGrabMod.ProperSave
             }
             return string.Empty;
         }
-
-        // ========================================================================================
-        // STATE RESTORATION
-        // ========================================================================================
 
         private static System.Collections.IEnumerator DelayedStateRestoration(GameObject obj, BaggedObjectSaveData objData, System.Action onComplete)
         {
@@ -645,7 +693,7 @@ namespace DrifterBossGrabMod.ProperSave
                     }
                     else
                     {
-                        Log.DebugIfEnabled($"[ProperSave] Failed to spawn object: {objData.PrefabName}");
+                        Log.Warning($"[ProperSave] Failed to spawn object: {objData.PrefabName}");
                     }
                 }
                 catch (Exception ex)
@@ -655,7 +703,8 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             // Now restore all objects after they're spawned
-            Log.DebugIfEnabled("[ProperSave] Spawning complete, restoring {0} objects...", objectsToRestore.Count);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Spawning complete, restoring {objectsToRestore.Count} objects...");
             Run.instance.StartCoroutine(RestoreAllObjects(objectsToRestore));
         }
 
@@ -691,28 +740,33 @@ namespace DrifterBossGrabMod.ProperSave
                         {
                             objectToAutoGrab = body.gameObject;
                             isCharacterMaster = false;
-                            Log.DebugIfEnabled("[RestoreAllObjects] Auto-grabbing body {0} from master {1}", body.name, master.name);
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                Log.Debug($"[RestoreAllObjects] Auto-grabbing body {body.name} from master {master.name}");
                         }
                     }
                 }
 
                 try
                 {
-                    Log.DebugIfEnabled("[RestoreAllObjects] Restoring {0} (frame {1})", obj.name, Time.frameCount);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[RestoreAllObjects] Restoring {obj.name} (frame {Time.frameCount})");
 
                     // Refresh BodyColliderCache to ensure it has valid collider references
                     var colliderCache = obj.GetComponent<BodyColliderCache>();
                     if (colliderCache != null)
                     {
                         colliderCache.RefreshCache();
-                        Log.DebugIfEnabled("[RestoreAllObjects] Refreshed BodyColliderCache for {0}", obj.name);
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[RestoreAllObjects] Refreshed BodyColliderCache for {obj.name}");
+                        }
                     }
 
                     // Check health before restoration
                     var healthBefore = obj.GetComponent<RoR2.HealthComponent>();
-                    if (healthBefore != null)
+                    if (healthBefore != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.DebugIfEnabled("[RestoreAllObjects] Health BEFORE restoration: health={0}, fullHealth={1}", healthBefore.health, healthBefore.fullHealth);
+                        Log.Debug($"[RestoreAllObjects] Health BEFORE restoration: health={healthBefore.health}, fullHealth={healthBefore.fullHealth}");
                     }
 
                     // Now restore the object state
@@ -720,9 +774,9 @@ namespace DrifterBossGrabMod.ProperSave
 
                     // Check health after restoration
                     var healthAfter = obj.GetComponent<RoR2.HealthComponent>();
-                    if (healthAfter != null)
+                    if (healthAfter != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.DebugIfEnabled("[RestoreAllObjects] Health AFTER restoration: health={0}, fullHealth={1}, healthFraction={2}", healthAfter.health, healthAfter.fullHealth, healthAfter.healthFraction);
+                        Log.Debug($"[RestoreAllObjects] Health AFTER restoration: health={healthAfter.health}, fullHealth={healthAfter.fullHealth}, healthFraction={healthAfter.healthFraction}");
                     }
 
                     if (!isCharacterMaster)
@@ -730,7 +784,7 @@ namespace DrifterBossGrabMod.ProperSave
                         bool wasInSeat = objData.IsMainSeatObject == true || objData.AdditionalSeatIndex.HasValue;
                         if (wasInSeat || PersistenceObjectManager.GetCachedEnableAutoGrab())
                         {
-                            DrifterBagAPI.ScheduleAutoGrab(objectToAutoGrab, objData.OwnerPlayerId);
+                            PersistenceSceneHandler.ScheduleAutoGrabForObject(objectToAutoGrab, objData.OwnerPlayerId);
                         }
                     }
 
@@ -743,7 +797,8 @@ namespace DrifterBossGrabMod.ProperSave
                 }
             }
 
-            Log.DebugIfEnabled("[ProperSave] Restoration complete: {0} success, {1} failed", successCount, failureCount);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ProperSave] Restoration complete: {successCount} success, {failureCount} failed");
         }
 
         private static void RestoreObjectState(GameObject obj, BaggedObjectSaveData objData)
@@ -762,7 +817,7 @@ namespace DrifterBossGrabMod.ProperSave
 
             if (objData.ComponentStates == null)
             {
-                Log.DebugIfEnabled($"[ProperSave] RestoreObjectState: ComponentStates is null for {objData.ObjectName}");
+                Log.Warning($"[ProperSave] RestoreObjectState: ComponentStates is null for {objData.ObjectName}");
                 return;
             }
 
@@ -785,7 +840,8 @@ namespace DrifterBossGrabMod.ProperSave
                             if (body != null && body.master != null && plugin.CanHandle(body.master.gameObject))
                             {
                                 targetObj = body.master.gameObject;
-                                Log.DebugIfEnabled("[ProperSave] Cross-resolved CharacterBody to CharacterMaster {0} for plugin '{1}'", body.master.name, entry.PluginName);
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[ProperSave] Cross-resolved CharacterBody to CharacterMaster {body.master.name} for plugin '{entry.PluginName}'");
                             }
                             else
                             {
@@ -794,7 +850,8 @@ namespace DrifterBossGrabMod.ProperSave
                                 if (master != null && master.GetBody() != null && plugin.CanHandle(master.GetBody().gameObject))
                                 {
                                     targetObj = master.GetBody().gameObject;
-                                    Log.DebugIfEnabled("[ProperSave] Cross-resolved CharacterMaster to CharacterBody {0} for plugin '{1}'", master.GetBody().name, entry.PluginName);
+                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                        Log.Info($"[ProperSave] Cross-resolved CharacterMaster to CharacterBody {master.GetBody().name} for plugin '{entry.PluginName}'");
                                 }
                             }
                         }
@@ -814,7 +871,10 @@ namespace DrifterBossGrabMod.ProperSave
 
                             plugin.RestoreState(targetObj, state);
 
-                            Log.DebugIfEnabled("[ProperSave] Plugin '{0}' handled {1}, restored {2} values", entry.PluginName, targetObj.name, state.Count);
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[ProperSave] Plugin '{entry.PluginName}' handled {targetObj.name}, restored {state.Count} values");
+                            }
                         }
                     }
                 }

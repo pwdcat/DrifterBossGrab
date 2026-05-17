@@ -86,7 +86,7 @@ namespace DrifterBossGrabMod.Config.UI
 
         private void LoadComponents()
         {
-            Log.DebugIfEnabled("[DynamicDropDownController] Scanning active scene for component types...");
+            Log.Info("[DynamicDropDownController] Scanning active scene for component types...");
             _cachedComponentNames = new List<string> { "-- Select to Toggle --" };
             try
             {
@@ -170,7 +170,7 @@ namespace DrifterBossGrabMod.Config.UI
             }
 
             _dropdownChoices = _cachedComponentNames.ToArray();
-            Log.DebugIfEnabled($"[DynamicDropDownController] Loaded {_dropdownChoices!.Length} component types from the scene.");
+            Log.Info($"[DynamicDropDownController] Loaded {_dropdownChoices!.Length} component types from the scene.");
         }
 
         private void OnChoiceChanged(int newValue)
@@ -196,12 +196,12 @@ namespace DrifterBossGrabMod.Config.UI
             if (components.Contains(selectedComponent))
             {
                 components.Remove(selectedComponent);
-                Log.DebugIfEnabled($"[DynamicDropDownController] Removed {selectedComponent} from GrabbableComponentTypes.");
+                Log.Info($"[DynamicDropDownController] Removed {selectedComponent} from GrabbableComponentTypes.");
             }
             else
             {
                 components.Add(selectedComponent);
-                Log.DebugIfEnabled($"[DynamicDropDownController] Added {selectedComponent} to GrabbableComponentTypes.");
+                Log.Info($"[DynamicDropDownController] Added {selectedComponent} to GrabbableComponentTypes.");
             }
 
             PluginConfig.Instance.GrabbableComponentTypes.Value = string.Join(",", components);
@@ -217,4 +217,3 @@ namespace DrifterBossGrabMod.Config.UI
         }
     }
 }
-

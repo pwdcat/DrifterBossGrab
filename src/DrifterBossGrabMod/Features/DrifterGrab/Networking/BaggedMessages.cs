@@ -5,10 +5,7 @@ using UnityEngine.Networking;
 
 namespace DrifterBossGrabMod.Networking
 {
-    // ========================================================================================
-    // PERSISTENCE MESSAGES
-    // ========================================================================================
-
+    // Network message for broadcasting bagged objects for persistence
     public class BaggedObjectsPersistenceMessage : MessageBase
     {
         public List<NetworkInstanceId> baggedObjectNetIds = new List<NetworkInstanceId>();
@@ -66,10 +63,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // ========================================================================================
-    // BAG STATE MESSAGES
-    // ========================================================================================
-
+    // Network message for syncing bag state
     public class UpdateBagStateMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -78,8 +72,6 @@ namespace DrifterBossGrabMod.Networking
         public uint[] seatIds = System.Array.Empty<uint>();
         public int scrollDirection;
         public bool[] collidersDisabled = System.Array.Empty<bool>();
-        public float[] breakoutTimes = System.Array.Empty<float>();
-        public float[] elapsedBreakoutTimes = System.Array.Empty<float>();
 
         public override void Serialize(NetworkWriter writer)
         {
@@ -98,14 +90,6 @@ namespace DrifterBossGrabMod.Networking
             int colliderCount = Math.Min(collidersDisabled.Length, 500);
             writer.Write(colliderCount);
             for (int i = 0; i < colliderCount; i++) writer.Write(collidersDisabled[i]);
-
-            int timerCount = Math.Min(breakoutTimes.Length, 500);
-            writer.Write(timerCount);
-            for (int i = 0; i < timerCount; i++) writer.Write(breakoutTimes[i]);
-
-            int elapsedCount = Math.Min(elapsedBreakoutTimes.Length, 500);
-            writer.Write(elapsedCount);
-            for (int i = 0; i < elapsedCount; i++) writer.Write(elapsedBreakoutTimes[i]);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -125,20 +109,9 @@ namespace DrifterBossGrabMod.Networking
             int count3 = Math.Min(reader.ReadInt32(), 500);
             collidersDisabled = new bool[count3];
             for (int i = 0; i < count3; i++) collidersDisabled[i] = reader.ReadBoolean();
-
-            int count4 = Math.Min(reader.ReadInt32(), 500);
-            breakoutTimes = new float[count4];
-            for (int i = 0; i < count4; i++) breakoutTimes[i] = reader.ReadSingle();
-
-            int count5 = Math.Min(reader.ReadInt32(), 500);
-            elapsedBreakoutTimes = new float[count5];
-            for (int i = 0; i < count5; i++) elapsedBreakoutTimes[i] = reader.ReadSingle();
         }
     }
-    // ========================================================================================
-    // ACTION MESSAGES
-    // ========================================================================================
-
+    // Network message for requesting a cycle (Client -> Server)
     public class CyclePassengersMessage : MessageBase
     {
         public NetworkInstanceId bagControllerNetId = NetworkInstanceId.Invalid;
@@ -157,6 +130,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
+    // Network message for client to send bag state to server (Client -> Server)
     public class ClientUpdateBagStateMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -193,6 +167,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
+    // Network message for grabbing an object (Client -> Server)
     public class GrabObjectMessage : MessageBase
     {
         public NetworkInstanceId bagControllerNetId = NetworkInstanceId.Invalid;
@@ -211,10 +186,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // ========================================================================================
-    // SYNC MESSAGES
-    // ========================================================================================
-
+    // Network message for syncing config from Host to Client
     public class SyncConfigMessage : MessageBase
     {
         // General Grabbing
@@ -248,6 +220,7 @@ namespace DrifterBossGrabMod.Networking
 
         // Bottomless Bag
         public bool BottomlessBagEnabled;
+        public string AddedCapacity = "0";
         public bool EnableStockRefreshClamping;
         public bool EnableSuccessiveGrabStockRefresh;
         public float CycleCooldown;
@@ -306,6 +279,7 @@ namespace DrifterBossGrabMod.Networking
 
             // Bottomless Bag
             writer.Write(BottomlessBagEnabled);
+            writer.Write(AddedCapacity);
             writer.Write(EnableStockRefreshClamping);
             writer.Write(EnableSuccessiveGrabStockRefresh);
             writer.Write(CycleCooldown);
@@ -365,6 +339,7 @@ namespace DrifterBossGrabMod.Networking
 
             // Bottomless Bag
             BottomlessBagEnabled = reader.ReadBoolean();
+            AddedCapacity = reader.ReadString();
             EnableStockRefreshClamping = reader.ReadBoolean();
             EnableSuccessiveGrabStockRefresh = reader.ReadBoolean();
             CycleCooldown = reader.ReadSingle();
@@ -393,10 +368,6 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // ========================================================================================
-    // CLIENT PREFERENCE MESSAGES
-    // ========================================================================================
-
     public class ClientPreferencesMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -418,10 +389,7 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
-    // ========================================================================================
-    // NOTIFICATION MESSAGES
-    // ========================================================================================
-
+    // Network message for explicit bag state update (Server -> Client)
     public class BagStateUpdatedMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;
@@ -431,8 +399,6 @@ namespace DrifterBossGrabMod.Networking
         public uint[] seatIds = System.Array.Empty<uint>();
         public int scrollDirection;
         public bool isThrowOperation;
-        public float[] breakoutTimes = System.Array.Empty<float>();
-        public float[] elapsedBreakoutTimes = System.Array.Empty<float>();
 
         public override void Serialize(NetworkWriter writer)
         {
@@ -449,14 +415,6 @@ namespace DrifterBossGrabMod.Networking
             int seatCount = Math.Min(seatIds.Length, 500);
             writer.Write(seatCount);
             for (int i = 0; i < seatCount; i++) writer.Write(seatIds[i]);
-
-            int timerCount = Math.Min(breakoutTimes.Length, 500);
-            writer.Write(timerCount);
-            for (int i = 0; i < timerCount; i++) writer.Write(breakoutTimes[i]);
-
-            int elapsedCount = Math.Min(elapsedBreakoutTimes.Length, 500);
-            writer.Write(elapsedCount);
-            for (int i = 0; i < elapsedCount; i++) writer.Write(elapsedBreakoutTimes[i]);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -474,14 +432,6 @@ namespace DrifterBossGrabMod.Networking
             int count2 = Math.Min(reader.ReadInt32(), 500);
             seatIds = new uint[count2];
             for (int i = 0; i < count2; i++) seatIds[i] = reader.ReadUInt32();
-
-            int count4 = Math.Min(reader.ReadInt32(), 500);
-            breakoutTimes = new float[count4];
-            for (int i = 0; i < count4; i++) breakoutTimes[i] = reader.ReadSingle();
-
-            int count5 = Math.Min(reader.ReadInt32(), 500);
-            elapsedBreakoutTimes = new float[count5];
-            for (int i = 0; i < count5; i++) elapsedBreakoutTimes[i] = reader.ReadSingle();
         }
     }
 }

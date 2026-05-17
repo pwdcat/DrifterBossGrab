@@ -29,11 +29,14 @@ namespace DrifterBossGrabMod
                     }
                 }
                 _currentlyBaggedObjects.Add(obj);
-                Log.DebugIfEnabled(" Tracking bagged object: {0} (total tracked: {1})", obj.name, _currentlyBaggedObjects.Count);
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Debug($" Tracking bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");
+                }
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     var health = obj.GetComponent<RoR2.HealthComponent>();
-                    Log.DebugIfEnabled("[debug] [TrackBaggedObject] {0}: alive={1}", obj.name, health?.alive);
+                    Log.Info($"[DEBUG] [TrackBaggedObject] {obj.name}: alive={health?.alive}");
                 }
             }
         }
@@ -48,11 +51,14 @@ namespace DrifterBossGrabMod
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var health = obj.GetComponent<RoR2.HealthComponent>();
-                        Log.DebugIfEnabled($"[debug] [UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
+                        Log.Info($"[DEBUG] [UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
                     }
                     // Remove from persistence when thrown
                     PersistenceManager.RemovePersistedObject(obj, isDestroying);
-                    Log.DebugIfEnabled(" Untracked bagged object: {0} (total tracked: {1})", obj.name, _currentlyBaggedObjects.Count);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Debug($" Untracked bagged object: {obj.name} (total tracked: {_currentlyBaggedObjects.Count})");
+                    }
                 }
             }
         }
@@ -81,9 +87,11 @@ namespace DrifterBossGrabMod
             lock (_lock)
             {
                 _currentlyBaggedObjects.Clear();
-                Log.DebugIfEnabled(" Cleared all tracked bagged objects");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Debug($" Cleared all tracked bagged objects");
+                }
             }
         }
     }
 }
-

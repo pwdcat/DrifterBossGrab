@@ -13,7 +13,7 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.DebugIfEnabled($"[{FeatureName}] Applying patches...");
+            Log.Info($"[{FeatureName}] Applying patches...");
 
             // Only apply bottomless bag patches when enabled
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.BaggedObject_TryOverrideUtility)).Patch();
@@ -40,8 +40,7 @@ namespace DrifterBossGrabMod
             // Successive grab stock refresh patch
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnExit_Patch)).Patch();
 
-            Log.DebugIfEnabled($"[{FeatureName}] Patches applied successfully.");
+            Log.Info($"[{FeatureName}] Patches applied successfully.");
         }
     }
 }
-

@@ -62,8 +62,9 @@ namespace DrifterBossGrabMod.Patches
 
             if (__instance.dropTable == null || ReflectionCache.BossGroup.rng.GetValue(__instance) == null)
             {
-                Log.DebugIfEnabled("[BossGroupSafety] {0} is missing critical reward data: dropTable={1}, rng={2}",
-                         __instance.name, (__instance.dropTable != null), (ReflectionCache.BossGroup.rng.GetValue(__instance) != null));
+                Log.Info($"[BossGroupSafety] {__instance.name} is missing critical reward data: " +
+                         $"dropTable={(__instance.dropTable != null)}, " +
+                         $"rng={(ReflectionCache.BossGroup.rng.GetValue(__instance) != null)}");
 
                 if (__instance.dropTable == null)
                 {
@@ -76,7 +77,7 @@ namespace DrifterBossGrabMod.Patches
                     ReflectionCache.BossGroup.rng.SetValue(__instance, new Xoroshiro128Plus(seed));
                 }
 
-                Log.DebugIfEnabled("[BossGroupSafety] Fallback injection complete for {0}.", __instance.name);
+                Log.Info($"[BossGroupSafety] Fallback injection complete for {__instance.name}.");
             }
         }
 

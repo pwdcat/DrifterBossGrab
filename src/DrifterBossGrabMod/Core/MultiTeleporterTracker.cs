@@ -22,7 +22,7 @@ namespace DrifterBossGrabMod.Core
             lock (_lock)
             {
                 _primaryTeleporter = teleporter;
-                Log.DebugIfEnabled("[MultiTeleporterTracker] Registered primary teleporter: {0} (InstanceID: {1})", teleporter.gameObject.name, teleporter.GetInstanceID());
+                Log.Info($"[MultiTeleporterTracker] Registered primary teleporter: {teleporter.gameObject.name} (InstanceID: {teleporter.GetInstanceID()})");
             }
         }
 
@@ -36,7 +36,7 @@ namespace DrifterBossGrabMod.Core
                 if (teleporter == _primaryTeleporter) return;
 
                 _secondaryTeleporters.Add(teleporter);
-                Log.DebugIfEnabled("[MultiTeleporterTracker] Registered secondary teleporter: {0} (InstanceID: {1})", teleporter.gameObject.name, teleporter.GetInstanceID());
+                Log.Info($"[MultiTeleporterTracker] Registered secondary teleporter: {teleporter.gameObject.name} (InstanceID: {teleporter.GetInstanceID()})");
             }
         }
 
@@ -48,7 +48,10 @@ namespace DrifterBossGrabMod.Core
             {
                 if (_secondaryTeleporters.Remove(teleporter))
                 {
-                    Log.DebugIfEnabled("[MultiTeleporterTracker] Unregistered secondary teleporter: {0}", teleporter.gameObject.name);
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[MultiTeleporterTracker] Unregistered secondary teleporter: {teleporter.gameObject.name}");
+                    }
                 }
             }
         }
@@ -87,7 +90,10 @@ namespace DrifterBossGrabMod.Core
                 _secondaryTeleporters.Clear();
                 _pendingInit.Clear();
                 InvalidateCache();
-                Log.DebugIfEnabled("[MultiTeleporterTracker] Cleared teleporter registry");
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info("[MultiTeleporterTracker] Cleared teleporter registry");
+                }
             }
         }
 
