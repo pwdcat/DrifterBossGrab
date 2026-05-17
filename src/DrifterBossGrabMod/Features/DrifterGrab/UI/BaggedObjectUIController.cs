@@ -8,7 +8,7 @@ namespace DrifterBossGrabMod.UI
     public class BaggedObjectUIController : MonoBehaviour
     {
         public GameObject? carouselPrefab;
-        public GameObject? slotPrefab; // The Bag UI prefab
+        public GameObject? slotPrefab;
         private GameObject? carouselInstance;
         private GameObject? aboveInstance;
         private GameObject? centerInstance;
@@ -18,7 +18,7 @@ namespace DrifterBossGrabMod.UI
         {
             if (slotPrefab)
             {
-                // Check if this body is Drifter
+
                 var body = GetComponent<CharacterBody>();
                 if (body == null || !body!.name.StartsWith("DrifterBody") || !body.hasAuthority)
                 {
@@ -32,19 +32,26 @@ namespace DrifterBossGrabMod.UI
                 var hud = localUser.cameraRigController?.hud;
                 if (hud && hud!.mainContainer)
                 {
-                    // Find the DisplayRoot transform in the HUD hierarchy
+
                     var safeHud = hud!;
                     var displayRoot = FindDeepChild(safeHud.mainContainer!.transform, "DisplayRoot");
                     if (displayRoot)
                     {
-                        // Create the carousel GameObject at runtime
+
                         carouselInstance = new GameObject("BaggedObjectCarousel");
                         carouselInstance.transform.SetParent(displayRoot, false);
-                        carouselInstance.AddComponent<UnityEngine.RectTransform>();
+                        var rect = carouselInstance.AddComponent<UnityEngine.RectTransform>();
                         var carousel = carouselInstance.AddComponent<BaggedObjectCarousel>();
                         carousel.slotPrefab = slotPrefab;
 
-                        // Instantiate the slot instances directly
+                        var draggable = carouselInstance.AddComponent<HudDraggable>();
+                        draggable.ElementType = HudElementType.MainSlot;
+                        draggable.DragSizePadding = new Vector2(75, 50);
+                        draggable.DragOffset = new Vector2(-40, -20);
+                        draggable.XConfig = PluginConfig.Instance.CenterSlotX;
+                        draggable.YConfig = PluginConfig.Instance.CenterSlotY;
+                        draggable.ScaleConfig = PluginConfig.Instance.CenterSlotScale;
+
                         aboveInstance = Instantiate(slotPrefab, carouselInstance.transform);
                         aboveInstance!.name = "aboveSlot";
                         aboveInstance!.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, -PluginConfig.Instance.CarouselSpacing.Value);
@@ -60,7 +67,6 @@ namespace DrifterBossGrabMod.UI
                         belowInstance!.GetComponent<UnityEngine.RectTransform>().anchoredPosition = new Vector2(0, PluginConfig.Instance.CarouselSpacing.Value);
                         belowInstance.SetActive(false);
 
-                        // Set weight icon positions
                         BaggedObjectCarousel.ApplyWeightIconTransform(aboveInstance!);
                         BaggedObjectCarousel.ApplyWeightIconTransform(centerInstance!);
                         BaggedObjectCarousel.ApplyWeightIconTransform(belowInstance!);

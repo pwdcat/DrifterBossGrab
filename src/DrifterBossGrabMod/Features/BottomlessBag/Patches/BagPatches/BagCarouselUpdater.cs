@@ -11,13 +11,12 @@ using DrifterBossGrabMod.Networking;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Provides static helper methods for updating the bag carousel and network state
+
     public static class BagCarouselUpdater
     {
-        // Static registry of active carousels - replaces expensive FindObjectsByType scans
+
         internal static readonly List<UI.BaggedObjectCarousel> ActiveCarousels = new List<UI.BaggedObjectCarousel>();
 
-        // Helper method to validate bagged objects
         private static bool IsValidBaggedObject(GameObject obj)
         {
             if (obj == null || !obj) return false;
@@ -31,7 +30,6 @@ namespace DrifterBossGrabMod.Patches
             return true;
         }
 
-        // Updates the bag carousel UI for the given controller
         public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[UpdateCarousel] Controller: {(controller ? controller.name : "null")} Dir: {direction}.");
@@ -47,7 +45,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Updates the network bag state for the given controller
         public static void UpdateNetworkBagState(DrifterBagController? controller, int direction = 0)
         {
             if (ReferenceEquals(controller, null) || (controller is UnityEngine.Object uController && !uController)) return;
@@ -59,13 +56,12 @@ namespace DrifterBossGrabMod.Patches
             {
                 var baggedObjects = BagPatches.GetState(controller).BaggedObjects;
 
-                // Filter out destroyed/invalid objects before updating network
                 baggedObjects.RemoveAll(obj => ReferenceEquals(obj, null) ||
                                               (obj is UnityEngine.Object uo && !uo) ||
                                               !IsValidBaggedObject(obj));
 
                 var additionalSeats = new List<GameObject>();
-                // Consolidated state access
+
                 var seatDict = BagPatches.GetState(controller).AdditionalSeats;
                 if (seatDict != null)
                 {
@@ -81,10 +77,9 @@ namespace DrifterBossGrabMod.Patches
                 int selectedIndex = -1;
                 var mainPassenger = BagPatches.GetMainSeatObject(controller);
 
-                // Validate main passenger before calculating selectedIndex
                 if (mainPassenger != null && !IsValidBaggedObject(mainPassenger))
                 {
-                    // Clear invalid main passenger reference
+
                     BagPatches.SetMainSeatObject(controller, null);
                     mainPassenger = null;
                 }
@@ -98,7 +93,6 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // On client (non-server), fall back to tracked main seat object
                 bool useTrackedMainSeat = !NetworkServer.active && controller.hasAuthority && mainPassenger != null && !isActuallyInMainSeat;
 
                 if (isActuallyInMainSeat || useTrackedMainSeat)

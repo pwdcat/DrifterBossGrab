@@ -14,7 +14,7 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class PassengerCycler
     {
-        // Static cached collections to avoid per-cycle allocations
+
         private static readonly HashSet<int> _seenInstanceIdsBuffer = new HashSet<int>();
         private static readonly List<GameObject> _validObjectsBuffer = new List<GameObject>();
         private static readonly List<GameObject> _potentialRegrabObjectsBuffer = new List<GameObject>();
@@ -27,7 +27,6 @@ namespace DrifterBossGrabMod.Patches
             }
             if (bagController == null || amount == 0) return;
 
-            // Prevent scrolling if capacity is 1 or less
             if (BagCapacityCalculator.GetUtilityMaxStock(bagController) <= 1) return;
 
             if (!NetworkServer.active && bagController.hasAuthority)
@@ -48,7 +47,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 return;
             }
-            if (!NetworkServer.active || amount == 0) return; // Safety guard
+            if (!NetworkServer.active || amount == 0) return;
 
             if (bagController.vehicleSeat == null)
             {
@@ -125,10 +124,9 @@ namespace DrifterBossGrabMod.Patches
             CycleToNextObject(bagController, validObjects, amount);
         }
 
-        // Cycles to the next object in the valid objects list by the specified amount - handles all seat transitions and state updates
         private static void CycleToNextObject(DrifterBagController bagController, List<GameObject> validObjects, int amount)
         {
-            // Use a local copy of the seatDict for atomic updates
+
             ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict;
             var existingSeatDict = BagPatches.GetState(bagController).AdditionalSeats;
             localSeatDict = new ConcurrentDictionary<GameObject, RoR2.VehicleSeat>(existingSeatDict);
@@ -289,8 +287,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Determine the logical selection state
-            // This is the source of truth for "where are we in the cycle" regardless of physical seat state
             bool isInNullState = actualMainPassenger == null && validObjects.Count > 0;
 
             int totalPositions = validObjects.Count + 1;
@@ -302,8 +298,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Only fall back to seat passenger if the logical state is also null AND we REALLY have someone in the seat
-            // This usually happens during the very first grab of a run or after a scene transition
             if (actualMainPassenger == null && !isInNullState && vehicleSeat.hasPassenger)
             {
                 GameObject? seatPassenger = vehicleSeat.NetworkpassengerBodyObject;
@@ -369,7 +363,6 @@ namespace DrifterBossGrabMod.Patches
 
             bool nextIsNull = (nextIndex == validObjects.Count);
 
-            // Check if bag is full (no empty slots)
             int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
             bool isBagFull = validObjects.Count >= effectiveCapacity;
 
@@ -380,19 +373,15 @@ namespace DrifterBossGrabMod.Patches
                 Log.Info($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}, IsBagFull={isBagFull}");
             }
 
-            // If bag is full and we're trying to go to null state, skip null state and wrap around
-            // This must be checked BEFORE any other logic to prevent early returns
             if (isBagFull && nextIsNull)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
 
-                // Skip the null state and go to the next/previous valid object
                 nextIndex = (direction > 0) ? 0 : validObjects.Count - 1;
                 nextIsNull = false;
             }
 
-            // Save user scroll intent
             BagPatches.GetState(bagController).IntendedSelectedIndex = nextIndex;
 
             bool hasValidSeatConfiguration = SeatValidator.ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);

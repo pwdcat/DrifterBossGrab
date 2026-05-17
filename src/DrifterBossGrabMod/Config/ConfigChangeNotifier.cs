@@ -28,7 +28,9 @@ namespace DrifterBossGrabMod
 
         private static void NotifyObservers(string key, object value)
         {
-            foreach (var observer in observers)
+
+            var observersSnapshot = observers.ToArray();
+            foreach (var observer in observersSnapshot)
             {
                 observer.OnConfigChanged(key, value);
             }
@@ -55,14 +57,47 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged += configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.AddedCapacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
 
+            PluginConfig.Instance.EnableCarouselHUD.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselAnimationDuration.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotX.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotY.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowWeightIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowName.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowHealthBar.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowSlotNumber.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotX.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotY.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotScale.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotOpacity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowWeightIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowName.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowSlotNumber.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EnableDamagePreview.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.DamagePreviewColor.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.UseNewWeightIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.WeightDisplayMode.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.ScaleWeightColor.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.ShowTotalMassOnWeightIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EnableMassCapacityUI.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIPositionX.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIPositionY.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIScale.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EnableSeparators.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.GradientIntensity.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorStart.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorMid.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorEnd.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorStart.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorMid.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorEnd.SettingChanged += configChangedHandler;
         }
 
         public static void Cleanup()
@@ -86,14 +121,47 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.PersistBaggedEnvironmentObjects.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.PersistenceBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.AddedCapacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
 
+            PluginConfig.Instance.EnableCarouselHUD.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselAnimationDuration.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotX.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotY.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowWeightIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowName.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowHealthBar.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowSlotNumber.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotX.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotY.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotScale.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotOpacity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowWeightIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowName.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowSlotNumber.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EnableDamagePreview.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.DamagePreviewColor.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.UseNewWeightIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.WeightDisplayMode.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.ScaleWeightColor.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.ShowTotalMassOnWeightIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EnableMassCapacityUI.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIPositionX.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIPositionY.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.MassCapacityUIScale.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EnableSeparators.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.GradientIntensity.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorStart.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorMid.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CapacityGradientColorEnd.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorStart.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorMid.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.OverencumbranceGradientColorEnd.SettingChanged -= configChangedHandler;
         }
     }
 }

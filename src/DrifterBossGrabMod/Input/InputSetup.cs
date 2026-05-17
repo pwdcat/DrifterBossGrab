@@ -14,22 +14,23 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod.Input
 {
-    // Handles initialization of custom Rewired actions for bag cycling
-    // Hooks into RoR2's input system to register ScrollBagUp/Down actions
-    // with both keyboard and controller support, and adds UI entries to Controls settings
+
+    // ========================================================================================
+    // INPUT SETUP
+    // ========================================================================================
     internal static class InputSetup
     {
         private static bool _initialized = false;
 
-        // Cached reflection results for obfuscated methods
         private static MethodInfo? _actionElementMapApplyMethod;
 
-        // Store the Hook so it doesn't get GC'd
         private static MonoMod.RuntimeDetour.Hook? _userDataHook;
 
-        // Trampoline delegate type for the UserData init method
         private delegate void UserDataInitDelegate(UserData self);
 
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
         internal static void Init()
         {
             if (_initialized) return;
@@ -37,12 +38,10 @@ namespace DrifterBossGrabMod.Input
 
             Log.Info("[InputSetup] Initializing Rewired input actions...");
 
-            // Register actions in RoR2's InputCatalog for display names
             AddActionsToInputCatalog();
 
             var harmony = new Harmony(Constants.PluginGuid + ".input");
 
-            // Hook UserData initialization to inject our custom actions
             MethodInfo? userDataInit = FindUserDataInitMethod();
             if (userDataInit != null)
             {
@@ -74,7 +73,6 @@ namespace DrifterBossGrabMod.Input
                 }
             }
 
-            // Discover the ActionElementMap apply method for use in AddActionMaps
             _actionElementMapApplyMethod = FindActionElementMapApplyMethod();
             if (_actionElementMapApplyMethod != null)
             {
@@ -85,7 +83,6 @@ namespace DrifterBossGrabMod.Input
                 Log.Info("[InputSetup] ActionElementMap apply method not found. Using fallback for profile bindings.");
             }
 
-            // Hook UserProfile methods for default bindings
             var loadDefaultProfile = AccessTools.Method(typeof(UserProfile), nameof(UserProfile.LoadDefaultProfile));
             if (loadDefaultProfile != null)
                 harmony.Patch(loadDefaultProfile, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnLoadDefaultProfile)));
@@ -98,12 +95,10 @@ namespace DrifterBossGrabMod.Input
             if (loadUserProfiles != null)
                 harmony.Patch(loadUserProfiles, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnLoadUserProfiles)));
 
-            // Hook SettingsPanelController.Start to add our keybind entries to the Controls UI
             var settingsStart = AccessTools.Method(typeof(SettingsPanelController), "Start");
             if (settingsStart != null)
                 harmony.Patch(settingsStart, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnSettingsPanelStart)));
 
-            // Hook Language.GetString to display our action names cleanly without needing a language file
             var getStringMethod = AccessTools.Method(typeof(Language), nameof(Language.GetString), new[] { typeof(string) });
             if (getStringMethod != null)
                 harmony.Patch(getStringMethod, prefix: new HarmonyMethod(typeof(InputSetup), nameof(OnLanguageGetString)));
@@ -116,20 +111,21 @@ namespace DrifterBossGrabMod.Input
             if (token == RewiredActions.ScrollBagUp.DisplayToken)
             {
                 __result = "Scroll Bag Up";
-                return false; // Skip original method
+                return false;
             }
             if (token == RewiredActions.ScrollBagDown.DisplayToken)
             {
                 __result = "Scroll Bag Down";
-                return false; // Skip original method
+                return false;
             }
-            return true; // Run original method
+            return true;
         }
 
         #region Obfuscated Method Discovery
 
-        // Finds the UserData initialization method by IL analysis
-        // Looks for a non-public instance void method that references the 'actions' field
+        // ========================================================================================
+        // METHOD DISCOVERY
+        // ========================================================================================
         private static MethodInfo? FindUserDataInitMethod()
         {
             var actionsField = AccessTools.Field(typeof(UserData), "actions");
@@ -151,7 +147,7 @@ namespace DrifterBossGrabMod.Input
 
                 try
                 {
-                    // Check if this method's IL body references the 'actions' field
+
                     var instructions = PatchProcessor.GetCurrentInstructions(method);
                     bool referencesActions = instructions.Any(instr =>
                         (instr.opcode == System.Reflection.Emit.OpCodes.Ldfld || instr.opcode == System.Reflection.Emit.OpCodes.Stfld) &&
@@ -163,7 +159,6 @@ namespace DrifterBossGrabMod.Input
                         int localCount = body?.LocalVariables.Count ?? 0;
                         Log.Info($"[InputSetup] Found candidate method: {method.Name} (locals={localCount}, IL instructions={instructions.Count})");
 
-                        // Pick the candidate with the most local variables (the init method is the biggest)
                         if (localCount > bestLocalCount)
                         {
                             bestCandidate = method;
@@ -185,14 +180,11 @@ namespace DrifterBossGrabMod.Input
             return bestCandidate;
         }
 
-        // Finds the ActionElementMap method that applies/copies the element map to a ControllerMap
-        // Looks for a non-public instance method on ActionElementMap that takes a single ControllerMap parameter
         private static MethodInfo? FindActionElementMapApplyMethod()
         {
             return ReflectionCache.Rewired.ActionElementMap.GetApplyToControllerMapMethod();
         }
 
-        // Invokes the discovered ActionElementMap apply method, falling back gracefully if not found
         private static void ApplyElementMapToControllerMap(ActionElementMap elementMap, ControllerMap controllerMap)
         {
             if (_actionElementMapApplyMethod != null)
@@ -205,24 +197,25 @@ namespace DrifterBossGrabMod.Input
 
         #region InputCatalog & Action Registration
 
+        // ========================================================================================
+        // ACTION REGISTRATION
+        // ========================================================================================
         private static void AddActionsToInputCatalog()
         {
             InputCatalog.actionToToken[RewiredActions.ScrollBagUp] = RewiredActions.ScrollBagUp.DisplayToken;
             InputCatalog.actionToToken[RewiredActions.ScrollBagDown] = RewiredActions.ScrollBagDown.DisplayToken;
         }
 
-        // MonoMod.RuntimeDetour.Hook target. This wraps the original UserData init method.
-        // Adds our custom actions to UserData.actions before calling the original
         private static void AddCustomActions(UserDataInitDelegate orig, UserData self)
         {
             Log.Info("[InputSetup] AddCustomActions hook fired!");
 
             if (self.actions != null)
             {
-                // Register each action, auto-resolving ActionId collisions
+
                 foreach (var action in new[] { RewiredActions.ScrollBagUp, RewiredActions.ScrollBagDown })
                 {
-                    // Check if already registered by name
+
                     var existingByName = self.actions.Find(a => a.name == action.Name);
                     if (existingByName != null)
                     {
@@ -230,7 +223,6 @@ namespace DrifterBossGrabMod.Input
                         continue;
                     }
 
-                    // Auto-resolve ActionId collisions by incrementing
                     int originalId = action.ActionId;
                     int attempts = 0;
                     while (self.actions.Exists(a => a.id == action.ActionId) && attempts < 50)
@@ -265,7 +257,6 @@ namespace DrifterBossGrabMod.Input
                 Log.Warning("[InputSetup] UserData.actions is null!");
             }
 
-            // Call the original method - this processes the actions list and registers them with the Rewired engine
             orig(self);
             Log.Info("[InputSetup] Original UserData init completed.");
         }
@@ -274,6 +265,9 @@ namespace DrifterBossGrabMod.Input
 
         #region Profile Binding Hooks
 
+        // ========================================================================================
+        // PROFILE BINDING HOOKS
+        // ========================================================================================
         private static void OnLoadUserProfiles(SaveSystem __instance)
         {
             foreach (var (name, userProfile) in __instance.loadedUserProfiles)
@@ -311,8 +305,9 @@ namespace DrifterBossGrabMod.Input
 
         #region Settings UI
 
-        // Adds our keybind entries to the Controls settings panel (both M&KB and Gamepad)
-        // Clones an existing binding button (Jump) and sets the action name
+        // ========================================================================================
+        // SETTINGS UI
+        // ========================================================================================
         private static void OnSettingsPanelStart(SettingsPanelController __instance)
         {
             if (__instance.name == "SettingsSubPanel, Controls (M&KB)" || __instance.name == "SettingsSubPanel, Controls (Gamepad)")
@@ -336,7 +331,7 @@ namespace DrifterBossGrabMod.Input
             var inputBindingObject = UnityEngine.Object.Instantiate(buttonToCopy, buttonToCopy.parent);
             var inputBindingControl = inputBindingObject.GetComponent<InputBindingControl>();
             inputBindingControl.actionName = actionName;
-            // Re-run Awake to apply the new actionName
+
             inputBindingControl.Awake();
         }
 
@@ -344,6 +339,9 @@ namespace DrifterBossGrabMod.Input
 
         #region Action Map Helpers
 
+        // ========================================================================================
+        // ACTION MAP HELPERS
+        // ========================================================================================
         private static void AddMissingBindings(UserProfile userProfile)
         {
             AddActionMaps(RewiredActions.ScrollBagUp, userProfile);

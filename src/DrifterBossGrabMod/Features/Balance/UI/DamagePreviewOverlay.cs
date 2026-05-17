@@ -8,9 +8,27 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.UI
 {
-    // Adds a damage preview sub-bar to a HealthBar
-    public class DamagePreviewOverlay : MonoBehaviour
+
+    public class DamagePreviewOverlay : MonoBehaviour, IConfigObserver
     {
+        private void OnEnable()
+        {
+            ConfigChangeNotifier.AddObserver(this);
+        }
+
+        private void OnDisable()
+        {
+            ConfigChangeNotifier.RemoveObserver(this);
+            UnregisterEventHandlers();
+        }
+
+        public void OnConfigChanged(string key, object value)
+        {
+            if (key == "DamagePreviewColor")
+            {
+                UpdateColor();
+            }
+        }
         public GameObject? targetObject;
 
         public DrifterBagController? bagController;
@@ -21,11 +39,9 @@ namespace DrifterBossGrabMod.UI
         private bool _initialized;
         private bool _eventHandlersRegistered;
 
-        // Debug logging throttle
         private float _logTimer;
         private const float LogInterval = 1.0f;
 
-        // Cached damage fraction to avoid recalculating every frame
         private float _cachedDamageFraction = 0f;
         private int _cachedTargetInstanceId = 0;
         private bool _cacheValid = false;
@@ -51,7 +67,6 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            // Lazy init
             if (!_initialized)
             {
                 CreatePreviewBar();
@@ -60,13 +75,11 @@ namespace DrifterBossGrabMod.UI
 
             if (!_previewImage) return;
 
-            // Ensure our bar is active
             if (!_previewRect!.gameObject!.activeSelf)
                 _previewRect!.gameObject.SetActive(true);
 
             UpdatePreviewBar();
 
-            // Debug logging
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 _logTimer += Time.deltaTime;
@@ -88,7 +101,6 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            // Create bar inside barContainer for alignment.
             GameObject? barPrefab = _healthBar.style?.barPrefab;
             if (barPrefab == null)
             {
@@ -106,21 +118,24 @@ namespace DrifterBossGrabMod.UI
             if (!_previewImage)
                 _previewImage = barInstance.AddComponent<Image>();
 
-            // Configure the preview appearance
             _previewImage.color = PluginConfig.Instance.DamagePreviewColor.Value;
-            _previewImage.raycastTarget = false;
+            _previewImage.raycastTarget = true;
+
+            var draggable = barInstance.AddComponent<HudDraggable>();
+            draggable.ElementType = HudElementType.DamagePreview;
+            draggable.DragSizePadding = new Vector2(0, 0);
+            draggable.DragOffset = new Vector2(0, 0);
         }
 
         private void UpdatePreviewBar()
         {
-            // Check if cache is valid
+
             int currentTargetInstanceId = targetObject ? targetObject!.GetInstanceID() : 0;
             bool targetChanged = currentTargetInstanceId != _cachedTargetInstanceId;
 
-            // Recalculate if cache is invalid or target changed
             if (!_cacheValid || targetChanged)
             {
-                // Recalculate if cache is invalid or target changed.
+
                 _cachedDamageFraction = SlamDamageCalculator.GetPredictedDamageFraction(bagController!, targetObject!);
                 _cachedTargetInstanceId = currentTargetInstanceId;
                 _cacheValid = true;
@@ -141,27 +156,20 @@ namespace DrifterBossGrabMod.UI
                 _previewImage.color = PluginConfig.Instance.DamagePreviewColor.Value;
             }
 
-            // The preview shows from (healthFraction - damageFraction) to healthFraction
             float previewStart = Mathf.Max(0f, healthFraction - damageFraction);
             float previewEnd = healthFraction;
 
-            // Update Rect within barContainer
             if (_previewRect != null)
             {
                 _previewRect.anchorMin = new Vector2(previewStart, 0f);
                 _previewRect.anchorMax = new Vector2(previewEnd, 1f);
                 _previewRect.anchoredPosition = Vector2.zero;
 
-                // Apply margins to match vanilla Green Health Bar (Child 4 - Tiled) offsets found in dump
-                // Vanilla Child 4: OffsetMin=(-0.5, -0.5), OffsetMax=(0.5, 0.5)
-                // This expands the bar by 0.5 units on all sides relative to anchors
                 _previewRect.offsetMin = new Vector2(-0.5f, -0.5f);
                 _previewRect.offsetMax = new Vector2(0.5f, 0.5f);
             }
 
-            // Force Z-order to be on top of other bars
-            // Optimization: Only set if not already last
-            var barContainer = _healthBar?.barContainer; // Get barContainer here for the check
+            var barContainer = _healthBar?.barContainer;
             if (_previewRect != null && barContainer != null && _previewRect.transform.GetSiblingIndex() < barContainer.childCount - 1)
             {
                 _previewRect.SetAsLastSibling();
@@ -170,7 +178,7 @@ namespace DrifterBossGrabMod.UI
 
         private float GetCurrentHealthFraction()
         {
-            // CharacterBody health source
+
             if (_healthBar != null && _healthBar.source != null)
             {
                 float total = _healthBar.source!.fullCombinedHealth;
@@ -178,7 +186,6 @@ namespace DrifterBossGrabMod.UI
                 return Mathf.Clamp01(_healthBar.source!.combinedHealth / total);
             }
 
-            // SpecialObjectAttributes alt source
             if (_healthBar != null && _healthBar.altSource)
             {
                 if (_healthBar.altSource.maxDurability <= 0) return 0f;
@@ -196,7 +203,7 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
-        public void SetTarget(GameObject target, DrifterBagController controller)
+        public void SetTarget(GameObject? target, DrifterBagController? controller)
         {
             UnregisterEventHandlers();
             targetObject = target;

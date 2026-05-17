@@ -32,7 +32,7 @@ namespace DrifterBossGrabMod.Core
             if (teleporter == null) return;
             lock (_lock)
             {
-                // Ensure it's not the primary
+
                 if (teleporter == _primaryTeleporter) return;
 
                 _secondaryTeleporters.Add(teleporter);

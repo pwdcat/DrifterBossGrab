@@ -13,11 +13,9 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class SpecialObjectAttributesPatches
     {
-        // Static registry of all active SpecialObjectAttributes GameObjects
-        // Replaces expensive FindObjectsByType<GameObject>() scene scans
+
         public static readonly HashSet<GameObject> RegisteredObjects = new HashSet<GameObject>();
 
-        // Cached reflection fields
         private static readonly FieldInfo _collisionToDisableField = ReflectionCache.SpecialObjectAttributes.CollisionToDisable;
         private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
         private static readonly FieldInfo _collidersToDisableField = ReflectionCache.SpecialObjectAttributes.CollidersToDisable;
@@ -59,7 +57,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(BaggedObject __instance)
             {
-                // Store colliders in SpecialObjectAttributes before BaggedObject.OnEnter disables them
+
                 var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                 if (targetObject != null)
                 {
@@ -67,7 +65,7 @@ namespace DrifterBossGrabMod.Patches
                     if (specialAttrs != null)
                     {
                         var colliders = targetObject.GetComponentsInChildren<Collider>(true);
-                        // Use reflection to access collidersToDisable
+
                         var collidersToDisable = _collidersToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<Collider>;
                         if (collidersToDisable != null)
                         {
@@ -79,14 +77,14 @@ namespace DrifterBossGrabMod.Patches
                                 }
                             }
                         }
-                        // Also store behaviors
+
                         var behavioursToDisable = _behavioursToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<MonoBehaviour>;
                         if (behavioursToDisable != null)
                         {
                             var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
                             foreach (var behavior in behaviors)
                             {
-                                // Only store behaviors that should be disabled
+
                                 if (!behavioursToDisable.Contains(behavior))
                                 {
                                     behavioursToDisable.Add(behavior);
@@ -100,7 +98,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(BaggedObject __instance)
             {
-                // Remove original bag UI (Carousel enabled)
+
                 if (PluginConfig.Instance.EnableCarouselHUD.Value)
                 {
                     var uiOverlayController = _uiOverlayControllerField?.GetValue(__instance) as OverlayController;

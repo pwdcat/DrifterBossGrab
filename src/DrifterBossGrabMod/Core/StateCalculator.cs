@@ -11,6 +11,10 @@ using EntityStates.Drifter.Bag;
 
 namespace DrifterBossGrabMod.Core
 {
+
+    // ========================================================================================
+    // STATE CALCULATOR
+    // ========================================================================================
     public static class StateCalculator
     {
         public static BaggedObjectStateData CalculateState(
@@ -26,6 +30,9 @@ namespace DrifterBossGrabMod.Core
             return GetAggregateState(controller);
         }
 
+        // ========================================================================================
+        // STATE RETRIEVAL
+        // ========================================================================================
         public static BaggedObjectStateData GetIndividualObjectState(
             DrifterBagController controller,
             GameObject targetObject)
@@ -34,13 +41,12 @@ namespace DrifterBossGrabMod.Core
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
-                return new BaggedObjectStateData();  // This creates a stub state with default values (baseMaxHealth=0)
+                return new BaggedObjectStateData();
             }
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Info($"[GetIndividualObjectState] Checking for existing state for {targetObject.name}");
 
-            // Breakout data from current BaggedObject state before calculating new state
             float preservedBreakoutTime = 0f;
             float preservedBreakoutAttempts = 0f;
             float preservedElapsedBreakoutTime = 0f;
@@ -63,6 +69,15 @@ namespace DrifterBossGrabMod.Core
                 {
                     preservedElapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(currentBaggedObject);
                 }
+            }
+
+            var additionalTimer = targetObject.GetComponent<Patches.AdditionalSeatBreakoutTimer>();
+            if (additionalTimer != null)
+            {
+                shouldPreserve = true;
+                preservedBreakoutTime = additionalTimer.breakoutTime;
+                preservedBreakoutAttempts = additionalTimer.breakoutAttempts;
+                preservedElapsedBreakoutTime = additionalTimer.GetElapsedBreakoutTime();
             }
 
             BaggedObjectStateData state;
@@ -310,6 +325,9 @@ namespace DrifterBossGrabMod.Core
             return penalty;
         }
 
+        // ========================================================================================
+        // VISUAL SCALING
+        // ========================================================================================
         public static float CalculateBagScale01(DrifterBagController controller, float mass)
         {
             float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;

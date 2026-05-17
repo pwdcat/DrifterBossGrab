@@ -20,12 +20,50 @@ namespace DrifterBossGrabMod.API
         Over
     }
 
+    // ========================================================================================
+    // DRIFTER BAG API
+    // ========================================================================================
     public static class DrifterBagAPI
     {
+        private static readonly List<GameObject> _queryBuffer = new List<GameObject>();
+        private static readonly List<string> _detailsBuffer = new List<string>();
+        private static readonly Dictionary<string, int> _countsBuffer = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         public static List<GameObject> GetBaggedObjects(DrifterBagController controller)
         {
             if (controller == null) return new List<GameObject>();
             return new List<GameObject>(BagPatches.GetState(controller).BaggedObjects ?? new List<GameObject>());
+        }
+
+        public static IReadOnlyList<GameObject> GetBaggedObjectsReadOnly(DrifterBagController controller)
+        {
+            if (controller == null) return Array.Empty<GameObject>();
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            return list ?? new List<GameObject>(Array.Empty<GameObject>());
+        }
+
+        public static void ForEachBaggedObject(DrifterBagController controller, Action<GameObject> action)
+        {
+            if (controller == null || action == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
+            {
+                if (obj != null) action(obj);
+            }
+        }
+
+        public static void GetBaggedObjectsInto(DrifterBagController controller, List<GameObject> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
+            {
+                if (obj != null) buffer.Add(obj);
+            }
         }
 
         public static int GetBagCount(DrifterBagController controller)
@@ -89,7 +127,6 @@ namespace DrifterBossGrabMod.API
             return PluginConfig.IsBlacklisted(objectName);
         }
 
-        // Seat swapping is delayed by one frame to allow the previous passenger's state machine to exit cleanly.
         public static bool SetMainPassenger(DrifterBagController controller, GameObject objRef)
         {
             if (controller == null || objRef == null) return false;
@@ -107,7 +144,6 @@ namespace DrifterBossGrabMod.API
         {
             if (controller == null || obj == null) return false;
             GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
-            BaggedObjectPatches.SuppressExitForObject(obj);
             controller.AssignPassenger(obj);
             if (BagPatches.GetMainSeatObject(controller) == obj)
             {
@@ -193,11 +229,14 @@ namespace DrifterBossGrabMod.API
 
         #region Encumbrance and Status Queries
 
+        // ========================================================================================
+        // ENCUMBRANCE & STATUS
+        // ========================================================================================
         public static float GetMassRatio(DrifterBagController controller)
         {
             if (controller == null) return 0f;
             float totalMass = GetTotalMass(controller);
-            float capacity = GetMassCapacity(controller);
+            float capacity = GetMaxMassCapacity(controller);
             if (capacity == float.MaxValue || capacity <= 0) return 0f;
             return totalMass / capacity;
         }
@@ -206,6 +245,12 @@ namespace DrifterBossGrabMod.API
         {
             if (controller == null) return 0f;
             return Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
+        }
+
+        public static float GetMaxMassCapacity(DrifterBagController controller)
+        {
+            if (controller == null) return 0f;
+            return Balance.CapacityScalingSystem.CalculateMaxMassCapacity(controller);
         }
 
         public static EncumbranceLevel GetEncumbranceLevel(DrifterBagController controller)
@@ -236,46 +281,45 @@ namespace DrifterBossGrabMod.API
         #endregion
 
         #region Formula Variable Registry API
+
+        // ========================================================================================
+        // FORMULA VARIABLES
+        // ========================================================================================
         public static void RegisterFormulaVariable(string name, float value, string? description = null)
         {
             Balance.FormulaRegistry.RegisterVariable(name, value, description);
         }
 
-        // register dynamic formula variable evaluated when needed
-        // name: variable name case-insensitive
-        // provider: function returning value given CharacterBody
-        // description: optional info
-        // fallbackValue: value if provider throws
         public static void RegisterFormulaVariable(string name, Func<CharacterBody?, float> provider, string? description = null, float? fallbackValue = null)
         {
             Balance.FormulaRegistry.RegisterVariable(name, provider, description, fallbackValue);
         }
 
-        // get names of all registered formula variables
+        public static bool RegisterFormulaVariableSafe(string name, float value, string? description = null, bool overwrite = false)
+        {
+            return Balance.FormulaRegistry.RegisterVariableSafe(name, value, description, overwrite);
+        }
+
+        public static bool RegisterFormulaVariableSafe(string name, Func<CharacterBody?, float> provider, string? description = null, float? fallbackValue = null, bool overwrite = false)
+        {
+            return Balance.FormulaRegistry.RegisterVariableSafe(name, provider, description, fallbackValue, overwrite);
+        }
+
         public static IEnumerable<string> GetFormulaVariableNames()
         {
             return Balance.FormulaRegistry.GetRegisteredVariableNames();
         }
 
-        // unregister formula variable by name
-        // name: variable name case-insensitive
-        // returns true if found and removed
         public static bool UnregisterFormulaVariable(string name)
         {
             return Balance.FormulaRegistry.UnregisterVariable(name);
         }
 
-        // check if formula variable is registered
-        // name: variable name case-insensitive
-        // returns true if registered
         public static bool IsFormulaVariableRegistered(string name)
         {
             return Balance.FormulaRegistry.IsVariableRegistered(name);
         }
 
-        // get info about registered formula variable
-        // name: variable name case-insensitive
-        // returns VariableInfo or null
         public static VariableInfo? GetFormulaVariableInfo(string name)
         {
             return Balance.FormulaRegistry.GetVariableInfo(name);
@@ -285,61 +329,113 @@ namespace DrifterBossGrabMod.API
 
         #region Filtered Queries
 
+        // ========================================================================================
+        // FILTERED QUERIES
+        // ========================================================================================
         public static List<GameObject> GetBaggedObjectsByComponent<T>(DrifterBagController controller) where T : Component
         {
             var result = new List<GameObject>();
-            foreach (var obj in GetBaggedObjects(controller))
+            TryGetBaggedObjectsByComponent<T>(controller, result);
+            return result;
+        }
+
+        public static void TryGetBaggedObjectsByComponent<T>(DrifterBagController controller, List<GameObject> buffer) where T : Component
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
             {
-                if (obj.GetComponent<T>() != null)
+                if (obj != null && obj.GetComponent<T>() != null)
                 {
-                    result.Add(obj);
+                    buffer.Add(obj);
                 }
             }
-            return result;
         }
 
         public static List<GameObject> GetBaggedCharacterBodies(DrifterBagController controller)
         {
             return GetBaggedObjectsByComponent<CharacterBody>(controller);
         }
+
+        public static void TryGetBaggedCharacterBodies(DrifterBagController controller, List<GameObject> buffer)
+        {
+            TryGetBaggedObjectsByComponent<CharacterBody>(controller, buffer);
+        }
+
         public static List<GameObject> GetBaggedObjectsByName(DrifterBagController controller, string nameContains)
         {
             var result = new List<GameObject>();
-            foreach (var obj in GetBaggedObjects(controller))
+            TryGetBaggedObjectsByName(controller, nameContains, result);
+            return result;
+        }
+
+        public static void TryGetBaggedObjectsByName(DrifterBagController controller, string nameContains, List<GameObject> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null || nameContains == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
             {
-                if (obj.name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) >= 0)
+                if (obj != null && obj.name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    result.Add(obj);
+                    buffer.Add(obj);
                 }
             }
-            return result;
         }
 
         public static List<GameObject> GetBaggedObjectsByExactName(DrifterBagController controller, string exactName)
         {
             var result = new List<GameObject>();
-            foreach (var obj in GetBaggedObjects(controller))
+            TryGetBaggedObjectsByExactName(controller, exactName, result);
+            return result;
+        }
+
+        public static void TryGetBaggedObjectsByExactName(DrifterBagController controller, string exactName, List<GameObject> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null || exactName == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
             {
-                if (string.Equals(obj.name, exactName, StringComparison.OrdinalIgnoreCase))
+                if (obj != null && string.Equals(obj.name, exactName, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Add(obj);
+                    buffer.Add(obj);
                 }
             }
-            return result;
         }
 
         public static List<GameObject> GetBaggedObjectsByMassRange(DrifterBagController controller, float minMass, float maxMass)
         {
             var result = new List<GameObject>();
-            foreach (var obj in GetBaggedObjects(controller))
+            TryGetBaggedObjectsByMassRange(controller, minMass, maxMass, result);
+            return result;
+        }
+
+        public static void TryGetBaggedObjectsByMassRange(DrifterBagController controller, float minMass, float maxMass, List<GameObject> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null) return;
+            var list = BagPatches.GetState(controller).BaggedObjects;
+            if (list == null) return;
+            foreach (var obj in list)
             {
-                float mass = GetObjectMass(controller, obj);
-                if (mass >= minMass && mass <= maxMass)
+                if (obj != null)
                 {
-                    result.Add(obj);
+                    float mass = GetObjectMass(controller, obj);
+                    if (mass >= minMass && mass <= maxMass)
+                    {
+                        buffer.Add(obj);
+                    }
                 }
             }
-            return result;
         }
 
         public static GameObject? GetHeaviestObject(DrifterBagController controller)
@@ -347,7 +443,7 @@ namespace DrifterBossGrabMod.API
             GameObject? heaviest = null;
             float maxMass = 0f;
 
-            foreach (var obj in GetBaggedObjects(controller))
+            ForEachBaggedObject(controller, obj =>
             {
                 float mass = GetObjectMass(controller, obj);
                 if (mass > maxMass)
@@ -355,7 +451,7 @@ namespace DrifterBossGrabMod.API
                     maxMass = mass;
                     heaviest = obj;
                 }
-            }
+            });
 
             return heaviest;
         }
@@ -365,7 +461,7 @@ namespace DrifterBossGrabMod.API
             GameObject? lightest = null;
             float minMass = float.MaxValue;
 
-            foreach (var obj in GetBaggedObjects(controller))
+            ForEachBaggedObject(controller, obj =>
             {
                 float mass = GetObjectMass(controller, obj);
                 if (mass < minMass)
@@ -373,7 +469,7 @@ namespace DrifterBossGrabMod.API
                     minMass = mass;
                     lightest = obj;
                 }
-            }
+            });
 
             return lightest;
         }
@@ -382,6 +478,9 @@ namespace DrifterBossGrabMod.API
 
         #region Utility Methods - Atomic Operations
 
+        // ========================================================================================
+        // OPERATIONS
+        // ========================================================================================
         public static bool TryGrab(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null) return false;
@@ -415,7 +514,9 @@ namespace DrifterBossGrabMod.API
 
         #region Utility Methods - Summary Methods
 
-        // Summaries provide a human-readable snapshot of the bag's state for debugging and diagnostic logs.
+        // ========================================================================================
+        // SUMMARY HELPERS
+        // ========================================================================================
         public static string GetFormattedBagSummary(DrifterBagController controller)
         {
             if (controller == null) return "Bag: N/A";
@@ -432,83 +533,87 @@ namespace DrifterBossGrabMod.API
             return $"Bag: {countStr} | Mass: {totalMass:F0}/{massCapStr} ({ratio:P0})";
         }
 
-        // get detailed summary of bagged objects with names and masses
-        // format: "1. [Name] ([Mass]kg)"
         public static List<string> GetBaggedObjectDetails(DrifterBagController controller)
         {
-            var details = new List<string>();
+            _detailsBuffer.Clear();
+            if (controller == null) return new List<string>(_detailsBuffer);
             int index = 1;
-            foreach (var obj in GetBaggedObjects(controller))
+            ForEachBaggedObject(controller, obj =>
             {
                 string name = GetObjectName(obj);
                 float mass = GetObjectMass(controller, obj);
-                details.Add($"{index}. {name} ({mass:F1}kg)");
+                _detailsBuffer.Add($"{index}. {name} ({mass:F1}kg)");
                 index++;
-            }
-            return details;
+            });
+            return new List<string>(_detailsBuffer);
         }
 
-        // get dictionary mapping object names to counts
-        // useful for displaying "3 Beetles, 2 Lemurians, etc"
+        public static void TryGetBaggedObjectDetails(DrifterBagController controller, List<string> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null) return;
+            int index = 1;
+            ForEachBaggedObject(controller, obj =>
+            {
+                string name = GetObjectName(obj);
+                float mass = GetObjectMass(controller, obj);
+                buffer.Add($"{index}. {name} ({mass:F1}kg)");
+                index++;
+            });
+        }
+
         public static Dictionary<string, int> GetBaggedObjectCounts(DrifterBagController controller)
         {
             var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            foreach (var obj in GetBaggedObjects(controller))
+            GetBaggedObjectCountsInto(controller, counts);
+            return counts;
+        }
+
+        public static void GetBaggedObjectCountsInto(DrifterBagController controller, Dictionary<string, int> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            if (controller == null) return;
+            ForEachBaggedObject(controller, obj =>
             {
                 string name = GetObjectName(obj);
-                if (!counts.ContainsKey(name))
+                if (!buffer.ContainsKey(name))
                 {
-                    counts[name] = 0;
+                    buffer[name] = 0;
                 }
-                counts[name]++;
-            }
-            return counts;
+                buffer[name]++;
+            });
         }
 
         #endregion
 
         #region Events
 
-        // Events allow for a decoupled architecture where external systems can react to bag state changes without tight coupling.
+        // ========================================================================================
+        // EVENTS
+        // ========================================================================================
         public static event Action<DrifterBagController, GameObject, int>? OnObjectGrabbed;
 
-        // fired when object is released or ejected
-        // controller: bag controller that released object
-        // obj: object that was released
-        // wasDestroyed: true if destroyed/consumed else false
         public static event Action<DrifterBagController, GameObject, bool>? OnObjectReleased;
 
-        // fired when bag reaches capacity
-        // controller: full bag controller
         public static event Action<DrifterBagController>? OnBagFull;
 
-        // fired when bag becomes overencumbered
-        // controller: overencumbered bag controller
-        // massRatio: current mass ratio > 1.0
         public static event Action<DrifterBagController, float>? OnOverencumbered;
 
-        // fired when bag is cleared
-        // controller: cleared bag controller
-        // wasDestroyed: true if objects destroyed false if released
         public static event Action<DrifterBagController, bool>? OnBagCleared;
 
-        // fired when main passenger changes
-        // controller: bag controller
-        // previousObj: previous active object or null
-        // newObj: new active object or null
         public static event Action<DrifterBagController, GameObject?, GameObject?>? OnMainPassengerChanged;
 
-        // fired when mass is recalculated
-        // controller: bag controller
-        // newTotalMass: new mass
-        // previousTotalMass: old mass
         public static event Action<DrifterBagController, float, float>? OnMassRecalculated;
 
         #endregion
 
         #region Internal Event Invokers
 
-        // Internal helper methods to invoke events from other classes
+        // ========================================================================================
+        // EVENT INVOKERS
+        // ========================================================================================
         internal static void InvokeOnObjectGrabbed(DrifterBagController controller, GameObject obj, int slotIndex)
         {
             OnObjectGrabbed?.Invoke(controller, obj, slotIndex);
@@ -548,13 +653,14 @@ namespace DrifterBossGrabMod.API
 
         #region Serialization and Save/Load API
 
-        // The plugin system allows the save/load handler to support custom data types.
+        // ========================================================================================
+        // SERIALIZATION API
+        // ========================================================================================
         public static void RegisterSerializerPlugin(ProperSave.Serializers.IObjectSerializerPlugin plugin)
         {
             ProperSave.ProperSaveIntegration.RegisterPlugin(plugin);
         }
 
-        // Returns a list of all currently registered object serializer plugins.
         public static List<ProperSave.Serializers.IObjectSerializerPlugin> GetSerializerPlugins()
         {
             return ProperSave.ProperSaveIntegration.GetSerializerPlugins();

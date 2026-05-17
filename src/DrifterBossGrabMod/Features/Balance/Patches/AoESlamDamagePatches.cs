@@ -16,14 +16,14 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         public static void Prefix(DrifterBagController __instance, ref float damageCoef, out float __state)
         {
-            // Default state to original damageCoef
+
             __state = damageCoef;
 
             if (!NetworkServer.active) return;
-            // Only apply AoE slam damage when EnableBalance is true
+
             if (!PluginConfig.Instance.EnableBalance.Value) return;
             if (PluginConfig.Instance.AoEDamageDistribution.Value == DrifterBossGrabMod.AoEDamageMode.None) return;
-            // Only active in 'All' mode as per requirements
+
             if (PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All) return;
 
             var bagState = BagPatches.GetState(__instance);
@@ -36,7 +36,6 @@ namespace DrifterBossGrabMod.Patches
 
             if (baggedObjects == null || baggedObjects.Count <= 1) return;
 
-            // Handle Split distribution
             if (PluginConfig.Instance.AoEDamageDistribution.Value == AoEDamageMode.Split)
             {
                 damageCoef /= baggedObjects.Count;
@@ -53,7 +52,7 @@ namespace DrifterBossGrabMod.Patches
         public static void Postfix(DrifterBagController __instance, float __state)
         {
             if (!NetworkServer.active) return;
-            // Only apply AoE slam damage when EnableBalance is true
+
             if (!PluginConfig.Instance.EnableBalance.Value) return;
             if (PluginConfig.Instance.AoEDamageDistribution.Value == DrifterBossGrabMod.AoEDamageMode.None) return;
             if (PluginConfig.Instance.StateCalculationMode.Value != StateCalculationMode.All) return;
@@ -65,7 +64,6 @@ namespace DrifterBossGrabMod.Patches
             var mainSeat = BagPatches.GetMainSeatObject(__instance);
             var drifterBody = __instance.GetComponent<CharacterBody>();
 
-            // Use the effective coefficient passed from Prefix (modified if Split, original if Full)
             float effectiveCoef = __state;
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -80,17 +78,14 @@ namespace DrifterBossGrabMod.Patches
 
             foreach (var obj in objectsToDamage)
             {
-                // Skip the object in the main seat as vanilla handles it
+
                 if (obj == null || ReferenceEquals(obj, mainSeat)) continue;
 
-                // Double check against vehicleSeat
                 if (__instance.vehicleSeat && __instance.vehicleSeat.hasPassenger && ReferenceEquals(obj, __instance.vehicleSeat.NetworkpassengerBodyObject)) continue;
 
-                // Check for SpecialObjectAttributes (Durability)
                 var specializedAttributes = obj.GetComponent<SpecialObjectAttributes>();
                 bool isDurabilityObject = specializedAttributes != null;
 
-                // Handle Split Logic
                 if (PluginConfig.Instance.AoEDamageDistribution.Value == AoEDamageMode.Split)
                 {
                     if (isDurabilityObject)
@@ -100,7 +95,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 Log.Info($"[AoESlamDamage] Split RNG: {obj.name} SKIPPED (Chance={chance:F2})");
-                            continue; // Skip damage
+                            continue;
                         }
                         else
                         {
@@ -119,7 +114,6 @@ namespace DrifterBossGrabMod.Patches
                 Log.Info($"[AoESlamDamage] Applied AoE damage to {hitCount} additional objects with coef {effectiveCoef}");
             }
 
-            // Invalidate damage preview cache when slam damage is applied
             DamagePreviewOverlay.InvalidateAllCaches();
         }
 
@@ -144,7 +138,6 @@ namespace DrifterBossGrabMod.Patches
                     };
                     body.healthComponent.TakeDamage(damageInfo);
 
-                    // Debug Log for JunkCube
                     if (PluginConfig.Instance.EnableDebugLogs.Value && targetObject.GetComponent<JunkCubeController>())
                     {
                         Log.Info($"[AoESlamDamage] Dealt force-damage to JunkCube {targetObject.name}");

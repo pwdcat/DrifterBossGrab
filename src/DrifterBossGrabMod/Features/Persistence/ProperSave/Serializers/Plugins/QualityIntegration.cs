@@ -94,7 +94,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                         }
                         else
                         {
-                            // Fallback to setting field
+
                             RestoreFieldValue(duplicator, state, "Available", "_available");
                         }
                     }

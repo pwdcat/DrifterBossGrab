@@ -10,8 +10,16 @@ using DrifterBossGrabMod.ProperSave.Serializers.Plugins;
 
 namespace DrifterBossGrabMod.API
 {
+
+    // ========================================================================================
+    // BUILT-IN SERIALIZERS API
+    // ========================================================================================
     public static class BuiltInSerializersAPI
     {
+
+        // ========================================================================================
+        // FACTORY METHODS
+        // ========================================================================================
         public static IObjectSerializerPlugin ForChest() =>
             new ComponentAPISerializer<RoR2.ChestBehavior>(priority: 100)
                 .AddAction("isChestOpened", c => c.isChestOpened, (c, v) => c.NetworkisChestOpened = v)
@@ -229,6 +237,9 @@ namespace DrifterBossGrabMod.API
             return new GenericComponentSerializerPlugin();
         }
 
+        // ========================================================================================
+        // HELPERS
+        // ========================================================================================
         private static void CapturePurchaseInteraction<T>(T component, Dictionary<string, object> state) where T : Component
         {
             var purchase = component.GetComponent<PurchaseInteraction>();
@@ -430,6 +441,9 @@ namespace DrifterBossGrabMod.API
             }
         }
 
+        // ========================================================================================
+        // INVENTORY
+        // ========================================================================================
         private static void CaptureMasterInventory(CharacterMaster master, Dictionary<string, object> state)
         {
             if (master.inventory != null)
@@ -451,8 +465,7 @@ namespace DrifterBossGrabMod.API
             var itemStacks = new List<int>();
             for (var i = 0; i < (int)ItemCatalog.itemCount; i++)
             {
-                // Capture ALL items, not just permanent ones, to ensure summoned enemies
-                // (like Beetle Guards) keep their full inventory in the bag.
+
                 var count = inventory.GetItemCountPermanent((ItemIndex)i);
                 if (count > 0)
                 {
@@ -476,7 +489,7 @@ namespace DrifterBossGrabMod.API
         {
             if (state.TryGetValue(prefix + "itemStacks", out var itemStacksObj) && itemStacksObj is List<int> itemStacksList)
             {
-                // Clear existing items
+
                 for (int i = 0; i < (int)ItemCatalog.itemCount; i++)
                 {
                     inventory.RemoveItemPermanent((ItemIndex)i, inventory.GetItemCountPermanent((ItemIndex)i));

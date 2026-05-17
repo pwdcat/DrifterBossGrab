@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Patches for balance features (capacity scaling, elite bonus, overencumbrance)
+
     public static class BalancePatches
     {
         [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.maxStock), MethodType.Setter)]
@@ -29,13 +29,13 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(CharacterBody __instance)
             {
-                // Only apply overencumbrance when EnableBalance is true
+
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
                 var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
                 if (drifterBagController != null)
                 {
-                    // Update UI only if we have authority (local player)
+
                     if (drifterBagController.hasAuthority)
                     {
                         string slotFormula = PluginConfig.Instance.SlotScalingFormula.Value?.Trim() ?? "";
@@ -45,8 +45,6 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
 
-                    // Apply overencumbrance to all players (host and clients)
-                    // Each player's debuff is based on their own bag's state
                     if (PluginConfig.Instance.OverencumbranceMax.Value > 0)
                     {
                         Balance.OverencumbranceSystem.ApplyOverencumbrance(__instance, drifterBagController);
@@ -65,7 +63,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Patch to cap throw speed from EmptyBag state
         [HarmonyPatch(typeof(EntityStates.Drifter.EmptyBag), "ModifyProjectile")]
         public class EmptyBag_ModifyProjectile_Patch
         {
@@ -79,7 +76,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Patch to cap launch speed for all projectiles (covers both throw and breakout)
         [HarmonyPatch(typeof(ProjectileManager), "FireProjectile", new Type[] { typeof(FireProjectileInfo) })]
         public class ProjectileManager_FireProjectile_Patch
         {

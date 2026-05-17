@@ -9,7 +9,6 @@ namespace DrifterBossGrabMod
         public const string PluginName = "DrifterBossGrab";
         public const string PluginVersion = "1.8.0";
 
-        // Timeouts prevent infinite hangs on network operations or object initialization failures
         public static class Timeouts
         {
             public const float SyncStateTimeout = 2.0f;
@@ -19,7 +18,6 @@ namespace DrifterBossGrabMod
             public const float SyncWaitIncrement = 0.1f;
         }
 
-        // Safety limits prevent integer overflow and performance issues with extreme values
         public static class Limits
         {
             public const float MaxMass = 700f;
@@ -35,7 +33,6 @@ namespace DrifterBossGrabMod
             public const float DefaultMassPerStock = 700f;
         }
 
-        // Multiplier values for scaling calculations
         public static class Multipliers
         {
             public const float DefaultMassMultiplier = 1.0f;
@@ -46,16 +43,13 @@ namespace DrifterBossGrabMod
             public const float CapacityRatioThreshold = 1f;
             public const float ScalingMultiplierBase = 1f;
 
-            // Base damage coefficient for suffocate slam. Multiplied by mass ratio for scaling.
             public const float SlamBaseDamageCoef = 2.8f;
             public const float SlamMassScaling = 5.0f;
 
-            // Per-item damage bonuses applied during slam calculation. Used when target lacks CharacterBody.
             public const float DelicateWatchDamageBonus = 0.2f;
             public const float NearbyDamageBonus = 0.2f;
         }
 
-        // Network message IDs for client-server sync. Must match between client and server.
         public static class Network
         {
             public const short BaggedObjectsPersistenceMessageType = 201;
@@ -66,22 +60,6 @@ namespace DrifterBossGrabMod
             public const short ClientPreferencesMessageType = 209;
             public const short SyncConfigMessageType = 210;
             public const short BagStateUpdatedMessageType = 211;
-        }
-
-        // Helper methods for parsing config values
-        public static int ParseCapacityString(string? value, int defaultValue = 0)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return defaultValue;
-
-            string upperValue = value.Trim().ToUpper();
-            if (upperValue == "INF" || upperValue == "INFINITY")
-                return int.MaxValue;
-
-            if (int.TryParse(value, out int parsedValue))
-                return parsedValue;
-
-            return defaultValue;
         }
 
     }

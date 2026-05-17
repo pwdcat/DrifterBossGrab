@@ -5,7 +5,7 @@ using RoR2;
 
 namespace DrifterBossGrabMod.Features
 {
-    // Applies dynamic vertex-level scaling to the Drifter's bag mesh
+
     public class UncappedBagScaleComponent : MonoBehaviour
     {
         private DrifterBagController? _bagController;
@@ -44,7 +44,6 @@ namespace DrifterBossGrabMod.Features
             _bagController = bagController;
             FindMeshBagTransform();
 
-            // Initialize bones after finding meshBag
             if (_skinnedMeshRenderer != null && _bones != null)
             {
                 FilterAndCacheBagBones();
@@ -76,20 +75,17 @@ namespace DrifterBossGrabMod.Features
                 }
             }
 
-            // Get SkinnedMeshRenderer component
             if (foundTransform != null)
             {
                 _skinnedMeshRenderer = foundTransform.GetComponent<SkinnedMeshRenderer>();
                 _bones = _skinnedMeshRenderer.bones;
             }
         }
-        // Only specific "bulge" bones are scaled
+
         private void FilterAndCacheBagBones()
         {
             if (_bones == null || _skinnedMeshRenderer == null) return;
 
-            // Keywords for bones that should be scaled
-            // These are the bones that are actually modified when grabbing objects
             string[] scaleKeywords = new string[]
             {
                 "bagMaster_l",
@@ -110,7 +106,6 @@ namespace DrifterBossGrabMod.Features
                 "bagFlap3_l"
             };
 
-            // First, count how many bones match the keywords (case-insensitive)
             int bagBoneCount = 0;
             for (int i = 0; i < _bones.Length; i++)
             {
@@ -122,7 +117,6 @@ namespace DrifterBossGrabMod.Features
 
             Log.Info($"[UncappedBagScaleComponent] Found {bagBoneCount} bones matching scale keywords out of {_bones.Length} total bones");
 
-            // Create filtered arrays
             _filteredBones = new Transform[bagBoneCount];
             _originalBoneScales = new Vector3[bagBoneCount];
 
@@ -139,7 +133,6 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
-        // Bone filtering is case-insensitive to account for naming variations, probably not needed
         private bool ShouldScaleBone(string boneName, string[] keywords)
         {
             string boneNameLower = boneName.ToLower();
@@ -153,7 +146,6 @@ namespace DrifterBossGrabMod.Features
             return false;
         }
 
-        // Allows the original animation system to handle loads, only taking over for "overstuffed" scenarios.
         public void UpdateScaleFromMass(float mass)
         {
             if (!_isInitialized)
@@ -169,10 +161,8 @@ namespace DrifterBossGrabMod.Features
             }
 
             var bagController = GetComponent<DrifterBagController>();
-            float maxCapacity = bagController != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass; // Use maxCapacity config value instead of hardcoded 700f
+            float maxCapacity = bagController != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
 
-            // If mass is at or below maxCapacity, don't use this component
-            // Let the original animation system handle scaling
             if (mass <= maxCapacity)
             {
                 TargetScale = 1.0f;
@@ -183,14 +173,10 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            // The scale formula is linear but uncapped, allowing the bag to grow indefinitely as more mass is added.
             float value = Mathf.Max(mass, 1f);
 
             float t = (value - 1f) / (maxCapacity - 1f);
 
-            // Map to scale range with floor of 1.0f and allow exceeding
-            // Original formula was 0.5f + 0.5f * t, which gave range 0.5f to 1.0f
-            // New formula: 1.0f + t, which gives floor of 1.0f and allows exceeding 1.0f
             float newScale = 1.0f + t;
 
             if (!PluginConfig.Instance.IsBagScaleCapInfinite)
@@ -206,7 +192,6 @@ namespace DrifterBossGrabMod.Features
             }
         }
 
-        // LateUpdate is used to override any bone modifications applied by the standard animation system in the same frame.
         private void LateUpdate()
         {
             if (!_isInitialized)
@@ -221,10 +206,8 @@ namespace DrifterBossGrabMod.Features
 
             if (_targetScale <= 1.0f) return;
 
-            // Early return optimization: if current scale is already at target scale, skip calculations
             if (Mathf.Approximately(_currentScale, _targetScale)) return;
 
-            // Lerping provides a smooth expansion effect rather than jarring "pops" when mass changes instantly.
             _currentScale = Mathf.Lerp(_currentScale, _targetScale, Time.deltaTime * 10f);
 
             int bonesUpdated = 0;
@@ -246,7 +229,7 @@ namespace DrifterBossGrabMod.Features
 
         private void OnDestroy()
         {
-            // Reset bone scales when component is destroyed
+
             ResetBoneScales();
             _isInitialized = false;
         }

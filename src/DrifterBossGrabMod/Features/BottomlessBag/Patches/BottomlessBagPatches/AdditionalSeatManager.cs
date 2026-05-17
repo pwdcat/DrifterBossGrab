@@ -9,10 +9,10 @@ using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Manages additional seats for the bottomless bag feature - provides methods for finding, creating, and configuring additional seats
+
     public static class AdditionalSeatManager
     {
-        // Copies properties from a source seat to a target seat
+
         public static void CopySeatProperties(RoR2.VehicleSeat source, RoR2.VehicleSeat target)
         {
             if (source == null || target == null) return;
@@ -88,14 +88,12 @@ namespace DrifterBossGrabMod.Patches
             return newSeat;
         }
 
-        // Finds an existing empty seat or creates a new one if needed - uses the bag controller's state to get the seat dictionary
         public static RoR2.VehicleSeat FindOrCreateEmptySeat(DrifterBagController bagController)
         {
             var seatDict = BagPatches.GetState(bagController).AdditionalSeats;
             return FindOrCreateEmptySeat(bagController, ref seatDict);
         }
 
-        // Gets the additional seat associated with a specific object
         internal static RoR2.VehicleSeat? GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (obj == null) return null!;
@@ -106,7 +104,6 @@ namespace DrifterBossGrabMod.Patches
             return null!;
         }
 
-        // Gets the additional seat associated with a specific object - uses the bag controller's state to get the seat dictionary
         internal static RoR2.VehicleSeat? GetAdditionalSeatForObject(DrifterBagController bagController, GameObject? obj)
         {
             if (obj == null) return null!;

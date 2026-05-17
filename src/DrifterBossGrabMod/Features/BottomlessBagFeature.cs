@@ -15,29 +15,24 @@ namespace DrifterBossGrabMod
         {
             Log.Info($"[{FeatureName}] Applying patches...");
 
-            // Only apply bottomless bag patches when enabled
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.BaggedObject_TryOverrideUtility)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.BaggedObject_TryOverridePrimary)).Patch();
 
-            // Missing lifecycle and UI patches
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_OnEnter)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_OnExit)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_FixedUpdate)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_HoldsDeadBody_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_FixedUpdate_Patch)).Patch();
 
-            // Animation Patches
             harmony.CreateClassProcessor(typeof(Patches.AnimationPatches)).Patch();
 
-            // Newly identified missing patches
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetNextStateToMain)).Patch();
 
-            // Bag transition/cleanup patches
             harmony.CreateClassProcessor(typeof(Patches.VehicleSeat_AssignPassenger_Postfix)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GlobalEventManager_OnCharacterDeath)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.SkillPatches.GenericSkill_RunRecharge)).Patch();
 
-            // Successive grab stock refresh patch
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnExit_Patch)).Patch();
 
             Log.Info($"[{FeatureName}] Patches applied successfully.");

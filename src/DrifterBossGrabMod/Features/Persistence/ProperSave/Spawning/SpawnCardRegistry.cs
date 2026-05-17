@@ -64,7 +64,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             try
             {
-                // Priority 1: Resources.FindObjectsOfTypeAll<SpawnCard>()
+
                 var resourceCards = Resources.FindObjectsOfTypeAll<SpawnCard>();
                 if (resourceCards != null && resourceCards.Length > 0)
                 {
@@ -72,7 +72,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     Log.Info($"[SpawnCardRegistry] Found {resourceCards.Length} spawn cards via Resources.FindObjectsOfTypeAll");
                 }
 
-                // Priority 2: DirectorCardCategorySelection pools for monsters/interactables
                 var stageInfo = ClassicStageInfo.instance;
                 if (stageInfo != null)
                 {
@@ -109,7 +108,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     }
                 }
 
-                // Priority 3: SceneDirector selections (existing fallback)
                 var sceneDirector = UnityEngine.Object.FindFirstObjectByType<SceneDirector>();
                 if (sceneDirector != null)
                 {

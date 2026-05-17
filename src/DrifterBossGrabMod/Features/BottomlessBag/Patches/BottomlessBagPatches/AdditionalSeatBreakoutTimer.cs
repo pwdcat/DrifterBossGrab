@@ -27,8 +27,6 @@ namespace DrifterBossGrabMod.Patches
             null
         );
 
-        // Check if an object is eligible for breakout.
-        // requires CharacterBody, not player-controlled, and has a CharacterMaster.
         public static bool CanBreakout(GameObject obj)
         {
             if (obj == null) return false;
@@ -58,6 +56,24 @@ namespace DrifterBossGrabMod.Patches
         {
             _breakoutTimer = time;
         }
+
+        public void ManualSave()
+        {
+            if (controller == null || gameObject == null) return;
+
+            var state = BaggedObjectPatches.LoadObjectState(controller, gameObject);
+            if (state == null)
+            {
+                state = new BaggedObjectStateData();
+                state.CalculateFromObject(gameObject, controller);
+            }
+
+            state.elapsedBreakoutTime = _breakoutTimer;
+            state.breakoutAttempts = (int)breakoutAttempts;
+            state.breakoutTime = breakoutTime;
+
+            BaggedObjectPatches.SaveObjectState(controller, gameObject, state);
+        }
         private static GameObject? _cachedProjectilePrefab;
 
         private void FixedUpdate()
@@ -78,7 +94,6 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            // Only run on server/authority
             if (!NetworkServer.active) return;
 
             try
@@ -90,11 +105,18 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                // If not in additional seat anymore, stop timer
                 if (BagHelpers.GetAdditionalSeat(currentController, gameObject) == null)
                 {
+                    if (DrifterBossGrabPlugin._isSwappingPassengers)
+                    {
+
+                        return;
+                    }
+
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Info($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: no longer in an additional seat");
+
+                    ManualSave();
                     Destroy(this);
                     return;
                 }
@@ -107,12 +129,12 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            // Core timer logic reproduced from BaggedObject
-            // Safety check for controller and object
             if (currentController == null || gameObject == null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Warning($"[AdditionalSeatBreakoutTimer] Cleaning up due to null controller or object for {gameObject?.name ?? "unknown"}");
+
+                ManualSave();
                 UnityEngine.Object.Destroy(this);
                 return;
             }
@@ -143,7 +165,6 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} breakout attempt #{breakoutAttempts}. Breakout time adjusted to {breakoutTime:F2}");
 
-                // Play sound
                 if (_cachedSfxLocator != null && _cachedSfxLocator.barkSound != null)
                 {
                     Util.PlaySound(_cachedSfxLocator.barkSound, gameObject);
@@ -224,7 +245,6 @@ namespace DrifterBossGrabMod.Patches
             var currentController = controller;
             if (currentController == null) return;
 
-            // Use the enemy's own character direction, not the controller's
             Vector3 forward = Vector3.up;
             if (body != null && body.characterDirection != null)
             {
@@ -233,7 +253,6 @@ namespace DrifterBossGrabMod.Patches
             float mass = currentController.CalculateBaggedObjectMass(gameObject);
             float speed = Mathf.Max(10f, 30f * mass / DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(currentController));
 
-            // Apply max launch speed cap if configured
             if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite)
             {
                 speed = Mathf.Min(speed, PluginConfig.Instance.ParsedMaxLaunchSpeed);
@@ -250,8 +269,7 @@ namespace DrifterBossGrabMod.Patches
                 var modelAnimator = body.modelLocator.modelTransform.GetComponent<Animator>();
                 if (modelAnimator != null)
                 {
-                    // Look for an exit transform on the enemy's model
-                    // This matches the vanilla BaggedObject behavior
+
                     var childTransforms = body.modelLocator.modelTransform.GetComponentsInChildren<Transform>();
                     foreach (var child in childTransforms)
                     {

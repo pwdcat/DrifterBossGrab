@@ -19,11 +19,11 @@ namespace DrifterBossGrabMod.Patches
                 {
                     Log.Info($"[CharacterMaster_OnBodyStart] Body: {body.name}, Master: {__instance.name}");
                 }
-                // Check if this is a Drifter player respawn
+
                 if (body.name.StartsWith("DrifterBody"))
                 {
                     DrifterBossGrabPlugin.IsDrifterPresent = true;
-                    // Add carousel UI for bagged objects using Bag UI
+
                     if (PluginConfig.Instance.EnableCarouselHUD.Value)
                     {
                         var ui = body.gameObject.AddComponent<UI.BaggedObjectUIController>();
@@ -44,17 +44,17 @@ namespace DrifterBossGrabMod.Patches
                 {
                     return;
                 }
-                // Check if this is a Drifter player respawn for auto-grab
+
                 if (body.name == "DrifterBody")
                 {
-                    // Schedule auto-grab with delay to ensure bag controller is ready
+
                     PersistenceManager.ScheduleAutoGrab(__instance);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Info($"[CharacterMaster_OnBodyStart] Scheduled auto-grab for Drifter respawn");
                     }
                 }
-                // Detect zone inversion on first player spawn
+
                 Patches.ZoneDetectionPatches.DetectZoneInversion(body.transform.position);
             }
         }

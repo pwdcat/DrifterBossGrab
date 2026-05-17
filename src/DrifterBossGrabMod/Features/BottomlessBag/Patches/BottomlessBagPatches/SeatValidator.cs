@@ -9,10 +9,10 @@ using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Provides validation methods for seat configurations and transitions
+
     public static class SeatValidator
     {
-        // Validates seat configuration for a bag controller - ensures all tracked seats have correct passenger assignments
+
         internal static bool ValidateSeatConfiguration(DrifterBagController bagController, List<GameObject> validObjects, GameObject? actualMainPassenger, bool isInNullState, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (!isInNullState && actualMainPassenger == null)
@@ -50,7 +50,6 @@ namespace DrifterBossGrabMod.Patches
             return true;
         }
 
-        // Validates seat state for performing a swap between current and target objects
         internal static bool ValidateSeatStateForSwap(DrifterBagController bagController, GameObject? currentObject, GameObject? targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (targetObject == null) return false;
@@ -66,8 +65,6 @@ namespace DrifterBossGrabMod.Patches
                 isActuallyInMainSeat = actualMainPassenger != null && actualMainPassenger.GetInstanceID() == currentObject!.GetInstanceID();
             }
 
-            // For client-grabbed objects, the server's vehicleSeat may not be populated
-            // Trust the mainSeatDict tracking as authoritative for these cases
             if (!isActuallyInMainSeat && currentObject != null)
             {
                 var trackedMain = BagPatches.GetMainSeatObject(bagController);
@@ -97,7 +94,7 @@ namespace DrifterBossGrabMod.Patches
             else
             {
 
-                return true; // Use fallback logic (e.g. FindOrCreateEmptySeat) in CycleToNextObject
+                return true;
             }
             if (seatDict.Count > 0)
             {
@@ -121,7 +118,6 @@ namespace DrifterBossGrabMod.Patches
             return true;
         }
 
-        // Validates that a transition to null state is possible
         internal static bool ValidateNullStateTransition(DrifterBagController bagController, GameObject? currentObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             if (currentObject == null) return false;
@@ -163,7 +159,6 @@ namespace DrifterBossGrabMod.Patches
             return true;
         }
 
-        // Checks if there is space for a transition to null state
         internal static bool HasSpaceForNullStateTransition(DrifterBagController bagController, int currentObjectCount, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> seatDict)
         {
             int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);

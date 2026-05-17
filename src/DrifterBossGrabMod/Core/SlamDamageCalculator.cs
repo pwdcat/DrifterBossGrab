@@ -10,29 +10,21 @@ using System.Collections.Generic;
 
 namespace DrifterBossGrabMod.Core
 {
-    // Calculates predicted slam damage for the damage preview overlay
-    // Uses the SuffocateSlam damage formula:
-    // effectiveCoef = baseDamageCoef + (massScaling * baggedMass / maxCapacity)
-    // damage = drifterBody.damage * effectiveCoef
+
     public static class SlamDamageCalculator
     {
         public const float DefaultBaseDamageCoef = Constants.Multipliers.SlamBaseDamageCoef;
         public const float DefaultMassScaling = Constants.Multipliers.SlamMassScaling;
 
-        // Calculates predicted damage
-        // param: bagController - The DrifterBagController
-        // param: target - The target bagged object
-        // returns: Absolute damage value, or 0 if can't calculate
         public static float GetPredictedDamage(DrifterBagController? bagController, GameObject? target)
         {
-            if (!bagController || !target) return 0f;
+            if (bagController == null || target == null) return 0f;
 
             var drifterBody = bagController!.GetComponent<CharacterBody>();
             if (!drifterBody) return 0f;
 
             float effectiveCoef = GetEffectiveCoefficient(bagController);
 
-            // Apply AoE distribution mode if enabled
             if (PluginConfig.Instance.EnableBalance.Value &&
                 PluginConfig.Instance.AoEDamageDistribution.Value != DrifterBossGrabMod.AoEDamageMode.None &&
                 PluginConfig.Instance.StateCalculationMode.Value == StateCalculationMode.All &&
@@ -44,14 +36,11 @@ namespace DrifterBossGrabMod.Core
                     effectiveCoef /= count;
             }
 
-            // Calculate base damage
             float baseDamage = drifterBody.damage * effectiveCoef;
 
-            // Apply item damage modifiers
             float itemDamageMultiplier = GetItemDamageMultiplier(drifterBody);
             float damage = baseDamage * itemDamageMultiplier;
 
-            // Apply armor reduction if target has CharacterBody
             var targetBody = target!.GetComponent<CharacterBody>();
             if (targetBody != null)
             {
@@ -62,13 +51,10 @@ namespace DrifterBossGrabMod.Core
 
             return damage;
         }
-        public static float GetPredictedDamageFraction(DrifterBagController bagController, GameObject target)
+        public static float GetPredictedDamageFraction(DrifterBagController? bagController, GameObject? target)
         {
-            if (!bagController || !target) return 0f;
+            if (bagController == null || target == null) return 0f;
 
-            // Priority 0: JunkCubeController (Custom Durability)
-            // JunkCubeController rejects standard damage and uses ActivationCount instead.
-            // We need to reflect _maxActivationCount since it's private.
             var junkController = target.GetComponent<JunkCubeController>();
             if (junkController)
             {
@@ -77,12 +63,10 @@ namespace DrifterBossGrabMod.Core
                     int maxCount = (int)ReflectionCache.JunkCubeController.MaxActivationCount.GetValue(junkController);
                     if (maxCount > 0) return 1f / maxCount;
                 }
-                // Fallback if reflection somehow fails
+
                 return 0.334f;
             }
 
-            // Priority 1: CharacterBody (Health)
-            // Matches DrifterBagController.CmdDamageBaggedObject priority
             var body = target.GetComponent<CharacterBody>();
             if (body && body.healthComponent)
             {
@@ -93,7 +77,6 @@ namespace DrifterBossGrabMod.Core
                 return Mathf.Clamp01(damage / totalHealth);
             }
 
-            // Priority 2: SpecialObjectAttributes (Durability)
             var attributes = target.GetComponent<SpecialObjectAttributes>();
             if (attributes && attributes.maxDurability > 0)
             {
@@ -103,19 +86,17 @@ namespace DrifterBossGrabMod.Core
             return 0f;
         }
 
-        // Gets the effective damage coefficient including mass scaling.
-        public static float GetEffectiveCoefficient(DrifterBagController bagController)
+        public static float GetEffectiveCoefficient(DrifterBagController? bagController)
         {
             float baggedMass = bagController?.baggedMass ?? 0f;
 
-            // When balance is off, use vanilla formula: 2.8 + (5.0 * baggedMass / 700)
             if (!PluginConfig.Instance.EnableBalance.Value)
             {
                 return DefaultBaseDamageCoef + (DefaultMassScaling * baggedMass / DrifterBagController.maxMass);
             }
 
             var body = bagController?.GetComponent<CharacterBody>();
-            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
+            float maxCapacity = bagController != null ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
 
             var localVars = new Dictionary<string, float>
             {
@@ -141,8 +122,6 @@ namespace DrifterBossGrabMod.Core
             return result;
         }
 
-        // Gets the item damage multiplier from the attacker's inventory
-        // This is used for targets without a CharacterBody
         private static float GetItemDamageMultiplier(CharacterBody attackerBody)
         {
             if (attackerBody == null || attackerBody.inventory == null)
@@ -150,15 +129,12 @@ namespace DrifterBossGrabMod.Core
 
             float itemDamageMultiplier = 1f;
 
-            // Delicate Watch (FragileDamageBonus) - +20% per stack
             int fragileStacks = attackerBody.inventory.GetItemCountEffective(DLC1Content.Items.FragileDamageBonus);
             if (fragileStacks > 0)
             {
                 itemDamageMultiplier *= 1f + fragileStacks * Constants.Multipliers.DelicateWatchDamageBonus;
             }
 
-            // Nearby Damage Bonus - +20% per stack when within 13m
-            // Note: Can't check distance without a target, so we assume it applies
             int nearbyDamageStacks = attackerBody.inventory.GetItemCountEffective(RoR2Content.Items.NearbyDamageBonus);
             if (nearbyDamageStacks > 0)
             {
@@ -168,7 +144,7 @@ namespace DrifterBossGrabMod.Core
             return itemDamageMultiplier;
         }
 
-        public static void LogDetails(DrifterBagController bagController, GameObject target)
+        public static void LogDetails(DrifterBagController? bagController, GameObject? target)
         {
             if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
 
@@ -176,7 +152,7 @@ namespace DrifterBossGrabMod.Core
             float massScaling = DefaultMassScaling;
             bool foundState = false;
 
-            if (bagController)
+            if (bagController != null)
             {
                 var stateMachines = bagController.GetComponents<EntityStateMachine>();
                 foreach (var esm in stateMachines)
@@ -191,9 +167,9 @@ namespace DrifterBossGrabMod.Core
                 }
             }
 
-            float mass = bagController ? bagController!.baggedMass : 0f;
-            float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController!) : DrifterBagController.maxMass;
-            float massFraction = bagController ? (bagController!.baggedMass / maxCapacity) : 0f;
+            float mass = bagController != null ? bagController.baggedMass : 0f;
+            float maxCapacity = bagController != null ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+            float massFraction = (bagController != null && maxCapacity > 0) ? (bagController.baggedMass / maxCapacity) : 0f;
             float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
 
             var drifterBody = bagController ? bagController!.GetComponent<CharacterBody>() : null;
@@ -202,7 +178,7 @@ namespace DrifterBossGrabMod.Core
 
             float finalDamage = GetPredictedDamage(bagController, target);
 
-            // Priority 0: JunkCubeController
+            if (target == null) return;
             var junkController = target.GetComponent<JunkCubeController>();
             var body = target.GetComponent<CharacterBody>();
 
@@ -213,14 +189,14 @@ namespace DrifterBossGrabMod.Core
                 float frac = maxCount > 0 ? 1f / maxCount : 0f;
                 Log.Info($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
             }
-            // Priority 1: CharacterBody (Health)
+
             else if (body && body.healthComponent)
             {
                 float totalHealth = body.healthComponent.fullCombinedHealth;
                 float frac = totalHealth > 0f ? Mathf.Clamp01(finalDamage / totalHealth) : 1f;
                 Log.Info($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
             }
-            // Priority 2: SpecialObjectAttributes (Durability)
+
             else
             {
                 var attributes = target.GetComponent<SpecialObjectAttributes>();

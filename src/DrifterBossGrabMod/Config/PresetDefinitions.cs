@@ -4,16 +4,21 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod.Config
 {
-    // Hardcoded preset definitions for DrifterBossGrabMod.
-    // Provides curated configurations for different playstyles and use cases
+
+    // ========================================================================================
+    // PRESET DEFINITIONS
+    // ========================================================================================
     public static class PresetDefinitions
     {
         public static readonly Dictionary<PresetType, Dictionary<string, object>> Presets = new()
         {
-            // Vanilla: Disables all mod features for pure vanilla Drifter gameplay
+
+            // ========================================================================================
+            // VANILLA PRESET
+            // ========================================================================================
             [PresetType.Vanilla] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = false,
                 ["General.EnableNPCGrabbing"] = false,
                 ["General.EnableEnvironmentGrabbing"] = false,
@@ -28,14 +33,12 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = false,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
                 ["Recovery.RecoverBaggedBosses"] = false,
                 ["Recovery.RecoverBaggedNPCs"] = false,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.EnableAutoGrab"] = false,
                 ["Persistence.PersistBaggedBosses"] = true,
@@ -44,9 +47,7 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistenceBlacklist"] = "",
                 ["Persistence.AutoGrabDelay"] = 1.0f,
 
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = false,
-                ["BottomlessBag.AddedCapacity"] = "0",
                 ["BottomlessBag.EnableStockRefreshClamping"] = false,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = false,
                 ["BottomlessBag.CycleCooldown"] = 0.2f,
@@ -56,7 +57,6 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.AutoPromoteMainSeat"] = true,
                 ["BottomlessBag.PrioritizeMainSeat"] = false,
 
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.CarouselSpacing"] = 45.0f,
                 ["Hud.CarouselAnimationDuration"] = 0.4f,
@@ -103,7 +103,6 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.BaggedObjectInfoScale"] = 1.0f,
                 ["Hud.BaggedObjectInfoColor"] = new Color(1f, 1f, 1f, 0.9f),
 
-                // Balance settings
                 ["Balance.EnableBalance"] = false,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
@@ -111,7 +110,7 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.SearchRadiusMultiplier"] = 1.0f,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
                 ["Balance.SlotScalingFormula"] = "0",
-                ["Balance.MassCapacityFormula"] = "C * MC",
+                ["Balance.MassCapacityFormula"] = "",
                 ["Character Flags.EliteFlagMultiplier"] = "1",
                 ["Character Flags.BossFlagMultiplier"] = "1",
                 ["Character Flags.ChampionFlagMultiplier"] = "1",
@@ -129,10 +128,12 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Intended: Boss-only grabbing for balanced vanilla-style gameplay
+            // ========================================================================================
+            // INTENDED PRESET
+            // ========================================================================================
             [PresetType.Intended] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = true,
                 ["General.EnableNPCGrabbing"] = false,
                 ["General.EnableEnvironmentGrabbing"] = false,
@@ -147,35 +148,35 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
-                ["Recovery.EnableRecoveryFeature"] = true,
-                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
-                ["Recovery.RecoverBaggedBosses"] = true,
+                ["Recovery.EnableRecoveryFeature"] = false,
+                ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
+                ["Recovery.RecoverBaggedBosses"] = false,
                 ["Recovery.RecoverBaggedNPCs"] = false,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
 
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = false,
 
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableDamagePreview"] = false,
                 ["Hud.EnableMassCapacityUI"] = false,
                 ["Hud.EnableBaggedObjectInfo"] = false,
 
-                // Balance settings
                 ["Balance.EnableBalance"] = false,
+                ["BottomlessBag.SlotScalingFormula"] = "C + 2",
+                ["Balance.MovespeedPenaltyFormula"] = "clamp((T/M) * 0.25, 0, 0.5)",
+                ["Balance.MassCapacityFormula"] = "",
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Default: Full feature set with bottomless bag and persistence enabled
+            // ========================================================================================
+            // DEFAULT PRESET
+            // ========================================================================================
             [PresetType.Default] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = true,
                 ["General.EnableNPCGrabbing"] = true,
                 ["General.EnableEnvironmentGrabbing"] = true,
@@ -190,7 +191,6 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = true,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
                 ["Recovery.RecoverBaggedBosses"] = true,
@@ -204,7 +204,6 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.PersistenceBlacklist"] = "",
                 ["BottomlessBag.EnableBottomlessBag"] = true,
-                ["BottomlessBag.AddedCapacity"] = "2",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
                 ["Hud.EnableCarouselHUD"] = true,
@@ -215,13 +214,18 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.ShowTotalMassOnWeightIcon"] = false,
                 ["Hud.ShowOverencumberIcon"] = false,
                 ["Balance.EnableBalance"] = false,
+                ["BottomlessBag.SlotScalingFormula"] = "C + 2",
+                ["Balance.MovespeedPenaltyFormula"] = "clamp((T/M) * 0.25, 0, 0.5)",
+                ["Balance.MassCapacityFormula"] = "",
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Balance: Default + balance features
+            // ========================================================================================
+            // BALANCE PRESET
+            // ========================================================================================
             [PresetType.Balance] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = true,
                 ["General.EnableNPCGrabbing"] = true,
                 ["General.EnableEnvironmentGrabbing"] = true,
@@ -236,14 +240,12 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = true,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
                 ["Recovery.RecoverBaggedBosses"] = true,
                 ["Recovery.RecoverBaggedNPCs"] = true,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = true,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
                 ["Persistence.PersistBaggedBosses"] = true,
@@ -251,13 +253,10 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.PersistenceBlacklist"] = "",
 
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
-                ["BottomlessBag.AddedCapacity"] = "INF",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
 
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableDamagePreview"] = true,
                 ["Hud.EnableMassCapacityUI"] = true,
@@ -273,10 +272,9 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.ScaleWeightColor"] = true,
                 ["Hud.ShowTotalMassOnWeightIcon"] = true,
 
-                // Balance settings
                 ["Balance.EnableBalance"] = true,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Split,
-                ["Balance.SlotScalingFormula"] = "0",
+                ["BottomlessBag.SlotScalingFormula"] = "INF",
                 ["Balance.MassCapacityFormula"] = "700*C + H*S*0.1 + L*50",
                 ["Character Flags.EliteFlagMultiplier"] = "1",
                 ["Character Flags.BossFlagMultiplier"] = "1",
@@ -300,10 +298,12 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Minimal: Basic grabbing (boss + NPC + environment) without extra features
+            // ========================================================================================
+            // MINIMAL PRESET
+            // ========================================================================================
             [PresetType.Minimal] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = true,
                 ["General.EnableNPCGrabbing"] = true,
                 ["General.EnableEnvironmentGrabbing"] = true,
@@ -318,29 +318,32 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = false,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
                 ["Recovery.RecoverBaggedBosses"] = false,
                 ["Recovery.RecoverBaggedNPCs"] = false,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
                 ["BottomlessBag.EnableBottomlessBag"] = false,
+                ["BottomlessBag.SlotScalingFormula"] = "C + 2",
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableDamagePreview"] = false,
                 ["Hud.EnableMassCapacityUI"] = false,
                 ["Hud.EnableBaggedObjectInfo"] = false,
                 ["Balance.EnableBalance"] = false,
+                ["Balance.MovespeedPenaltyFormula"] = "clamp((T/M) * 0.25, 0, 0.5)",
+                ["Balance.MassCapacityFormula"] = "",
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Hardcore: Boss grab with strict balance (limited capacity, no persistence)
+            // ========================================================================================
+            // HARDCORE PRESET
+            // ========================================================================================
             [PresetType.Hardcore] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = false,
                 ["General.EnableNPCGrabbing"] = true,
                 ["General.EnableEnvironmentGrabbing"] = true,
@@ -355,38 +358,32 @@ namespace DrifterBossGrabMod.Config
                 ["General.ComponentChooserSortMode"] = ComponentChooserSortMode.ByFrequency,
                 ["General.ComponentChooserDummy"] = ComponentChooserDummy.SelectToToggle,
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = false,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Kill,
                 ["Recovery.RecoverBaggedBosses"] = false,
                 ["Recovery.RecoverBaggedNPCs"] = false,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = false,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = false,
                 ["Persistence.PersistenceBlacklist"] = "",
 
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
-                ["BottomlessBag.AddedCapacity"] = "0",
                 ["BottomlessBag.EnableStockRefreshClamping"] = true,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = false,
 
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableDamagePreview"] = true,
                 ["Hud.EnableMassCapacityUI"] = true,
                 ["Hud.EnableSeparators"] = true,
                 ["Hud.EnableBaggedObjectInfo"] = true,
 
-                // Balance settings
                 ["Balance.EnableBalance"] = true,
                 ["Balance.BreakoutTimeMultiplier"] = 0.7f,
                 ["Balance.MaxSmacks"] = 3,
                 ["Balance.MaxLaunchSpeed"] = "50",
                 ["Balance.SearchRadiusMultiplier"] = 1.0f,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
-                ["Balance.SlotScalingFormula"] = "max(0, (C + floor(S/2)) - floor(L/5) - floor(H/2000))",
+                ["BottomlessBag.SlotScalingFormula"] = "max(0, (C + floor(S/2)) - floor(L/5) - floor(H/2000))",
                 ["Balance.MassCapacityFormula"] = "max(100, 700 + S*100 - L*50 - H/20)",
                 ["Character Flags.EliteFlagMultiplier"] = "1.25",
                 ["Character Flags.BossFlagMultiplier"] = "2",
@@ -405,10 +402,12 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Caveman: INF capacity, balance on, most broken settings, able to grab everything
+            // ========================================================================================
+            // CAVEMAN PRESET
+            // ========================================================================================
             [PresetType.Caveman] = new Dictionary<string, object>
             {
-                // General settings
+
                 ["General.EnableBossGrabbing"] = true,
                 ["General.EnableNPCGrabbing"] = true,
                 ["General.EnableEnvironmentGrabbing"] = true,
@@ -421,14 +420,12 @@ namespace DrifterBossGrabMod.Config
                 ["General.GrabbableComponentTypes"] = "MeshRenderer",
                 ["General.GrabbableKeywordBlacklist"] = "",
 
-                // Recovery settings
                 ["Recovery.EnableRecoveryFeature"] = true,
                 ["Recovery.EnemyRecoveryMode"] = EnemyRecoveryMode.Recover,
                 ["Recovery.RecoverBaggedBosses"] = true,
                 ["Recovery.RecoverBaggedNPCs"] = true,
                 ["Recovery.RecoverBaggedEnvironmentObjects"] = true,
 
-                // Persistence settings
                 ["Persistence.EnableObjectPersistence"] = true,
                 ["Persistence.EnableAutoGrab"] = true,
                 ["Persistence.PersistBaggedBosses"] = true,
@@ -436,28 +433,24 @@ namespace DrifterBossGrabMod.Config
                 ["Persistence.PersistBaggedEnvironmentObjects"] = true,
                 ["Persistence.PersistenceBlacklist"] = "",
 
-                // Bottomless Bag settings
                 ["BottomlessBag.EnableBottomlessBag"] = true,
-                ["BottomlessBag.AddedCapacity"] = "INF",
                 ["BottomlessBag.EnableStockRefreshClamping"] = false,
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
 
-                // HUD settings
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableDamagePreview"] = true,
                 ["Hud.EnableMassCapacityUI"] = true,
                 ["Hud.EnableSeparators"] = true,
                 ["Hud.EnableBaggedObjectInfo"] = true,
 
-                // Balance settings
                 ["Balance.EnableBalance"] = true,
                 ["Balance.BreakoutTimeMultiplier"] = 100.0f,
                 ["Balance.MaxSmacks"] = 100,
                 ["Balance.MaxLaunchSpeed"] = "INF",
                 ["Balance.SearchRadiusMultiplier"] = 50.0f,
                 ["Balance.AoEDamageDistribution"] = AoEDamageMode.Full,
-                ["Balance.SlotScalingFormula"] = "INF",
-                ["Balance.MassCapacityFormula"] = "INF",
+                ["BottomlessBag.SlotScalingFormula"] = "INF",
+                ["Balance.MassCapacityFormula"] = "",
                 ["Character Flags.EliteFlagMultiplier"] = "1",
                 ["Character Flags.BossFlagMultiplier"] = "1",
                 ["Character Flags.ChampionFlagMultiplier"] = "1",
@@ -475,7 +468,9 @@ namespace DrifterBossGrabMod.Config
                 ["Balance.SlamDamageFormula"] = "BASE_COEF + (MASS_SCALING * BM / MC)",
             },
 
-            // Custom: Placeholder for user-modified settings
+            // ========================================================================================
+            // CUSTOM PRESET
+            // ========================================================================================
             [PresetType.Custom] = new Dictionary<string, object>(),
         };
     }

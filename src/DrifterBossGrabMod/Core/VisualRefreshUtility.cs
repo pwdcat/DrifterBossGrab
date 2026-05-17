@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace DrifterBossGrabMod.Core
 {
-    // Utility for refreshing the visual state of objects to resolve rendering artifacts
+
     public static class VisualRefreshUtility
     {
         public static void Refresh(GameObject target)
@@ -17,30 +17,26 @@ namespace DrifterBossGrabMod.Core
 
             try
             {
-                // 1. Determine the model transform
+
                 var modelLocator = target.GetComponent<ModelLocator>();
                 Transform modelTransform = (modelLocator != null && modelLocator.modelTransform != null)
                     ? modelLocator.modelTransform
                     : target.transform;
 
-                // 2. Force a renderer refresh by briefly toggling activation
                 if (modelTransform.gameObject.activeSelf)
                 {
                     modelTransform.gameObject.SetActive(false);
                     modelTransform.gameObject.SetActive(true);
                 }
 
-                // 3. Refresh CharacterModel if present
                 var characterModel = modelTransform.GetComponent<CharacterModel>();
                 if (characterModel != null)
                 {
                     characterModel.UpdateMaterials();
                 }
 
-                // 4. Generic material fix
                 FixBrokenMaterials(target, modelTransform);
 
-                // 5. Cleanup stuck visual components
                 CleanupStuckVisualEffects(target);
             }
             catch (System.Exception ex)
@@ -90,7 +86,7 @@ namespace DrifterBossGrabMod.Core
 
         private static void CleanupStuckVisualEffects(GameObject target)
         {
-            // PrintControllers and DitherModel can leave objects invisible
+
             var printControllers = target.GetComponentsInChildren<PrintController>(true);
             foreach (var pc in printControllers)
             {

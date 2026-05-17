@@ -25,7 +25,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Look up of prefab from NetworkManager.spawnPrefabs using saved AssetId
             GameObject? prefab = null;
             if (NetworkManager.singleton != null && NetworkManager.singleton.spawnPrefabs != null)
             {
@@ -40,7 +39,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 });
             }
 
-            // Fallback: Try to find prefab by name in all loaded GameObjects
             if (prefab == null && !string.IsNullOrEmpty(objData.PrefabName))
             {
                 prefab = Resources.FindObjectsOfTypeAll<GameObject>()
@@ -70,7 +68,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Instantiate directly with Object.Instantiate + NetworkServer.Spawn
             GameObject spawnedObject;
             try
             {
@@ -87,13 +84,10 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Position objects bunched up near the player (like persistence system does)
             PositionObjectNearPlayer(spawnedObject, ownerPlayerId);
 
-            // Reset rotation to identity for bunched up spawning
             spawnedObject.transform.rotation = Quaternion.identity;
 
-            // Handle CharacterMaster - spawn master on network FIRST, then spawn body
             var characterMaster = spawnedObject.GetComponent<CharacterMaster>();
             CharacterBody? spawnedBody = null;
 
@@ -102,14 +96,12 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[PrefabSpawner] Found CharacterMaster {spawnedObject.name}");
 
-                // Get saved team index from save data, default to Monster team
                 var savedTeamIndex = GetSavedTeamIndex(objData);
                 characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[PrefabSpawner] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
-                // Find the body prefab for this master
                 var bodyPrefab = BodyCatalog.FindBodyPrefab(objData.PrefabName);
                 if (bodyPrefab != null)
                 {
@@ -117,7 +109,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
             }
 
-            // Spawn the master on network BEFORE spawning body
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Info($"[PrefabSpawner] Spawning master on network...");
             if (NetworkServer.active)
@@ -129,7 +120,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 Log.Warning("[PrefabSpawner] NetworkServer is not active, skipping NetworkServer.Spawn");
             }
 
-            // Now spawn the body (after master is network-spawned)
             if (characterMaster != null)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -153,7 +143,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
             }
 
-            // Move to active scene if needed
             if (spawnedObject.scene.name != UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
             {
                 UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedObject, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
@@ -191,7 +180,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (targetBody != null)
             {
-                // Position very close to player (0.5 units in front and up, bunched up)
+
                 var playerPos = targetBody.transform.position;
                 var playerForward = targetBody.transform.forward;
                 var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
@@ -199,7 +188,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             }
             else
             {
-                // Fallback: position at scene center or camera position
+
                 var camera = Camera.main;
                 if (camera != null)
                 {
@@ -210,7 +199,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
                 else
                 {
-                    // Last resort: position at origin with offset
+
                     obj.transform.position = new Vector3(0, Constants.Limits.OriginYOffset, 0);
                 }
             }
@@ -220,7 +209,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         {
             if (string.IsNullOrEmpty(ownerId))
             {
-                // Fallback to host's body (any body)
+
                 var hostUser = RoR2.NetworkUser.readOnlyInstancesList.FirstOrDefault(nu => nu.isServer);
                 if (hostUser != null && hostUser.master != null)
                 {
@@ -229,7 +218,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Find the NetworkUser associated with this player id
             RoR2.NetworkUser? matchedUser = null;
             foreach (var nu in RoR2.NetworkUser.readOnlyInstancesList)
             {

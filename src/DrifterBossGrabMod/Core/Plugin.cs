@@ -10,10 +10,18 @@ using DrifterBossGrabMod.Config;
 
 namespace DrifterBossGrabMod
 {
+
+    // ========================================================================================
+    // DRIFTER BOSS GRAB PLUGIN
+    // ========================================================================================
     [BepInPlugin(Constants.PluginGuid, Constants.PluginName, Constants.PluginVersion)]
     [BepInDependency("com.rune580.riskofoptions", BepInDependency.DependencyFlags.SoftDependency)]
     public partial class DrifterBossGrabPlugin : BaseUnityPlugin, IConfigObserver
     {
+
+        // ========================================================================================
+        // CORE CONSTANTS
+        // ========================================================================================
         public static class Timing
         {
             public const float BatchInitializationDelay = 0.2f;
@@ -36,6 +44,9 @@ namespace DrifterBossGrabMod
             public const float IconPivotY = 0.5f;
         }
 
+        // ========================================================================================
+        // PLUGIN STATE
+        // ========================================================================================
         public static DrifterBossGrabPlugin? Instance { get; private set; }
         public static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public string DirectoryName => System.IO.Path.GetDirectoryName(((BaseUnityPlugin)this).Info.Location);
@@ -59,6 +70,9 @@ namespace DrifterBossGrabMod
         private bool _wasDrifterGrabEnabled;
         private bool _wasRecoveryEnabled;
 
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
         private void InitializeInstance()
         {
             Instance = this;
@@ -94,6 +108,9 @@ namespace DrifterBossGrabMod
             PersistenceManager.Initialize();
         }
 
+        // ========================================================================================
+        // LIFECYCLE
+        // ========================================================================================
         public void Awake()
         {
             InitializeInstance();
@@ -120,10 +137,15 @@ namespace DrifterBossGrabMod
 
             Input.InputSetup.Init();
 
+            gameObject.AddComponent<DrifterBossGrabMod.UI.HudEditorManager>();
+
             ProperSave.ProperSaveIntegration.Initialize();
             ProperSave.Spawning.ObjectSpawner.Initialize();
         }
 
+        // ========================================================================================
+        // GAME EVENTS
+        // ========================================================================================
         private void RegisterGameEvents()
         {
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
@@ -163,6 +185,9 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // ========================================================================================
+        // COROUTINES
+        // ========================================================================================
         private static System.Collections.IEnumerator DelayedEnsureSpecialObjectAttributes()
         {
             yield return null;
@@ -231,6 +256,9 @@ namespace DrifterBossGrabMod
             }
         }
 
+        // ========================================================================================
+        // CLEANUP
+        // ========================================================================================
         public void OnDestroy()
         {
             Run.onPlayerFirstCreatedServer -= OnPlayerFirstCreated;

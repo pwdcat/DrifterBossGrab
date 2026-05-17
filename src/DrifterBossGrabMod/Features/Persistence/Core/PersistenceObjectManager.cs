@@ -10,7 +10,10 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod
 {
-    // Handles life-cycle and state management for objects that need to survive stage transitions.
+
+    // ========================================================================================
+    // PERSISTENCE OBJECT MANAGER
+    // ========================================================================================
     public static class PersistenceObjectManager
     {
         private static GameObject? _persistenceContainer;
@@ -25,7 +28,9 @@ namespace DrifterBossGrabMod
 
         private const string PERSISTENCE_CONTAINER_NAME = "DBG_PersistenceContainer";
 
-        // We use a dedicated container in DontDestroyOnLoad to act as a safe harbor for persisted objects.
+        // ========================================================================================
+        // INITIALIZATION & CLEANUP
+        // ========================================================================================
         public static void Initialize()
         {
             if (_persistenceContainer != null) return;
@@ -50,6 +55,9 @@ namespace DrifterBossGrabMod
             _cachedEnableAutoGrab = PluginConfig.Instance.EnableAutoGrab.Value;
         }
 
+        // ========================================================================================
+        // TRACKING & REGISTRATION
+        // ========================================================================================
         public static void AddPersistedObject(GameObject obj, string? ownerPlayerId = null)
         {
             if (obj == null) return;
@@ -74,7 +82,7 @@ namespace DrifterBossGrabMod
             {
                 if (_persistedObjects.Add(obj))
                 {
-                    // Track who owned this object so we can give it back after scene transitions.
+
                     if (!string.IsNullOrEmpty(ownerPlayerId))
                     {
                         _persistedObjectOwnerPlayerIds[obj] = ownerPlayerId;
@@ -91,7 +99,6 @@ namespace DrifterBossGrabMod
                         }
                     }
 
-                    // Also persist the AI master
                     var characterBody = obj.GetComponent<CharacterBody>();
                     if (characterBody != null && characterBody.master != null && IsValidForPersistence(characterBody.master.gameObject))
                     {
@@ -123,7 +130,6 @@ namespace DrifterBossGrabMod
                         SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
                     }
 
-                    // Clean up associated master if this was a body.
                     var master = GetMasterForBody(obj);
                     if (master != null && master.gameObject != null)
                     {
@@ -160,7 +166,9 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Validation prevents transient objects like projectiles from being saved and causing state bloat.
+        // ========================================================================================
+        // VALIDATION & CAPTURE
+        // ========================================================================================
         public static bool IsValidForPersistence(GameObject obj)
         {
             if (obj == null) return false;
@@ -186,7 +194,6 @@ namespace DrifterBossGrabMod
         {
             if (!_cachedEnablePersistence) return;
 
-            // Prune existing persisted objects that are blacklisted (config change)
             lock (_lock)
             {
                 var toRemove = _persistedObjects.Where(obj => obj != null && PluginConfig.IsPersistenceBlacklisted(obj)).ToList();
@@ -198,7 +205,6 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            // Find all objects held by any Drifter.
             var baggedObjects = PersistenceObjectsTracker.GetCurrentlyBaggedObjects();
 
             foreach (var obj in baggedObjects)
@@ -220,7 +226,7 @@ namespace DrifterBossGrabMod
 
             foreach (var bagController in bagControllers)
             {
-                // Check the primary bag seat.
+
                 if (bagController.vehicleSeat != null && bagController.vehicleSeat.NetworkpassengerBodyObject == obj)
                 {
                     var master = bagController.GetComponent<CharacterMaster>() ?? bagController.GetComponentInParent<CharacterMaster>();
@@ -249,6 +255,9 @@ namespace DrifterBossGrabMod
             return null;
         }
 
+        // ========================================================================================
+        // UTILITIES
+        // ========================================================================================
         internal static CharacterMaster? GetMasterForBody(GameObject bodyObj)
         {
             if (bodyObj == null) return null;

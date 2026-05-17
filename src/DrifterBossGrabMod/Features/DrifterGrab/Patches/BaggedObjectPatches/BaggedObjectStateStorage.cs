@@ -7,17 +7,13 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Helper class for managing per-object state storage for bagged objects
+
     public static class BaggedObjectStateStorage
     {
-        // Store per-controller, per-object state data
+
         private static Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>> _perObjectStateStorage
             = new Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>>();
 
-        // Saves the state data for a specific object in a bag controller
-        // controller: The bag controller storing the state
-        // obj: The game object to save state for
-        // state: The state data to save
         public static void SaveObjectState(DrifterBagController controller, GameObject obj, BaggedObjectStateData state)
         {
             if (controller == null || obj == null || state == null)
@@ -32,7 +28,6 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($"[SaveObjectState] Saving state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
                 }
 
-                // Prevent saving stub states that have default invalid values
                 if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -61,10 +56,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Loads the state data for a specific object from a bag controller
-        // controller: The bag controller to load state from
-        // obj: The game object to load state for
-        // Returns: The saved state data, or null if not found
         public static BaggedObjectStateData? LoadObjectState(DrifterBagController controller, GameObject obj)
         {
             if (controller == null || obj == null)
@@ -84,7 +75,6 @@ namespace DrifterBossGrabMod.Patches
                             Log.Debug($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
                         }
 
-                        // Warn if loading a stub state
                         if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                         {
                             Log.Error($"[LoadObjectState] CRITICAL: Loaded STUB STATE for {obj.name}! This will cause instant death!");
@@ -108,9 +98,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Finds the state data for a specific object across all bag controllers
-        // obj: The game object to find state for
-        // Returns: The saved state data, or null if not found
         public static BaggedObjectStateData? FindStateForObject(GameObject obj)
         {
             if (obj == null) return null;
@@ -134,10 +121,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Removes the state data for a specific object from a bag controller
-        // controller: The bag controller to cleanup state from
-        // obj: The game object to remove state for
-        // preserveForThrow: If true, preserves state for throw operations (prevents client-side state loss)
         public static void CleanupObjectState(DrifterBagController controller, GameObject obj, bool preserveForThrow = false)
         {
             if (controller == null || obj == null)
@@ -169,11 +152,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Temporary storage to preserve state during throw operations (prevents client-side state loss)
         private static Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>> _temporaryPreservedStates
             = new Dictionary<DrifterBagController, Dictionary<int, BaggedObjectStateData>>();
 
-        // Preserve state before throw cleanup to prevent client-side state loss
         public static void PreserveStateForThrow(DrifterBagController controller, GameObject obj)
         {
             var state = LoadObjectState(controller, obj);
@@ -191,7 +172,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Restore preserved state during bag state update
         public static void RestorePreservedState(DrifterBagController controller, GameObject obj)
         {
             int instanceId = obj.GetInstanceID();
@@ -210,7 +190,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Clear temporary preservation for specific object
         public static void ClearTemporaryPreservation(DrifterBagController controller, GameObject obj)
         {
             int instanceId = obj.GetInstanceID();
@@ -220,7 +199,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Clear all temporary preserved states for a controller
         public static void ClearAllTemporaryPreservation(DrifterBagController controller)
         {
             if (_temporaryPreservedStates.TryGetValue(controller, out var tempStates))

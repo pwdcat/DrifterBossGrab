@@ -10,10 +10,10 @@ using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Handles seat transitions during passenger cycling.
+
     public static class SeatTransitionHandler
     {
-        // Handles transition from an object to null state.
+
         internal static void HandleNullStateTransition(DrifterBagController bagController, RoR2.VehicleSeat vehicleSeat, GameObject actualMainPassenger, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict, int validObjectCount)
         {
             if (!SeatValidator.HasSpaceForNullStateTransition(bagController, validObjectCount, localSeatDict))
@@ -29,7 +29,6 @@ namespace DrifterBossGrabMod.Patches
             }
             var seatForCurrent = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
 
-            // Save main seat timer state before ejecting from main seat
             if (actualMainPassenger != null)
             {
                 var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, actualMainPassenger);
@@ -42,7 +41,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Mark object to preserve overrides during cycling before ejecting
             if (actualMainPassenger != null)
             {
                 BaggedObjectStatePatches.BaggedObject_OnExit.MarkPreserveOverridesDuringCycling(actualMainPassenger);
@@ -59,13 +57,11 @@ namespace DrifterBossGrabMod.Patches
                 seatForCurrent.AssignPassenger(actualMainPassenger);
                 localSeatDict[actualMainPassenger] = seatForCurrent;
 
-                // Create AdditionalSeatBreakoutTimer when moving object back to additional seat
                 if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(actualMainPassenger) && !actualMainPassenger.GetComponent<AdditionalSeatBreakoutTimer>())
                 {
                     var timer = actualMainPassenger.AddComponent<AdditionalSeatBreakoutTimer>();
                     timer.controller = bagController;
 
-                    // Calculate breakout time like vanilla
                     float mass = bagController.CalculateBaggedObjectMass(actualMainPassenger);
                     float baseBreakoutTime = 10f;
                     float breakoutMultiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value;
@@ -74,7 +70,6 @@ namespace DrifterBossGrabMod.Patches
                     if (hc && hc.isElite) finalTime *= 0.8f;
                     timer.breakoutTime = finalTime * breakoutMultiplier;
 
-                    // Restore previous timer state if available
                     var storedState = BaggedObjectPatches.LoadObjectState(bagController, actualMainPassenger);
                     if (storedState != null)
                     {
@@ -89,7 +84,6 @@ namespace DrifterBossGrabMod.Patches
             BaggedObjectPatches.RemoveUIOverlayForNullState(bagController);
         }
 
-        // Handles transition from null state to an object.
         internal static void HandleNullToObjectTransition(DrifterBagController bagController, RoR2.VehicleSeat vehicleSeat, GameObject targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict)
         {
             if (targetObject == null) return;
@@ -97,12 +91,12 @@ namespace DrifterBossGrabMod.Patches
             var sourceAdditionalSeat = AdditionalSeatManager.GetAdditionalSeatForObject(bagController, targetObject, localSeatDict);
             if (sourceAdditionalSeat != null)
             {
-                // Capture timer state before ejecting from additional seat
+
                 var timer = targetObject.GetComponent<AdditionalSeatBreakoutTimer>();
                 if (timer != null)
                 {
                     var timerState = BaggedObjectPatches.LoadObjectState(bagController, targetObject) ?? new Core.BaggedObjectStateData();
-                    if (timerState.targetObject == null) // Was a blank generic state
+                    if (timerState.targetObject == null)
                     {
                         timerState.CalculateFromObject(targetObject, bagController);
                     }
@@ -114,7 +108,6 @@ namespace DrifterBossGrabMod.Patches
                 localSeatDict.TryRemove(targetObject, out _);
             }
 
-            // Check if bag is full - if so, keep object in additional seat instead of main seat
             int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
             int objectsInBag = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
             bool isBagFull = objectsInBag >= effectiveCapacity;
@@ -140,23 +133,8 @@ namespace DrifterBossGrabMod.Patches
 
             BagPatches.SetMainSeatObject(bagController, targetObject);
             bagController.AssignPassenger(targetObject);
-
-            // Restore target object's state after cycling to it
-            if (targetObject != null)
-            {
-                var storedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
-                if (storedState != null)
-                {
-                    var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, targetObject);
-                    if (baggedState != null)
-                    {
-                        storedState.ApplyToBaggedObject(baggedState);
-                    }
-                }
-            }
         }
 
-        // Handles swapping between two objects.
         internal static void HandleObjectSwap(DrifterBagController bagController, RoR2.VehicleSeat vehicleSeat, GameObject currentObject, GameObject targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict, int direction)
         {
             if (targetObject == null) return;
@@ -166,7 +144,6 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            // Check if current is physically in seat (server-side).
             bool currentIsPhysicallyInSeat = vehicleSeat.hasPassenger &&
                 vehicleSeat.NetworkpassengerBodyObject != null &&
                 vehicleSeat.NetworkpassengerBodyObject.GetInstanceID() == currentObject.GetInstanceID();
@@ -175,7 +152,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (currentIsPhysicallyInSeat)
             {
-                // Save current main seat state before ejecting.
+
                 if (currentObject != null)
                 {
                     var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, currentObject);
@@ -188,13 +165,11 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Mark object to preserve overrides during cycling before ejecting
                 if (currentObject != null)
                 {
                     BaggedObjectStatePatches.BaggedObject_OnExit.MarkPreserveOverridesDuringCycling(currentObject);
                 }
 
-                // Server-side swap.
                 vehicleSeat.EjectPassenger(currentObject);
                 if (currentObject != null)
                 {
@@ -202,12 +177,12 @@ namespace DrifterBossGrabMod.Patches
                 }
                 if (targetAdditionalSeat != null)
                 {
-                    // Capture timer state before ejecting from additional seat
+
                     var timer = targetObject.GetComponent<AdditionalSeatBreakoutTimer>();
                     if (timer != null)
                     {
                         var timerState = BaggedObjectPatches.LoadObjectState(bagController, targetObject) ?? new Core.BaggedObjectStateData();
-                        if (timerState.targetObject == null) // Was a blank generic state
+                        if (timerState.targetObject == null)
                         {
                             timerState.CalculateFromObject(targetObject, bagController);
                         }
@@ -224,7 +199,6 @@ namespace DrifterBossGrabMod.Patches
                     }
                     if (currentObject != null) localSeatDict[currentObject] = targetAdditionalSeat;
 
-                    // Create AdditionalSeatBreakoutTimer when moving current object to additional seat
                     if (currentObject != null && UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                     {
                         var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
@@ -258,7 +232,6 @@ namespace DrifterBossGrabMod.Patches
                 BagPatches.SetMainSeatObject(bagController, targetObject);
                 vehicleSeat.AssignPassenger(targetObject);
 
-                // Restore target state.
                 if (targetObject != null)
                 {
                     var storedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
@@ -279,15 +252,15 @@ namespace DrifterBossGrabMod.Patches
             }
             else
             {
-                // Client/Message swap.
+
                 if (targetAdditionalSeat != null)
                 {
-                    // Capture timer state BEFORE ejecting from additional seat
+
                     var timer = targetObject.GetComponent<AdditionalSeatBreakoutTimer>();
                     if (timer != null)
                     {
                         var timerState = BaggedObjectPatches.LoadObjectState(bagController, targetObject) ?? new Core.BaggedObjectStateData();
-                        if (timerState.targetObject == null) // Was a blank generic state
+                        if (timerState.targetObject == null)
                         {
                             timerState.CalculateFromObject(targetObject, bagController);
                         }
@@ -302,7 +275,6 @@ namespace DrifterBossGrabMod.Patches
                         targetAdditionalSeat.AssignPassenger(currentObject);
                         localSeatDict[currentObject] = targetAdditionalSeat;
 
-                        // Create AdditionalSeatBreakoutTimer for client-side swap
                         if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                         {
                             var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
@@ -325,23 +297,10 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Save current object's state before cycling away
-                if (currentObject != null)
-                {
-                    var currentState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, currentObject);
-                    if (currentState != null)
-                    {
-                        var stateData = BaggedObjectPatches.LoadObjectState(bagController, currentObject) ?? new Core.BaggedObjectStateData();
-                        if (stateData.targetObject == null) stateData.CalculateFromObject(currentObject, bagController);
-                        stateData.CaptureBreakoutStateFromBaggedObject(currentState);
-                        BaggedObjectPatches.SaveObjectState(bagController, currentObject, stateData);
-                    }
-                }
-
                 BagPatches.SetMainSeatObject(bagController, targetObject);
                 if (targetObject != null)
                 {
-                    // Ensure object is removed from additional seats dict immediately.
+
                     var realDict = BagPatches.GetState(bagController).AdditionalSeats;
                     if (realDict != null)
                     {
@@ -349,18 +308,6 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     vehicleSeat.AssignPassenger(targetObject);
-
-                    // Restore target state.
-                    var storedState = BaggedObjectPatches.LoadObjectState(bagController, targetObject);
-                    if (storedState != null)
-                    {
-
-                        var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(bagController, targetObject);
-                        if (baggedState != null)
-                        {
-                            storedState.ApplyToBaggedObject(baggedState);
-                        }
-                    }
 
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
                     BaggedObjectPatches.SynchronizeBaggedObjectState(bagController, targetObject);

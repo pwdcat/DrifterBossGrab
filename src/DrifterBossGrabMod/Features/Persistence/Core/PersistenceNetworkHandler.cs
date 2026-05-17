@@ -14,8 +14,16 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod
 {
+
+    // ========================================================================================
+    // PERSISTENCE NETWORK HANDLER
+    // ========================================================================================
     public static class PersistenceNetworkHandler
     {
+
+        // ========================================================================================
+        // OUTBOUND MESSAGES
+        // ========================================================================================
         public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
@@ -50,7 +58,6 @@ namespace DrifterBossGrabMod
                             message.ownerPlayerIds.Add(string.Empty);
                         }
 
-                        // Check if colliders are disabled for this object
                         bool collidersDisabled = false;
                         if (owner != null)
                         {
@@ -72,7 +79,9 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Handles bagged objects persistence message.
+        // ========================================================================================
+        // INBOUND MESSAGE HANDLERS
+        // ========================================================================================
         [NetworkMessageHandler(msgType = Constants.Network.BaggedObjectsPersistenceMessageType, client = true, server = false)]
         public static void HandleBaggedObjectsPersistenceMessage(NetworkMessage netMsg)
         {
@@ -112,14 +121,13 @@ namespace DrifterBossGrabMod
                     return;
                 }
 
-                // Only patch stale references for special objects (teleporters, etc) during scene restoration, not during cycling/network sync
                 if (PersistenceSceneHandler.IsRestoringFromSceneChange())
                 {
                     PersistenceSceneHandler.HandleSpecialObjectRestoration(obj, duringSceneRestoration: true);
                 }
                 else
                 {
-                    // During cycling, just register as secondary without applying state changes
+
                     var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
                     if (teleporterInteraction != null)
                     {
@@ -131,7 +139,6 @@ namespace DrifterBossGrabMod
                     }
                 }
 
-                // Refresh visual state to clear pink textures or shader artifacts after stage transition
                 if (PersistenceSceneHandler.IsRestoringFromSceneChange())
                 {
                     VisualRefreshUtility.Refresh(obj);
@@ -139,10 +146,9 @@ namespace DrifterBossGrabMod
 
                 PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
 
-                // Apply collider disabled state if needed
                 if (collidersDisabled && !NetworkServer.active)
                 {
-                    // Find controller for this object
+
                     DrifterBagController? controller = null;
                     foreach (var ctrl in Patches.BagPatches.GetAllControllers())
                     {
@@ -165,7 +171,6 @@ namespace DrifterBossGrabMod
                             }
                             var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
 
-                            // Disable colliders on client side
                             BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
                         }
                     }
@@ -173,7 +178,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Handles update bag state message.
         [NetworkMessageHandler(msgType = Constants.Network.UpdateBagStateMessageType, client = true, server = false)]
         public static void HandleUpdateBagStateMessage(NetworkMessage netMsg)
         {
@@ -192,8 +196,9 @@ namespace DrifterBossGrabMod
             ApplyBagStateUpdate(controllerObj, msg);
         }
 
-        // Hook for server stage complete event.
-        // Sends persistence and bag state updates to clients.
+        // ========================================================================================
+        // LIFECYCLE HOOKS
+        // ========================================================================================
         public static void RegisterServerHooks()
         {
             if (NetworkServer.active)
@@ -255,7 +260,7 @@ namespace DrifterBossGrabMod
                     var obj = FindObjectByNetId(new NetworkInstanceId(netId));
                     if (obj != null)
                     {
-                        // Apply collider disabled state if needed
+
                         int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
                         if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
                         {
@@ -268,14 +273,14 @@ namespace DrifterBossGrabMod
                                 }
                                 var objectDisabledStates = bagStateColliders.DisabledCollidersByObject[obj];
 
-                                // Disable colliders on client side
                                 BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
                             }
                         }
                     }
                 }
             }
-            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection);
+            netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection,
+                msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes);
         }
 
         private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)

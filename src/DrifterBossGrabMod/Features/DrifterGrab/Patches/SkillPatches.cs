@@ -27,12 +27,10 @@ namespace DrifterBossGrabMod.Patches
                         int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                         int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
 
-                        // If stock is GEQ clamped max, prevent RunRecharge from incrementing the stopwatch
-                        // and prevent it from ever reaching RestockSteplike
                         if (__instance.stock >= clampedMax)
                         {
                             __instance.rechargeStopwatch = 0f;
-                            return false; // Skip the original RunRecharge
+                            return false;
                         }
                     }
                 }

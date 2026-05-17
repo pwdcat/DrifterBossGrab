@@ -15,6 +15,10 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
+
+    // ========================================================================================
+    // PROJECTILE RECOVERY PATCHES
+    // ========================================================================================
     public static class ProjectileRecoveryPatches
     {
         public static class ProjectileRecovery
@@ -31,7 +35,6 @@ namespace DrifterBossGrabMod.Patches
 
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController> lastKnownOwners = new System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController>();
 
-        // Cached reflection fields
         private static readonly FieldInfo _projectileControllerField = ReflectionCache.ThrownObjectProjectileController.ProjectileController;
         private static readonly MethodInfo _calculatePassengerFinalPositionMethod = ReflectionCache.ThrownObjectProjectileController.CalculatePassengerFinalPosition;
 
@@ -56,13 +59,12 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            // Check recovery type-specific toggles before proceeding
             var characterBody = passenger.GetComponent<RoR2.CharacterBody>();
             if (characterBody != null)
             {
                 if (characterBody.isBoss || characterBody.isChampion)
                 {
-                    // Boss recovery toggle
+
                     if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -72,7 +74,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                    // NPC recovery toggle (non-boss, non-champion characters)
+
                     if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -83,7 +85,7 @@ namespace DrifterBossGrabMod.Patches
             }
             else
             {
-                // Environment object recovery toggle (non-character objects)
+
                 if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -92,12 +94,11 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Get the DrifterBagController associated with this object.
             DrifterBagController? bagController = null;
             var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
             if (specialAttrs != null)
             {
-                // Try to find the bag controller via the attributes or by searching.
+
                 foreach (var controller in BagPatches.GetAllControllers())
                 {
                     if (BagHelpers.IsBaggedObject(controller, passenger))
@@ -108,7 +109,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // Fallback: If we couldn't find the bag controller via direct search
             if (bagController == null)
             {
                 lastKnownOwners.TryGetValue(passenger, out bagController);
@@ -121,14 +121,11 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            // Log recovery
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[Recovery] Recovering {passenger.name} for {bagController.characterBody.name}");
             }
 
-            // Determine teleport position
-            // Log details if debug enabled
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[Recovery] Attempting to recover bagged object: {passenger.name}");
@@ -141,14 +138,11 @@ namespace DrifterBossGrabMod.Patches
                 teleportPos = Run.instance.FindSafeTeleportPosition(bagController.characterBody, bagController.transform, 0f, 100f);
             }
 
-            // Properly remove/eject the object from the bag tracking
             BagPassengerManager.RemoveBaggedObject(bagController, passenger);
 
-            // Teleport and restore state
             passenger.transform.position = teleportPos;
             RemoveFromProjectileState(passenger);
 
-            // Restore physics and model state
             var bagState = BagPatches.GetState(bagController);
             if (bagState != null && bagState.DisabledCollidersByObject.TryGetValue(passenger, out var states))
             {
@@ -156,7 +150,6 @@ namespace DrifterBossGrabMod.Patches
                 bagState.DisabledCollidersByObject.Remove(passenger, out _);
             }
 
-            // Clear throw operation flag
             lock (_throwTrackingLock)
             {
                 if (_objectsUndergoingThrow.Contains(passenger))
@@ -166,6 +159,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // THROWN OBJECT PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "OnSyncPassenger")]
         public class ThrownObjectProjectileController_OnSyncPassenger_Patch
         {
@@ -178,14 +174,12 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                // Validate that the passenger object is ready
                 if (!NetworkUtils.ValidateObjectReady(passengerObject))
                 {
                     Log.Warning($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} is not ready for network operations");
                     return;
                 }
 
-                // Check if we've already processed this passenger
                 lock (_projectileStateLock)
                 {
                     if (projectileStateObjects.Contains(passengerObject))
@@ -196,7 +190,6 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Log the sync operation
                 NetworkUtils.LogNetworkOperation("ThrownObjectProjectileController_OnSyncPassenger", passengerObject, NetworkServer.active, new Dictionary<string, object>
                 {
                     { "projectile", __instance != null ? __instance.name : "null" }
@@ -218,15 +211,13 @@ namespace DrifterBossGrabMod.Patches
             }
             string passengerName = passenger.name;
 
-            // Mark object as undergoing throw operation
             lock (_throwTrackingLock)
             {
                 _objectsUndergoingThrow.Add(passenger);
             }
-            // Track this object as being in projectile state
+
             lock (_projectileStateLock) { projectileStateObjects.Add(passenger); }
 
-            // Switch to Layer 0 (Default)
             int targetLayer = 0;
             __instance.gameObject.layer = targetLayer;
             foreach (var transform in __instance.GetComponentsInChildren<Transform>(true))
@@ -234,7 +225,6 @@ namespace DrifterBossGrabMod.Patches
                 transform.gameObject.layer = targetLayer;
             }
 
-            // Get the DrifterBagController to remove from tracking
             var projectileController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
             if (projectileController == null)
             {
@@ -248,27 +238,25 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = owner.GetComponent<DrifterBagController>();
                 if (bagController != null)
                 {
-                    // Store last known owner for recovery purposes if it falls OOB
+
                     lastKnownOwners.Remove(passenger);
                     lastKnownOwners.Add(passenger, bagController);
 
                     if (NetworkServer.active)
                     {
-                        // Remove from bag tracking
+
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Info($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
 
-                        // Restore hitboxes/state before launching (crucial for additional seats)
                         BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
 
                         BagPassengerManager.RemoveBaggedObject(bagController, passenger);
                         PersistenceObjectsTracker.UntrackBaggedObject(passenger, isDestroying: false);
 
-                        // Get NetworkIdentity of thrown object
                         var passengerNetId = passenger.GetComponent<UnityEngine.Networking.NetworkIdentity>();
                         if (passengerNetId != null)
                         {
-                            // Explicitly remove from network controller's bagged IDs before sending message
+
                             var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
                             if (netController != null)
                             {
@@ -288,8 +276,13 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
-                        BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true, preserveStateDuringThrow: true);
+                        var bagState = BagPatches.GetState(bagController);
+                        bool alreadyRemoved = bagState.BaggedObjects == null || !bagState.BaggedObjects.Contains(passenger);
+                        if (!alreadyRemoved)
+                        {
+                            BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
+                            BagPassengerManager.RemoveBaggedObject(bagController, passenger, isDestroying: false, skipStateReset: true, preserveStateDuringThrow: true);
+                        }
                         PersistenceObjectsTracker.UntrackBaggedObject(passenger, isDestroying: false);
                     }
                 }
@@ -332,6 +325,9 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
+        // ========================================================================================
+        // MAP ZONE PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(MapZone), "TryZoneStart")]
         public class MapZone_TryZoneStart_Patch
         {
@@ -345,12 +341,11 @@ namespace DrifterBossGrabMod.Patches
 
                 var body = other.GetComponent<CharacterBody>();
 
-                // First try direct check or hierarchy check for character/tracked object
                 GameObject? target = (body != null) ? body.gameObject : FindTrackedObjectInHierarchy(other.gameObject);
 
                 if (target != null)
                 {
-                    // Check if this object is in projectile state
+
                     if (IsInProjectileState(target))
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -365,7 +360,6 @@ namespace DrifterBossGrabMod.Patches
 
                         bool isEnemy = body != null && body.teamComponent && body.teamComponent.teamIndex != TeamIndex.Player;
 
-                        // If behavior is set to Kill for enemies, let vanilla handle it
                         if (isEnemy && PluginConfig.Instance.EnemyRecoveryMode.Value == EnemyRecoveryMode.Kill)
                         {
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -373,12 +367,11 @@ namespace DrifterBossGrabMod.Patches
                             return true;
                         }
 
-                        // Check recovery type-specific toggles before proceeding (same logic as RecoverObject)
                         if (body != null)
                         {
                             if (body.isBoss || body.isChampion)
                             {
-                                // Boss recovery toggle
+
                                 if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
                                 {
                                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -388,7 +381,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                             else
                             {
-                                // NPC recovery toggle (non-boss, non-champion characters)
+
                                 if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
                                 {
                                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -399,7 +392,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                         else
                         {
-                            // Environment object recovery toggle (non-character objects)
+
                             if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
                             {
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -408,14 +401,13 @@ namespace DrifterBossGrabMod.Patches
                             }
                         }
 
-                        // Intercept and recover
                         RecoverObject(target);
-                        return false; // Prevent vanilla teleport/kill
+                        return false;
                     }
                 }
                 else
                 {
-                    // Generic projectile recovery (e.g. scrap that fell off, or standard thrown object that isn't tracked)
+
                     var projectileController = other.GetComponent<ProjectileController>() ?? other.GetComponentInParent<ProjectileController>();
                     if (projectileController && !other.GetComponent<CharacterBody>())
                     {
@@ -452,7 +444,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning($"  Failed to invoke CalculatePassengerFinalPosition: {ex.Message}");
+                        Log.Warning($"  Failed to invoke CalculatePassengerFinalPosition: {(ex.InnerException != null ? ex.InnerException.Message : ex.Message)}");
                     }
                 }
             }
@@ -505,6 +497,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // STATE MANAGEMENT
+        // ========================================================================================
         public static bool IsInProjectileState(GameObject obj)
         {
             if (obj == null) return false;

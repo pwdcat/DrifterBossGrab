@@ -53,7 +53,7 @@ namespace DrifterBossGrabMod.Patches
         private float _delayTime = 0f;
         private float _elapsedTime = 0f;
 
-        public static void Schedule(DrifterBagController controller, GameObject? newMain, float delay = 0.0f)
+        public static void Schedule(DrifterBagController? controller, GameObject? newMain, float delay = 0.0f)
         {
             if (delay <= 0f)
             {
@@ -68,7 +68,7 @@ namespace DrifterBossGrabMod.Patches
             delayed._delayTime = delay;
         }
 
-        private static void ExecutePromotionImmediate(DrifterBagController controller, GameObject? newMain)
+        private static void ExecutePromotionImmediate(DrifterBagController? controller, GameObject? newMain)
         {
             if (controller == null || newMain == null || ProjectileRecoveryPatches.IsInProjectileState(newMain))
                 return;
@@ -261,7 +261,7 @@ namespace DrifterBossGrabMod.Patches
     {
         private static readonly ConcurrentDictionary<DrifterBagController, Core.BagState> _states = new ConcurrentDictionary<DrifterBagController, Core.BagState>();
 
-        public static Core.BagState GetState(DrifterBagController controller)
+        public static Core.BagState GetState(DrifterBagController? controller)
         {
             if (ReferenceEquals(controller, null)) return null!;
             return _states.GetOrAdd(controller, _ => new Core.BagState());
@@ -307,7 +307,7 @@ namespace DrifterBossGrabMod.Patches
                         if (state == null)
                         {
                             state = new Core.BaggedObjectStateData();
-                            // Early capture before assignment changes any stats
+
                             state.CalculateFromObject(passengerObject, __instance);
                             BaggedObjectPatches.SaveObjectState(__instance, passengerObject, state);
                         }
@@ -362,6 +362,23 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 PersistenceManager.RemovePersistedObject(passengerObject);
+
+                if (!PersistenceObjectsTracker.IsObjectCurrentlyBagged(passengerObject))
+                {
+                    if (modelLocator != null && modelLocator.modelTransform != null)
+                    {
+                        var charModel = modelLocator.modelTransform.GetComponent<CharacterModel>();
+                        if (charModel != null)
+                        {
+                            charModel.invisibilityCount++;
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[AssignPassenger.Prefix] Incrementing invisibilityCount for {passengerObject.name}. New count: {charModel.invisibilityCount}");
+                            }
+                        }
+                    }
+                }
+
                 PersistenceObjectsTracker.TrackBaggedObject(passengerObject);
 
                 if (__instance != null) GetState(__instance).IncomingObject = passengerObject;
@@ -373,10 +390,6 @@ namespace DrifterBossGrabMod.Patches
                 int objectsInBag = BagCapacityCalculator.GetCurrentBaggedCount(__instance!);
                 int passengerInstanceId = passengerObject.GetInstanceID();
                 bool isAlreadyTrackedByThisController = GetState(__instance!).ContainsInstanceId(passengerInstanceId);
-
-                // We MUST NOT abort the grab if the object is already entering the state machine.
-                // The HasRoomForGrab check already prevents the skill from firing if at capacity.
-                // If we get here, we must accept the object, even if it exceeds capacity gracefully.
 
                 if (effectiveCapacity <= 1 && isAlreadyTrackedByThisController)
                 {
@@ -395,7 +408,6 @@ namespace DrifterBossGrabMod.Patches
 
                 bool mainSeatOccupied = __instance != null && __instance.vehicleSeat != null && __instance.vehicleSeat.hasPassenger;
 
-                // Fill-from-back logic: if prioritize is false OR main seat is already occupied, route to additional seat
                 if ((!prioritize || mainSeatOccupied) && TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -456,7 +468,6 @@ namespace DrifterBossGrabMod.Patches
                     list.Add(passengerObject);
                     state.AddInstanceId(passengerObject.GetInstanceID());
 
-                    // Synchronously update network state on client to prevent race conditions
                     var netController = __instance.GetComponent<Networking.BottomlessBagNetworkController>();
                     if (netController != null)
                     {
@@ -485,19 +496,15 @@ namespace DrifterBossGrabMod.Patches
                 {
                     int finalIndex = state.IntendedSelectedIndex;
 
-                    // If no explicit intent was set, or if we want to stay on the current occupant:
-                    // Determine if the current selection is valid.
                     var currentMain = GetMainSeatObject(__instance);
                     if (finalIndex < 0)
                     {
-                        // Default logic: If we have a main passenger, stay on them.
+
                         if (currentMain != null)
                         {
                             finalIndex = list.IndexOf(currentMain);
                         }
 
-                        // Fallback: If still not set, target the newly grabbed object 
-                        // only if we were looking at an empty slot.
                         if (finalIndex < 0)
                         {
                             finalIndex = list.Count - 1;
@@ -509,7 +516,6 @@ namespace DrifterBossGrabMod.Patches
 
                     BagCarouselUpdater.UpdateNetworkBagState(__instance, finalIndex);
 
-                    // Clear intent after grab
                     state.IntendedSelectedIndex = -1;
                 }
                 DamagePreviewOverlay.InvalidateAllCaches();
@@ -525,7 +531,6 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Searching for seat for {passengerObject.name}. Capacity={effectiveCapacity}, Intent={targetIndex}.");
 
-                // If the user is targeting a specific slot, try to accommodate that slot if it's empty
                 var newSeat = AdditionalSeatManager.FindOrCreateEmptySeat(__instance, ref seatDict);
                 var list = state.BaggedObjects;
                 int passengerInstanceId = passengerObject.GetInstanceID();
@@ -630,7 +635,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static void SetMainSeatObject(DrifterBagController controller, GameObject? obj)
+        public static void SetMainSeatObject(DrifterBagController? controller, GameObject? obj)
         {
             if (controller == null) return;
             var oldObj = GetState(controller).MainSeatObject;
@@ -642,7 +647,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        public static GameObject? GetMainSeatObject(DrifterBagController controller)
+        public static GameObject? GetMainSeatObject(DrifterBagController? controller)
         {
             if (controller == null) return null;
             var obj = GetState(controller).MainSeatObject;
@@ -670,8 +675,7 @@ namespace DrifterBossGrabMod.Patches
                 var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
                 if (drifterBagController != null)
                 {
-                    // Manually parent the object on the client to prevent it from dropping to the ground
-                    // Vanilla AssignPassenger does nothing on clients and returns false
+
                     bodyObject.transform.SetParent(__instance.transform);
                     bodyObject.transform.localPosition = Vector3.zero;
                     bodyObject.transform.localRotation = Quaternion.identity;
@@ -691,7 +695,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                         }
                     }
-                    return false; // Block vanilla warning
+                    return false;
                 }
             }
             return true;

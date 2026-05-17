@@ -11,7 +11,7 @@ namespace DrifterBossGrabMod
 {
     public static class ReflectionCache
     {
-        // ThrownObjectProjectileController members
+
         public static class ThrownObjectProjectileController
         {
             public static readonly FieldInfo ProjectileController = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "projectileController");
@@ -22,7 +22,6 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo DisableCollidersCountdown = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "_disableCollidersCountdown");
         }
 
-        // BaggedObject members - Use fully qualified type name
         public static class BaggedObject
         {
             private static readonly Type BaggedObjectType = System.Type.GetType("EntityStates.Drifter.Bag.BaggedObject, RoR2") ?? typeof(EntityStates.Drifter.Bag.BaggedObject);
@@ -48,7 +47,6 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo WalkSpeedModifier = AccessTools.Field(BaggedObjectType, "walkSpeedModifier");
         }
 
-        // DrifterBagController members
         public static class DrifterBagController
         {
             public static readonly FieldInfo BaggedMass = AccessTools.Field(typeof(RoR2.DrifterBagController), "baggedMass");
@@ -60,14 +58,12 @@ namespace DrifterBossGrabMod
             public static readonly PropertyInfo Passenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "passenger");
         }
 
-        // ProjectileStickOnImpact members
         public static class ProjectileStickOnImpact
         {
             public static readonly FieldInfo RunStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "runStickEvent");
             public static readonly FieldInfo AlreadyRanStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "alreadyRanStickEvent");
         }
 
-        // SpecialObjectAttributes members
         public static class SpecialObjectAttributes
         {
             public static readonly FieldInfo CollisionToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collisionToDisable", BindingFlags.Public | BindingFlags.Instance);
@@ -76,31 +72,26 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
         }
 
-        // HackingMainState members
         public static class HackingMainState
         {
             public static readonly FieldInfo SphereSearch = typeof(EntityStates.CaptainSupplyDrop.HackingMainState).GetField("sphereSearch", BindingFlags.NonPublic | BindingFlags.Instance);
         }
 
-        // EntityState members
         public static class EntityState
         {
             public static readonly PropertyInfo FixedAge = AccessTools.Property(typeof(EntityStates.EntityState), "fixedAge");
         }
 
-        // GenericSkill members
         public static class GenericSkill
         {
             public static readonly FieldInfo SkillOverrides = AccessTools.Field(typeof(RoR2.GenericSkill), "skillOverrides");
         }
 
-        // BaggedObject (duplicate entries for different patches - these are the same as above but I'll keep them for now)
         public static class Misc
         {
             public static readonly MethodInfo OnUIOverlayInstanceRemove = AccessTools.Method(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnUIOverlayInstanceRemove");
         }
 
-        // Additional BaggedObject fields not listed above but used in the codebase
         public static class BaggedObjectAdditional
         {
             private static readonly Type BaggedObjectType = System.Type.GetType("EntityStates.Drifter.Bag.BaggedObject, RoR2") ?? typeof(EntityStates.Drifter.Bag.BaggedObject);
@@ -112,14 +103,12 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo? MoveSpeedStat = null;
         }
 
-        // RepossessExit members
         public static class RepossessExit
         {
             public static readonly FieldInfo ChosenTarget = AccessTools.Field(typeof(EntityStates.Drifter.RepossessExit), "chosenTarget");
             public static readonly FieldInfo ActivatedHitpause = AccessTools.Field(typeof(EntityStates.Drifter.RepossessExit), "activatedHitpause");
         }
 
-        // JunkCubeController members
         public static class JunkCubeController
         {
             private static FieldInfo? _maxActivationCount;
@@ -141,13 +130,11 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // NetworkIdentity members
         public static class NetworkIdentity
         {
             public static readonly FieldInfo AssetId = AccessTools.Field(typeof(UnityEngine.Networking.NetworkIdentity), "m_AssetId");
         }
 
-        // Rewired internals
         public static class Rewired
         {
             public static class UserData
@@ -188,7 +175,7 @@ namespace DrifterBossGrabMod
                 }
             }
         }
-        // TeleporterInteraction members
+
         public static class TeleporterInteraction
         {
             public static readonly FieldInfo BossGroup = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "bossGroup");
@@ -202,7 +189,6 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo HologramPivot = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "hologramPivot");
         }
 
-        // CombatDirector members
         public static class CombatDirector
         {
             public static readonly FieldInfo CombatSquad = AccessTools.Field(typeof(RoR2.CombatDirector), "combatSquad");
@@ -214,7 +200,6 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo ExpendEntireMonsterCredit = AccessTools.Field(typeof(RoR2.CombatDirector), "expendEntireMonsterCredit");
         }
 
-        // OutsideInteractableLocker members
         public static class OutsideInteractableLocker
         {
             public static readonly FieldInfo LockObjectMap = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "lockObjectMap");
@@ -223,13 +208,11 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo CurrentCoroutine = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "currentCoroutine");
         }
 
-        // CombatSquad members
         public static class CombatSquad
         {
             public static readonly FieldInfo MembersList = AccessTools.Field(typeof(RoR2.CombatSquad), "membersList");
         }
 
-        // HoldoutZoneController members
         public static class HoldoutZoneController
         {
             public static readonly FieldInfo Charge = AccessTools.Field(typeof(RoR2.HoldoutZoneController), "_charge");
@@ -238,7 +221,6 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo RadiusSmoothTime = AccessTools.Field(typeof(RoR2.HoldoutZoneController), "radiusSmoothTime");
         }
 
-        // BossGroup members
         public static class BossGroup
         {
             public static readonly FieldInfo BossMemoryCount = AccessTools.Field(typeof(RoR2.BossGroup), "bossMemoryCount");

@@ -7,14 +7,13 @@ namespace DrifterBossGrabMod
     public class DrifterGrabFeature : FeatureToggleBase
     {
         public override string FeatureName => "DrifterGrab";
-        public override bool IsEnabled => PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla; // Disabled when Vanilla preset is selected
+        public override bool IsEnabled => PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
 
         protected override void ApplyPatches(Harmony harmony)
         {
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.Run_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.DrifterBagController_AssignPassenger)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_FixedUpdate_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ProjectileFuse_FixedUpdate_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_ScanForTarget_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();

@@ -10,6 +10,10 @@ using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod
 {
+
+    // ========================================================================================
+    // PLUGIN CONFIGURATION
+    // ========================================================================================
     public enum EnemyRecoveryMode
     {
         Kill = 0,
@@ -89,6 +93,9 @@ namespace DrifterBossGrabMod
         Custom
     }
 
+    // ========================================================================================
+    // CACHING UTILITIES
+    // ========================================================================================
     public interface ICachedValue<T>
     {
         T Value { get; }
@@ -132,16 +139,18 @@ namespace DrifterBossGrabMod
             _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
     }
-    // Dummy enum for RiskOfOptions ChoiceOption
+
     public enum ComponentChooserDummy { SelectToToggle }
     public enum ComponentChooserSortMode { ByFrequency, ByProximity, ByRaycast }
 
-    public class PluginConfig
+    // ========================================================================================
+    // CORE CONFIGURATION
+    // ========================================================================================
+    public partial class PluginConfig
     {
         private static PluginConfig _instance = null!;
         public static PluginConfig Instance => _instance ??= new PluginConfig();
 
-        // General
         public ConfigEntry<bool> EnableBossGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableNPCGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; } = null!;
@@ -167,7 +176,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> RecoverBaggedEnvironmentObjects { get; private set; } = null!;
 
         public ConfigEntry<bool> BottomlessBagEnabled { get; private set; } = null!;
-        public ConfigEntry<string> AddedCapacity { get; private set; } = null!;
         public ConfigEntry<bool> EnableStockRefreshClamping { get; private set; } = null!;
         public ConfigEntry<bool> EnableSuccessiveGrabStockRefresh { get; private set; } = null!;
         public ConfigEntry<float> CycleCooldown { get; private set; } = null!;
@@ -234,8 +242,8 @@ namespace DrifterBossGrabMod
         public ConfigEntry<Color> OverencumbranceGradientColorStart { get; private set; } = null!;
         public ConfigEntry<Color> OverencumbranceGradientColorMid { get; private set; } = null!;
         public ConfigEntry<Color> OverencumbranceGradientColorEnd { get; private set; } = null!;
+        public ConfigEntry<bool> IsHudEditorEnabled { get; private set; } = null!;
 
-        // Balance
         public ConfigEntry<bool> EnableBalance { get; private set; } = null!;
         public ConfigEntry<AoEDamageMode> AoEDamageDistribution { get; private set; } = null!;
         public ConfigEntry<float> BreakoutTimeMultiplier { get; private set; } = null!;
@@ -266,6 +274,15 @@ namespace DrifterBossGrabMod
         public static readonly Dictionary<string, HudElementType[]> HudSettingToSubTab = new()
         {
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] {
+                HudElementType.All,
+                HudElementType.MainSlot,
+                HudElementType.SideSlots,
+                HudElementType.WeightIcon,
+                HudElementType.DamagePreview,
+                HudElementType.CapacityUI,
+                HudElementType.StatsPanel
+            },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_HUD_EDITOR.CHECKBOX"] = new[] {
                 HudElementType.All,
                 HudElementType.MainSlot,
                 HudElementType.SideSlots,
@@ -331,7 +348,6 @@ namespace DrifterBossGrabMod
         {
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLOT_SCALING_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
@@ -367,6 +383,10 @@ namespace DrifterBossGrabMod
             new NPCGrabbingStrategy(),
             new EnvironmentGrabbingStrategy()
         };
+
+        // ========================================================================================
+        // BLACKLIST HELPERS
+        // ========================================================================================
         public static bool IsBlacklisted(string? name)
         {
             if (string.IsNullOrEmpty(name)) return false;
@@ -386,11 +406,8 @@ namespace DrifterBossGrabMod
         {
             if (obj == null) return false;
 
-            // Check by name first (handles clones automatically via cache)
             if (IsPersistenceBlacklisted(obj.name)) return true;
 
-            // Special case for Teleporters: if "Teleporter" is in the blacklist, 
-            // any object with a TeleporterInteraction component is blocked.
             if (Instance._persistenceBlacklistCache.Value.Contains("Teleporter"))
             {
                 if (obj.GetComponent<RoR2.TeleporterInteraction>() != null)
@@ -413,6 +430,10 @@ namespace DrifterBossGrabMod
             }
             return false;
         }
+
+        // ========================================================================================
+        // GRABBABILITY LOGIC
+        // ========================================================================================
         public static bool IsGrabbable(GameObject? obj)
         {
             if (obj == null) return false;
@@ -448,7 +469,9 @@ namespace DrifterBossGrabMod
             return false;
         }
 
-        // Cached config string parsing - avoids Trim().ToUpper() allocations on hot paths
+        // ========================================================================================
+        // PARSING UTILITIES
+        // ========================================================================================
         private bool _isBagScaleCapInfinite;
         private bool _isMassCapInfinite;
         private bool _isAddedCapacityInfinite;
@@ -473,492 +496,30 @@ namespace DrifterBossGrabMod
             _isMassCapInfinite = string.Equals(MassCap.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MassCap.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
             _parsedMassCap = _isMassCapInfinite ? float.MaxValue : (float.TryParse(MassCap.Value, out var mc) ? mc : 700f);
 
-            _isAddedCapacityInfinite = string.Equals(AddedCapacity.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(AddedCapacity.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
+            _isAddedCapacityInfinite = string.Equals(SlotScalingFormula.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(SlotScalingFormula.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
 
             _isMaxLaunchSpeedInfinite = string.Equals(MaxLaunchSpeed.Value, "INF", StringComparison.OrdinalIgnoreCase) || string.Equals(MaxLaunchSpeed.Value, "INFINITY", StringComparison.OrdinalIgnoreCase);
             _parsedMaxLaunchSpeed = _isMaxLaunchSpeedInfinite ? float.MaxValue : (float.TryParse(MaxLaunchSpeed.Value, out var mls) ? mls : 30f);
         }
 
+        // ========================================================================================
+        // INITIALIZATION
+        // ========================================================================================
         public static void Init(ConfigFile cfg)
         {
-            Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
-                "Preset to load. Changes are auto-applied.");
+            InitGeneralConfig(cfg);
+            InitRecoveryConfig(cfg);
+            InitPersistenceConfig(cfg);
+            InitHudConfig(cfg);
+            InitBottomlessBagConfig(cfg);
+            InitBalanceConfig(cfg);
+            InitCharacterFlagsConfig(cfg);
+            InitBlacklistCaches();
+            Instance.RefreshCachedConfigStrings();
+        }
 
-            Instance.LastSelectedPreset = cfg.Bind("Hidden", "LastSelectedPreset", PresetType.Intended,
-                "Internal tracker of the last applied preset.");
-
-            Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Allow grabbing bosses.");
-            Instance.EnableNPCGrabbing = cfg.Bind("General", "EnableNPCGrabbing", false, "Allow grabbing normally-ungrabbable NPCs.");
-            Instance.EnableEnvironmentGrabbing = cfg.Bind("General", "EnableEnvironmentGrabbing", false, "Allow grabbing environment objects.");
-            Instance.EnableLockedObjectGrabbing = cfg.Bind("General", "EnableLockedObjectGrabbing", false, "Allow grabbing locked objects.");
-            Instance.ProjectileGrabbingMode = cfg.Bind("General", "ProjectileGrabbingMode", DrifterBossGrabMod.ProjectileGrabbingMode.None, "Projectile grab mode.");
-            Instance.EnableDebugLogs = cfg.Bind("General", "EnableDebugLogs", false, "Log grab mechanics for debugging.");
-            Instance.BodyBlacklist = cfg.Bind("General", "Blacklist", "HeaterPodBodyNoRespawn,ThrownObjectProjectile,GenericPickup,MultiShopTerminal,MultiShopLargeTerminal,MultiShopEquipmentTerminal,RailgunnerPistolProjectile,FMJRamping,SyringeProjectile,EngiGrenadeProjectile,CrocoSpit,CaptainTazer,LunarSpike,LunarNeedleProjectile,StickyBomb,RocketProjectile,StunAndPierceBoomerang",
-                "Bodies and projectiles to never grab. Comma-separated.");
-            Instance.RecoveryObjectBlacklist = cfg.Bind("General", "RecoveryObjectBlacklist", "",
-                "Objects to never recover from the abyss. Comma-separated.");
-
-            Instance.EnableRecoveryFeature = cfg.Bind("Recovery", "EnableRecoveryFeature", true, "Return bagged items that fall off the map.");
-            Instance.EnemyRecoveryMode = cfg.Bind("Recovery", "EnemyRecoveryMode", DrifterBossGrabMod.EnemyRecoveryMode.Recover, "Behavior for bagged enemies falling off the map.");
-            Instance.RecoverBaggedBosses = cfg.Bind("Recovery", "RecoverBaggedBosses", true, "Recover bagged bosses from the abyss.");
-            Instance.RecoverBaggedNPCs = cfg.Bind("Recovery", "RecoverBaggedNPCs", true, "Recover bagged NPCs from the abyss.");
-            Instance.RecoverBaggedEnvironmentObjects = cfg.Bind("Recovery", "RecoverBaggedEnvironmentObjects", true, "Recover bagged environment objects from the abyss.");
-
-            Instance.GrabbableComponentTypes = cfg.Bind("General", "GrabbableComponentTypes", "PurchaseInteraction,TeleporterInteraction,GenericInteraction,ProxyInteraction,DummyPingableInteraction,MealPrepController",
-                "Component type names that make objects grabbable. Comma-separated.");
-            Instance.GrabbableKeywordBlacklist = cfg.Bind("General", "GrabbableKeywordBlacklist", "Master,Controller",
-                "Keywords that prevent grabbing if found in name. Comma-separated.");
-            Instance.ComponentChooserSortModeEntry = cfg.Bind("Hidden", "ComponentChooserSortMode", ComponentChooserSortMode.ByFrequency,
-                "How to sort components in the UI.");
-            Instance.ComponentChooserDummyEntry = cfg.Bind("Hidden", "ComponentChooserDummy", ComponentChooserDummy.SelectToToggle,
-                "Dummy setting for UI.");
-            Instance.EnableConfigSync = cfg.Bind("General", "EnableConfigSync", true,
-                "Sync configuration from host to clients.");
-            Instance.EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence",
-                false,
-                "Save and restore bagged objects across stages.");
-            Instance.EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab",
-                false,
-                "Auto-grab persisted objects on stage start.");
-            Instance.PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses",
-                true,
-                "Allow bosses to persist across stages.");
-            Instance.PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs",
-                true,
-                "Allow NPCs to persist across stages.");
-            Instance.PersistBaggedEnvironmentObjects = cfg.Bind("Persistence", "PersistBaggedEnvironmentObjects",
-                true,
-                "Allow environment objects to persist across stages.");
-            Instance.PersistenceBlacklist = cfg.Bind("Persistence", "PersistenceBlacklist", "",
-                "Objects to never persist. Comma-separated.");
-            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Delay before auto-grabbing persisted objects (seconds).");
-            Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
-                false,
-                "Store multiple objects and cycle through them.");
-            Instance.AddedCapacity = cfg.Bind("Bottomless Bag", "AddedCapacity", "0", "Flat extra bag capacity.");
-            Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "Clamp stock refresh to empty slots.");
-            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "Refresh stock only after a successful grab at 0.");
-            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles.");
-            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "Play grab animation when cycling.");
-            Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Cycle passengers via mouse wheel.");
-            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert mouse wheel cycle direction.");
-
-            Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD.");
-            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items.");
-            Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation.");
-
-            Instance.CenterSlotX = cfg.Bind("Hud", "CenterSlotX", 25.0f, "X position offset for center slot.");
-            Instance.CenterSlotY = cfg.Bind("Hud", "CenterSlotY", 50.0f, "Y position offset for center slot.");
-            Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot.");
-            Instance.CenterSlotOpacity = cfg.Bind("Hud", "CenterSlotOpacity", 1.0f, "Opacity for center slot.");
-            Instance.CenterSlotShowIcon = cfg.Bind("Hud", "CenterSlotShowIcon", true, "Show icon in center slot.");
-            Instance.CenterSlotShowWeightIcon = cfg.Bind("Hud", "CenterSlotShowWeightIcon", true, "Show weight icon in center slot.");
-            Instance.CenterSlotShowName = cfg.Bind("Hud", "CenterSlotShowName", true, "Show name in center slot.");
-            Instance.CenterSlotShowHealthBar = cfg.Bind("Hud", "CenterSlotShowHealthBar", true, "Show health bar in center slot.");
-            Instance.CenterSlotShowSlotNumber = cfg.Bind("Hud", "CenterSlotShowSlotNumber", true, "Show slot number in center slot.");
-
-            Instance.SideSlotX = cfg.Bind("Hud", "SideSlotX", 20.0f, "X position offset for side slots.");
-            Instance.SideSlotY = cfg.Bind("Hud", "SideSlotY", 5.0f, "Y position offset for side slots.");
-            Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots.");
-            Instance.SideSlotOpacity = cfg.Bind("Hud", "SideSlotOpacity", 0.3f, "Opacity for side slots.");
-            Instance.SideSlotShowIcon = cfg.Bind("Hud", "SideSlotShowIcon", true, "Show icon in side slots.");
-            Instance.SideSlotShowWeightIcon = cfg.Bind("Hud", "SideSlotShowWeightIcon", true, "Show weight icon in side slots.");
-            Instance.SideSlotShowName = cfg.Bind("Hud", "SideSlotShowName", true, "Show name in side slots.");
-            Instance.SideSlotShowHealthBar = cfg.Bind("Hud", "SideSlotShowHealthBar", true, "Show health bar in side slots.");
-            Instance.SideSlotShowSlotNumber = cfg.Bind("Hud", "SideSlotShowSlotNumber", true, "Show slot number in side slots.");
-
-            Instance.SelectedHudElement = cfg.Bind("Hidden", "SelectedHudElement", HudElementType.All,
-                "Select which HUD element group to configure.");
-            Instance.SelectedHudElement.Value = HudElementType.All;
-
-            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel.");
-            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for stats panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 0.0f, "Y position offset for stats panel.");
-            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale for stats panel.");
-            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for stats panel.");
-            Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show damage preview overlay.");
-            Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for damage preview.");
-            Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the custom weight icon.");
-            Instance.WeightDisplayMode = cfg.Bind("Hud", "WeightDisplayMode", DrifterBossGrabMod.WeightDisplayMode.Multiplier, "Mode for weight display.");
-            Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale weight icon color by capacity.");
-            Instance.ShowTotalMassOnWeightIcon = cfg.Bind("Hud", "ShowTotalMassOnWeightIcon", false, "Show total bag mass on center slot.");
-            Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show overencumbrance icon.");
-            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Auto-promote next object when main is removed.");
-            Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "New objects go to main seat first.");
-            Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI bar.");
-            Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "X offset for Mass Capacity UI.");
-            Instance.MassCapacityUIPositionY = cfg.Bind("Hud", "MassCapacityUIPositionY", 0.0f, "Y offset for Mass Capacity UI.");
-            Instance.MassCapacityUIScale = cfg.Bind("Hud", "MassCapacityUIScale", 0.8f, "Scale for Mass Capacity UI.");
-            Instance.EnableSeparators = cfg.Bind("Hud", "EnableSeparators", true, "Show threshold pips on Mass Capacity UI.");
-            Instance.GradientIntensity = cfg.Bind("Hud", "GradientIntensity", 1.0f, "Intensity of the gradient color.");
-
-            Instance.CapacityGradientColorStart = cfg.Bind("Hud", "CapacityGradientColorStart", new Color(0.0f, 1.0f, 0.0f, 1.0f), "Start color for standard capacity gradient.");
-            Instance.CapacityGradientColorMid = cfg.Bind("Hud", "CapacityGradientColorMid", new Color(1.0f, 1.0f, 0.0f, 1.0f), "Mid color for standard capacity gradient.");
-            Instance.CapacityGradientColorEnd = cfg.Bind("Hud", "CapacityGradientColorEnd", new Color(1.0f, 0.0f, 0.0f, 1.0f), "End color for standard capacity gradient.");
-
-            Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color for overencumbrance gradient.");
-            Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color for overencumbrance gradient.");
-
-            Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable mass and penalty systems.");
-            Instance.SlotScalingFormula = cfg.Bind("Balance", "SlotScalingFormula", "0", "Formula for extra bag slots. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
-            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC", "Formula for mass capacity limit. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage).");
-            Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0", "Formula for movement speed penalty. Supported: T (Total Mass), M (Mass Cap limit), C (Total Cap), H (Max HP), L (Level), MC (Mass Cap config), S (Stage).");
-
-            Instance.SlamDamageFormula = cfg.Bind("Balance", "SlamDamageFormula",
-                "BASE_COEF + (MASS_SCALING * BM / MC)",
-                "Formula for slam damage coefficient. Supported: BASE_COEF, MASS_SCALING, BM (Bagged Mass), MC (Mass Cap).");
-            Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "State calculation mode for stats.");
-            Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Mode for AoE damage distribution.");
-            Instance.OverencumbranceMax = cfg.Bind("Balance", "OverencumbranceMax", 100.0f, "Maximum overencumbrance percentage.");
-
-            Instance.SearchRadiusMultiplier = cfg.Bind("Balance", "SearchRadiusMultiplier", 1.0f, "Multiplier for grab reach distance.");
-            Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for breakout time.");
-            Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Hits before breakout.", new AcceptableValueRange<int>(1, 100)));
-            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for breakout.");
-            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap.");
-            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities.");
-
-            Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1", "Mass multiplier for Elite entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.EliteFlagMultiplier.Value = "1";
-
-            Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1", "Mass multiplier for Boss entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.BossFlagMultiplier.Value = "1";
-
-            Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1", "Mass multiplier for Champion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.ChampionFlagMultiplier.Value = "1";
-
-            Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1", "Mass multiplier for Player entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.PlayerFlagMultiplier.Value = "1";
-
-            Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1", "Mass multiplier for Minion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.MinionFlagMultiplier.Value = "1";
-
-            Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1", "Mass multiplier for Drone entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.DroneFlagMultiplier.Value = "1";
-
-            Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1", "Mass multiplier for Mechanical entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.MechanicalFlagMultiplier.Value = "1";
-
-            Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1", "Mass multiplier for Void entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).");
-            Instance.VoidFlagMultiplier.Value = "1";
-
-            Instance.AllFlagMultiplier = cfg.Bind(
-                new ConfigDefinition("Character Flags", "all Flag Multiplier"),
-                "1",
-                new ConfigDescription("Universal multiplier for all enemies. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), S (Stage).")
-            );
-
-            Instance.SelectedFlag = cfg.Bind("Hidden", "SelectedFlag", CharacterFlagType.All,
-                "Select which flag to modify.");
-            Instance.SelectedFlag.Value = CharacterFlagType.All;
-            Instance.SelectedFlagMultiplier = cfg.Bind("Hidden", "FlagMultiplier", "1",
-                "Mass multiplier for selected flag.");
-            Instance.SelectedFlagMultiplier.Value = "1";
-
-            Instance.SelectedBalanceSubTab = cfg.Bind("Hidden", "SelectedBalanceSubTab", BalanceSubTabType.All,
-                "Select which Balance settings group to view.");
-            Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
-
-            // Force EnableCarouselHUD to true if BottomlessBagEnabled is true
-            if (Instance.BottomlessBagEnabled.Value && !Instance.EnableCarouselHUD.Value)
-            {
-                Instance.EnableCarouselHUD.Value = true;
-            }
-
-            Instance.BottomlessBagEnabled.SettingChanged += (sender, args) =>
-            {
-                // Force EnableCarouselHUD to true when BottomlessBagEnabled is true
-                if (Instance.BottomlessBagEnabled.Value && !Instance.EnableCarouselHUD.Value)
-                {
-                    Instance.EnableCarouselHUD.Value = true;
-                }
-            };
-            Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.CenterSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.CenterSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.CenterSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.CenterSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.CenterSlotShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.SideSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.SideSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.SideSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.SideSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.SideSlotShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.UseNewWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.WeightDisplayMode.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.ScaleWeightColor.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.ShowTotalMassOnWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.ShowOverencumberIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
-            Instance.DamagePreviewColor.SettingChanged += (sender, args) => UpdateDamagePreviewColors();
-            Instance.EnableMassCapacityUI.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.MassCapacityUIPositionX.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.MassCapacityUIPositionY.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.MassCapacityUIScale.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.EnableSeparators.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.GradientIntensity.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.CapacityGradientColorStart.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.CapacityGradientColorMid.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.CapacityGradientColorEnd.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.OverencumbranceGradientColorStart.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.OverencumbranceGradientColorMid.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-            Instance.OverencumbranceGradientColorEnd.SettingChanged += (sender, args) => UpdateMassCapacityUIToggles();
-
-            Instance.SlotScalingFormula.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.SlotScalingFormula.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid SlotScalingFormula: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateCapacity(bagController);
-                    CapacityScalingSystem.RecalculateState(bagController);
-                }
-            };
-
-            Instance.MassCapacityFormula.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.MassCapacityFormula.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MassCapacityFormula: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateCapacity(bagController);
-                }
-            };
-
-            Instance.AddedCapacity.SettingChanged += (sender, args) =>
-            {
-                Instance.RefreshCachedConfigStrings();
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateCapacity(bagController);
-                }
-            };
-
-            Instance.StateCalculationMode.SettingChanged += (sender, args) =>
-            {
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculateState(bagController);
-                }
-            };
-
-            Instance.MovespeedPenaltyFormula.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.MovespeedPenaltyFormula.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MovespeedPenaltyFormula: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    CapacityScalingSystem.RecalculatePenalty(bagController);
-                }
-            };
-
-            Instance.BagScaleCap.SettingChanged += (sender, args) =>
-            {
-                Instance.RefreshCachedConfigStrings();
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.MassCap.SettingChanged += (sender, args) =>
-            {
-                Instance.RefreshCachedConfigStrings();
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.EliteFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.EliteFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid EliteFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.BossFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.BossFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid BossFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.ChampionFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.ChampionFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid ChampionFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.PlayerFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.PlayerFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid PlayerFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.MinionFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.MinionFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MinionFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.DroneFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.DroneFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid DroneFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.MechanicalFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.MechanicalFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid MechanicalFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.VoidFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.VoidFlagMultiplier.Value);
-                if (error != null)
-                    Log.Warning($"[PluginConfig] Invalid VoidFlagMultiplier: {error}");
-                foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None))
-                {
-                    DrifterBossGrabMod.Patches.BagPassengerManager.ForceRecalculateMass(bagController);
-                }
-            };
-
-            Instance.SlamDamageFormula.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.SlamDamageFormula.Value);
-                if (error != null)
-                {
-                    Log.Warning($"[PluginConfig] Invalid SlamDamageFormula: {error}");
-                }
-
-                var overlays = UnityEngine.Object.FindObjectsByType<UI.DamagePreviewOverlay>(FindObjectsSortMode.None);
-                foreach (var overlay in overlays)
-                {
-                    overlay.InvalidateCache();
-                }
-            };
-
-            Instance.SelectedFlagMultiplier.SettingChanged += (sender, args) =>
-            {
-                var error = FormulaParser.Validate(Instance.SelectedFlagMultiplier.Value);
-                if (error != null)
-                {
-                    Log.Warning($"[PluginConfig] Invalid FlagMultiplier formula: {error}");
-                    return;
-                }
-
-                var selectedFlag = Instance.SelectedFlag.Value;
-                string newFormula = Instance.SelectedFlagMultiplier.Value;
-
-                switch (selectedFlag)
-                {
-                    case CharacterFlagType.Elite:
-                        Instance.EliteFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Boss:
-                        Instance.BossFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Champion:
-                        Instance.ChampionFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Player:
-                        Instance.PlayerFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Minion:
-                        Instance.MinionFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Drone:
-                        Instance.DroneFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Mechanical:
-                        Instance.MechanicalFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.Void:
-                        Instance.VoidFlagMultiplier.Value = newFormula;
-                        break;
-                    case CharacterFlagType.All:
-                        Instance.AllFlagMultiplier.Value = newFormula;
-                        break;
-                }
-            };
-
-            Instance.SelectedFlag.SettingChanged += (sender, args) =>
-            {
-                var selectedFlag = Instance.SelectedFlag.Value;
-                string currentFormula = "0";
-
-                switch (selectedFlag)
-                {
-                    case CharacterFlagType.Elite:
-                        currentFormula = Instance.EliteFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Boss:
-                        currentFormula = Instance.BossFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Champion:
-                        currentFormula = Instance.ChampionFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Player:
-                        currentFormula = Instance.PlayerFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Minion:
-                        currentFormula = Instance.MinionFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Drone:
-                        currentFormula = Instance.DroneFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Mechanical:
-                        currentFormula = Instance.MechanicalFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.Void:
-                        currentFormula = Instance.VoidFlagMultiplier.Value;
-                        break;
-                    case CharacterFlagType.All:
-                        currentFormula = Instance.AllFlagMultiplier.Value;
-                        break;
-                }
-
-                Instance.SelectedFlagMultiplier.Value = currentFormula;
-            };
-
+        private static void InitBlacklistCaches()
+        {
             Instance._blacklistCache = new LazyCachedValue<HashSet<string>>(() =>
                 string.IsNullOrEmpty(Instance.BodyBlacklist.Value)
                     ? new HashSet<string>()
@@ -1013,14 +574,6 @@ namespace DrifterBossGrabMod
                         .Where(s => !string.IsNullOrEmpty(s))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase));
 
-            Instance._grabbableComponentTypesCache = new LazyCachedValue<HashSet<string>>(() =>
-                string.IsNullOrEmpty(Instance.GrabbableComponentTypes.Value)
-                    ? new HashSet<string>()
-                    : Instance.GrabbableComponentTypes.Value.Split(',')
-                        .Select(s => s.Trim())
-                        .Where(s => !string.IsNullOrEmpty(s))
-                        .ToHashSet(StringComparer.Ordinal));
-
             Instance._persistenceBlacklistCache = new LazyCachedValue<HashSet<string>>(() =>
                 string.IsNullOrEmpty(Instance.PersistenceBlacklist.Value)
                     ? new HashSet<string>()
@@ -1040,15 +593,11 @@ namespace DrifterBossGrabMod
                 return withClones;
             });
 
-            // Wire invalidation on config changes
             Instance.BodyBlacklist.SettingChanged += (sender, args) => { Instance._blacklistCache.Invalidate(); Instance._blacklistCacheWithClones.Invalidate(); };
             Instance.RecoveryObjectBlacklist.SettingChanged += (sender, args) => { Instance._recoveryBlacklistCache.Invalidate(); Instance._recoveryBlacklistCacheWithClones.Invalidate(); };
             Instance.PersistenceBlacklist.SettingChanged += (sender, args) => { Instance._persistenceBlacklistCache.Invalidate(); Instance._persistenceBlacklistCacheWithClones.Invalidate(); };
             Instance.GrabbableComponentTypes.SettingChanged += (sender, args) => Instance._grabbableComponentTypesCache.Invalidate();
             Instance.GrabbableKeywordBlacklist.SettingChanged += (sender, args) => Instance._grabbableKeywordBlacklistCache.Invalidate();
-
-            // Initial refresh of cached config string values
-            Instance.RefreshCachedConfigStrings();
         }
         public static void RemoveEventHandlers(
             EventHandler debugLogsHandler,
@@ -1144,7 +693,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // Carousel slot backing config getters (follow SelectedFlag pattern)
         public static ConfigEntry<float> GetSlotXConfig(HudElementType slot) =>
             slot == HudElementType.MainSlot ? Instance.CenterSlotX : Instance.SideSlotX;
         public static ConfigEntry<float> GetSlotYConfig(HudElementType slot) =>
@@ -1164,6 +712,9 @@ namespace DrifterBossGrabMod
         public static ConfigEntry<bool> GetSlotShowSlotNumberConfig(HudElementType slot) =>
             slot == HudElementType.MainSlot ? Instance.CenterSlotShowSlotNumber : Instance.SideSlotShowSlotNumber;
 
+        // ========================================================================================
+        // UI REFRESH HANDLERS
+        // ========================================================================================
         private static void UpdateBagUIToggles()
         {
             var carousels = UnityEngine.Object.FindObjectsByType<UI.BaggedObjectCarousel>(FindObjectsSortMode.None);

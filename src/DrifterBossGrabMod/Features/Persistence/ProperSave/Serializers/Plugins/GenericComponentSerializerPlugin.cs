@@ -40,7 +40,6 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
         {
             var state = new Dictionary<string, object>();
 
-            // Scan all components on the object
             foreach (var component in obj.GetComponents<Component>())
             {
                 if (component == null) continue;
@@ -51,13 +50,11 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
                 var componentState = new Dictionary<string, object>();
                 state[componentType.Name] = componentState;
 
-                // Capture NetworkBehaviour synced fields
                 if (component is NetworkBehaviour networkBehaviour)
                 {
                     CaptureNetworkBehaviourFields(networkBehaviour, componentState);
                 }
 
-                // Capture [SerializeField] fields
                 CaptureSerializableFields(component, componentState);
             }
 
@@ -71,7 +68,7 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
 
             foreach (var prop in properties)
             {
-                // Look for properties that start with "Network" (synced fields in UNET)
+
                 if (prop.Name.StartsWith("Network") && prop.CanRead)
                 {
                     try
@@ -99,19 +96,16 @@ namespace DrifterBossGrabMod.ProperSave.Serializers.Plugins
 
                 if (componentState == null) continue;
 
-                // Find component by type name
                 var component = obj.GetComponents<Component>()
                     .FirstOrDefault(c => c != null && c.GetType().Name == componentName);
 
                 if (component == null) continue;
 
-                // Restore NetworkBehaviour fields
                 if (component is NetworkBehaviour networkBehaviour)
                 {
                     RestoreNetworkBehaviourFields(networkBehaviour, componentState);
                 }
 
-                // Restore serializable fields
                 RestoreSerializableFields(component, componentState);
             }
 

@@ -9,7 +9,7 @@ namespace DrifterBossGrabMod.ProperSave.Core
 {
     public static class SerializationHelpers
     {
-        // Serialize methods
+
         public static string SerializeVector3(Vector3 v) => $"{v.x}|{v.y}|{v.z}";
         public static string SerializeQuaternion(Quaternion q) => $"{q.x}|{q.y}|{q.z}|{q.w}";
 
@@ -33,7 +33,6 @@ namespace DrifterBossGrabMod.ProperSave.Core
             return value.ToString() ?? "";
         }
 
-        // Parse methods
         public static Vector3 ParseVector3(string s)
         {
             if (string.IsNullOrEmpty(s)) return Vector3.zero;

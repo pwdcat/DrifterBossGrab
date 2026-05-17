@@ -10,6 +10,10 @@ using UnityEngine;
 using UnityEngine.Networking;
 namespace DrifterBossGrabMod.ProperSave.Spawning
 {
+
+    // ========================================================================================
+    // OBJECT SPAWNER
+    // ========================================================================================
     public static class ObjectSpawner
     {
         public static void Initialize()
@@ -17,6 +21,9 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             SpawnCardRegistry.Initialize();
         }
 
+        // ========================================================================================
+        // SPAWN LOGIC
+        // ========================================================================================
         public static GameObject? SpawnObjectFromSaveData(BaggedObjectSaveData objData, string? ownerPlayerId = null, HashSet<int>? spawnedMasters = null)
         {
             if (DirectorCore.instance == null)
@@ -30,7 +37,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[ObjectSpawn] Detected CharacterMaster {objData.PrefabName} (SaveType: {objData.SaveType}), spawning master...");
 
-                // Try to find master spawn card
                 var masterName = objData.PrefabName;
                 var masterSpawnCard = SpawnCardRegistry.FindSpawnCardByExactName(masterName);
 
@@ -53,19 +59,16 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     }
                 }
 
-                // Fallback: PrefabSpawner
                 spawnedMasters?.Add(objData.ObjectInstanceId);
                 return PrefabSpawner.SpawnObjectFromPrefab(objData, ownerPlayerId);
             }
 
-            // Check if we need to spawn via CharacterMaster for enemy bodies
             if (IsEnemyBody(objData.PrefabName))
             {
                 var masterName = objData.MasterName ?? objData.PrefabName.Replace("Body", "Master");
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Info($"[ObjectSpawn] Enemy body detected, spawning via CharacterMaster '{masterName}'");
 
-                // Check if we've already spawned this instance to avoid duplicate spawns
                 if (spawnedMasters != null && spawnedMasters.Contains(objData.ObjectInstanceId))
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -73,11 +76,10 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     return null;
                 }
 
-                // Try to find master spawn card first
                 var masterSpawnCard = SpawnCardRegistry.FindSpawnCardByExactName(masterName);
                 if (masterSpawnCard != null)
                 {
-                    // Spawn via DirectorCore with spawn card
+
                     if (masterSpawnCard.prefab == null)
                     {
                         Log.Error($"[ObjectSpawn] Spawn card '{masterSpawnCard.name}' has no prefab!");
@@ -97,7 +99,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     {
                         spawnedMasters?.Add(objData.ObjectInstanceId);
 
-                        // Get saved team index from save data, default to Monster team
                         var characterMaster = spawnedMaster.GetComponent<CharacterMaster>();
                         if (characterMaster != null)
                         {
@@ -107,7 +108,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                                 Log.Info($"[ObjectSpawn] Assigned team {characterMaster.teamIndex} to {spawnedMaster.name}");
                         }
 
-                        // Reparent object from persistence container before processing
                         if (spawnedMaster.transform.parent != null && spawnedMaster.transform.parent.name == "DBG_PersistenceContainer")
                         {
                             spawnedMaster.transform.SetParent(null, true);
@@ -129,7 +129,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     }
                 }
 
-                // Fallback: Spawn directly via PrefabSpawner
                 var masterObjData = new BaggedObjectSaveData
                 {
                     PrefabName = masterName,
@@ -143,12 +142,11 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return PrefabSpawner.SpawnObjectFromPrefab(masterObjData, ownerPlayerId);
             }
 
-            // Find SpawnCard by exact AssetId, PrefabHash, or exact name
             var spawnCard = FindSpawnCardExact(objData);
 
             if (spawnCard == null)
             {
-                // If we're trying to spawn an enemy body, try to find the master spawn card instead
+
                 if (IsEnemyBody(objData.PrefabName))
                 {
                     var masterName = objData.MasterName ?? objData.PrefabName.Replace("Body", "Master");
@@ -168,7 +166,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 {
                     Log.Warning($"[ObjectSpawn] Could not find SpawnCard for {objData.PrefabName}, trying PrefabSpawner fallback");
 
-                    // Fallback to direct prefab instantiation
                     return PrefabSpawner.SpawnObjectFromPrefab(objData, ownerPlayerId);
                 }
             }
@@ -179,7 +176,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Create placement rule that positions objects bunched up near the player
             var placementRule = CreatePlacementRuleForRestoration(objData, ownerPlayerId);
 
             var spawnRequest = new DirectorSpawnRequest(
@@ -192,21 +188,19 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (spawnedObject != null)
             {
-                // Handle CharacterMaster team assignment
+
                 var characterMaster = spawnedObject.GetComponent<CharacterMaster>();
                 if (characterMaster != null)
                 {
-                    // Get saved team index from save data, default to Monster team
+
                     var savedTeamIndex = GetSavedTeamIndex(objData);
                     characterMaster.teamIndex = savedTeamIndex ?? TeamIndex.Monster;
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Info($"[ObjectSpawn] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
-                    // Spawn the body for the master at the spawned object's position
                     var spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
 
-                    // If we're expecting a body and successfully spawned one, use the body instead of master
                     if (spawnedBody != null && objData.PrefabName.EndsWith("Body"))
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -215,14 +209,12 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     }
                 }
 
-                // Reparent object from persistence container before processing
                 if (spawnedObject.transform.parent != null && spawnedObject.transform.parent.name == "DBG_PersistenceContainer")
                 {
                     spawnedObject.transform.SetParent(null, true);
                     UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedObject, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
                 }
 
-                // Log components on spawned object for debugging
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     var components = spawnedObject.GetComponents<Component>();
@@ -232,7 +224,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                         Log.Info($"  - {comp.GetType().Name}");
                     }
 
-                    // Check for specific components we're trying to serialize
                     var soa = spawnedObject.GetComponent<SpecialObjectAttributes>();
                     var shrine = spawnedObject.GetComponent<HalcyoniteShrineInteractable>();
                     var charBody = spawnedObject.GetComponent<CharacterBody>();
@@ -254,21 +245,23 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             {
                 Log.Warning($"[ObjectSpawn] Failed to spawn {objData.PrefabName}, trying PrefabSpawner fallback");
 
-                // Fallback to direct prefab instantiation
                 return PrefabSpawner.SpawnObjectFromPrefab(objData, ownerPlayerId);
             }
 
             return spawnedObject;
         }
 
+        // ========================================================================================
+        // PLACEMENT HELPERS
+        // ========================================================================================
         private static DirectorPlacementRule CreatePlacementRuleForRestoration(BaggedObjectSaveData objData, string? ownerPlayerId)
         {
-            // Position objects bunched up near the player (like persistence system does)
+
             var targetBody = FindOwnerBody(ownerPlayerId);
 
             if (targetBody != null)
             {
-                // Position very close to player (0.5 units in front and up, bunched up)
+
                 var playerPos = targetBody.transform.position;
                 var playerForward = targetBody.transform.forward;
                 var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
@@ -282,7 +275,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             }
             else
             {
-                // Fallback: position at scene center or camera position
+
                 var camera = Camera.main;
                 if (camera != null)
                 {
@@ -299,7 +292,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
                 else
                 {
-                    // Last resort: position at origin with offset
+
                     return new DirectorPlacementRule
                     {
                         placementMode = DirectorPlacementRule.PlacementMode.Direct,
@@ -310,11 +303,14 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             }
         }
 
+        // ========================================================================================
+        // UTILITY METHODS
+        // ========================================================================================
         private static CharacterBody? FindOwnerBody(string? ownerId)
         {
             if (string.IsNullOrEmpty(ownerId))
             {
-                // Fallback to host's body (any body)
+
                 var hostUser = RoR2.NetworkUser.readOnlyInstancesList.FirstOrDefault(nu => nu.isServer);
                 if (hostUser != null && hostUser.master != null)
                 {
@@ -323,7 +319,6 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 return null;
             }
 
-            // Find the NetworkUser associated with this player id
             RoR2.NetworkUser? matchedUser = null;
             foreach (var nu in RoR2.NetworkUser.readOnlyInstancesList)
             {
@@ -388,21 +383,18 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             var assetId = SerializationHelpers.ParseGuid(objData.AssetId);
             var prefabHash = SerializationHelpers.ParsePrefabHash(objData.PrefabHash);
 
-            // Priority 1: Exact AssetId match
             if (assetId.HasValue && assetId.Value != Guid.Empty)
             {
                 var card = SpawnCardRegistry.FindSpawnCardByAssetIdExact(assetId.Value);
                 if (card != null) return card;
             }
 
-            // Priority 2: Exact PrefabHash match
             if (!prefabHash.Equals(default))
             {
                 var card = SpawnCardRegistry.FindSpawnCardByPrefabHashExact(prefabHash);
                 if (card != null) return card;
             }
 
-            // Priority 3: Exact name match
             if (!string.IsNullOrEmpty(objData.PrefabName))
             {
                 var card = SpawnCardRegistry.FindSpawnCardByExactName(objData.PrefabName);
@@ -414,4 +406,3 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
     }
 }
-

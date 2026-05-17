@@ -11,10 +11,10 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Harmony patches for state calculation integration
+
     public static class StateCalculationPatches
     {
-        // Patch BluntForceHit3.OnEnter to apply the configured slam damage formula to bludgeon hits
+
         [HarmonyPatch(typeof(BluntForceHit3), "OnEnter")]
         public class BluntForceHit3_OnEnter_UseFormula
         {
@@ -26,7 +26,6 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
-                // Apply formula-based coefficient to bludgeon damage
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -36,7 +35,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Patch SuffocateSlam.OnEnter to use the configured slam damage formula
         [HarmonyPatch(typeof(SuffocateSlam), "OnEnter")]
         public class SuffocateSlam_OnEnter_UseDynamicCapacity
         {
@@ -48,19 +46,16 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
-                // Apply formula-based coefficient from SlamDamageCalculator (respects user's configured formula)
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
-                // Recalculate duration scaling using dynamic capacity
                 float damageCapacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
                 float originalMassFraction = bagController.baggedMass / DrifterBagController.maxMass;
                 float massFraction = bagController.baggedMass / damageCapacity;
 
                 float originalDurationIncrease = __instance.durationIncreaseWithMass * originalMassFraction;
-                __instance.baseDuration -= originalDurationIncrease; // Undo original
-                __instance.baseDuration += __instance.durationIncreaseWithMass * massFraction; // Apply new
+                __instance.baseDuration -= originalDurationIncrease;
+                __instance.baseDuration += __instance.durationIncreaseWithMass * massFraction;
 
-                // Recalculate durationBeforeInterruptable
                 float num2 = __instance.baseDurationBeforeInterruptable / __instance.baseDuration;
                 __instance.durationBeforeInterruptable = __instance.baseDuration * num2;
 
@@ -73,7 +68,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Patch SuffocateSlam.AuthorityModifyOverlapAttack to apply custom damage formula
         [HarmonyPatch(typeof(SuffocateSlam), "AuthorityModifyOverlapAttack")]
         public class SuffocateSlam_AuthorityModifyOverlapAttack_ApplyCustomDamage
         {
@@ -86,13 +80,12 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
-                // Use SlamDamageCalculator to get custom damage coefficient
                 float effectiveCoef = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
                 var drifterBody = __instance.characterBody;
 
                 if (drifterBody != null)
                 {
-                    // Apply custom damage to the OverlapAttack
+
                     overlapAttack.damage = drifterBody.damage * effectiveCoef;
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)

@@ -4,9 +4,7 @@ using RoR2;
 
 namespace DrifterBossGrabMod.Input
 {
-    // Defines custom Rewired actions for bag cycling (ScrollBagUp / ScrollBagDown)
-    // These actions work with both keyboard and controller through RoR2's native input system
-    // Requires publicized assemblies for access to internal Rewired types
+
     public class RewiredActions
     {
         public static RewiredActions ScrollBagUp { get; }
@@ -32,7 +30,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagUp",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_UP",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 16  // D-Pad Up (Gamepad Template element 16)
+                DefaultJoystickKey = 16
             };
 
             ScrollBagDown = new RewiredActions
@@ -41,7 +39,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagDown",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_DOWN",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 18  // D-Pad Down (Gamepad Template element 18)
+                DefaultJoystickKey = 18
             };
         }
 

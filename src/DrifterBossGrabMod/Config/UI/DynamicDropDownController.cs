@@ -79,7 +79,7 @@ namespace DrifterBossGrabMod.Config.UI
             if (dropdown != null)
             {
                 dropdown.choices = _dropdownChoices ?? Array.Empty<string>();
-                // Trigger refresh if needed by re-setting the choice
+
                 dropdown.SetChoice(0);
             }
         }
@@ -157,7 +157,7 @@ namespace DrifterBossGrabMod.Config.UI
                         .GroupBy(c => c.GetType().Name)
                         .Select(g => new { Name = g.Key, Count = g.Count() })
                         .OrderByDescending(x => x.Count)
-                        .Take(500) // Limit to top 500 to prevent absurdly massive lists
+                        .Take(500)
                         .Select(x => $"{x.Name} ({x.Count})")
                         .ToList();
 
@@ -176,18 +176,16 @@ namespace DrifterBossGrabMod.Config.UI
         private void OnChoiceChanged(int newValue)
         {
             if (_cachedComponentNames == null) return;
-            if (newValue == 0) return; // The "-- Select to Toggle --" option
+            if (newValue == 0) return;
 
             string selectedComponent = _cachedComponentNames[newValue];
 
-            // Strip the " (count)" format to get just the class name
             int bracketIndex = selectedComponent.IndexOf(" (");
             if (bracketIndex > 0)
             {
                 selectedComponent = selectedComponent.Substring(0, bracketIndex);
             }
 
-            // Toggle in config
             string currentVal = PluginConfig.Instance.GrabbableComponentTypes.Value;
             var components = currentVal.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                                        .Select(s => s.Trim())
@@ -206,13 +204,11 @@ namespace DrifterBossGrabMod.Config.UI
 
             PluginConfig.Instance.GrabbableComponentTypes.Value = string.Join(",", components);
 
-            // Revert dropdown back to index 0 visually
             if (dropdown != null)
             {
                 dropdown.SetChoice(0);
             }
 
-            // Re-render RiskOfOptions ModSettingsInputField components to ensure GrabbableComponentTypes visual update
             PresetManager.RefreshPresetDropdownUI();
         }
     }

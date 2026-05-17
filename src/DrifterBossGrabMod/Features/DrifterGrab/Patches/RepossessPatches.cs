@@ -8,8 +8,16 @@ using EntityStates.Drifter;
 using EntityStates.Drifter.Bag;
 namespace DrifterBossGrabMod.Patches
 {
+
+    // ========================================================================================
+    // REPOSSESS PATCHES
+    // ========================================================================================
     public static class RepossessPatches
     {
+
+        // ========================================================================================
+        // MASS CALCULATION
+        // ========================================================================================
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
@@ -60,13 +68,11 @@ namespace DrifterBossGrabMod.Patches
 
                 if (mass <= 0f) mass = Constants.Multipliers.DefaultMassMultiplier;
 
-                // Apply character flag mass bonus using the new system (BEFORE clamping to MassCap)
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
                     mass = Balance.CharacterFlagMassBonus.ApplyFlagBonus(targetObject, mass);
                 }
 
-                // Clamp mass
                 bool isInf = PluginConfig.Instance.IsMassCapInfinite;
                 if (!isInf)
                 {
@@ -79,8 +85,7 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableBalance.Value)
                     {
                         float computedCap = Balance.CapacityScalingSystem.CalculateMassCapacity(__instance);
-                        // If mass capacity is disabled (formula evaluates to 0), use massCapValue directly
-                        // Otherwise, use max of computedCap and massCapValue
+
                         if (computedCap != float.MaxValue)
                             massCapValue = computedCap > massCapValue ? computedCap : massCapValue;
                     }
@@ -89,7 +94,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                    // When MassCap is INF, use vanilla mass (no clamping)
+
                     __result = Mathf.Max(mass, 0f);
                 }
 
@@ -134,6 +139,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // BAG STATE PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(DrifterBagController), "OnSyncBaggedObject")]
         public class DrifterBagController_OnSyncBaggedObject_Patch
         {
@@ -141,6 +149,25 @@ namespace DrifterBossGrabMod.Patches
             public static void Postfix(DrifterBagController __instance)
             {
                 BagPassengerManager.ForceRecalculateMass(__instance);
+
+                if (!UnityEngine.Networking.NetworkServer.active && __instance.baggedObject != null)
+                {
+                    var esms = __instance.GetComponents<EntityStateMachine>();
+                    foreach (var esm in esms)
+                    {
+                        if (esm.customName == "Bag" && esm.state is BaggedObject baggedObject)
+                        {
+                            if (baggedObject.targetObject == null)
+                            {
+                                baggedObject.targetObject = __instance.baggedObject;
+                                BaggedObjectPatches.UpdateTargetFields(baggedObject);
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[OnSyncBaggedObject] Active Recovery: Pushed {__instance.baggedObject.name} into BaggedObject state.");
+                            }
+                            break;
+                        }
+                    }
+                }
             }
         }
         [HarmonyPatch(typeof(DrifterBagController), "Awake")]
@@ -156,13 +183,12 @@ namespace DrifterBossGrabMod.Patches
                     __instance.gameObject.AddComponent<Networking.BottomlessBagNetworkController>();
                 }
 
-                // Subscribe to passenger events to handle cleanup strictly for this bag
                 var seat = __instance.GetComponent<VehicleSeat>();
                 if (seat != null)
                 {
                     seat.onPassengerEnter += (passenger) =>
                     {
-                        // Enter logic if needed (currently handled by BaggedObject state)
+
                     };
                     seat.onPassengerExit += (passenger) =>
                     {
@@ -211,6 +237,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // TARGETABILITY OVERRIDES
+        // ========================================================================================
         [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
         public class SpecialObjectAttributes_get_isTargetable
         {
@@ -252,6 +281,10 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
+        // ========================================================================================
+        // SEARCH REQUIREMENTS
+        // ========================================================================================
         [HarmonyPatch(typeof(RepossessBullseyeSearch), "HurtBoxPassesRequirements")]
         public class RepossessBullseyeSearch_HurtBoxPassesRequirements
         {
@@ -307,6 +340,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // AIM/REPOSSESS RANGE
+        // ========================================================================================
         [HarmonyPatch(typeof(EntityStates.Drifter.AimRepossess), "OnEnter")]
         public class AimRepossess_OnEnter_Patch
         {

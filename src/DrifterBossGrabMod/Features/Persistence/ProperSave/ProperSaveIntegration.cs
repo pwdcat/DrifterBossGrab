@@ -15,6 +15,10 @@ using DrifterBossGrabMod.ProperSave.Serializers;
 
 namespace DrifterBossGrabMod.ProperSave
 {
+
+    // ========================================================================================
+    // PROPER SAVE CONSTANTS
+    // ========================================================================================
     public static class ProperSaveConstants
     {
         public static class Timing
@@ -26,6 +30,9 @@ namespace DrifterBossGrabMod.ProperSave
         }
     }
 
+    // ========================================================================================
+    // PROPER SAVE INTEGRATION
+    // ========================================================================================
     public static class ProperSaveIntegration
     {
         private const string SAVE_KEY = "DrifterBossGrabMod_BagData";
@@ -130,10 +137,12 @@ namespace DrifterBossGrabMod.ProperSave
 
             if (_pendingSaveData == null) return;
 
-            // Only restore when loading a save (Single mode scene load to game scene)
             Run.instance.StartCoroutine(DelayedSceneLoadRestoration(nextScene));
         }
 
+        // ========================================================================================
+        // RESTORATION ENGINE
+        // ========================================================================================
         private static System.Collections.IEnumerator DelayedSceneLoadRestoration(Scene scene)
         {
             yield return null;
@@ -201,6 +210,9 @@ namespace DrifterBossGrabMod.ProperSave
             _pendingSaveData = null;
         }
 
+        // ========================================================================================
+        // BUILT-IN PLUGINS
+        // ========================================================================================
         private static void RegisterBuiltInPlugins()
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -208,7 +220,6 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Info("[ProperSaveIntegration] Registering built-in serializer plugins...");
             }
 
-            // Enemy serializers (highest priority, 1:1 restoration)
             var characterMasterSerializer = BuiltInSerializersAPI.ForCharacterMaster();
             _serializerPlugins.Add(characterMasterSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -223,7 +234,6 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Info($"  - Added: {characterBodySerializer.GetType().Name} (Priority: {characterBodySerializer.Priority})");
             }
 
-            // Interactable serializers (API-based)
             var chestSerializer = BuiltInSerializersAPI.ForChest();
             _serializerPlugins.Add(chestSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -280,7 +290,6 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Info($"  - Added: {purchaseSerializer.GetType().Name} (Priority: {purchaseSerializer.Priority})");
             }
 
-            // Reflection-based fallbacks and integrations
             var genericSerializer = BuiltInSerializersAPI.ForGenericComponentSerializer();
             _serializerPlugins.Add(genericSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -295,7 +304,6 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Info($"  - Added: {qualitySerializer.GetType().Name} (Priority: {qualitySerializer.Priority})");
             }
 
-            // Sort by priority
             _serializerPlugins.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -318,6 +326,9 @@ namespace DrifterBossGrabMod.ProperSave
             return new List<IObjectSerializerPlugin>(_serializerPlugins);
         }
 
+        // ========================================================================================
+        // SAVE/LOAD HANDLERS
+        // ========================================================================================
         private static void OnGatherSaveData(Dictionary<string, object> gatheredData)
         {
             if (!PluginConfig.Instance.EnableObjectPersistence.Value)
@@ -372,6 +383,9 @@ namespace DrifterBossGrabMod.ProperSave
             }
         }
 
+        // ========================================================================================
+        // DATA CAPTURE
+        // ========================================================================================
         private static DrifterBagSaveData CreateSaveData()
         {
             var saveData = new DrifterBagSaveData
@@ -385,8 +399,7 @@ namespace DrifterBossGrabMod.ProperSave
             var persistedObjects = PersistenceObjectManager.GetPersistedObjects();
             var capturedInstanceIds = new HashSet<int>();
 
-            // Build bag slot index map before iterating persisted objects
-            var bagSlotIndexMap = new Dictionary<int, int>(); // instanceId -> bagSlotIndex
+            var bagSlotIndexMap = new Dictionary<int, int>();
             var controllers = UnityEngine.Object.FindObjectsByType<RoR2.DrifterBagController>(UnityEngine.FindObjectsSortMode.None);
             foreach (var controller in controllers)
             {
@@ -411,7 +424,6 @@ namespace DrifterBossGrabMod.ProperSave
             {
                 if (obj == null) continue;
 
-                // Skip objects with TeleporterInteraction if Teleporter is blacklisted
                 var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
                 if (teleporterInteraction != null && PluginConfig.IsPersistenceBlacklisted("Teleporter"))
                 {
@@ -452,7 +464,6 @@ namespace DrifterBossGrabMod.ProperSave
             bool isSavingMaster = master != null;
             GameObject objectToCapture = (isSavingMaster && master != null) ? master.gameObject : obj;
 
-            // Deduplicate to ensure we only capture this specific master or body once
             if (capturedInstanceIds != null)
             {
                 int instanceId = objectToCapture.GetInstanceID();
@@ -477,7 +488,6 @@ namespace DrifterBossGrabMod.ProperSave
 
             string? masterName = master?.name;
 
-            // Check if object is currently in a seat
             bool? isMainSeatObject = null;
             int? additionalSeatIndex = null;
             CheckObjectInSeats(obj, out isMainSeatObject, out additionalSeatIndex);
@@ -505,7 +515,6 @@ namespace DrifterBossGrabMod.ProperSave
 
             string prefabName = System.Text.RegularExpressions.Regex.Replace(objectToCapture.name, @"\(Clone\)(\(\d+\))?$", "");
 
-            // For masters, we need to use the actual network identity of the master for AssetID etc.
             var captureIdentity = objectToCapture.GetComponent<NetworkIdentity>();
             if (captureIdentity == null) captureIdentity = networkIdentity;
 
@@ -601,14 +610,12 @@ namespace DrifterBossGrabMod.ProperSave
                 var state = Patches.BagPatches.GetState(controller);
                 if (state == null) continue;
 
-                // Check main seat
                 if (state.MainSeatObject != null && state.MainSeatObject.GetInstanceID() == obj.GetInstanceID())
                 {
                     isMainSeatObject = true;
                     return;
                 }
 
-                // Check additional seats
                 int seatIndex = 0;
                 foreach (var kvp in state.AdditionalSeats)
                 {
@@ -635,16 +642,17 @@ namespace DrifterBossGrabMod.ProperSave
             return string.Empty;
         }
 
+        // ========================================================================================
+        // STATE RESTORATION
+        // ========================================================================================
         private static System.Collections.IEnumerator DelayedStateRestoration(GameObject obj, BaggedObjectSaveData objData, System.Action onComplete)
         {
-            // Wait a few frames to ensure NetworkBehaviour components are fully initialized (needs a revisit)
-            yield return null;  // Wait 1 frame for object initialization
-            yield return null;  // Wait 2nd frame for NetworkBehaviour sync
 
-            // Now restore the object state
+            yield return null;
+            yield return null;
+
             RestoreObjectState(obj, objData);
 
-            // Call the completion callback
             onComplete?.Invoke();
         }
 
@@ -702,7 +710,6 @@ namespace DrifterBossGrabMod.ProperSave
                 }
             }
 
-            // Now restore all objects after they're spawned
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Debug($"[ProperSave] Spawning complete, restoring {objectsToRestore.Count} objects...");
             Run.instance.StartCoroutine(RestoreAllObjects(objectsToRestore));
@@ -721,7 +728,6 @@ namespace DrifterBossGrabMod.ProperSave
                 GameObject? objectToAutoGrab = obj;
                 bool isCharacterMaster = obj.GetComponent<CharacterMaster>() != null;
 
-                // For CharacterMaster objects, wait for body to spawn before processing
                 if (isCharacterMaster)
                 {
                     var master = obj.GetComponent<CharacterMaster>();
@@ -751,7 +757,6 @@ namespace DrifterBossGrabMod.ProperSave
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Debug($"[RestoreAllObjects] Restoring {obj.name} (frame {Time.frameCount})");
 
-                    // Refresh BodyColliderCache to ensure it has valid collider references
                     var colliderCache = obj.GetComponent<BodyColliderCache>();
                     if (colliderCache != null)
                     {
@@ -762,17 +767,14 @@ namespace DrifterBossGrabMod.ProperSave
                         }
                     }
 
-                    // Check health before restoration
                     var healthBefore = obj.GetComponent<RoR2.HealthComponent>();
                     if (healthBefore != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Debug($"[RestoreAllObjects] Health BEFORE restoration: health={healthBefore.health}, fullHealth={healthBefore.fullHealth}");
                     }
 
-                    // Now restore the object state
                     RestoreObjectState(obj, objData);
 
-                    // Check health after restoration
                     var healthAfter = obj.GetComponent<RoR2.HealthComponent>();
                     if (healthAfter != null && PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -835,7 +837,7 @@ namespace DrifterBossGrabMod.ProperSave
 
                         if (!plugin.CanHandle(targetObj))
                         {
-                            // If dealing with a CharacterBody but the plugin wants a master
+
                             var body = targetObj.GetComponent<RoR2.CharacterBody>();
                             if (body != null && body.master != null && plugin.CanHandle(body.master.gameObject))
                             {
@@ -845,7 +847,7 @@ namespace DrifterBossGrabMod.ProperSave
                             }
                             else
                             {
-                                // If dealing with a CharacterMaster but the plugin wants a body
+
                                 var master = targetObj.GetComponent<RoR2.CharacterMaster>();
                                 if (master != null && master.GetBody() != null && plugin.CanHandle(master.GetBody().gameObject))
                                 {
@@ -922,4 +924,3 @@ namespace DrifterBossGrabMod.ProperSave
         }
     }
 }
-

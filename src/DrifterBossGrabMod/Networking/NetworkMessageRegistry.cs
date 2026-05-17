@@ -9,7 +9,7 @@ using RoR2.Networking;
 
 namespace DrifterBossGrabMod.Networking
 {
-    // Network message registry for centralized message type constants.
+
     public static class NetworkMessageRegistry
     {
         private class HandlerInfo
@@ -21,7 +21,6 @@ namespace DrifterBossGrabMod.Networking
         private static readonly List<HandlerInfo> _clientHandlers = new List<HandlerInfo>();
         private static readonly List<HandlerInfo> _serverHandlers = new List<HandlerInfo>();
 
-        // Initializes the network message system.
         public static void Initialize()
         {
             _clientHandlers.Clear();
@@ -90,7 +89,6 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        // Cleanup method for logging purposes and preventing memory leaks for server/client handler sets.
         public static void Cleanup()
         {
             NetworkManagerSystem.onStartClientGlobal -= OnStartClientGlobal;

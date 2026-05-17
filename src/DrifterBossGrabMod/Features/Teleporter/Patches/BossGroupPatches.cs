@@ -30,7 +30,6 @@ namespace DrifterBossGrabMod.Patches
 
             int players = Run.instance ? Run.instance.participatingPlayerCount : -1;
 
-            // Collect reflection/private field counts safely if we need them
             var rng = Traverse.Create(__instance).Field("rng").GetValue();
             var bossDrops = Traverse.Create(__instance).Field("bossDrops").GetValue() as System.Collections.IList;
             var bossDropTables = Traverse.Create(__instance).Field("bossDropTables").GetValue() as System.Collections.IList;
@@ -43,7 +42,6 @@ namespace DrifterBossGrabMod.Patches
                 Log.Warning($"[BossGroupDiagnostics] ALERT: dropPosition is null! No item will be spawned.");
             }
 
-            // fail-safe
             if (__instance.dropTable == null && NetworkServer.active)
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)

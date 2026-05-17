@@ -12,44 +12,27 @@ namespace DrifterBossGrabMod.Patches
 {
     public static class MiscPatches
     {
-        // Cached reflection fields
+
         private static readonly FieldInfo _sphereSearchField = ReflectionCache.HackingMainState.SphereSearch;
 
-        [HarmonyPatch(typeof(HackingMainState), "FixedUpdate")]
-        public class HackingMainState_FixedUpdate_Patch
+        [HarmonyPatch(typeof(HackingMainState), "ScanForTarget")]
+        public class HackingMainState_ScanForTarget_Patch
         {
             [HarmonyPrefix]
             public static void Prefix(HackingMainState __instance)
             {
-                // Update the search origin to follow the beacon's current position
+
                 if (_sphereSearchField != null)
                 {
                     var sphereSearch = (SphereSearch)_sphereSearchField.GetValue(__instance);
-                    var transform = __instance.transform;
-                    if (sphereSearch != null && transform != null && sphereSearch.origin != transform.position)
+                    if (sphereSearch != null && __instance.transform != null)
                     {
-                        sphereSearch.origin = transform.position;
+                        sphereSearch.origin = __instance.transform.position;
                     }
                 }
             }
         }
 
-        [HarmonyPatch(typeof(RoR2.Projectile.ProjectileFuse), "FixedUpdate")]
-        public class ProjectileFuse_FixedUpdate_Patch
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(ProjectileFuse __instance)
-            {
-                // If the component is disabled
-                if (!__instance.enabled)
-                {
-                    return false; // Skip the original method
-                }
-                return true; // Continue with original method
-            }
-        }
-
-        // Prevent clients from calling EjectPassengerToFinalPosition (server-only)
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "EjectPassengerToFinalPosition")]
         public class ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch
         {
@@ -61,13 +44,10 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($"[EjectPassenger] CALLED for {__instance.name} | Passenger: {(__instance.Networkpassenger != null ? __instance.Networkpassenger.name : "null")} | Server: {UnityEngine.Networking.NetworkServer.active}");
                 }
 
-                // Allow the function to run on BOTH server and client.
-                // It handles position/parenting which is crucial for client-side visual stability.
                 return true;
             }
         }
 
-        // Defensive null check for CheckForDeadPassenger
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "CheckForDeadPassenger")]
         public class ThrownObjectProjectileController_CheckForDeadPassenger_Patch
         {
@@ -76,7 +56,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                    // Skip check if passenger is null/destroyed
+
                     var passenger = __instance.Networkpassenger;
                     if (passenger == null)
                     {

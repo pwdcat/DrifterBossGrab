@@ -14,13 +14,20 @@ using DrifterBossGrabMod.Networking;
 using DrifterBossGrabMod.Core;
 namespace DrifterBossGrabMod.Patches
 {
+
+    // ========================================================================================
+    // REPOSSESS EXIT PATCHES
+    // ========================================================================================
     public static class RepossessExitPatches
     {
+
+        // ========================================================================================
+        // INSTANCE TRACKING
+        // ========================================================================================
         private static readonly FieldInfo _chosenTargetField = ReflectionCache.RepossessExit.ChosenTarget;
         private static readonly FieldInfo _activatedHitpauseField = ReflectionCache.RepossessExit.ActivatedHitpause;
         private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
 
-        // Per-instance storage using ConditionalWeakTable
         private static readonly ConditionalWeakTable<RepossessExit, System.Runtime.CompilerServices.StrongBox<GameObject?>> _originalTargets
             = new ConditionalWeakTable<RepossessExit, System.Runtime.CompilerServices.StrongBox<GameObject?>>();
 
@@ -39,6 +46,9 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
+        // ========================================================================================
+        // GRAB LOGIC
+        // ========================================================================================
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
@@ -50,7 +60,7 @@ namespace DrifterBossGrabMod.Patches
                 var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null)
                 {
-                    // On client, try to recover from deserialized original target
+
                     var recovered = GetOriginalTarget(__instance);
                     if (recovered != null)
                     {
@@ -70,7 +80,6 @@ namespace DrifterBossGrabMod.Patches
                 }
                 originalChosenTarget = chosenTarget;
 
-                // Store per-instance for OnSerialize to use
                 StoreOriginalTarget(__instance, chosenTarget);
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -85,7 +94,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(RepossessExit __instance)
             {
-                // Only apply grabbing logic if any grabbing type is enabled
+
                 if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                     return;
                 var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
@@ -99,7 +108,6 @@ namespace DrifterBossGrabMod.Patches
                     Log.Info($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}.");
                 }
 
-                // If chosenTarget was rejected but it's grabbable, allow it
                 if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
                 {
                     _chosenTargetField?.SetValue(__instance, originalChosenTarget);
@@ -119,8 +127,6 @@ namespace DrifterBossGrabMod.Patches
                         bool isElite = component2.isElite;
                         bool isUngrabbable = component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable);
 
-                        // Vanilla rejects targets missing a Rigidbody or ModelLocator.
-                        // If it's a standard NPC that vanilla rejected, allow it if NPC grabbing is enabled.
                         bool isStandardNPCRejectedByVanilla = !isBoss && !isUngrabbable && PluginConfig.Instance.EnableNPCGrabbing.Value;
 
                         bool canGrab = (PluginConfig.Instance.EnableBossGrabbing.Value && isBoss) ||
@@ -142,13 +148,12 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                // Send network message to host when a grab occurs
                 if (originalChosenTarget != null)
                 {
-                    // Only send if we're a client (not the host)
+
                     if (!NetworkServer.active && NetworkClient.active)
                     {
-                        // Block grab if object is currently undergoing throw operation
+
                         if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(originalChosenTarget))
                         {
                             Log.Warning($"[RepossessExit Postfix] Blocking grab request for {originalChosenTarget.name} - object is currently undergoing throw operation");
@@ -169,6 +174,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        // ========================================================================================
+        // NETWORKING
+        // ========================================================================================
         [HarmonyPatch(typeof(RepossessExit), "OnSerialize")]
         public class RepossessExit_OnSerialize_Patch
         {
@@ -195,7 +203,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(RepossessExit __instance)
             {
-                // Restore original value after serialization
+
                 if (_savedTarget == null)
                 {
                     _chosenTargetField?.SetValue(__instance, null);
@@ -221,6 +229,10 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
+        // ========================================================================================
+        // STOCK REFRESH
+        // ========================================================================================
         [HarmonyPatch(typeof(RepossessExit), "OnExit")]
         public class RepossessExit_OnExit_Patch
         {
@@ -240,25 +252,21 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                // Get bag controller
                 var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
-                // Get character body and skill locator
                 var body = bagController.GetComponent<CharacterBody>();
                 if (body == null || body.skillLocator == null) return;
 
                 var utilitySkill = body.skillLocator.utility;
                 if (utilitySkill == null) return;
 
-                // Only refresh stock if it's 0 and the bag still has room for another grab
                 if (utilitySkill.stock == 0 && BagCapacityCalculator.HasRoomForGrab(bagController))
                 {
-                    // When PrioritizeMainSeat is enabled, the skill is overridden with the bagged object's skill
-                    // We need to temporarily remove the override, refresh the stock, and reapply it
+
                     if (PluginConfig.Instance.PrioritizeMainSeat.Value)
                     {
-                        // Find the BaggedObject state machine
+
                         var stateMachines = bagController.GetComponents<EntityStateMachine>();
                         BaggedObject? baggedObject = null;
                         foreach (var esm in stateMachines)
@@ -272,20 +280,17 @@ namespace DrifterBossGrabMod.Patches
 
                         if (baggedObject != null)
                         {
-                            // Get override fields
+
                             var overriddenUtility = ReflectionCache.BaggedObject.OverriddenUtility.GetValue(baggedObject) as GenericSkill;
                             var utilityOverride = ReflectionCache.BaggedObject.UtilityOverride.GetValue(baggedObject) as RoR2.Skills.SkillDef;
 
-                            // Temporarily remove the override
                             if (overriddenUtility != null && utilityOverride != null)
                             {
                                 overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                                 ReflectionCache.BaggedObject.OverriddenUtility.SetValue(baggedObject, null);
 
-                                // Refresh the stock
                                 utilitySkill.stock = 1;
 
-                                // Reapply the override
                                 baggedObject.TryOverrideUtility(utilitySkill);
 
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -293,7 +298,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                             else
                             {
-                                // No override found, just refresh the stock
+
                                 utilitySkill.stock = 1;
                                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                                     Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat enabled but no override found)");
@@ -301,7 +306,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                         else
                         {
-                            // No BaggedObject state found, just refresh the stock
+
                             utilitySkill.stock = 1;
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat enabled but no BaggedObject state found)");
@@ -309,7 +314,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else
                     {
-                        // PrioritizeMainSeat is disabled, just refresh the stock normally
+
                         utilitySkill.stock = 1;
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Debug($"[SuccessiveGrab] Refreshed stock from 0 to 1 after successful grab (PrioritizeMainSeat disabled)");
@@ -351,15 +356,6 @@ namespace DrifterBossGrabMod.Patches
                     var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
                     if (targetObject == null) return;
 
-                    // check suppression: if suppression is active, do not restore physics yet.
-                    if (BaggedObjectPatches.IsObjectExitSuppressed(targetObject))
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" [BaggedObject.OnExit] Suppressing Rigidbody restoration for {targetObject.name} (AutoGrab/Transition)");
-                        }
-                        return;
-                    }
                     var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                     if (bagController != null)
                     {
@@ -377,47 +373,6 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
 
-                    // Re-enable Rigidbody for released objects
-                    var rb = targetObject.GetComponent<Rigidbody>();
-                    if (rb)
-                    {
-                        var existingState = bagController != null ? BaggedObjectPatches.LoadObjectState(bagController, targetObject) : null;
-                        if (existingState != null && existingState.hasCapturedRigidbodyState)
-                        {
-                            rb.isKinematic = existingState.originalIsKinematic;
-                            rb.useGravity = existingState.originalUseGravity;
-                            rb.mass = existingState.originalMass;
-                            rb.drag = existingState.originalDrag;
-                            rb.angularDrag = existingState.originalAngularDrag;
-                            rb.detectCollisions = true;
-                        }
-                        else
-                        {
-                            rb.isKinematic = false;
-                            rb.detectCollisions = true;
-                        }
-
-                    }
-
-                    // Re-enable hurtboxes that were disabled during the grab.
-                    var characterBody = targetObject.GetComponent<CharacterBody>();
-                    if (characterBody != null && characterBody.modelLocator != null)
-                    {
-                        var modelTransform = characterBody.modelLocator.modelTransform;
-                        if (modelTransform != null)
-                        {
-                            var hurtBoxGroup = modelTransform.GetComponent<RoR2.HurtBoxGroup>();
-                            if (hurtBoxGroup != null && hurtBoxGroup.hurtBoxesDeactivatorCounter > 0)
-                            {
-                                int oldCounter = hurtBoxGroup.hurtBoxesDeactivatorCounter;
-                                hurtBoxGroup.hurtBoxesDeactivatorCounter = 0;
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($"[BaggedObject.OnExit] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {targetObject.name}");
-                                }
-                            }
-                        }
-                    }
                 }
                 catch (Exception ex)
                 {

@@ -75,6 +75,7 @@ namespace DrifterBossGrabMod
                 {
                     _bottomlessBagFeature?.Toggle(isEnabled);
                     _wasBottomlessBagEnabled = isEnabled;
+                    UpdateBottomlessBagVisibility();
                 }
             };
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += bottomlessBagToggleHandler;
@@ -86,6 +87,7 @@ namespace DrifterBossGrabMod
                 {
                     _persistenceFeature?.Toggle(isEnabled);
                     _wasPersistenceEnabled = isEnabled;
+                    UpdatePersistenceVisibility();
                 }
             };
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged += persistenceToggleHandler;
@@ -109,6 +111,7 @@ namespace DrifterBossGrabMod
                 {
                     _balanceFeature?.Toggle(isEnabled);
                     _wasBalanceEnabled = isEnabled;
+                    UpdateBalanceVisibility();
                 }
             };
             PluginConfig.Instance.EnableBalance.SettingChanged += balanceToggleHandler;
@@ -120,9 +123,30 @@ namespace DrifterBossGrabMod
                 {
                     _recoveryFeature?.Toggle(isEnabled);
                     _wasRecoveryEnabled = isEnabled;
+                    UpdateRecoveryVisibility();
                 }
             };
             PluginConfig.Instance.EnableRecoveryFeature.SettingChanged += recoveryToggleHandler;
+
+            PluginConfig.Instance.EnableCarouselHUD.SettingChanged += (sender, args) =>
+            {
+                UpdateHudVisibility();
+            };
+
+            PluginConfig.Instance.EnableDamagePreview.SettingChanged += (sender, args) =>
+            {
+                UpdateHudVisibility();
+            };
+
+            PluginConfig.Instance.EnableMassCapacityUI.SettingChanged += (sender, args) =>
+            {
+                UpdateHudVisibility();
+            };
+
+            PluginConfig.Instance.EnableBaggedObjectInfo.SettingChanged += (sender, args) =>
+            {
+                UpdateHudVisibility();
+            };
         }
 
         private void SetupClientPreferenceHandlers()

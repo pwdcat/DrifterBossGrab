@@ -9,10 +9,10 @@ using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod.Balance
 {
-    // System for managing overencumbrance penalties
+
     public static class OverencumbranceSystem
     {
-        private const float OverencumbranceDebuffRemovalDelay = Constants.Timeouts.OverencumbranceDebuffRemovalDelay; // Seconds to wait before removing debuff
+        private const float OverencumbranceDebuffRemovalDelay = Constants.Timeouts.OverencumbranceDebuffRemovalDelay;
         private static readonly Dictionary<CharacterBody, Coroutine> _overencumbranceTimers = new Dictionary<CharacterBody, Coroutine>();
 
         public static float CalculateOverencumbrancePercent(float totalMass, float massCapacity)
@@ -20,7 +20,7 @@ namespace DrifterBossGrabMod.Balance
             if (massCapacity <= 0) return 0f;
 
             float capacityRatio = totalMass / massCapacity;
-            // Overencumbrance cap only applies when balance system is enabled
+
             float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
                 ? PluginConfig.Instance.OverencumbranceMax.Value / Constants.Multipliers.PercentageDivisor
                 : 0f;
@@ -41,7 +41,7 @@ namespace DrifterBossGrabMod.Balance
 
             if (overencumbrancePercent <= 0)
             {
-                // Not overencumbered - start removal timer if debuff is active
+
                 if (body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
                 {
                     StartRemovalTimer(body);
@@ -54,10 +54,8 @@ namespace DrifterBossGrabMod.Balance
                 return;
             }
 
-            // Overencumbered - remove timer if it exists and apply debuff
             StopRemovalTimer(body);
 
-            // Apply TransferDebuffOnHit debuff (only if not already applied)
             if (!body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
             {
                 ApplyTransferDebuff(body);
@@ -102,7 +100,6 @@ namespace DrifterBossGrabMod.Balance
         {
             yield return new WaitForSeconds(OverencumbranceDebuffRemovalDelay);
 
-            // Remove debuff if the body still has it and is no longer overencumbered
             if (body != null && body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
             {
                 RemoveTransferDebuff(body);
@@ -123,7 +120,7 @@ namespace DrifterBossGrabMod.Balance
 
             if (transferDebuff != null)
             {
-                // Add debuff (infinite duration, will be removed manually)
+
                 body.AddBuff(transferDebuff);
             }
         }

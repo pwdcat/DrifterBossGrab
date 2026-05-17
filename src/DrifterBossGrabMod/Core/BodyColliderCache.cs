@@ -6,8 +6,7 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod
 {
-    // cache colliders for characterbody to avoid expensive GetComponentsInChildren calls
-    // added to objects when first grabbed by drifter
+
     public class BodyColliderCache : MonoBehaviour
     {
         private Collider[]? _colliders;
@@ -32,12 +31,12 @@ namespace DrifterBossGrabMod
             var modelLocator = GetComponent<ModelLocator>();
             if (modelLocator != null && modelLocator.modelTransform != null)
             {
-                // Capture all colliders on the model, including inactive ones (e.g., higher LODs)
+
                 _colliders = modelLocator.modelTransform.GetComponentsInChildren<Collider>(true);
             }
             else
             {
-                // Fallback to object's own colliders if no model locator exists
+
                 _colliders = GetComponentsInChildren<Collider>(true);
             }
 
@@ -49,7 +48,6 @@ namespace DrifterBossGrabMod
             _isInitialized = true;
         }
 
-        // force refresh of cache if model transform changes
         public void RefreshCache()
         {
             _isInitialized = false;
@@ -57,7 +55,6 @@ namespace DrifterBossGrabMod
 
         public Dictionary<Collider, bool> OriginalStates { get; } = new Dictionary<Collider, bool>();
 
-        // disable all movement colliders on an object and record their previous state
         public static void DisableMovementColliders(GameObject obj, System.Collections.Generic.Dictionary<Collider, bool> originalStates)
         {
             System.Collections.Generic.IEnumerable<Collider> colliders;
@@ -92,7 +89,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // restore colliders to their previously recorded states
         public static void RestoreMovementColliders(System.Collections.Generic.Dictionary<Collider, bool> originalStates)
         {
             foreach (var kvp in originalStates)
@@ -101,7 +97,6 @@ namespace DrifterBossGrabMod
                 {
                     kvp.Key.enabled = kvp.Value;
 
-                    // Also clear from the cache if possible
                     var cache = kvp.Key.GetComponentInParent<BodyColliderCache>();
                     if (cache != null)
                     {

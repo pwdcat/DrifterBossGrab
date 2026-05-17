@@ -11,14 +11,13 @@ namespace DrifterBossGrabMod.Patches
     [HarmonyPatch]
     public static class TeleporterSafetyPatches
     {
-        // OutsideInteractableLocker NRE Shield
+
         [HarmonyPrefix]
         [HarmonyPatch(typeof(OutsideInteractableLocker), nameof(OutsideInteractableLocker.FixedUpdate))]
         public static bool LockerFixedUpdatePrefix(OutsideInteractableLocker __instance)
         {
             if (!NetworkServer.active || __instance == null) return true;
 
-            // Manual tick logic to catch the MoveNext() crash
             try
             {
                 var timerField = ReflectionCache.OutsideInteractableLocker.UpdateTimer;
@@ -32,7 +31,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (updateTimer <= 0f)
                 {
-                    timerField.SetValue(__instance, 0.1f); // updateInterval fallback
+                    timerField.SetValue(__instance, 0.1f);
                     IEnumerator? enumerator = coroutineField.GetValue(__instance) as IEnumerator;
 
                     if (enumerator != null)
@@ -47,13 +46,12 @@ namespace DrifterBossGrabMod.Patches
             }
             catch (Exception)
             {
-                // The coroutine will try again next tick.
+
             }
 
-            return false; // Skip vanilla FixedUpdate
+            return false;
         }
 
-        // BossGroup Reward Fallback
         [HarmonyPrefix]
         [HarmonyPatch(typeof(BossGroup), nameof(BossGroup.DropRewards))]
         public static void BossGroupDropRewardsPrefix(BossGroup __instance)

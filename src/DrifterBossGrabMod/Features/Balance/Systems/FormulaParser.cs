@@ -6,14 +6,19 @@ using System.Text;
 
 namespace DrifterBossGrabMod.Balance
 {
-    // Uses shunting-yard algorithm
-    // Supports operators, functions, constants, and variables
+
+    // ========================================================================================
+    // FORMULA PARSER
+    // ========================================================================================
     public static class FormulaParser
     {
-        // Cache for parsed formulas
+
         private static readonly Dictionary<string, List<Token>> _rpnCache = new();
         #region Token Types
 
+        // ========================================================================================
+        // TOKEN TYPES
+        // ========================================================================================
         private enum TokenType
         {
             Number,
@@ -46,6 +51,9 @@ namespace DrifterBossGrabMod.Balance
 
         #region Operator Definitions
 
+        // ========================================================================================
+        // OPERATOR DEFINITIONS
+        // ========================================================================================
         private static readonly Dictionary<string, (int Precedence, bool RightAssociative)> Operators = new()
         {
             ["+"] = (2, false),
@@ -54,7 +62,7 @@ namespace DrifterBossGrabMod.Balance
             ["/"] = (3, false),
             ["%"] = (3, false),
             ["^"] = (4, true),
-            ["~"] = (5, true), // Internal: unary minus
+            ["~"] = (5, true),
         };
 
         private static readonly HashSet<string> Functions = new(StringComparer.OrdinalIgnoreCase)
@@ -75,7 +83,9 @@ namespace DrifterBossGrabMod.Balance
 
         #region Public API
 
-        // Evaluate a formula string and return the result as a float.
+        // ========================================================================================
+        // PUBLIC API
+        // ========================================================================================
         public static float Evaluate(string formula, Dictionary<string, float> variables)
         {
             return Evaluate(formula, variables, suppressExceptions: true);
@@ -87,7 +97,6 @@ namespace DrifterBossGrabMod.Balance
             return Evaluate(formula, variables);
         }
 
-        // Public method that allows exception handling to be suppressed (for testing)
         public static float Evaluate(string formula, Dictionary<string, float> variables, bool suppressExceptions)
         {
             if (string.IsNullOrWhiteSpace(formula))
@@ -97,10 +106,9 @@ namespace DrifterBossGrabMod.Balance
             {
                 List<Token> rpn;
 
-                // Fast path: use cached parsed formula if available
                 if (!_rpnCache.TryGetValue(formula, out rpn))
                 {
-                    // Slow path: tokenize and shunt
+
                     var tokens = Tokenize(formula);
                     rpn = ShuntingYard(tokens);
                     _rpnCache[formula] = rpn;
@@ -130,7 +138,6 @@ namespace DrifterBossGrabMod.Balance
             }
         }
 
-        // Evaluate a formula string and return the result as an integer (auto-floored)
         public static int EvaluateInt(string formula, Dictionary<string, float> variables)
         {
             float result = Evaluate(formula, variables);
@@ -144,11 +151,10 @@ namespace DrifterBossGrabMod.Balance
             return (int)Math.Floor(result);
         }
 
-        // Validate a formula string for syntax errors
         public static string? Validate(string formula)
         {
             if (string.IsNullOrWhiteSpace(formula))
-                return null; // Empty is valid (evaluates to 0)
+                return null;
 
             try
             {
@@ -166,6 +172,9 @@ namespace DrifterBossGrabMod.Balance
 
         #region Tokenizer
 
+        // ========================================================================================
+        // TOKENIZER
+        // ========================================================================================
         private static List<Token> Tokenize(string formula)
         {
             var tokens = new List<Token>();
@@ -175,14 +184,12 @@ namespace DrifterBossGrabMod.Balance
             {
                 char c = formula[i];
 
-                // Skip whitespace
                 if (char.IsWhiteSpace(c))
                 {
                     i++;
                     continue;
                 }
 
-                // Numbers (including decimals like .5 or 3.14)
                 if (char.IsDigit(c) || (c == '.' && i + 1 < formula.Length && char.IsDigit(formula[i + 1])))
                 {
                     var sb = new StringBuilder();
@@ -200,7 +207,6 @@ namespace DrifterBossGrabMod.Balance
                     continue;
                 }
 
-                // Identifiers (variables, functions, constants)
                 if (char.IsLetter(c) || c == '_')
                 {
                     var sb = new StringBuilder();
@@ -211,7 +217,6 @@ namespace DrifterBossGrabMod.Balance
                     }
                     string identifier = sb.ToString();
 
-                    // Check if it's a function (followed by '(')
                     int peek = i;
                     while (peek < formula.Length && char.IsWhiteSpace(formula[peek])) peek++;
                     if (peek < formula.Length && formula[peek] == '(')
@@ -231,13 +236,12 @@ namespace DrifterBossGrabMod.Balance
                     }
                     else
                     {
-                        // It's a variable
+
                         tokens.Add(new Token(TokenType.Variable, identifier.ToUpperInvariant()));
                     }
                     continue;
                 }
 
-                // Operators and punctuation
                 switch (c)
                 {
                     case '+':
@@ -245,7 +249,7 @@ namespace DrifterBossGrabMod.Balance
                         i++;
                         break;
                     case '-':
-                        // Determine if unary minus
+
                         if (IsUnaryMinus(tokens))
                         {
                             tokens.Add(new Token(TokenType.UnaryMinus, "~"));
@@ -307,6 +311,9 @@ namespace DrifterBossGrabMod.Balance
 
         #region Shunting-Yard Algorithm
 
+        // ========================================================================================
+        // SHUNTING-YARD ALGORITHM
+        // ========================================================================================
         private static List<Token> ShuntingYard(List<Token> tokens)
         {
             var output = new List<Token>();
@@ -377,9 +384,8 @@ namespace DrifterBossGrabMod.Balance
                         }
                         if (operatorStack.Count == 0)
                             throw new FormatException("Mismatched parentheses: missing '('");
-                        operatorStack.Pop(); // Remove the '('
+                        operatorStack.Pop();
 
-                        // If there's a function on top, pop it to output
                         if (operatorStack.Count > 0 && operatorStack.Peek().Type == TokenType.Function)
                         {
                             output.Add(operatorStack.Pop());
@@ -388,7 +394,6 @@ namespace DrifterBossGrabMod.Balance
                 }
             }
 
-            // Pop remaining operators
             while (operatorStack.Count > 0)
             {
                 var top = operatorStack.Pop();
@@ -404,6 +409,9 @@ namespace DrifterBossGrabMod.Balance
 
         #region RPN Evaluator
 
+        // ========================================================================================
+        // RPN EVALUATOR
+        // ========================================================================================
         private static double EvaluateRPN(List<Token> rpn, Dictionary<string, float> variables)
         {
             var stack = new Stack<double>();
@@ -478,7 +486,7 @@ namespace DrifterBossGrabMod.Balance
         {
             switch (name)
             {
-                // Single-argument functions
+
                 case "floor":
                     RequireArgs(stack, 1, name);
                     stack.Push(Math.Floor(stack.Pop()));
@@ -529,7 +537,6 @@ namespace DrifterBossGrabMod.Balance
                     stack.Push(Math.Sign(stack.Pop()));
                     break;
 
-                // Two-argument functions
                 case "min":
                     RequireArgs(stack, 2, name);
                     { double b = stack.Pop(); double a = stack.Pop(); stack.Push(Math.Min(a, b)); }
@@ -543,7 +550,6 @@ namespace DrifterBossGrabMod.Balance
                     { double b = stack.Pop(); double a = stack.Pop(); stack.Push(Math.Pow(a, b)); }
                     break;
 
-                // Three-argument functions
                 case "clamp":
                     RequireArgs(stack, 3, name);
                     { double hi = stack.Pop(); double lo = stack.Pop(); double val = stack.Pop(); stack.Push(Math.Clamp(val, lo, hi)); }

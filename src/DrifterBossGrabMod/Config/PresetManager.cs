@@ -10,19 +10,23 @@ using RoR2;
 
 namespace DrifterBossGrabMod.Config
 {
-    // Manages preset application and auto-switching to Custom preset.
+
+    // ========================================================================================
+    // PRESET MANAGER
+    // ========================================================================================
     public static class PresetManager
     {
-        // Flag to prevent infinite loops when applying presets
+
         private static bool _isApplyingPreset = false;
 
-        // Apply a preset to all config entries.
-        // param presetType: The preset type to apply.
+        // ========================================================================================
+        // PRESET APPLICATION
+        // ========================================================================================
         public static void ApplyPreset(PresetType presetType)
         {
             if (presetType == PresetType.Custom)
             {
-                // "Custom" preset is auto-set on manual config changes; it's a state indicator, not a real preset
+
                 return;
             }
 
@@ -46,7 +50,7 @@ namespace DrifterBossGrabMod.Config
                     {
                         try
                         {
-                            // Set value based on its type
+
                             if (setting.Value is bool boolValue)
                             {
                                 var boolEntry = configEntry as ConfigEntry<bool>;
@@ -94,11 +98,11 @@ namespace DrifterBossGrabMod.Config
                             }
                             else
                             {
-                                // ConfigEntry.SetCurrentValue lacks public enum overload; reflection required for type safety
+
                                 var configEntryType = configEntry.GetType().GetGenericArguments().FirstOrDefault();
                                 if (configEntryType != null && configEntryType.IsEnum && setting.Value.GetType() == configEntryType)
                                 {
-                                    // Public API doesn't expose enum type handling; private reflection ensures correct enum assignment
+
                                     var valueProperty = configEntry.GetType().GetProperty("Value");
                                     if (valueProperty != null)
                                     {
@@ -115,14 +119,11 @@ namespace DrifterBossGrabMod.Config
                     }
                 }
 
-                // Sync UI to show "Custom" after manual setting changes
                 PluginConfig.Instance.SelectedPreset.Value = presetType;
                 PluginConfig.Instance.LastSelectedPreset.Value = presetType;
 
-                // Force refresh of all bag controllers to apply changes
                 RefreshAllBagControllers();
 
-                // Refresh all RiskOfOptions UI to show updated values
                 RefreshAllRiskOfOptionsUI();
             }
             finally
@@ -142,7 +143,9 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Forces RiskOfOptions UI refresh by toggling GameObject states (bypasses internal caches)
+        // ========================================================================================
+        // UI REFRESH HELPERS
+        // ========================================================================================
         private static void RefreshAllRiskOfOptionsUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
@@ -156,7 +159,7 @@ namespace DrifterBossGrabMod.Config
 
             foreach (var setting in allSettings)
             {
-                // Force re-render by deactivating and reactivating the GameObject
+
                 var gameObject = setting.gameObject;
                 if (gameObject != null && gameObject.activeSelf)
                 {
@@ -166,7 +169,9 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Auto-switch to Custom preset on manual setting change (prevents preset override).
+        // ========================================================================================
+        // EVENT HANDLERS
+        // ========================================================================================
         public static void OnSettingModified()
         {
             if (_isApplyingPreset) return;
@@ -176,7 +181,6 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Syncs RiskOfOptions UI to display current preset selection
         public static void RefreshPresetDropdownUI()
         {
             if (!DrifterBossGrabPlugin.RooInstalled) return;
@@ -190,7 +194,7 @@ namespace DrifterBossGrabMod.Config
 
             foreach (var setting in allSettings)
             {
-                // Force re-render by deactivating and reactivating GameObject
+
                 var gameObject = setting.gameObject;
                 if (gameObject != null && gameObject.activeSelf)
                 {
@@ -200,7 +204,9 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
-        // Maps category.key strings to config entries for preset value assignment
+        // ========================================================================================
+        // CONFIG MAPPING
+        // ========================================================================================
         private static ConfigEntryBase? GetConfigEntry(string settingKey)
         {
             var parts = settingKey.Split('.');
@@ -212,7 +218,6 @@ namespace DrifterBossGrabMod.Config
             var category = parts[0];
             var key = parts[1];
 
-            // Map category names to config entries
             var configEntry = category switch
             {
                 "General" => GetGeneralConfigEntry(key),
@@ -220,6 +225,7 @@ namespace DrifterBossGrabMod.Config
                 "BottomlessBag" => GetBottomlessBagConfigEntry(key),
                 "Hud" => GetHudConfigEntry(key),
                 "Balance" => GetBalanceConfigEntry(key),
+                "Character Flags" => GetCharacterFlagsConfigEntry(key),
                 _ => null
             };
 
@@ -271,7 +277,6 @@ namespace DrifterBossGrabMod.Config
             return key switch
             {
                 "EnableBottomlessBag" => instance.BottomlessBagEnabled,
-                "AddedCapacity" => instance.AddedCapacity,
                 "EnableStockRefreshClamping" => instance.EnableStockRefreshClamping,
                 "EnableSuccessiveGrabStockRefresh" => instance.EnableSuccessiveGrabStockRefresh,
                 "CycleCooldown" => instance.CycleCooldown,
@@ -280,6 +285,7 @@ namespace DrifterBossGrabMod.Config
                 "InverseMouseWheelScrolling" => instance.InverseMouseWheelScrolling,
                 "AutoPromoteMainSeat" => instance.AutoPromoteMainSeat,
                 "PrioritizeMainSeat" => instance.PrioritizeMainSeat,
+                "SlotScalingFormula" => instance.SlotScalingFormula,
                 _ => null
             };
         }
@@ -348,21 +354,8 @@ namespace DrifterBossGrabMod.Config
                 "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
                 "MaxSmacks" => instance.MaxSmacks,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
-                "SlotScalingFormula" => instance.SlotScalingFormula,
                 "MassCapacityFormula" => instance.MassCapacityFormula,
-                "EliteFlagMultiplier" => instance.EliteFlagMultiplier,
-                "BossFlagMultiplier" => instance.BossFlagMultiplier,
-                "ChampionFlagMultiplier" => instance.ChampionFlagMultiplier,
-                "PlayerFlagMultiplier" => instance.PlayerFlagMultiplier,
-                "MinionFlagMultiplier" => instance.MinionFlagMultiplier,
-                "DroneFlagMultiplier" => instance.DroneFlagMultiplier,
-                "MechanicalFlagMultiplier" => instance.MechanicalFlagMultiplier,
-                "VoidFlagMultiplier" => instance.VoidFlagMultiplier,
-                "AllFlagMultiplier" => instance.AllFlagMultiplier,
                 "SlamDamageFormula" => instance.SlamDamageFormula,
-                "SelectedFlag" => instance.SelectedFlag,
-                "SelectedFlagMultiplier" => instance.SelectedFlagMultiplier,
-                "SelectedBalanceSubTab" => instance.SelectedBalanceSubTab,
                 "OverencumbranceMax" => instance.OverencumbranceMax,
                 "StateCalculationMode" => instance.StateCalculationMode,
                 "MovespeedPenaltyFormula" => instance.MovespeedPenaltyFormula,
@@ -373,7 +366,27 @@ namespace DrifterBossGrabMod.Config
             };
         }
 
-        // Force refresh of all bag controllers to apply config changes.
+        private static ConfigEntryBase? GetCharacterFlagsConfigEntry(string key)
+        {
+            var instance = PluginConfig.Instance;
+            return key switch
+            {
+                "EliteFlagMultiplier" => instance.EliteFlagMultiplier,
+                "BossFlagMultiplier" => instance.BossFlagMultiplier,
+                "ChampionFlagMultiplier" => instance.ChampionFlagMultiplier,
+                "PlayerFlagMultiplier" => instance.PlayerFlagMultiplier,
+                "MinionFlagMultiplier" => instance.MinionFlagMultiplier,
+                "DroneFlagMultiplier" => instance.DroneFlagMultiplier,
+                "MechanicalFlagMultiplier" => instance.MechanicalFlagMultiplier,
+                "VoidFlagMultiplier" => instance.VoidFlagMultiplier,
+                "AllFlagMultiplier" => instance.AllFlagMultiplier,
+                _ => null
+            };
+        }
+
+        // ========================================================================================
+        // STATE REFRESH
+        // ========================================================================================
         private static void RefreshAllBagControllers()
         {
             var bagControllers = UnityEngine.Object.FindObjectsByType<DrifterBagController>(FindObjectsSortMode.None);

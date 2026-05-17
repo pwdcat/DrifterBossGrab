@@ -10,14 +10,13 @@ using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod.Patches
 {
-    // Provides static helper methods for bag operations
+
     public static class BagHelpers
     {
-        // Safe name accessor that returns "null" for null objects (prevents logging errors)
+
         public static string GetSafeName(UnityEngine.Object? obj) => obj ? obj!.name : "null";
 
-        // Adds a tracker component to a bagged object
-        public static void AddTracker(DrifterBagController controller, GameObject obj)
+        public static void AddTracker(DrifterBagController? controller, GameObject obj)
         {
             if (obj == null || controller == null) return;
             var tracker = obj.GetComponent<BaggedObjectTracker>();
@@ -32,7 +31,6 @@ namespace DrifterBossGrabMod.Patches
                 tracker.controller = controller;
             }
 
-            // Register the "Body" ESM for O(1) lookup in the SetState patch
             if (tracker != null)
             {
                 var esms = obj.GetComponents<EntityStateMachine>();
@@ -47,7 +45,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Cleans up empty additional seats for the given controller
         public static void CleanupEmptyAdditionalSeats(DrifterBagController? controller)
         {
             if (controller == null)
@@ -96,8 +93,7 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Gets the additional seat for a given bagged object
-        public static RoR2.VehicleSeat? GetAdditionalSeat(DrifterBagController controller, GameObject obj)
+        public static RoR2.VehicleSeat? GetAdditionalSeat(DrifterBagController? controller, GameObject obj)
         {
             if (obj == null || controller == null) return null;
             var seatDict = BagPatches.GetState(controller).AdditionalSeats;
@@ -111,8 +107,7 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
-        // Checks if an object is currently bagged
-        public static bool IsBaggedObject(DrifterBagController controller, GameObject? obj)
+        public static bool IsBaggedObject(DrifterBagController? controller, GameObject? obj)
         {
             if (obj == null || controller == null) return false;
             var list = BagPatches.GetState(controller).BaggedObjects;

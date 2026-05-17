@@ -35,20 +35,17 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         private static bool OnDisablePrefix(CombatDirector __instance)
         {
-            // Check if this is a teleporter director that's being restored from persistence
+
             if (_restoringTeleporterDirectors.Contains(__instance))
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Debug($"[CombatDirectorPatches] Blocking vanilla credit transfer for {__instance.name} (restoring from persistence)");
 
-                // Remove from instances list (part of normal OnDisable behavior)
                 CombatDirector.instancesList.Remove(__instance);
 
-                // Skip the original method to prevent credit transfer
                 return false;
             }
 
-            // Allow normal vanilla behavior for other directors
             return true;
         }
     }

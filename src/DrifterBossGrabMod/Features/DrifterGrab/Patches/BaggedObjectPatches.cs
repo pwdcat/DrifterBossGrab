@@ -17,39 +17,16 @@ using DrifterBossGrabMod.Core;
 
 namespace DrifterBossGrabMod.Patches
 {
+
+    // ========================================================================================
+    // BAGGED OBJECT PATCHES
+    // ========================================================================================
     public static class BaggedObjectPatches
     {
-        private static readonly HashSet<GameObject> _suppressedExitObjects = new HashSet<GameObject>();
 
-        public static void SuppressExitForObject(GameObject obj)
-        {
-            if (obj == null) return;
-            lock (_suppressedExitObjects)
-            {
-                _suppressedExitObjects.Add(obj);
-            }
-            // Reset after 2 seconds to be safe
-            if (DrifterBossGrabPlugin.Instance != null)
-            {
-                DrifterBossGrabPlugin.Instance.StartCoroutine(ResetSuppressionForObject(obj, 2f));
-            }
-        }
-        public static bool IsObjectExitSuppressed(GameObject obj)
-        {
-            if (obj == null) return false;
-            lock (_suppressedExitObjects)
-            {
-                return _suppressedExitObjects.Contains(obj);
-            }
-        }
-        private static System.Collections.IEnumerator ResetSuppressionForObject(GameObject obj, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            lock (_suppressedExitObjects)
-            {
-                _suppressedExitObjects.Remove(obj);
-            }
-        }
+        // ========================================================================================
+        // STATE SYNCHRONIZATION
+        // ========================================================================================
         private static readonly MethodInfo _onSyncBaggedObjectMethod = ReflectionCache.DrifterBagController.OnSyncBaggedObject;
         private static readonly MethodInfo _tryOverrideUtilityMethod = ReflectionCache.BaggedObject.TryOverrideUtility;
         private static readonly MethodInfo _tryOverridePrimaryMethod = ReflectionCache.BaggedObject.TryOverridePrimary;
@@ -86,7 +63,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 if (baggedObject != null)
                 {
-                    // Set the target immediately to ensure it's available when the state machine transitions
+
                     baggedObject.targetObject = targetObject;
                     UpdateTargetFields(baggedObject);
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -96,7 +73,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // 1. Update network state (for multiplayer)
             if (NetworkServer.active)
             {
                 if (bagController.NetworkbaggedObject != targetObject)
@@ -121,7 +97,7 @@ namespace DrifterBossGrabMod.Patches
             }
             else if (bagController.hasAuthority)
             {
-                // Check if we need to update to avoid redundant calls
+
                 if (!DrifterBossGrabPlugin.IsSwappingPassengers)
                 {
                     var currentBaggedObj = bagController.baggedObject;
@@ -129,7 +105,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Debug($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {(!targetObject ? "null" : targetObject!.name)}");
-                        // Use cached reflection to call private OnSyncBaggedObject
+
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
                 }
@@ -139,7 +115,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // 2. Apply skill overrides (not handled by VehicleSeat.OnPassengerEnter())
             if (baggedObject != null && targetObject != null)
             {
                 var baggedList = BagPatches.GetState(bagController).BaggedObjects;
@@ -179,7 +154,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // 3. Apply balance mode
             if (PluginConfig.Instance.EnableBalance.Value && targetObject != null)
             {
                 var calculatedState = StateCalculator.CalculateState(
@@ -189,7 +163,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (calculatedState != null)
                 {
-                    // Apply to BaggedObject state if it exists
+
                     if (baggedObject != null)
                     {
                         calculatedState.ApplyToBaggedObject(baggedObject);
@@ -197,6 +171,10 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+
+        // ========================================================================================
+        // UTILITIES
+        // ========================================================================================
         public static void UpdateTargetFields(BaggedObject? instance)
         {
             if (instance == null || instance.targetObject == null) return;
@@ -264,7 +242,6 @@ namespace DrifterBossGrabMod.Patches
                 _bagScale01Field.SetValue(baggedObject, bagScale01);
             }
 
-            // When BagScaleCap is enabled
             if (PluginConfig.Instance.EnableBalance.Value)
             {
                 bool isScaleUncapped = PluginConfig.Instance.IsBagScaleCapInfinite;
@@ -282,7 +259,9 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // Helper methods for per-object state storage
+        // ========================================================================================
+        // STATE STORAGE
+        // ========================================================================================
         public static void SaveObjectState(DrifterBagController controller, GameObject obj, BaggedObjectStateData state)
         {
             BaggedObjectStateStorage.SaveObjectState(controller, obj, state);
@@ -323,13 +302,14 @@ namespace DrifterBossGrabMod.Patches
             BaggedObjectStateStorage.ClearAllTemporaryPreservation(controller);
         }
 
-        // Remove the UI overlay for an object that has left the main seat.
+        // ========================================================================================
+        // UI OVERLAY HELPERS
+        // ========================================================================================
         public static void RemoveUIOverlay(GameObject targetObject, DrifterBagController? bagController = null)
         {
             BaggedObjectUIPatches.RemoveUIOverlay(targetObject, bagController);
         }
 
-        // Handle UI removal when cycling to null state (main seat becomes empty)
         public static void RemoveUIOverlayForNullState(DrifterBagController bagController)
         {
             BaggedObjectUIPatches.RemoveUIOverlayForNullState(bagController);
@@ -340,7 +320,6 @@ namespace DrifterBossGrabMod.Patches
             BaggedObjectUIPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
         }
 
-        // Helper method to check if an object is in the main seat
         private static bool IsInMainSeat(DrifterBagController bagController, GameObject targetObject)
         {
             if (bagController == null || targetObject == null) return false;
@@ -383,6 +362,9 @@ namespace DrifterBossGrabMod.Patches
             return result;
         }
 
+        // ========================================================================================
+        // HARMONY PATCHES
+        // ========================================================================================
         [HarmonyPatch(typeof(BaggedObject), "TryOverrideUtility")]
         public class BaggedObject_TryOverrideUtility
         {
@@ -427,6 +409,25 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"[BaggedObject_TryOverrideUtility.Prefix] SKIPPING override for {(!targetObject ? "null" : targetObject!.name)} (not in main seat, not being cycled)");
                     }
 
+                    if (trackedMain != null && skill != null && !skill.HasSkillOverrideOfPriority(GenericSkill.SkillOverridePriority.Contextual))
+                    {
+                        var utilityOverride = (SkillDef?)ReflectionCache.BaggedObject.UtilityOverride?.GetValue(__instance);
+                        if (utilityOverride != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[BaggedObject_TryOverrideUtility.Prefix] RE-APPLYING utility override for main seat object {trackedMain.name} (override was cleaned up by vanilla OnExit)");
+                            }
+                            ReflectionCache.BaggedObject.OverriddenUtility?.SetValue(__instance, skill);
+                            skill.SetSkillOverride(__instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            var skillLocator = __instance.outer.GetComponent<SkillLocator>();
+                            if (skillLocator != null && skillLocator.utility != null)
+                            {
+                                skill.stock = skillLocator.utility.stock;
+                            }
+                        }
+                    }
+
                     return false;
                 }
             }
@@ -460,7 +461,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
-        // Patch TryOverridePrimary to only allow skill overrides for main vehicle seat objects
+
         [HarmonyPatch(typeof(BaggedObject), "TryOverridePrimary")]
         public class BaggedObject_TryOverridePrimary
         {
@@ -468,7 +469,7 @@ namespace DrifterBossGrabMod.Patches
             public static bool Prefix(BaggedObject __instance, GenericSkill skill)
             {
                 if (__instance == null || !__instance.outer) return true;
-                // Get the DrifterBagController
+
                 var bagController = __instance.outer.GetComponent<DrifterBagController>();
                 if (bagController == null) return true;
                 var targetObject = __instance.targetObject;
@@ -497,7 +498,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         Log.Info($"[BaggedObject_TryOverridePrimary.Prefix] ALLOWING override for {(!targetObject ? "null" : targetObject!.name)}");
                     }
-                    return true; // Allow normal execution
+                    return true;
                 }
                 else
                 {
@@ -506,7 +507,26 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"[BaggedObject_TryOverridePrimary.Prefix] SKIPPING override for {(!targetObject ? "null" : targetObject!.name)} (not in main seat, not being cycled)");
                     }
 
-                    return false; // Skip vanilla — don't set overrides for non-main-seat objects
+                    if (trackedMain != null && skill != null && !skill.HasSkillOverrideOfPriority(GenericSkill.SkillOverridePriority.Contextual))
+                    {
+                        var primaryOverride = (SkillDef?)ReflectionCache.BaggedObject.PrimaryOverride?.GetValue(__instance);
+                        if (primaryOverride != null)
+                        {
+                            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            {
+                                Log.Info($"[BaggedObject_TryOverridePrimary.Prefix] RE-APPLYING primary override for main seat object {trackedMain.name} (override was cleaned up by vanilla OnExit)");
+                            }
+                            ReflectionCache.BaggedObject.OverriddenPrimary?.SetValue(__instance, skill);
+                            skill.SetSkillOverride(__instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
+                            var skillLocator = __instance.outer.GetComponent<SkillLocator>();
+                            if (skillLocator != null && skillLocator.primary != null)
+                            {
+                                skill.stock = skillLocator.primary.stock;
+                            }
+                        }
+                    }
+
+                    return false;
                 }
             }
 
@@ -615,6 +635,9 @@ namespace DrifterBossGrabMod.Patches
             return null;
         }
 
+        // ========================================================================================
+        // PASSENGER EXIT HANDLING
+        // ========================================================================================
         public static void HandlePassengerExit(RoR2.VehicleSeat seat, GameObject passenger)
         {
             if (seat == null || passenger == null) return;
@@ -628,12 +651,10 @@ namespace DrifterBossGrabMod.Patches
             var baggedObjectsList = BagPatches.GetState(bagController).BaggedObjects;
             bool isInBaggedObjects = baggedObjectsList != null && baggedObjectsList!.Contains(passenger);
 
-            // Check if the passenger was reassigned to another seat
             bool isInMainSeat = bagController.vehicleSeat != null &&
                                 bagController.vehicleSeat.hasPassenger &&
                                 ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, passenger);
 
-            // Get the additional seat currently assigned to this object in our tracking dictionary
             var currentAssignedSeat = BagHelpers.GetAdditionalSeat(bagController, passenger);
             bool isInAdditionalSeat = currentAssignedSeat != null &&
                                       currentAssignedSeat.hasPassenger &&
@@ -658,7 +679,6 @@ namespace DrifterBossGrabMod.Patches
                 BagPassengerManager.ForceRecalculateMass(bagController);
                 RemoveUIOverlay(passenger, bagController);
 
-                // Clean up initialization tracking when passenger truly exits
                 BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(passenger);
             }
         }

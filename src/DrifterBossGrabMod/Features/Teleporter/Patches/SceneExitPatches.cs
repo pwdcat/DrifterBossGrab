@@ -8,7 +8,6 @@ namespace DrifterBossGrabMod.Patches
     {
         private static bool _hasCapturedForScene = false;
 
-        // Reset the capture flag when a new scene loads so we are ready for the next transition
         public static void ResetCaptureFlag()
         {
             _hasCapturedForScene = false;
@@ -20,7 +19,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(SceneExitController __instance)
             {
-                // Subscribe to the begin exit event
+
                 SceneExitController.onBeginExit += OnBeginExit;
             }
         }
@@ -62,19 +61,15 @@ namespace DrifterBossGrabMod.Patches
 
             _hasCapturedForScene = true;
 
-            // Get currently bagged objects
             var baggedObjects = PersistenceManager.GetCurrentlyBaggedObjects();
 
-            // Send persistence message to all clients (only from server to avoid duplicates)
             if (NetworkServer.active)
             {
                 PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(baggedObjects);
             }
 
-            // Capture currently bagged objects before scene transition
             PersistenceManager.CaptureCurrentlyBaggedObjects();
 
-            // Move objects to persistence container
             PersistenceManager.MoveObjectsToPersistenceContainer();
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)

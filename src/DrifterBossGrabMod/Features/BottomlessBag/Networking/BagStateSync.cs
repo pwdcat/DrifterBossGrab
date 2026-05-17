@@ -91,7 +91,7 @@ namespace DrifterBossGrabMod.Networking
             Log.Info("[BagStateSync] OnClientConnect firing");
             if (NetworkManager.singleton?.client != null)
             {
-                // might use this later
+
             }
         }
 
