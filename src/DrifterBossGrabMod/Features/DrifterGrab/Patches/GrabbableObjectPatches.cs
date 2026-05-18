@@ -540,7 +540,6 @@ namespace DrifterBossGrabMod.Patches
             }
 
         }
-        #region Harmony Patches
 
         // ========================================================================================
         // HARMONY PATCHES
@@ -611,8 +610,6 @@ namespace DrifterBossGrabMod.Patches
 
             return (scaledMass, scaledDurability);
         }
-        #endregion
-        #region SpecialObjectAttributes Patches
 
         // ========================================================================================
         // SPECIAL OBJECT ATTRIBUTES PATCHES
@@ -710,6 +707,5 @@ namespace DrifterBossGrabMod.Patches
                 AddSpecialObjectAttributesToGrabbableObject(__instance.outer.gameObject);
             }
         }
-        #endregion
     }
 }

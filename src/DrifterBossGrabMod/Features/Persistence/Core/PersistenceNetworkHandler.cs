@@ -142,6 +142,10 @@ namespace DrifterBossGrabMod
                 if (PersistenceSceneHandler.IsRestoringFromSceneChange())
                 {
                     VisualRefreshUtility.Refresh(obj);
+                    if (PersistenceObjectsTracker.IsObjectCurrentlyBagged(obj))
+                    {
+                        PersistenceObjectsTracker.SetBaggedObjectVisibility(obj, false);
+                    }
                 }
 
                 PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);

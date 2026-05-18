@@ -7,6 +7,7 @@ using RoR2.UI;
 using RoR2.HudOverlay;
 using EntityStates.Drifter.Bag;
 using UnityEngine;
+using UnityEngine.Networking;
 using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
@@ -16,11 +17,36 @@ namespace DrifterBossGrabMod.Patches
 
         public static readonly HashSet<GameObject> RegisteredObjects = new HashSet<GameObject>();
 
-        private static readonly FieldInfo _collisionToDisableField = ReflectionCache.SpecialObjectAttributes.CollisionToDisable;
         private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
         private static readonly FieldInfo _collidersToDisableField = ReflectionCache.SpecialObjectAttributes.CollidersToDisable;
         private static readonly FieldInfo _behavioursToDisableField = ReflectionCache.SpecialObjectAttributes.BehavioursToDisable;
         private static readonly FieldInfo _uiOverlayControllerField = ReflectionCache.BaggedObject.UIOverlayController;
+
+        private static bool IsEssentialBehaviour(MonoBehaviour behaviour)
+        {
+            return behaviour is HealthComponent
+                || behaviour is CharacterBody
+                || behaviour is CharacterMotor
+                || behaviour is EntityStateMachine
+                || behaviour is NetworkBehaviour
+                || behaviour is ModelLocator
+                || behaviour is SkillLocator
+                || behaviour is InputBankTest
+                || behaviour is CameraTargetParams;
+        }
+
+        private static bool IsEssentialCollider(Collider collider, GameObject root)
+        {
+            if (collider.gameObject == root)
+                return true;
+            if (collider.GetComponent<HurtBox>() != null)
+                return true;
+            if (collider.GetComponentInParent<HurtBoxGroup>(true) != null)
+                return true;
+            if (collider.GetComponent<CharacterMotor>() != null)
+                return true;
+            return false;
+        }
 
         [HarmonyPatch(typeof(SpecialObjectAttributes), "OnEnable")]
         public class SpecialObjectAttributes_OnEnable_Patch
@@ -57,39 +83,38 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(BaggedObject __instance)
             {
-
                 var targetObject = _targetObjectField?.GetValue(__instance) as GameObject;
-                if (targetObject != null)
+                if (targetObject == null) return;
+
+                var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();
+                if (specialAttrs == null) return;
+
+                var colliders = targetObject.GetComponentsInChildren<Collider>(true);
+                var collidersToDisable = _collidersToDisableField?.GetValue(specialAttrs) as List<Collider>;
+                if (collidersToDisable != null)
                 {
-                    var specialAttrs = targetObject.GetComponent<SpecialObjectAttributes>();
-                    if (specialAttrs != null)
+                    foreach (var collider in colliders)
                     {
-                        var colliders = targetObject.GetComponentsInChildren<Collider>(true);
-
-                        var collidersToDisable = _collidersToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<Collider>;
-                        if (collidersToDisable != null)
+                        if (IsEssentialCollider(collider, targetObject))
+                            continue;
+                        if (!collidersToDisable.Contains(collider))
                         {
-                            foreach (var collider in colliders)
-                            {
-                                if (!collidersToDisable.Contains(collider))
-                                {
-                                    collidersToDisable.Add(collider);
-                                }
-                            }
+                            collidersToDisable.Add(collider);
                         }
+                    }
+                }
 
-                        var behavioursToDisable = _behavioursToDisableField?.GetValue(specialAttrs) as System.Collections.Generic.List<MonoBehaviour>;
-                        if (behavioursToDisable != null)
+                var behavioursToDisable = _behavioursToDisableField?.GetValue(specialAttrs) as List<MonoBehaviour>;
+                if (behavioursToDisable != null)
+                {
+                    var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
+                    foreach (var behavior in behaviors)
+                    {
+                        if (IsEssentialBehaviour(behavior))
+                            continue;
+                        if (!behavioursToDisable.Contains(behavior))
                         {
-                            var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
-                            foreach (var behavior in behaviors)
-                            {
-
-                                if (!behavioursToDisable.Contains(behavior))
-                                {
-                                    behavioursToDisable.Add(behavior);
-                                }
-                            }
+                            behavioursToDisable.Add(behavior);
                         }
                     }
                 }

@@ -268,8 +268,14 @@ namespace DrifterBossGrabMod.Patches
                     {
                         storedState.ApplyToBaggedObject(__instance);
 
+                        if (ReflectionCache.DrifterBagController.Smacks != null)
+                        {
+                            int passengerSmacks = storedState.smacks;
+                            ReflectionCache.DrifterBagController.Smacks.SetValue(bagController, passengerSmacks);
+                        }
+
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[BaggedObject_OnEnter.Postfix] Restored breakout state for {targetObject.name}: age={storedState.elapsedBreakoutTime:F2}s");
+                            Log.Info($"[BaggedObject_OnEnter.Postfix] Restored breakout state for {targetObject.name}: age={storedState.elapsedBreakoutTime:F2}s, smacks={storedState.smacks}");
                     }
 
                     BaggedObjectPatches.SynchronizeBaggedObjectState(bagController, targetObject);
@@ -395,11 +401,11 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableCarouselHUD.Value)
                 {
-                    var uiOverlayController2 = (OverlayController)ReflectionCache.BaggedObject.UIOverlayController.GetValue(__instance);
+                    var uiOverlayController2 = ReflectionCache.BaggedObject.UIOverlayController?.GetValue(__instance) as OverlayController;
                     if (uiOverlayController2 != null)
                     {
                         HudOverlayManager.RemoveOverlay(uiOverlayController2);
-                        ReflectionCache.BaggedObject.UIOverlayController.SetValue(__instance, null);
+                        ReflectionCache.BaggedObject.UIOverlayController?.SetValue(__instance, null);
                     }
                 }
 
@@ -453,7 +459,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                             if (__instance != null)
                             {
-                                ReflectionCache.BaggedObject.BaggedMass.SetValue(__instance, baggedMass);
+                                ReflectionCache.BaggedObject.BaggedMass?.SetValue(__instance, baggedMass);
                                 BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
                             }
                             else

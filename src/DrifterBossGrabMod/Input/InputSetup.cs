@@ -121,8 +121,6 @@ namespace DrifterBossGrabMod.Input
             return true;
         }
 
-        #region Obfuscated Method Discovery
-
         // ========================================================================================
         // METHOD DISCOVERY
         // ========================================================================================
@@ -193,10 +191,6 @@ namespace DrifterBossGrabMod.Input
             }
         }
 
-        #endregion
-
-        #region InputCatalog & Action Registration
-
         // ========================================================================================
         // ACTION REGISTRATION
         // ========================================================================================
@@ -261,10 +255,6 @@ namespace DrifterBossGrabMod.Input
             Log.Info("[InputSetup] Original UserData init completed.");
         }
 
-        #endregion
-
-        #region Profile Binding Hooks
-
         // ========================================================================================
         // PROFILE BINDING HOOKS
         // ========================================================================================
@@ -301,10 +291,6 @@ namespace DrifterBossGrabMod.Input
             AddMissingBindings(__instance);
         }
 
-        #endregion
-
-        #region Settings UI
-
         // ========================================================================================
         // SETTINGS UI
         // ========================================================================================
@@ -334,10 +320,6 @@ namespace DrifterBossGrabMod.Input
 
             inputBindingControl.Awake();
         }
-
-        #endregion
-
-        #region Action Map Helpers
 
         // ========================================================================================
         // ACTION MAP HELPERS
@@ -391,7 +373,5 @@ namespace DrifterBossGrabMod.Input
                 }
             }
         }
-
-        #endregion
     }
 }

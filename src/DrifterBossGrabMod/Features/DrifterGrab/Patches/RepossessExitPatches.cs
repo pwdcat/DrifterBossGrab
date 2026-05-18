@@ -281,13 +281,13 @@ namespace DrifterBossGrabMod.Patches
                         if (baggedObject != null)
                         {
 
-                            var overriddenUtility = ReflectionCache.BaggedObject.OverriddenUtility.GetValue(baggedObject) as GenericSkill;
-                            var utilityOverride = ReflectionCache.BaggedObject.UtilityOverride.GetValue(baggedObject) as RoR2.Skills.SkillDef;
+                            var overriddenUtility = ReflectionCache.BaggedObject.OverriddenUtility?.GetValue(baggedObject) as GenericSkill;
+                            var utilityOverride = ReflectionCache.BaggedObject.UtilityOverride?.GetValue(baggedObject) as RoR2.Skills.SkillDef;
 
                             if (overriddenUtility != null && utilityOverride != null)
                             {
                                 overriddenUtility.UnsetSkillOverride(baggedObject, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
-                                ReflectionCache.BaggedObject.OverriddenUtility.SetValue(baggedObject, null);
+                                ReflectionCache.BaggedObject.OverriddenUtility?.SetValue(baggedObject, null);
 
                                 utilitySkill.stock = 1;
 

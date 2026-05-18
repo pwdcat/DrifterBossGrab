@@ -69,6 +69,8 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(EntityStates.Drifter.EmptyBag __instance, ref FireProjectileInfo fireProjectileInfo)
             {
+                if (!PluginConfig.Instance.EnableBalance.Value) return;
+
                 float incomingSpeed = fireProjectileInfo.speedOverride;
                 if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed))
                 {
@@ -152,6 +154,8 @@ namespace DrifterBossGrabMod.Patches
             {
                 _originalAirKnockbackForce = __instance.airKnockbackForce;
 
+                if (!PluginConfig.Instance.EnableBalance.Value) return;
+
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController != null)
                 {
@@ -204,6 +208,8 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(ref FireProjectileInfo fireProjectileInfo)
             {
+                if (!PluginConfig.Instance.EnableBalance.Value) return;
+
                 float incomingSpeed = fireProjectileInfo.speedOverride;
                 if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)
                 {

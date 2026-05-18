@@ -227,8 +227,6 @@ namespace DrifterBossGrabMod.API
             }
         }
 
-        #region Encumbrance and Status Queries
-
         // ========================================================================================
         // ENCUMBRANCE & STATUS
         // ========================================================================================
@@ -278,10 +276,6 @@ namespace DrifterBossGrabMod.API
             return Core.SlamDamageCalculator.GetEffectiveCoefficient(controller);
         }
 
-        #endregion
-
-        #region Formula Variable Registry API
-
         // ========================================================================================
         // FORMULA VARIABLES
         // ========================================================================================
@@ -324,10 +318,6 @@ namespace DrifterBossGrabMod.API
         {
             return Balance.FormulaRegistry.GetVariableInfo(name);
         }
-
-        #endregion
-
-        #region Filtered Queries
 
         // ========================================================================================
         // FILTERED QUERIES
@@ -474,10 +464,6 @@ namespace DrifterBossGrabMod.API
             return lightest;
         }
 
-        #endregion
-
-        #region Utility Methods - Atomic Operations
-
         // ========================================================================================
         // OPERATIONS
         // ========================================================================================
@@ -509,10 +495,6 @@ namespace DrifterBossGrabMod.API
             }
             return count;
         }
-
-        #endregion
-
-        #region Utility Methods - Summary Methods
 
         // ========================================================================================
         // SUMMARY HELPERS
@@ -586,10 +568,6 @@ namespace DrifterBossGrabMod.API
             });
         }
 
-        #endregion
-
-        #region Events
-
         // ========================================================================================
         // EVENTS
         // ========================================================================================
@@ -606,10 +584,6 @@ namespace DrifterBossGrabMod.API
         public static event Action<DrifterBagController, GameObject?, GameObject?>? OnMainPassengerChanged;
 
         public static event Action<DrifterBagController, float, float>? OnMassRecalculated;
-
-        #endregion
-
-        #region Internal Event Invokers
 
         // ========================================================================================
         // EVENT INVOKERS
@@ -649,10 +623,6 @@ namespace DrifterBossGrabMod.API
             OnMassRecalculated?.Invoke(controller, newTotalMass, previousTotalMass);
         }
 
-        #endregion
-
-        #region Serialization and Save/Load API
-
         // ========================================================================================
         // SERIALIZATION API
         // ========================================================================================
@@ -665,7 +635,5 @@ namespace DrifterBossGrabMod.API
         {
             return ProperSave.ProperSaveIntegration.GetSerializerPlugins();
         }
-
-        #endregion
     }
 }

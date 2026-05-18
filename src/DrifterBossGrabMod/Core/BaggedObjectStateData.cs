@@ -23,10 +23,11 @@ namespace DrifterBossGrabMod.Core
         private static readonly FieldInfo _baggedMassField = ReflectionCache.BaggedObject.BaggedMass;
         private static readonly FieldInfo _bagScale01Field = ReflectionCache.BaggedObject.BagScale01;
         private static readonly FieldInfo _movespeedPenaltyField = ReflectionCache.BaggedObjectAdditional.MovespeedPenalty;
-        private static readonly FieldInfo _attackSpeedStatField = ReflectionCache.BaggedObjectAdditional.AttackSpeedStat!;
-        private static readonly FieldInfo _damageStatField = ReflectionCache.BaggedObjectAdditional.DamageStat!;
-        private static readonly FieldInfo _critStatField = ReflectionCache.BaggedObjectAdditional.CritStat!;
-        private static readonly FieldInfo _moveSpeedStatField = ReflectionCache.BaggedObjectAdditional.MoveSpeedStat!;
+        private static readonly FieldInfo? _attackSpeedStatField = ReflectionCache.BaggedObjectAdditional.AttackSpeedStat;
+        private static readonly FieldInfo? _damageStatField = ReflectionCache.BaggedObjectAdditional.DamageStat;
+        private static readonly FieldInfo? _critStatField = ReflectionCache.BaggedObjectAdditional.CritStat;
+        private static readonly FieldInfo? _moveSpeedStatField = ReflectionCache.BaggedObjectAdditional.MoveSpeedStat;
+        private static readonly FieldInfo _drifterBagControllerField = ReflectionCache.BaggedObject.DrifterBagController;
 
         public CharacterBody? targetBody;
         public GameObject? targetObject;
@@ -63,6 +64,7 @@ namespace DrifterBossGrabMod.Core
         public float breakoutTime = 10f;
         public float breakoutAttempts = 0f;
         public float elapsedBreakoutTime = 0f;
+        public int smacks = 0;
 
         public bool hasCapturedModelTransformState = false;
         public SpecialObjectAttributes? vehiclePassengerAttributes;
@@ -132,6 +134,12 @@ namespace DrifterBossGrabMod.Core
                     elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
                 }
 
+                var bagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
+                if (bagController != null && ReflectionCache.DrifterBagController.Smacks != null)
+                {
+                    this.smacks = Convert.ToInt32(ReflectionCache.DrifterBagController.Smacks.GetValue(bagController));
+                }
+
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     Log.Info($"[BaggedObjectStateData] Captured state for {targetObject?.name ?? "null"}: " +
@@ -158,6 +166,12 @@ namespace DrifterBossGrabMod.Core
                 if (ReflectionCache.EntityState.FixedAge != null)
                 {
                     elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
+                }
+
+                var breakoutBagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
+                if (breakoutBagController != null && ReflectionCache.DrifterBagController.Smacks != null)
+                {
+                    this.smacks = (int)ReflectionCache.DrifterBagController.Smacks.GetValue(breakoutBagController);
                 }
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -226,6 +240,12 @@ namespace DrifterBossGrabMod.Core
                 if (ReflectionCache.EntityState.FixedAge != null && elapsedBreakoutTime > 0f)
                 {
                     ReflectionCache.EntityState.FixedAge.SetValue(state, elapsedBreakoutTime);
+                }
+
+                var applyBagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
+                if (applyBagController != null && ReflectionCache.DrifterBagController.Smacks != null)
+                {
+                    ReflectionCache.DrifterBagController.Smacks.SetValue(applyBagController, this.smacks);
                 }
 
                 if (targetBody != null)
@@ -581,6 +601,7 @@ namespace DrifterBossGrabMod.Core
             this.breakoutTime = 0f;
             this.breakoutAttempts = 0f;
             this.elapsedBreakoutTime = 0f;
+            this.smacks = 0;
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {

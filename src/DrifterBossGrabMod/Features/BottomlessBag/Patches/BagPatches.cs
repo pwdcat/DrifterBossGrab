@@ -86,6 +86,11 @@ namespace DrifterBossGrabMod.Patches
             DrifterBossGrabPlugin._isSwappingPassengers = true;
             try
             {
+                if (ReflectionCache.DrifterBagController.Smacks != null)
+                {
+                    ReflectionCache.DrifterBagController.Smacks.SetValue(controller, 0);
+                }
+
                 var bagStateMachine = GetBagStateMachine(controller);
                 if (NetworkServer.active)
                 {
@@ -198,6 +203,11 @@ namespace DrifterBossGrabMod.Patches
                 DrifterBossGrabPlugin._isSwappingPassengers = true;
                 try
                 {
+                    if (ReflectionCache.DrifterBagController.Smacks != null)
+                    {
+                        ReflectionCache.DrifterBagController.Smacks.SetValue(_controller, 0);
+                    }
+
                     if (NetworkServer.active)
                     {
                         var stateMachines = _controller.GetComponents<EntityStateMachine>();
@@ -393,22 +403,6 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 PersistenceManager.RemovePersistedObject(passengerObject);
-
-                if (!PersistenceObjectsTracker.IsObjectCurrentlyBagged(passengerObject))
-                {
-                    if (modelLocator != null && modelLocator.modelTransform != null)
-                    {
-                        var charModel = modelLocator.modelTransform.GetComponent<CharacterModel>();
-                        if (charModel != null)
-                        {
-                            charModel.invisibilityCount++;
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[AssignPassenger.Prefix] Incrementing invisibilityCount for {passengerObject.name}. New count: {charModel.invisibilityCount}");
-                            }
-                        }
-                    }
-                }
 
                 PersistenceObjectsTracker.TrackBaggedObject(passengerObject);
 
@@ -751,6 +745,16 @@ namespace DrifterBossGrabMod.Patches
         }
     }
 
+    [HarmonyPatch(typeof(RoR2.VehicleSeat), "OnPassengerEnter")]
+    public static class VehicleSeat_OnPassengerEnter_Patch
+    {
+        [HarmonyPrefix]
+        public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
+        {
+            VehicleSeat_OnPassengerExit_Patch.SanitizePassengerSpecialAttributes(passenger);
+        }
+    }
+
     [HarmonyPatch(typeof(RoR2.VehicleSeat), "OnPassengerExit")]
     public static class VehicleSeat_OnPassengerExit_Patch
     {
@@ -758,6 +762,7 @@ namespace DrifterBossGrabMod.Patches
         public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
         {
             if (passenger == null) return;
+            SanitizePassengerSpecialAttributes(passenger);
             try
             {
                 var body = passenger.GetComponent<CharacterBody>();
@@ -790,6 +795,31 @@ namespace DrifterBossGrabMod.Patches
             catch (Exception ex)
             {
                 Log.Error($"[OnPassengerExit.Prefix] Exception during sanitization: {ex}");
+            }
+        }
+
+        public static void SanitizePassengerSpecialAttributes(GameObject passenger)
+        {
+            if (passenger == null) return;
+            try
+            {
+                var specialAttrs = passenger.GetComponent<SpecialObjectAttributes>();
+                if (specialAttrs != null)
+                {
+                    specialAttrs.renderersToDisable?.RemoveAll(r => r == null);
+                    specialAttrs.lightsToDisable?.RemoveAll(l => l == null);
+                    specialAttrs.pickupDisplaysToDisable?.RemoveAll(p => p == null);
+                    specialAttrs.behavioursToDisable?.RemoveAll(b => b == null);
+                    specialAttrs.childObjectsToDisable?.RemoveAll(c => c == null);
+                    specialAttrs.soundEventsToStop?.RemoveAll(s => s == null);
+                    specialAttrs.soundEventsToPlay?.RemoveAll(s => s == null);
+                    specialAttrs.childSpecialObjectAttributes?.RemoveAll(c => c == null);
+                    specialAttrs.skillHighlightRenderers?.RemoveAll(r => r == null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[SanitizePassengerSpecialAttributes] Exception during sanitization for {passenger.name}: {ex}");
             }
         }
     }

@@ -176,7 +176,10 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(DrifterBagController __instance)
             {
-                __instance.maxSmacks = PluginConfig.Instance.MaxSmacks.Value;
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    __instance.maxSmacks = PluginConfig.Instance.MaxSmacks.Value;
+                }
 
                 if (__instance.GetComponent<Networking.BottomlessBagNetworkController>() == null)
                 {
@@ -190,15 +193,18 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(EntityStates.Drifter.Bag.BaggedObject __instance)
             {
-                var targetObject = (GameObject)ReflectionCache.BaggedObject.TargetObject.GetValue(__instance);
+                var targetObject = ReflectionCache.BaggedObject.TargetObject != null ? (GameObject)ReflectionCache.BaggedObject.TargetObject.GetValue(__instance) : null;
 
                 if (targetObject == null)
                 {
 
                     return;
                 }
-                var currentBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance);
-                ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
+                if (PluginConfig.Instance.EnableBalance.Value && ReflectionCache.BaggedObject.BreakoutTime != null)
+                {
+                    var currentBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance);
+                    ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
+                }
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
                 {
                     var networkIdentity = targetObject.GetComponent<UnityEngine.Networking.NetworkIdentity>();
@@ -343,7 +349,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Debug($"[AimRepossess.OnEnter] Prefix: range={__instance.searchRange}.");
-                __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+                }
             }
         }
 
@@ -355,7 +365,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Debug($"[Repossess.OnEnter] Prefix: range={__instance.searchRange}.");
-                __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+
+                if (PluginConfig.Instance.EnableBalance.Value)
+                {
+                    __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+                }
             }
         }
 

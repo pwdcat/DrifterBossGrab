@@ -14,7 +14,6 @@ namespace DrifterBossGrabMod.Balance
     {
 
         private static readonly Dictionary<string, List<Token>> _rpnCache = new();
-        #region Token Types
 
         // ========================================================================================
         // TOKEN TYPES
@@ -47,10 +46,6 @@ namespace DrifterBossGrabMod.Balance
             public override string ToString() => $"{Type}({Value})";
         }
 
-        #endregion
-
-        #region Operator Definitions
-
         // ========================================================================================
         // OPERATOR DEFINITIONS
         // ========================================================================================
@@ -78,10 +73,6 @@ namespace DrifterBossGrabMod.Balance
             ["inf"] = double.PositiveInfinity,
             ["infinity"] = double.PositiveInfinity,
         };
-
-        #endregion
-
-        #region Public API
 
         // ========================================================================================
         // PUBLIC API
@@ -167,10 +158,6 @@ namespace DrifterBossGrabMod.Balance
                 return ex.Message;
             }
         }
-
-        #endregion
-
-        #region Tokenizer
 
         // ========================================================================================
         // TOKENIZER
@@ -307,10 +294,6 @@ namespace DrifterBossGrabMod.Balance
                 || last.Type == TokenType.Function;
         }
 
-        #endregion
-
-        #region Shunting-Yard Algorithm
-
         // ========================================================================================
         // SHUNTING-YARD ALGORITHM
         // ========================================================================================
@@ -404,10 +387,6 @@ namespace DrifterBossGrabMod.Balance
 
             return output;
         }
-
-        #endregion
-
-        #region RPN Evaluator
 
         // ========================================================================================
         // RPN EVALUATOR
@@ -565,7 +544,5 @@ namespace DrifterBossGrabMod.Balance
             if (stack.Count < count)
                 throw new FormatException($"Function '{funcName}' requires {count} argument(s) but got {stack.Count}");
         }
-
-        #endregion
     }
 }

@@ -156,10 +156,9 @@ namespace DrifterBossGrabMod.Patches
                     float baseRadius = teleporter.holdoutZoneController ? teleporter.holdoutZoneController.baseRadius : 60f;
                     if (baseRadius < 10f) baseRadius = 60f;
 
-                    ReflectionCache.CombatDirector.SpawnRange?.SetValue(director, baseRadius * 1.5f);
-                    ReflectionCache.CombatDirector.MinSpawnDistance?.SetValue(director, 0f);
+                    ReflectionCache.CombatDirector.MinSpawnRange?.SetValue(director, baseRadius * 1.5f);
                     ReflectionCache.CombatDirector.MaxSpawnDistance?.SetValue(director, baseRadius * 2f);
-                    ReflectionCache.CombatDirector.ExpendEntireMonsterCredit?.SetValue(director, true);
+                    ReflectionCache.CombatDirector.BossOverrideSpawnSingleBoss?.SetValue(director, true);
 
                     var bossGroupComp = teleporter.GetComponent<RoR2.BossGroup>();
                     bool squadLinked = false;
@@ -209,7 +208,7 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         Log.Debug($"[TeleporterPatches.Director] Hardened Results: " +
-                                 $"range={ReflectionCache.CombatDirector.SpawnRange?.GetValue(director) ?? "FAIL"}, " +
+                                 $"minSpawnRange={ReflectionCache.CombatDirector.MinSpawnRange?.GetValue(director) ?? "FAIL"}, " +
                                  $"credits={ReflectionCache.CombatDirector.MonsterCredit?.GetValue(director) ?? "FAIL"}, " +
                                  $"squadLinked={squadLinked}, " +
                                  $"playerCount={Run.instance?.participatingPlayerCount ?? -1}");
@@ -308,7 +307,7 @@ namespace DrifterBossGrabMod.Patches
                     catch { }
                 }
 
-                var positionIndicator = ReflectionCache.TeleporterInteraction.PositionIndicator.GetValue(teleporter) as Component;
+                var positionIndicator = ReflectionCache.TeleporterInteraction.PositionIndicator?.GetValue(teleporter) as Component;
 
                 if (positionIndicator == null)
                 {
@@ -322,7 +321,7 @@ namespace DrifterBossGrabMod.Patches
                         if (newIndicator != null)
                         {
                             newIndicator.targetTransform = teleporter.transform;
-                            ReflectionCache.TeleporterInteraction.PositionIndicator.SetValue(teleporter, newIndicator);
+                            ReflectionCache.TeleporterInteraction.PositionIndicator?.SetValue(teleporter, newIndicator);
 
                             var chargeIndicator = newIndicatorObj.GetComponent<RoR2.UI.ChargeIndicatorController>();
                             if (chargeIndicator != null)
@@ -503,7 +502,7 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         private static bool UpdateMonstersClearPrefix(TeleporterInteraction __instance)
         {
-            var bossGroup = (BossGroup)ReflectionCache.TeleporterInteraction.BossGroup.GetValue(__instance);
+            var bossGroup = ReflectionCache.TeleporterInteraction.BossGroup?.GetValue(__instance) as BossGroup;
             return bossGroup != null;
         }
 

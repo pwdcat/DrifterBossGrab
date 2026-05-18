@@ -291,6 +291,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.AutoGrabDelay,
                 PluginConfig.Instance.BottomlessBagEnabled,
                 PluginConfig.Instance.EnableStockRefreshClamping,
+                PluginConfig.Instance.EnableSuccessiveGrabStockRefresh,
                 PluginConfig.Instance.CycleCooldown,
                 PluginConfig.Instance.PlayAnimationOnCycle,
                 PluginConfig.Instance.EnableMouseWheelScrolling,
@@ -336,6 +337,16 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.OverencumbranceGradientColorStart,
                 PluginConfig.Instance.OverencumbranceGradientColorMid,
                 PluginConfig.Instance.OverencumbranceGradientColorEnd,
+                PluginConfig.Instance.EnableBaggedObjectInfo,
+                PluginConfig.Instance.BaggedObjectInfoX,
+                PluginConfig.Instance.BaggedObjectInfoY,
+                PluginConfig.Instance.BaggedObjectInfoScale,
+                PluginConfig.Instance.BaggedObjectInfoColor,
+                PluginConfig.Instance.EnableRecoveryFeature,
+                PluginConfig.Instance.EnemyRecoveryMode,
+                PluginConfig.Instance.RecoverBaggedBosses,
+                PluginConfig.Instance.RecoverBaggedNPCs,
+                PluginConfig.Instance.RecoverBaggedEnvironmentObjects,
                 PluginConfig.Instance.EnableBalance,
                 PluginConfig.Instance.AoEDamageDistribution,
                 PluginConfig.Instance.SlotScalingFormula,
@@ -354,6 +365,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.MovespeedPenaltyFormula,
                 PluginConfig.Instance.BagScaleCap,
                 PluginConfig.Instance.SearchRadiusMultiplier,
+                PluginConfig.Instance.MaxLaunchSpeed,
                 PluginConfig.Instance.MassCap
             );
         }

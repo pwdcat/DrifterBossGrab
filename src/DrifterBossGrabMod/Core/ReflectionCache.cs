@@ -15,11 +15,7 @@ namespace DrifterBossGrabMod
         public static class ThrownObjectProjectileController
         {
             public static readonly FieldInfo ProjectileController = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "projectileController");
-            public static readonly FieldInfo VehicleSeat = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "vehicleSeat");
             public static readonly MethodInfo CalculatePassengerFinalPosition = AccessTools.Method(typeof(RoR2.Projectile.ThrownObjectProjectileController), "CalculatePassengerFinalPosition");
-            public static readonly FieldInfo MyColliders = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "myColliders");
-            public static readonly FieldInfo CollidersDisabled = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "_collidersDisabled");
-            public static readonly FieldInfo DisableCollidersCountdown = AccessTools.Field(typeof(RoR2.Projectile.ThrownObjectProjectileController), "_disableCollidersCountdown");
         }
 
         public static class BaggedObject
@@ -52,24 +48,13 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo BaggedMass = AccessTools.Field(typeof(RoR2.DrifterBagController), "baggedMass");
             public static readonly MethodInfo OnSyncBaggedObject = AccessTools.Method(typeof(RoR2.DrifterBagController), "OnSyncBaggedObject", new Type[] { typeof(GameObject) });
             public static readonly FieldInfo JunkController = AccessTools.Field(typeof(RoR2.DrifterBagController), "junkController");
-            public static readonly PropertyInfo NetworkbaggedObject = AccessTools.Property(typeof(RoR2.DrifterBagController), "NetworkbaggedObject");
-            public static readonly FieldInfo BaggedObject = AccessTools.Field(typeof(RoR2.DrifterBagController), "baggedObject");
-            public static readonly PropertyInfo Networkpassenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "Networkpassenger");
-            public static readonly PropertyInfo Passenger = AccessTools.Property(typeof(RoR2.DrifterBagController), "passenger");
-        }
-
-        public static class ProjectileStickOnImpact
-        {
-            public static readonly FieldInfo RunStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "runStickEvent");
-            public static readonly FieldInfo AlreadyRanStickEvent = AccessTools.Field(typeof(RoR2.Projectile.ProjectileStickOnImpact), "alreadyRanStickEvent");
+            public static readonly FieldInfo Smacks = AccessTools.Field(typeof(RoR2.DrifterBagController), "smacks");
         }
 
         public static class SpecialObjectAttributes
         {
-            public static readonly FieldInfo CollisionToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collisionToDisable", BindingFlags.Public | BindingFlags.Instance);
-            public static readonly FieldInfo TargetObject = typeof(RoR2.SpecialObjectAttributes).GetField("targetObject", BindingFlags.Public | BindingFlags.Instance);
-            public static readonly FieldInfo CollidersToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collidersToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
-            public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+            public static readonly FieldInfo CollidersToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collidersList", BindingFlags.NonPublic | BindingFlags.Instance);
+            public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.Public | BindingFlags.Instance);
         }
 
         public static class HackingMainState
@@ -142,11 +127,6 @@ namespace DrifterBossGrabMod
 
         public static class Rewired
         {
-            public static class UserData
-            {
-                public static readonly FieldInfo Actions = AccessTools.Field(typeof(global::Rewired.Data.UserData), "actions");
-            }
-
             public static class ActionElementMap
             {
                 private static MethodInfo? _applyToControllerMapMethod;
@@ -187,30 +167,24 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo MainStateMachine = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "mainStateMachine");
             public static readonly FieldInfo BossDirector = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "bossDirector");
             public static readonly FieldInfo MonstersCleared = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "monstersCleared");
-            public static readonly PropertyInfo HoldoutZone = AccessTools.Property(typeof(RoR2.TeleporterInteraction), "holdoutZoneController");
             public static readonly FieldInfo PositionIndicator = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "teleporterPositionIndicator");
             public static readonly FieldInfo BossShrineCounter = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "_bossShrineCounter");
             public static readonly FieldInfo CachedLocalUser = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "cachedLocalUser");
-            public static readonly FieldInfo HologramPivot = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "hologramPivot");
         }
 
         public static class CombatDirector
         {
             public static readonly FieldInfo CombatSquad = AccessTools.Field(typeof(RoR2.CombatDirector), "combatSquad");
-            public static readonly PropertyInfo MonsterSpawnTimer = AccessTools.Property(typeof(RoR2.CombatDirector), "monsterSpawnTimer");
             public static readonly FieldInfo MonsterCredit = AccessTools.Field(typeof(RoR2.CombatDirector), "monsterCredit");
-            public static readonly FieldInfo SpawnRange = AccessTools.Field(typeof(RoR2.CombatDirector), "spawnRange") ?? AccessTools.Field(typeof(RoR2.CombatDirector), "_spawnRange");
-            public static readonly FieldInfo MinSpawnDistance = AccessTools.Field(typeof(RoR2.CombatDirector), "minSpawnDistance") ?? AccessTools.Field(typeof(RoR2.CombatDirector), "_minSpawnDistance");
-            public static readonly FieldInfo MaxSpawnDistance = AccessTools.Field(typeof(RoR2.CombatDirector), "maxSpawnDistance") ?? AccessTools.Field(typeof(RoR2.CombatDirector), "_maxSpawnDistance");
-            public static readonly FieldInfo ExpendEntireMonsterCredit = AccessTools.Field(typeof(RoR2.CombatDirector), "expendEntireMonsterCredit");
+            public static readonly FieldInfo MinSpawnRange = AccessTools.Field(typeof(RoR2.CombatDirector), "minSpawnRange");
+            public static readonly FieldInfo MaxSpawnDistance = AccessTools.Field(typeof(RoR2.CombatDirector), "maxSpawnDistance");
+            public static readonly FieldInfo BossOverrideSpawnSingleBoss = AccessTools.Field(typeof(RoR2.CombatDirector), "_bossOverrideSpawnSingleBoss");
         }
 
         public static class OutsideInteractableLocker
         {
             public static readonly FieldInfo LockObjectMap = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "lockObjectMap");
             public static readonly FieldInfo LockInteractableMap = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "lockInteractableMap");
-            public static readonly FieldInfo UpdateTimer = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "updateTimer");
-            public static readonly FieldInfo CurrentCoroutine = AccessTools.Field(typeof(RoR2.OutsideInteractableLocker), "currentCoroutine");
         }
 
         public static class CombatSquad
@@ -220,19 +194,13 @@ namespace DrifterBossGrabMod
 
         public static class HoldoutZoneController
         {
-            public static readonly FieldInfo Charge = AccessTools.Field(typeof(RoR2.HoldoutZoneController), "_charge");
             public static readonly PropertyInfo CurrentRadius = AccessTools.Property(typeof(RoR2.HoldoutZoneController), "currentRadius");
             public static readonly FieldInfo RadiusVelocity = AccessTools.Field(typeof(RoR2.HoldoutZoneController), "radiusVelocity");
-            public static readonly FieldInfo RadiusSmoothTime = AccessTools.Field(typeof(RoR2.HoldoutZoneController), "radiusSmoothTime");
         }
 
         public static class BossGroup
         {
             public static readonly FieldInfo BossMemoryCount = AccessTools.Field(typeof(RoR2.BossGroup), "bossMemoryCount");
-            public static readonly PropertyInfo BestObservedName = AccessTools.Property(typeof(RoR2.BossGroup), "bestObservedName");
-            public static readonly PropertyInfo BestObservedSubtitle = AccessTools.Property(typeof(RoR2.BossGroup), "bestObservedSubtitle");
-            public static readonly PropertyInfo TotalMaxObservedMaxHealth = AccessTools.Property(typeof(RoR2.BossGroup), "totalMaxObservedMaxHealth");
-            public static readonly PropertyInfo TotalObservedHealth = AccessTools.Property(typeof(RoR2.BossGroup), "totalObservedHealth");
             public static readonly MethodInfo ResetBossBar = AccessTools.Method(typeof(RoR2.BossGroup), "ResetBossBar");
             public static readonly FieldInfo BossDropTables = AccessTools.Field(typeof(RoR2.BossGroup), "bossDropTables");
             public static readonly FieldInfo BossDrops = AccessTools.Field(typeof(RoR2.BossGroup), "bossDrops");

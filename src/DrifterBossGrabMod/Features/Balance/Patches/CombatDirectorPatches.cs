@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod.Patches
 {
+    [HarmonyPatch]
     public static class CombatDirectorPatches
     {
         private static readonly HashSet<CombatDirector> _restoringTeleporterDirectors = new HashSet<CombatDirector>();

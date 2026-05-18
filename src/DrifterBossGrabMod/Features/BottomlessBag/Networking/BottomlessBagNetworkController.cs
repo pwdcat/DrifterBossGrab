@@ -570,6 +570,22 @@ namespace DrifterBossGrabMod.Networking
         private void DoSync_Client_Actions(DrifterBagController? controller, ref DoSyncContext ctx)
         {
             if (controller == null) return;
+
+            if (ctx.SyncedObjects != null)
+            {
+                foreach (var obj in ctx.SyncedObjects)
+                {
+                    if (obj == null) continue;
+
+                    if (!PersistenceObjectsTracker.IsObjectCurrentlyBagged(obj))
+                    {
+                        PersistenceObjectsTracker.TrackBaggedObject(obj);
+                    }
+
+                    PersistenceObjectsTracker.SetBaggedObjectVisibility(obj, false);
+                }
+            }
+
             if (ctx.MainSeatObject != null)
             {
                 bool wasNullState = _previousSelectedIndex < 0;

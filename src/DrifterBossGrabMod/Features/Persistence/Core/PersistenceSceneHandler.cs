@@ -302,6 +302,15 @@ namespace DrifterBossGrabMod
                         {
                             if (networkIdentity != null)
                             {
+                                var teleporter = obj.GetComponent<TeleporterInteraction>();
+                                if (teleporter != null)
+                                {
+                                    var director = ReflectionCache.TeleporterInteraction.BossDirector?.GetValue(teleporter) as CombatDirector;
+                                    if (director != null)
+                                    {
+                                        CombatDirectorPatches.MarkTeleporterDirectorAsRestoring(director);
+                                    }
+                                }
 
                                 NetworkServer.UnSpawn(obj);
                                 NetworkServer.Spawn(obj);
@@ -612,7 +621,32 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedAutoGrab(GameObject obj, string? ownerPlayerId, PersistenceCoroutineRunner runner, float delay)
         {
-            yield return new WaitForSeconds(delay);
+            var teleporter = obj != null ? obj.GetComponent<TeleporterInteraction>() : null;
+            if (teleporter != null)
+            {
+                float elapsed = 0f;
+                var bossGroup = teleporter.GetComponent<RoR2.BossGroup>();
+                while (elapsed < 10.0f)
+                {
+                    if (obj == null) break;
+
+                    if (bossGroup != null && bossGroup.combatSquad != null && bossGroup.combatSquad.readOnlyMembersList.Count > 0)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                            Log.Debug($"[DelayedAutoGrab] Boss squad populated (members: {bossGroup.combatSquad.readOnlyMembersList.Count}). Proceeding with auto-grab.");
+                        break;
+                    }
+
+                    yield return new WaitForSeconds(0.5f);
+                    elapsed += 0.5f;
+                }
+
+                yield return new WaitForSeconds(1.0f);
+            }
+            else
+            {
+                yield return new WaitForSeconds(delay);
+            }
 
             if (obj != null)
             {

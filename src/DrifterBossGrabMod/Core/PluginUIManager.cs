@@ -269,6 +269,26 @@ namespace DrifterBossGrabMod
             }
         }
 
+        private bool ShouldHudSettingBeVisible(string token)
+        {
+            if (PluginConfig.HudSettingToSubTab.TryGetValue(token, out var subTabs))
+            {
+                var selectedSubTab = PluginConfig.Instance.SelectedHudElement.Value;
+                return selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0;
+            }
+            return true;
+        }
+
+        private bool ShouldBalanceSettingBeVisible(string token)
+        {
+            if (PluginConfig.BalanceSettingToSubTab.TryGetValue(token, out var subTabs))
+            {
+                var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
+                return selectedSubTab == BalanceSubTabType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0;
+            }
+            return true;
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateHudSubTabVisibility()
         {
@@ -280,6 +300,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.HudSettingToSubTab,
                 (settingToken, subTabs) => selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
+            UpdateHudVisibility();
             string filterToken = $"{Constants.PluginGuid}.HUD.HUD_FILTER.CHOICE".ToUpper();
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
             foreach (var setting in allSettings)
@@ -325,6 +346,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.BalanceSettingToSubTab,
                 (settingToken, subTabs) => selectedSubTab == BalanceSubTabType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
+            UpdateBalanceVisibility();
             string filterToken = $"{Constants.PluginGuid}.BALANCE.BALANCE_FILTER.CHOICE".ToUpper();
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
             foreach (var setting in allSettings)
@@ -438,8 +460,28 @@ namespace DrifterBossGrabMod
                     var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
                     if (layoutElement == null) layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
 
-                    canvasGroup.alpha = isEnabled ? 1f : 0.3f;
-                    canvasGroup.blocksRaycasts = isEnabled;
+                    bool shouldBeVisible = true;
+                    if (categoryName.Equals("Hud", StringComparison.OrdinalIgnoreCase))
+                    {
+                        shouldBeVisible = ShouldHudSettingBeVisible(setting.settingToken);
+                    }
+                    else if (categoryName.Equals("Balance", StringComparison.OrdinalIgnoreCase))
+                    {
+                        shouldBeVisible = ShouldBalanceSettingBeVisible(setting.settingToken);
+                    }
+
+                    if (!shouldBeVisible)
+                    {
+                        canvasGroup.alpha = 0f;
+                        canvasGroup.blocksRaycasts = false;
+                        layoutElement.ignoreLayout = true;
+                    }
+                    else
+                    {
+                        canvasGroup.alpha = isEnabled ? 1f : 0.3f;
+                        canvasGroup.blocksRaycasts = isEnabled;
+                        layoutElement.ignoreLayout = false;
+                    }
                 }
             }
         }

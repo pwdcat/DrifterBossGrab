@@ -227,6 +227,10 @@ namespace DrifterBossGrabMod.API
                 .AddAction("maxTinkers", c => c.maxTinkers)
                 .AddCustomAction(CapturePurchaseInteraction, RestorePurchaseInteraction);
 
+        public static IObjectSerializerPlugin ForTeleporterInteraction() =>
+            new ComponentAPISerializer<RoR2.TeleporterInteraction>(priority: 90)
+                .AddCustomAction(CaptureTeleporterInteraction, RestoreTeleporterInteraction);
+
         public static IObjectSerializerPlugin ForQualityIntegration()
         {
             return new QualityIntegration();
@@ -240,6 +244,70 @@ namespace DrifterBossGrabMod.API
         // ========================================================================================
         // HELPERS
         // ========================================================================================
+        private static void CaptureTeleporterInteraction<T>(T component, Dictionary<string, object> state) where T : Component
+        {
+            var teleporter = component as RoR2.TeleporterInteraction;
+            if (teleporter == null) return;
+
+            if (ReflectionCache.TeleporterInteraction.BossShrineCounter != null)
+            {
+                var counterValue = ReflectionCache.TeleporterInteraction.BossShrineCounter.GetValue(teleporter);
+                if (counterValue is int bossShrineCounter)
+                {
+                    state["bossShrineCounter"] = bossShrineCounter;
+                }
+            }
+
+            state["shrineBonusStacks"] = teleporter.shrineBonusStacks;
+        }
+
+        private static void RestoreTeleporterInteraction<T>(T component, Dictionary<string, object> state) where T : Component
+        {
+            var teleporter = component as RoR2.TeleporterInteraction;
+            if (teleporter == null) return;
+
+            int restoredStacks = 0;
+            if (state.TryGetValue("shrineBonusStacks", out var stacksObj))
+            {
+                try
+                {
+                    restoredStacks = Convert.ToInt32(stacksObj);
+                    teleporter.Network_shrineBonusStacks = restoredStacks;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[RestoreTeleporterInteraction] Failed to restore shrineBonusStacks: {ex.Message}");
+                }
+            }
+
+            if (state.TryGetValue("bossShrineCounter", out var counterObj))
+            {
+                try
+                {
+                    int bossShrineCounter = Convert.ToInt32(counterObj);
+                    if (ReflectionCache.TeleporterInteraction.BossShrineCounter != null)
+                    {
+                        ReflectionCache.TeleporterInteraction.BossShrineCounter.SetValue(teleporter, bossShrineCounter);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[RestoreTeleporterInteraction] Failed to restore bossShrineCounter: {ex.Message}");
+                }
+            }
+
+            // Sync the bossGroup's bonusRewardCount immediately!
+            var bossGroup = teleporter.GetComponent<RoR2.BossGroup>() ?? teleporter.bossGroup;
+            if (bossGroup != null)
+            {
+                bossGroup.bonusRewardCount = restoredStacks;
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[RestoreTeleporterInteraction] Successfully synced bossGroup.bonusRewardCount to {restoredStacks}");
+                }
+            }
+        }
+
         private static void CapturePurchaseInteraction<T>(T component, Dictionary<string, object> state) where T : Component
         {
             var purchase = component.GetComponent<PurchaseInteraction>();

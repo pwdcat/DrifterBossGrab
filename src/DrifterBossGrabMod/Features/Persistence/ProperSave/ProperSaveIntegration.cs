@@ -284,6 +284,13 @@ namespace DrifterBossGrabMod.ProperSave
                 Log.Info($"  - Added: {tinkerableSerializer.GetType().Name} (Priority: {tinkerableSerializer.Priority})");
             }
 
+            var teleporterSerializer = BuiltInSerializersAPI.ForTeleporterInteraction();
+            _serializerPlugins.Add(teleporterSerializer);
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+            {
+                Log.Info($"  - Added: {teleporterSerializer.GetType().Name} (Priority: {teleporterSerializer.Priority})");
+            }
+
             var purchaseSerializer = BuiltInSerializersAPI.ForPurchaseInteraction();
             _serializerPlugins.Add(purchaseSerializer);
             if (PluginConfig.Instance.EnableDebugLogs.Value)

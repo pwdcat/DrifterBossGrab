@@ -12,44 +12,25 @@ namespace DrifterBossGrabMod.Patches
     public static class TeleporterSafetyPatches
     {
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(OutsideInteractableLocker), nameof(OutsideInteractableLocker.FixedUpdate))]
-        public static bool LockerFixedUpdatePrefix(OutsideInteractableLocker __instance)
+        [HarmonyFinalizer]
+        [HarmonyPatch(typeof(OutsideInteractableLocker), "FixedUpdate")]
+        public static Exception? LockerFixedUpdateFinalizer(Exception? __exception)
         {
-            if (!NetworkServer.active || __instance == null) return true;
+            return null;
+        }
 
-            try
-            {
-                var timerField = ReflectionCache.OutsideInteractableLocker.UpdateTimer;
-                var coroutineField = ReflectionCache.OutsideInteractableLocker.CurrentCoroutine;
+        [HarmonyFinalizer]
+        [HarmonyPatch(typeof(OutsideInteractableLocker), "OnDisable")]
+        public static Exception? LockerOnDisableFinalizer(Exception? __exception)
+        {
+            return null;
+        }
 
-                if (timerField == null || coroutineField == null) return true;
-
-                object? timerValue = timerField.GetValue(__instance);
-                float updateTimer = (timerValue is float f) ? f : 0f;
-                updateTimer -= Time.fixedDeltaTime;
-
-                if (updateTimer <= 0f)
-                {
-                    timerField.SetValue(__instance, 0.1f);
-                    IEnumerator? enumerator = coroutineField.GetValue(__instance) as IEnumerator;
-
-                    if (enumerator != null)
-                    {
-                        enumerator.MoveNext();
-                    }
-                }
-                else
-                {
-                    timerField.SetValue(__instance, updateTimer);
-                }
-            }
-            catch (Exception)
-            {
-
-            }
-
-            return false;
+        [HarmonyFinalizer]
+        [HarmonyPatch(typeof(OutsideInteractableLocker), "UnlockAll")]
+        public static Exception? LockerUnlockAllFinalizer(Exception? __exception)
+        {
+            return null;
         }
 
         [HarmonyPrefix]
@@ -57,6 +38,8 @@ namespace DrifterBossGrabMod.Patches
         public static void BossGroupDropRewardsPrefix(BossGroup __instance)
         {
             if (!NetworkServer.active) return;
+
+            if (ReflectionCache.BossGroup.rng == null) return;
 
             if (__instance.dropTable == null || ReflectionCache.BossGroup.rng.GetValue(__instance) == null)
             {

@@ -130,6 +130,18 @@ namespace DrifterBossGrabMod.Patches
                         Log.Info($"[RemoveBaggedObject] Was main passenger destroyed. Current Bag state: {currentState}");
                     }
 
+                    if (ReflectionCache.DrifterBagController.Smacks != null)
+                    {
+                        int currentSmacks = (int)ReflectionCache.DrifterBagController.Smacks.GetValue(controller);
+                        var exitingState = BaggedObjectPatches.LoadObjectState(controller, obj);
+                        if (exitingState != null)
+                        {
+                            exitingState.smacks = currentSmacks;
+                            BaggedObjectPatches.SaveObjectState(controller, obj, exitingState);
+                        }
+                        ReflectionCache.DrifterBagController.Smacks.SetValue(controller, 0);
+                    }
+
                     API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, mainPassengerBefore, null);
 
                     EjectMainPassengerIfServer(controller, obj, isDestroying);
@@ -364,7 +376,7 @@ namespace DrifterBossGrabMod.Patches
                     if (esm.customName == "Bag" && esm.state is BaggedObject baggedObject)
                     {
                         BaggedObjectPatches.UpdateBagScale(baggedObject, totalMass);
-                        ReflectionCache.BaggedObject.BaggedMass.SetValue(baggedObject, totalMass);
+                        ReflectionCache.BaggedObject.BaggedMass?.SetValue(baggedObject, totalMass);
                         break;
                     }
                 }

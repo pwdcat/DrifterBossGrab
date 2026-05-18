@@ -221,7 +221,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 return;
             }
-            var uiOverlayController = (OverlayController)_uiOverlayControllerField.GetValue(baggedObject);
+            var uiOverlayController = _uiOverlayControllerField != null ? (OverlayController)_uiOverlayControllerField.GetValue(baggedObject) : null;
             if (uiOverlayController != null)
             {
                 try
@@ -251,7 +251,7 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     HudOverlayManager.RemoveOverlay(uiOverlayController);
-                    _uiOverlayControllerField.SetValue(baggedObject, null);
+                    _uiOverlayControllerField?.SetValue(baggedObject, null);
                 }
                 catch (Exception e)
                 {
