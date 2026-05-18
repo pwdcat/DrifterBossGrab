@@ -29,7 +29,7 @@ namespace DrifterBossGrabMod.Patches
             var esm = stateMachines.FirstOrDefault(esm => esm.customName == "Body") ?? teleporter.GetComponent<EntityStateMachine>();
             if (esm != null)
             {
-                Log.Info($"[TeleporterPatches.State] Current State: {esm.state?.GetType().Name ?? "null"}, ActivationState: {teleporter.activationState}, shrineBonusStacks={teleporter.shrineBonusStacks}");
+                Log.Debug($"[TeleporterPatches.State] Current State: {esm.state?.GetType().Name ?? "null"}, ActivationState: {teleporter.activationState}, shrineBonusStacks={teleporter.shrineBonusStacks}");
             }
 
             if (esm != null && teleporter.isInFinalSequence)
@@ -40,7 +40,7 @@ namespace DrifterBossGrabMod.Patches
                     var chargedState = System.Activator.CreateInstance(chargedStateType) as EntityStates.EntityState;
                     if (chargedState != null)
                     {
-                        Log.Info($"[TeleporterPatches.State] Teleporter is in FinishedState. Kicking back to ChargedState to allow re-interaction.");
+                        Log.Debug($"[TeleporterPatches.State] Teleporter is in FinishedState. Kicking back to ChargedState to allow re-interaction.");
                         esm.SetNextState(chargedState);
                     }
                 }
@@ -52,7 +52,7 @@ namespace DrifterBossGrabMod.Patches
                 var exitStateField = typeof(RoR2.SceneExitController).GetField("exitState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (exitStateField != null)
                 {
-                    Log.Info($"[TeleporterPatches.State] Resetting SceneExitController.exitState from Finished to Idle.");
+                    Log.Debug($"[TeleporterPatches.State] Resetting SceneExitController.exitState from Finished to Idle.");
                     exitStateField.SetValue(exitController, 0);
                 }
             }
@@ -172,7 +172,7 @@ namespace DrifterBossGrabMod.Patches
                             squadLinked = true;
 
                             bool subscriptionValid = VerifyBossGroupSubscription(bossGroupComp);
-                            Log.Info($"[TeleporterPatches.Director] Squad linked: director.combatSquad={bossGroupComp.combatSquad?.netId}, subscriptionValid={subscriptionValid}");
+                            Log.Debug($"[TeleporterPatches.Director] Squad linked: director.combatSquad={bossGroupComp.combatSquad?.netId}, subscriptionValid={subscriptionValid}");
                         }
                         else
                         {
@@ -479,11 +479,21 @@ namespace DrifterBossGrabMod.Patches
         private static bool ChargedStateOnEnterPrefix(EntityStates.BaseState __instance)
         {
             var teleporter = __instance.GetComponent<TeleporterInteraction>();
-            if (teleporter != null && MultiTeleporterTracker.IsSecondary(teleporter))
+            if (teleporter != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                if (PersistenceManager.IsTeleporterCurrentlyBagged(teleporter.gameObject))
                 {
-                    Log.Debug($"[TeleporterPatches] Secondary teleporter {teleporter.gameObject.name} charged — allowing rewards, blocking portal.");
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[TeleporterPatches] Blocking ChargedState.OnEnter for bagged teleporter {teleporter.gameObject.name}");
+                    return false;
+                }
+
+                if (MultiTeleporterTracker.IsSecondary(teleporter))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Debug($"[TeleporterPatches] Secondary teleporter {teleporter.gameObject.name} charged — allowing rewards, blocking portal.");
+                    }
                 }
             }
             return true;
@@ -502,6 +512,9 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         private static bool UpdateMonstersClearPrefix(TeleporterInteraction __instance)
         {
+            if (PersistenceManager.IsTeleporterCurrentlyBagged(__instance.gameObject))
+                return false;
+
             var bossGroup = ReflectionCache.TeleporterInteraction.BossGroup?.GetValue(__instance) as BossGroup;
             return bossGroup != null;
         }

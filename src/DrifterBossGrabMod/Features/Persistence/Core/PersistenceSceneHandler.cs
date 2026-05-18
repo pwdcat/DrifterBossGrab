@@ -62,10 +62,7 @@ namespace DrifterBossGrabMod
             if (users.Count == 1)
             {
                 var onlyUser = users[0];
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[FindNetworkUserById] ID mismatch '{playerId}' != '{Networking.NetworkUtils.GetPlayerIdString(onlyUser.id)}', but only one player found. Using fallback.");
-                }
+                Log.Debug($"[FindNetworkUserById] ID mismatch '{playerId}' != '{Networking.NetworkUtils.GetPlayerIdString(onlyUser.id)}', but only one player found. Using fallback.");
                 return onlyUser;
             }
 
@@ -81,17 +78,11 @@ namespace DrifterBossGrabMod
         {
             if (!PersistenceObjectManager.GetCachedEnablePersistence())
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Persistence disabled, skipping scene change handling for {newScene.name}");
-                }
+                Log.Debug($" Persistence disabled, skipping scene change handling for {newScene.name}");
                 return;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Scene changed from {oldScene.name} to {newScene.name}, restoring {PersistenceObjectManager.GetPersistedObjectsCount()} persisted objects");
-            }
+            Log.Debug($" Scene changed from {oldScene.name} to {newScene.name}, restoring {PersistenceObjectManager.GetPersistedObjectsCount()} persisted objects");
 
             var coroutineRunner = new GameObject("PersistenceCoroutineRunner");
             var runner = coroutineRunner.AddComponent<PersistenceCoroutineRunner>();
@@ -113,10 +104,7 @@ namespace DrifterBossGrabMod
                 {
                     if (AnyPlayerHasBody())
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Any player body found after {framesWaited} frames, proceeding with restoration");
-                        }
+                        Log.Debug($" Any player body found after {framesWaited} frames, proceeding with restoration");
                         break;
                     }
 
@@ -148,10 +136,7 @@ namespace DrifterBossGrabMod
         {
             private void OnDestroy()
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" PersistenceCoroutineRunner destroyed - cleanup completed");
-                }
+                Log.Debug($" PersistenceCoroutineRunner destroyed - cleanup completed");
             }
         }
 
@@ -177,10 +162,7 @@ namespace DrifterBossGrabMod
                         if (bossGroup != null)
                         {
                             bossGroup.ForgetBoss(_characterMaster);
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Removed persisted boss {_objectName} from BossGroup to prevent teleporter interference");
-                            }
+                            Log.Debug($" Removed persisted boss {_objectName} from BossGroup to prevent teleporter interference");
                         }
                     }
                 }
@@ -201,10 +183,7 @@ namespace DrifterBossGrabMod
             var _lock = PersistenceObjectManager.GetLock();
             lock (_lock)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Starting restoration of {persistedObjects.Count} persisted objects");
-                }
+                Log.Debug($" Starting restoration of {persistedObjects.Count} persisted objects");
                 var objectsToRemove = new List<GameObject>();
                 var successfullyRestoredObjects = new List<GameObject>();
 
@@ -220,8 +199,7 @@ namespace DrifterBossGrabMod
 
                     if (PluginConfig.IsPersistenceBlacklisted(obj))
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[RestorePersistedObjects] Skipping restoration of {obj.name}: Object is blacklisted.");
+                        Log.Debug($"[RestorePersistedObjects] Skipping restoration of {obj.name}: Object is blacklisted.");
 
                         UnityEngine.Object.Destroy(obj);
                         objectsToRemove.Add(obj);
@@ -229,20 +207,14 @@ namespace DrifterBossGrabMod
                     }
 
                     var healthComp = obj.GetComponent<RoR2.HealthComponent>();
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[DEBUG] [RestorePersistedObjects LOOP] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
-                    }
+                    Log.Debug($"[DEBUG] [RestorePersistedObjects LOOP] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
 
                     bool isAlreadyInScene = obj.scene == SceneManager.GetActiveScene();
                     var networkIdentity = obj.GetComponent<NetworkIdentity>();
 
                     if (isAlreadyInScene)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[RestorePersistedObjects] Skipping object {obj.name} (NetID: {networkIdentity?.netId}) - already in active scene.");
-                        }
+                        Log.Debug($"[RestorePersistedObjects] Skipping object {obj.name} (NetID: {networkIdentity?.netId}) - already in active scene.");
                         if (PluginConfig.Instance.EnableDebugLogs.Value && healthComp != null && !healthComp.alive)
                         {
                             Log.Warning($"[DEBUG] [RestorePersistedObjects] SKIPPED object {obj.name} is already in scene but is DEAD! alive={healthComp.alive}");
@@ -250,10 +222,7 @@ namespace DrifterBossGrabMod
                         continue;
                     }
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Restoring object {obj.name} to scene (currently parented to: {obj.transform.parent?.name ?? "null"}) from {obj.scene.name}");
-                    }
+                    Log.Debug($" Restoring object {obj.name} to scene (currently parented to: {obj.transform.parent?.name ?? "null"}) from {obj.scene.name}");
                     obj.transform.SetParent(null, true);
                     SceneManager.MoveGameObjectToScene(obj, SceneManager.GetActiveScene());
 
@@ -261,10 +230,7 @@ namespace DrifterBossGrabMod
                     if (colliderCache != null)
                     {
                         colliderCache.RefreshCache();
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[RestorePersistedObjects] Refreshed BodyColliderCache for {obj.name}");
-                        }
+                        Log.Debug($"[RestorePersistedObjects] Refreshed BodyColliderCache for {obj.name}");
                     }
 
                     var modelLocator = obj.GetComponent<ModelLocator>();
@@ -274,8 +240,7 @@ namespace DrifterBossGrabMod
 
                         if (modelObj.transform.parent != obj.transform)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[RestorePersistedObjects] Re-parenting model {modelObj.name} to body {obj.name}");
+                            Log.Debug($"[RestorePersistedObjects] Re-parenting model {modelObj.name} to body {obj.name}");
 
                             modelObj.transform.SetParent(obj.transform, true);
                             modelObj.transform.localPosition = Vector3.zero;
@@ -293,7 +258,7 @@ namespace DrifterBossGrabMod
 
                         if (!positionedCorrectly && !string.IsNullOrEmpty(ownerId))
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RestorePersistedObjects] Specific owner for {obj.name} not found. Attaching PersistedObjectSeeker.");
+                            Log.Debug($"[RestorePersistedObjects] Specific owner for {obj.name} not found. Attaching PersistedObjectSeeker.");
                             var seeker = obj.AddComponent<PersistedObjectSeeker>();
                             seeker.Initialize(ownerId);
                         }
@@ -325,10 +290,7 @@ namespace DrifterBossGrabMod
                     {
                         if (networkIdentity != null)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[RestorePersistedObjects] Client: preserving object {obj.name} (NetID: {networkIdentity.netId}). Re-registering with ClientScene.");
-                            }
+                            Log.Debug($"[RestorePersistedObjects] Client: preserving object {obj.name} (NetID: {networkIdentity.netId}). Re-registering with ClientScene.");
 
                             PositionNearPlayer(obj);
 
@@ -350,7 +312,7 @@ namespace DrifterBossGrabMod
                             if (rb)
                             {
                                 rb.isKinematic = true;
-                                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RestorePersistedObjects] Enabled Kinematic Safety for local object {obj.name}");
+                                Log.Debug($"[RestorePersistedObjects] Enabled Kinematic Safety for local object {obj.name}");
                             }
 
                             var coroutineRunner = new GameObject("ClientSafetyFloatRunner_" + obj.name);
@@ -398,19 +360,13 @@ namespace DrifterBossGrabMod
                             if (body != null)
                             {
 
-                                master.bodyInstanceObject = bodyObj;
-
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[RestorePersistedObjects] Re-linked master {master.name} to body {bodyObj.name}");
+                                    Log.Debug($"[RestorePersistedObjects] Re-linked master {master.name} to body {bodyObj.name}");
                             }
                         }
                     }
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[RestorePersistedObjects] Restoration complete. {successfullyRestoredObjects.Count} objects restored.");
-                }
+                Log.Debug($"[RestorePersistedObjects] Restoration complete. {successfullyRestoredObjects.Count} objects restored.");
                 isRestoringFromSceneChange = false;
             }
         }
@@ -508,8 +464,7 @@ namespace DrifterBossGrabMod
                             var playerForward = targetBody.transform.forward;
                             var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
 
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[PersistedObjectSeeker] Found owner {targetBody.name} after {elapsed:F2}s. Teleporting {name} to {targetPos}");
+                                Log.Debug($"[PersistedObjectSeeker] Found owner {targetBody.name} after {elapsed:F2}s. Teleporting {name} to {targetPos}");
 
                             transform.position = targetPos;
                             transform.rotation = Quaternion.identity;
@@ -525,8 +480,7 @@ namespace DrifterBossGrabMod
                         }
                     }
                 }
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[PersistedObjectSeeker] Timeout seeking owner for {name}. Staying at current position.");
+                Log.Debug($"[PersistedObjectSeeker] Timeout seeking owner for {name}. Staying at current position.");
                 Destroy(this);
             }
         }
@@ -573,10 +527,7 @@ namespace DrifterBossGrabMod
                 var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
                 obj.transform.position = targetPos;
                 obj.transform.rotation = Quaternion.identity;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Positioned {obj.name} at {targetPos} near {((ownerFound) ? "owner" : "fallback")} body {targetBody.name} (Pos: {playerPos})");
-                }
+                Log.Debug($" Positioned {obj.name} at {targetPos} near {((ownerFound) ? "owner" : "fallback")} body {targetBody.name} (Pos: {playerPos})");
                 return ownerFound;
             }
             else
@@ -590,20 +541,14 @@ namespace DrifterBossGrabMod
                     var fallbackPos = cameraPos + cameraForward * Constants.Limits.CameraForwardOffset;
                     obj.transform.position = fallbackPos;
                     obj.transform.rotation = Quaternion.identity;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Used camera fallback positioning for {obj.name} at {fallbackPos}");
-                    }
+                    Log.Debug($" Used camera fallback positioning for {obj.name} at {fallbackPos}");
                 }
                 else
                 {
 
                     obj.transform.position = new Vector3(0, Constants.Limits.OriginYOffset, 0);
                     obj.transform.rotation = Quaternion.identity;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Used origin fallback positioning for {obj.name}");
-                    }
+                    Log.Debug($" Used origin fallback positioning for {obj.name}");
                 }
                 return false;
             }
@@ -621,32 +566,7 @@ namespace DrifterBossGrabMod
 
         private static System.Collections.IEnumerator DelayedAutoGrab(GameObject obj, string? ownerPlayerId, PersistenceCoroutineRunner runner, float delay)
         {
-            var teleporter = obj != null ? obj.GetComponent<TeleporterInteraction>() : null;
-            if (teleporter != null)
-            {
-                float elapsed = 0f;
-                var bossGroup = teleporter.GetComponent<RoR2.BossGroup>();
-                while (elapsed < 10.0f)
-                {
-                    if (obj == null) break;
-
-                    if (bossGroup != null && bossGroup.combatSquad != null && bossGroup.combatSquad.readOnlyMembersList.Count > 0)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Debug($"[DelayedAutoGrab] Boss squad populated (members: {bossGroup.combatSquad.readOnlyMembersList.Count}). Proceeding with auto-grab.");
-                        break;
-                    }
-
-                    yield return new WaitForSeconds(0.5f);
-                    elapsed += 0.5f;
-                }
-
-                yield return new WaitForSeconds(1.0f);
-            }
-            else
-            {
-                yield return new WaitForSeconds(delay);
-            }
+            yield return new WaitForSeconds(delay);
 
             if (obj != null)
             {
@@ -664,38 +584,25 @@ namespace DrifterBossGrabMod
 
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[TryAutoGrabObject] Aborting auto-grab for {obj.name}: Object is blacklisted.");
+                Log.Debug($"[TryAutoGrabObject] Aborting auto-grab for {obj.name}: Object is blacklisted.");
                 return;
             }
 
             if (obj.GetComponent<CharacterMaster>() != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Skipping auto-grab for {obj.name} - is CharacterMaster");
-                }
+                Log.Debug($" Skipping auto-grab for {obj.name} - is CharacterMaster");
                 return;
             }
 
             var healthComp = obj.GetComponent<RoR2.HealthComponent>();
             if (healthComp != null && !healthComp.alive)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Skipping auto-grab for {obj.name} - object is dead (alive={healthComp.alive})");
-                }
+                Log.Debug($" Skipping auto-grab for {obj.name} - object is dead (alive={healthComp.alive})");
                 return;
             }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[DEBUG] [TryAutoGrabObject ENTRY] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
-            }
+            Log.Debug($"[DEBUG] [TryAutoGrabObject ENTRY] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Attempting auto-grab for restored object {obj.name}");
-            }
+            Log.Debug($" Attempting auto-grab for restored object {obj.name}");
 
             CharacterBody? targetBody = null;
             if (string.IsNullOrEmpty(ownerPlayerId))
@@ -710,9 +617,9 @@ namespace DrifterBossGrabMod
                 if (ownerUser != null && ownerUser.master != null)
                 {
                     targetBody = ownerUser.master.GetBody();
-                    if (PluginConfig.Instance.EnableDebugLogs.Value && targetBody != null)
+                    if (targetBody != null)
                     {
-                        Log.Info($" Found owner body {targetBody.name} for object {obj.name} via player ID {ownerPlayerId}");
+                        Log.Debug($" Found owner body {targetBody.name} for object {obj.name} via player ID {ownerPlayerId}");
                     }
                 }
             }
@@ -734,22 +641,22 @@ namespace DrifterBossGrabMod
                     if (!string.IsNullOrEmpty(ownerPlayerId))
                     {
                         var user = FindNetworkUserById(ownerPlayerId);
-                        Log.Info($"[TryAutoGrabObject DEBUG] ownerPlayerId: {ownerPlayerId}");
-                        Log.Info($"[TryAutoGrabObject DEBUG] user found: {user != null}");
+                        Log.Debug($"[TryAutoGrabObject DEBUG] ownerPlayerId: {ownerPlayerId}");
+                        Log.Debug($"[TryAutoGrabObject DEBUG] user found: {user != null}");
                         if (user != null)
                         {
-                            Log.Info($"[TryAutoGrabObject DEBUG] user.master found: {user.master != null}");
+                            Log.Debug($"[TryAutoGrabObject DEBUG] user.master found: {user.master != null}");
                             if (user.master != null)
                             {
-                                Log.Info($"[TryAutoGrabObject DEBUG] user.master.GetBody() found: {user.master.GetBody() != null}");
+                                Log.Debug($"[TryAutoGrabObject DEBUG] user.master.GetBody() found: {user.master.GetBody() != null}");
                             }
                         }
 
-                        Log.Info($" Owner Drifter (player ID: {ownerPlayerId}) not found in scene yet for {obj.name}. Object will remain ungrabbed until owner spawns.");
+                        Log.Debug($" Owner Drifter (player ID: {ownerPlayerId}) not found in scene yet for {obj.name}. Object will remain ungrabbed until owner spawns.");
                     }
                     else
                     {
-                        Log.Info($" No owner assigned to {obj.name}. Object will remain ungrabbed (backward compatibility for unowned objects).");
+                        Log.Debug($" No owner assigned to {obj.name}. Object will remain ungrabbed (backward compatibility for unowned objects).");
                     }
                 }
                 return;
@@ -757,20 +664,14 @@ namespace DrifterBossGrabMod
 
             if (targetBody == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" No Drifter body found in scene to auto-grab {obj.name}");
-                }
+                Log.Debug($" No Drifter body found in scene to auto-grab {obj.name}");
                 return;
             }
 
             var bagController = targetBody.GetComponent<DrifterBagController>();
             if (bagController == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" No DrifterBagController found on target body {targetBody.name}");
-                }
+                Log.Debug($" No DrifterBagController found on target body {targetBody.name}");
                 return;
             }
 
@@ -778,10 +679,7 @@ namespace DrifterBossGrabMod
             {
                 try
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Server assigning {obj.name} to {targetBody.name}'s bag (Suppression Enabled)");
-                    }
+                    Log.Debug($" Server assigning {obj.name} to {targetBody.name}'s bag (Suppression Enabled)");
 
                     var specAttr = obj.GetComponent<SpecialObjectAttributes>();
                     if (specAttr != null)
@@ -803,10 +701,7 @@ namespace DrifterBossGrabMod
                         var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
                         if (bagStateMachine != null)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Setting BaggedObject state on {targetBody.name} for {obj.name}");
-                            }
+                            Log.Debug($" Setting BaggedObject state on {targetBody.name} for {obj.name}");
                             var baggedObject = new BaggedObject();
                             baggedObject.targetObject = obj;
                             bagStateMachine.SetNextState(baggedObject);
@@ -820,10 +715,7 @@ namespace DrifterBossGrabMod
             }
             else
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Drifter bag for {targetBody.name} is full, cannot auto-grab {obj.name}");
-                }
+                Log.Debug($" Drifter bag for {targetBody.name} is full, cannot auto-grab {obj.name}");
             }
         }
 
@@ -834,18 +726,12 @@ namespace DrifterBossGrabMod
         {
             if (!NetworkServer.active) return;
             if (!PersistenceObjectManager.GetCachedEnableAutoGrab()) return;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Executing immediate auto-grab for Drifter");
-            }
+            Log.Debug($" Executing immediate auto-grab for Drifter");
 
             var body = master.GetBody();
             if (body == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" No body found for Drifter during auto-grab");
-                }
+                Log.Debug($" No body found for Drifter during auto-grab");
                 return;
             }
 
@@ -854,24 +740,15 @@ namespace DrifterBossGrabMod
             if (bagController == null)
             {
                 bagController = body.GetComponent<DrifterBagController>();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Found bag controller on body during auto-grab");
-                }
+                Log.Debug($" Found bag controller on body during auto-grab");
             }
             else
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Found bag controller on master during auto-grab");
-                }
+                Log.Debug($" Found bag controller on master during auto-grab");
             }
             if (bagController == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" No DrifterBagController found on Drifter master or body");
-                }
+                Log.Debug($" No DrifterBagController found on Drifter master or body");
                 return;
             }
 
@@ -884,10 +761,7 @@ namespace DrifterBossGrabMod
                 drifterPlayerId = networkUserId.strValue != null
                     ? networkUserId.strValue
                     : $"{networkUserId.value}_{networkUserId.subId}";
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Drifter player ID: {drifterPlayerId}");
-                }
+                Log.Debug($" Drifter player ID: {drifterPlayerId}");
             }
 
             var persistedObjectsInScene = new List<GameObject>();
@@ -902,10 +776,7 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Found {persistedObjectsInScene.Count} persisted objects in scene for auto-grab");
-            }
+            Log.Debug($" Found {persistedObjectsInScene.Count} persisted objects in scene for auto-grab");
 
             var currentlyBaggedObjectsInScene = new List<GameObject>();
             var allCurrentlyBagged = PersistenceObjectManager.GetCurrentlyBaggedObjects();
@@ -916,10 +787,7 @@ namespace DrifterBossGrabMod
                     currentlyBaggedObjectsInScene.Add(obj);
                 }
             }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Found {currentlyBaggedObjectsInScene.Count} currently bagged objects in scene for auto-grab");
-            }
+            Log.Debug($" Found {currentlyBaggedObjectsInScene.Count} currently bagged objects in scene for auto-grab");
 
             var objectsToGrab = new List<GameObject>();
             objectsToGrab.AddRange(persistedObjectsInScene);
@@ -936,28 +804,19 @@ namespace DrifterBossGrabMod
                 }
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Total objects to attempt auto-grab for Drifter {drifterPlayerId}: {filteredObjectsToGrab.Count} (filtered from {objectsToGrab.Count} total)");
-            }
+            Log.Debug($" Total objects to attempt auto-grab for Drifter {drifterPlayerId}: {filteredObjectsToGrab.Count} (filtered from {objectsToGrab.Count} total)");
 
             foreach (var obj in filteredObjectsToGrab)
             {
 
                 if (obj.GetComponent<CharacterMaster>() != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Skipping auto-grab for {obj.name} - is CharacterMaster");
-                    }
+                    Log.Debug($" Skipping auto-grab for {obj.name} - is CharacterMaster");
                     continue;
                 }
                 if (!BagCapacityCalculator.HasRoomForGrab(bagController))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($" Drifter bag is full, stopping auto-grab");
-                    }
+                    Log.Debug($" Drifter bag is full, stopping auto-grab");
                     break;
                 }
 
@@ -975,19 +834,13 @@ namespace DrifterBossGrabMod
                         {
                             try
                             {
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($" Found Bag state machine, setting BaggedObject state for {obj.name}");
-                                }
+                                Log.Debug($" Found Bag state machine, setting BaggedObject state for {obj.name}");
 
                                 var baggedObject = new BaggedObject();
                                 baggedObject.targetObject = obj;
 
                                 bagStateMachine.SetNextState(baggedObject);
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($" Successfully initiated auto-grab for {obj.name} using EntityStateMachine");
-                                }
+                                Log.Debug($" Successfully initiated auto-grab for {obj.name} using EntityStateMachine");
                             }
                             catch (Exception ex)
                             {
@@ -996,10 +849,7 @@ namespace DrifterBossGrabMod
                         }
                         else
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Could not find Bag state machine for CharacterBody {obj.name}");
-                            }
+                                Log.Debug($" Could not find Bag state machine for CharacterBody {obj.name}");
                         }
                     }
                     else
@@ -1007,10 +857,7 @@ namespace DrifterBossGrabMod
 
                         try
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Manually assigning CharacterBody {obj.name} to additional seat");
-                            }
+                                Log.Debug($" Manually assigning CharacterBody {obj.name} to additional seat");
 
                             var seatObject = new GameObject($"AdditionalSeat_AutoGrab_{DateTime.Now.Ticks}");
                             seatObject.transform.SetParent(bagController.transform);
@@ -1055,10 +902,7 @@ namespace DrifterBossGrabMod
                             var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
                             seatDict[obj] = newSeat;
 
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
-                            }
+                                Log.Debug($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
                         }
                         catch (Exception ex)
                         {
@@ -1071,10 +915,7 @@ namespace DrifterBossGrabMod
 
                     try
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Directly assigning {obj.name} to bag for auto-grab (Suppression Enabled)");
-                        }
+                        Log.Debug($" Directly assigning {obj.name} to bag for auto-grab (Suppression Enabled)");
 
                         bagController.AssignPassenger(obj);
 
@@ -1082,10 +923,7 @@ namespace DrifterBossGrabMod
                         {
                             Patches.BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, obj);
                         }
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Successfully auto-grabbed {obj.name} using direct assignment");
-                        }
+                        Log.Debug($" Successfully auto-grabbed {obj.name} using direct assignment");
                     }
                     catch (Exception ex)
                     {
@@ -1103,10 +941,7 @@ namespace DrifterBossGrabMod
             if (obj == null) return;
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[HandleSpecialObjectRestoration] Destroying blacklisted object {obj.name}");
-                }
+                Log.Debug($"[HandleSpecialObjectRestoration] Destroying blacklisted object {obj.name}");
                 UnityEngine.Object.Destroy(obj);
                 return;
             }
@@ -1115,16 +950,10 @@ namespace DrifterBossGrabMod
 
             string objName = obj.name.ToLower();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Checking for TeleporterInteraction on persisted object {obj.name}");
-            }
+            Log.Debug($" Checking for TeleporterInteraction on persisted object {obj.name}");
             if (teleporterInteraction != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} for persisted object {obj.name}. Registering as secondary and patching references.");
-                }
+                Log.Debug($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} for persisted object {obj.name}. Registering as secondary and patching references.");
 
                 if (isRestoringFromSceneChange)
                 {
@@ -1133,10 +962,7 @@ namespace DrifterBossGrabMod
 
                 MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
-                }
+                    Log.Debug($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
             }
 
             if (duringSceneRestoration)
@@ -1145,10 +971,7 @@ namespace DrifterBossGrabMod
             }
             else
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($" No TeleporterInteraction found on persisted object {obj.name}");
-                }
+                    Log.Debug($" No TeleporterInteraction found on persisted object {obj.name}");
             }
 
             var characterMaster = obj.GetComponent<CharacterMaster>();
@@ -1180,20 +1003,14 @@ namespace DrifterBossGrabMod
                             if (modelAnimator != null && modelAnimator.runtimeAnimatorController != null)
                             {
                                 animator.runtimeAnimatorController = modelAnimator.runtimeAnimatorController;
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                {
-                                    Log.Info($" Restored Animator controller on {obj.name} from model");
-                                }
+                                    Log.Debug($" Restored Animator controller on {obj.name} from model");
                             }
                         }
 
                         if (animator.runtimeAnimatorController == null)
                         {
                             animator.enabled = false;
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($" Disabled broken Animator on {obj.name} to prevent NullReferenceException spam");
-                            }
+                            Log.Debug($" Disabled broken Animator on {obj.name} to prevent NullReferenceException spam");
                         }
                     }
                 }
@@ -1217,11 +1034,11 @@ namespace DrifterBossGrabMod
                     if (!_clientSceneObjects.ContainsKey(networkIdentity.netId))
                     {
                         _clientSceneObjects.Add(networkIdentity.netId, networkIdentity);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via cached reflection.");
+                        Log.Debug($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via cached reflection.");
                     }
                     else
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
+                        Log.Debug($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
                     }
                 }
                 else
@@ -1239,11 +1056,11 @@ namespace DrifterBossGrabMod
                         if (!dictionary.ContainsKey(networkIdentity.netId))
                         {
                             dictionary.Add(networkIdentity.netId, networkIdentity);
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via fallback Reflection.");
+                            Log.Debug($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via fallback Reflection.");
                         }
                         else
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
+                            Log.Debug($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
                         }
                     }
                     else

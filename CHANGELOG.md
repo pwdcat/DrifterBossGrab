@@ -15,14 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - There are like two ways I know of without cheats for persisting charging teleporters
 - Recovery Settings
 - A proper wiki
+- HUD Editor
+- SuffocateSlam damage formula
 
 ### Changed
 - Config Reorganization
 - UI/UX Improvements
 - Refactoring/Reworked
-    - ModelStatePerserver/State Management
+    - ModelStatePerserver/State Management (Removed)
     - Recovery
     - EntityStates
+    - Overrides
+    - Additionalseats
+    - Max Launch
+- Presets
+    - Added Recovery
+    - Made it a little bit more invasive but should help with fine tuning
+- No longer possible to persist survivors
 
 ### Fixed
 - Autopromote and Mainseat for clients
@@ -33,15 +42,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persistence + Save autograb bag order
 - AdditionalSeatBreakout fixes, resets properly + collision
 - Objects floating away after impact
+- Bugs with multiplayer and cycling (breakout during a cycle)
+- Bag caps off by 1 for clients
+- Performance issues with balance during cycling
+- Bagging survivors propertly tracked and exit correctly
 
 ### Removed
 - ModelStatePerserver and StateManagement, code was straight buns and it was old
 - Purged stupid fallbacks that probably wont execute, hopefully
 - Removed bandaid fix for persisting teleporters
     - Persisted teleporters will work properly now
-    - Carries over charge state but be reset to 0% and shrine counter, new boss + rewards in new stage
+    - Carries over charge state but be reset to 0% and shrine counter, new boss + rewards in new stages
 - Removed bandaid fix for cycling mid repossess
-    - did a proper fix
+- AddedCapacity superseeded with SlotScalingFormula
+- Mid air grab blocker
+- 50 Persistence Object cap
 
 ## [1.7.2]  
 

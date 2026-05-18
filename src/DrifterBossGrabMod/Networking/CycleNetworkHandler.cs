@@ -137,7 +137,7 @@ namespace DrifterBossGrabMod.Networking
 
             NetworkServer.SendToAll(Constants.Network.BagStateUpdatedMessageType, msg);
 
-            Log.Info($"[SendBagStateUpdate] Sent bag state update for {bagController.name} - selectedIndex={netController.selectedIndex}, isThrow={isThrowOperation}, removedObject={(removedObjectNetId == NetworkInstanceId.Invalid ? "none" : removedObjectNetId.Value.ToString())}");
+            Log.Debug($"[SendBagStateUpdate] Sent bag state update for {bagController.name} - selectedIndex={netController.selectedIndex}, isThrow={isThrowOperation}, removedObject={(removedObjectNetId == NetworkInstanceId.Invalid ? "none" : removedObjectNetId.Value.ToString())}");
         }
 
         // ========================================================================================
@@ -169,8 +169,7 @@ namespace DrifterBossGrabMod.Networking
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[CycleNetworkHandler.HandleCycleRequestMessage] Processing request: Controller={bagController.name}, Amount={msg.amount}.");
+                Log.Debug($"[CycleNetworkHandler.HandleCycleRequestMessage] Processing request: Controller={bagController.name}, Amount={msg.amount}.");
                 PassengerCycler.ServerCyclePassengers(bagController, msg.amount);
             }
         }
@@ -249,7 +248,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (IsObjectInAnySeat(bagController, targetObject))
             {
-                Log.Info($"[HandleGrabObjectMessage] {targetObject.name} is already in a seat, skipping grab");
+                Log.Debug($"[HandleGrabObjectMessage] {targetObject.name} is already in a seat, skipping grab");
                 return;
             }
 
@@ -273,10 +272,7 @@ namespace DrifterBossGrabMod.Networking
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Debug($"[HandleBagStateUpdatedMessage] Controller (netId={msg.controllerNetId.Value}) not found - likely destroyed");
-                }
+                Log.Debug($"[HandleBagStateUpdatedMessage] Controller (netId={msg.controllerNetId.Value}) not found - likely destroyed");
                 return;
             }
 
@@ -311,7 +307,7 @@ namespace DrifterBossGrabMod.Networking
                 if (removedObj != null)
                 {
 
-                    Log.Info($"[HandleBagStateUpdatedMessage] Cleaning up removed object {removedObj.name}");
+                    Log.Debug($"[HandleBagStateUpdatedMessage] Cleaning up removed object {removedObj.name}");
                     NetworkUtils.InvalidateReadyCache(removedObj);
 
                     PersistenceObjectsTracker.UntrackBaggedObject(removedObj, false);
@@ -324,16 +320,13 @@ namespace DrifterBossGrabMod.Networking
                 }
                 else
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Debug($"[HandleBagStateUpdatedMessage] Removed object (netId={msg.removedObjectNetId.Value}) not found - likely destroyed/already thrown");
-                    }
+                    Log.Debug($"[HandleBagStateUpdatedMessage] Removed object (netId={msg.removedObjectNetId.Value}) not found - likely destroyed/already thrown");
                 }
             }
 
             BagCarouselUpdater.UpdateCarousel(bagController);
 
-            Log.Info($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={msg.baggedIds.Length}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
+            Log.Debug($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={msg.baggedIds.Length}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
 
             var bagState = BagPatches.GetState(bagController);
             if (bagState != null)
@@ -361,7 +354,7 @@ namespace DrifterBossGrabMod.Networking
                 BaggedObjectPatches.ClearAllTemporaryPreservation(bagController);
             }
 
-            Log.Info($"[HandleBagStateUpdatedMessage] Bag state updated for {bagController.name} - new selectedIndex={netController.selectedIndex}");
+            Log.Debug($"[HandleBagStateUpdatedMessage] Bag state updated for {bagController.name} - new selectedIndex={netController.selectedIndex}");
         }
 
         private static bool IsObjectInAnySeat(DrifterBagController controller, GameObject obj)

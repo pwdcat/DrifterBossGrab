@@ -127,7 +127,7 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var currentState = GetBagStateMachineState(controller);
-                        Log.Info($"[RemoveBaggedObject] Was main passenger destroyed. Current Bag state: {currentState}");
+                        Log.Debug($"[RemoveBaggedObject] Was main passenger destroyed. Current Bag state: {currentState}");
                     }
 
                     if (ReflectionCache.DrifterBagController.Smacks != null)
@@ -153,8 +153,7 @@ namespace DrifterBossGrabMod.Patches
                         var newMain = list[0];
                         if (newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(newMain))
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[RemoveBaggedObject] Triggering autopromote for: {newMain.name}");
+                            Log.Debug($"[RemoveBaggedObject] Triggering autopromote for: {newMain.name}");
 
                             DelayedAutoPromote.Schedule(controller, newMain, 0.05f);
                         }
@@ -172,8 +171,7 @@ namespace DrifterBossGrabMod.Patches
                 try
                 {
                     ejectedAdditionalSeat.EjectPassenger(obj);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[RemoveBaggedObject] Ejected {obj.name} from additional seat");
+                        Log.Debug($"[RemoveBaggedObject] Ejected {obj.name} from additional seat");
                 }
                 catch (Exception ex)
                 {
@@ -275,10 +273,7 @@ namespace DrifterBossGrabMod.Patches
                         BodyColliderCache.RestoreMovementColliders(disabledStates);
                         bagState.DisabledCollidersByObject.TryRemove(obj, out _);
 
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[RemoveBaggedObject] Restored movement colliders for ungrabbable enemy {obj.name}");
-                        }
+                        Log.Debug($"[RemoveBaggedObject] Restored movement colliders for ungrabbable enemy {obj.name}");
                     }
                 }
             }
@@ -557,13 +552,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[RemoveBaggedObject] About to eject passenger from main seat: {BagHelpers.GetSafeName(obj)}");
+                        Log.Debug($"[RemoveBaggedObject] About to eject passenger from main seat: {BagHelpers.GetSafeName(obj)}");
 
                     controller.vehicleSeat.EjectPassenger(obj);
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
+                        Log.Debug($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
                 }
                 catch (Exception ex)
                 {
@@ -571,8 +564,7 @@ namespace DrifterBossGrabMod.Patches
 
                     try
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[RemoveBaggedObject] Forcibly clearing passenger state due to exception.");
+                            Log.Debug($"[RemoveBaggedObject] Forcibly clearing passenger state due to exception.");
 
                         var passengerField = typeof(RoR2.VehicleSeat).GetField("passengerBodyObject", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                         if (passengerField != null) passengerField.SetValue(controller.vehicleSeat, null);

@@ -55,12 +55,75 @@ namespace DrifterBossGrabMod.UI
             _menuInstance.transform.SetParent(canvas.transform, false);
 
             var rect = _menuInstance.AddComponent<RectTransform>();
-            rect.pivot = new Vector2(0, 1);
+            
+            float pivotX = 0f;
+            float pivotY = 1f;
+
+            if (UnityEngine.Input.mousePosition.x > UnityEngine.Screen.width * 0.5f)
+            {
+                pivotX = 1f;
+            }
+            if (UnityEngine.Input.mousePosition.y < UnityEngine.Screen.height * 0.5f)
+            {
+                pivotY = 0f;
+            }
+
+            rect.pivot = new Vector2(pivotX, pivotY);
+
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvas.transform as RectTransform,
                 UnityEngine.Input.mousePosition,
                 canvas.worldCamera,
                 out Vector2 localPoint);
+
+            float menuWidth = 516f;
+            float menuHeight = 348f;
+            var canvasRect = canvas.transform as RectTransform;
+            if (canvasRect != null)
+            {
+                float canvasWidth = canvasRect.rect.width;
+                float canvasHeight = canvasRect.rect.height;
+
+                float minX, maxX;
+                if (pivotX == 0f)
+                {
+                    minX = -canvasWidth * 0.5f;
+                    maxX = canvasWidth * 0.5f - menuWidth;
+                }
+                else
+                {
+                    minX = -canvasWidth * 0.5f + menuWidth;
+                    maxX = canvasWidth * 0.5f;
+                }
+
+                float minY, maxY;
+                if (pivotY == 0f)
+                {
+                    minY = -canvasHeight * 0.5f;
+                    maxY = canvasHeight * 0.5f - menuHeight;
+                }
+                else
+                {
+                    minY = -canvasHeight * 0.5f + menuHeight;
+                    maxY = canvasHeight * 0.5f;
+                }
+
+                if (minX > maxX)
+                {
+                    float temp = minX;
+                    minX = maxX;
+                    maxX = temp;
+                }
+                if (minY > maxY)
+                {
+                    float temp = minY;
+                    minY = maxY;
+                    maxY = temp;
+                }
+
+                localPoint.x = Mathf.Clamp(localPoint.x, minX, maxX);
+                localPoint.y = Mathf.Clamp(localPoint.y, minY, maxY);
+            }
 
             rect.anchoredPosition = localPoint;
 
@@ -242,6 +305,8 @@ namespace DrifterBossGrabMod.UI
                                         var layout = optionObj.GetComponent<LayoutElement>();
                                         if (layout == null) layout = optionObj.AddComponent<LayoutElement>();
                                         layout.minHeight = 45;
+                                        layout.preferredHeight = 45;
+                                        layout.flexibleHeight = 0;
 
                                         var modSetting = optionObj.GetComponentInChildren<RiskOfOptions.Components.Options.ModSetting>(true);
                                         if (modSetting != null)

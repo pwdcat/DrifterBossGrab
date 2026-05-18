@@ -15,10 +15,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(CharacterMaster __instance, CharacterBody body)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[CharacterMaster_OnBodyStart] Body: {body.name}, Master: {__instance.name}");
-                }
+                Log.Debug($"[CharacterMaster_OnBodyStart] Body: {body.name}, Master: {__instance.name}");
 
                 if (body.name.StartsWith("DrifterBody"))
                 {
@@ -28,14 +25,11 @@ namespace DrifterBossGrabMod.Patches
                     {
                         var ui = body.gameObject.AddComponent<UI.BaggedObjectUIController>();
                         ui.slotPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/Drifter/Bag UI.prefab").WaitForCompletion();
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[CharacterMaster_OnBodyStart] Added BaggedObjectUIController to DrifterBody, slot prefab loaded: {ui.slotPrefab != null}");
-                        }
+                        Log.Debug($"[CharacterMaster_OnBodyStart] Added BaggedObjectUIController to DrifterBody, slot prefab loaded: {ui.slotPrefab != null}");
                     }
-                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    else
                     {
-                        Log.Info($"[CharacterMaster_OnBodyStart] Carousel HUD disabled, skipping BaggedObjectUIController creation");
+                        Log.Debug($"[CharacterMaster_OnBodyStart] Carousel HUD disabled, skipping BaggedObjectUIController creation");
                     }
                 }
                 if (!PluginConfig.Instance.EnableObjectPersistence.Value ||
@@ -49,10 +43,7 @@ namespace DrifterBossGrabMod.Patches
                 {
 
                     PersistenceManager.ScheduleAutoGrab(__instance);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[CharacterMaster_OnBodyStart] Scheduled auto-grab for Drifter respawn");
-                    }
+                    Log.Debug($"[CharacterMaster_OnBodyStart] Scheduled auto-grab for Drifter respawn");
                 }
 
                 Patches.ZoneDetectionPatches.DetectZoneInversion(body.transform.position);

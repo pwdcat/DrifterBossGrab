@@ -29,12 +29,15 @@ namespace DrifterBossGrabMod
                         {
                             if (charModel.invisibilityCount <= 0)
                             {
-                                charModel.invisibilityCount = 1;
+                                charModel.invisibilityCount++;
                             }
                         }
                         else
                         {
-                            charModel.invisibilityCount = 0;
+                            if (charModel.invisibilityCount > 0)
+                            {
+                                charModel.invisibilityCount--;
+                            }
                         }
                     }
                 }
@@ -42,16 +45,6 @@ namespace DrifterBossGrabMod
                 var specialAttrs = obj.GetComponent<RoR2.SpecialObjectAttributes>();
                 if (specialAttrs != null)
                 {
-                    specialAttrs.enabled = isVisible;
-                    
-                    if (specialAttrs.childSpecialObjectAttributes != null)
-                    {
-                        foreach (var childAttr in specialAttrs.childSpecialObjectAttributes)
-                        {
-                            if (childAttr != null) childAttr.enabled = isVisible;
-                        }
-                    }
-
                     if (specialAttrs.renderersToDisable != null)
                     {
                         foreach (var renderer in specialAttrs.renderersToDisable)
@@ -76,32 +69,6 @@ namespace DrifterBossGrabMod
                         foreach (var display in specialAttrs.pickupDisplaysToDisable)
                         {
                             if (display != null) display.SetRenderersEnabled(isVisible);
-                        }
-                    }
-
-                    if (specialAttrs.behavioursToDisable != null)
-                    {
-                        foreach (var behavior in specialAttrs.behavioursToDisable)
-                        {
-                            if (behavior != null)
-                            {
-                                var hologramProjector = behavior as RoR2.Hologram.HologramProjector;
-                                if (hologramProjector != null && hologramProjector.hologramContentInstance != null)
-                                {
-                                    hologramProjector.hologramContentInstance.SetActive(isVisible);
-                                }
-                                try
-                                {
-                                    behavior.enabled = isVisible;
-                                }
-                                catch (Exception ex)
-                                {
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    {
-                                        Log.Warning($"[SetBaggedObjectVisibility] Failed to set enabled={isVisible} for behavior {behavior.GetType().Name} on {obj.name}: {ex.Message}");
-                                    }
-                                }
-                            }
                         }
                     }
 
@@ -134,7 +101,7 @@ namespace DrifterBossGrabMod
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     var health = obj.GetComponent<RoR2.HealthComponent>();
-                    Log.Info($"[DEBUG] [TrackBaggedObject] {obj.name}: alive={health?.alive}");
+                    Log.Debug($"[DEBUG] [TrackBaggedObject] {obj.name}: alive={health?.alive}");
                 }
             }
         }
@@ -149,7 +116,7 @@ namespace DrifterBossGrabMod
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var health = obj.GetComponent<RoR2.HealthComponent>();
-                        Log.Info($"[DEBUG] [UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
+                        Log.Debug($"[DEBUG] [UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
                     }
 
                     PersistenceManager.RemovePersistedObject(obj, isDestroying);

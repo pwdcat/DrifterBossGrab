@@ -18,13 +18,13 @@ namespace DrifterBossGrabMod.Patches
         {
             if (!SeatValidator.HasSpaceForNullStateTransition(bagController, validObjectCount, localSeatDict))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[HandleNullStateTransition] No space for null transition, aborting.");
+                Log.Debug($"[HandleNullStateTransition] No space for null transition, aborting.");
                 return;
             }
 
             if (!SeatValidator.ValidateNullStateTransition(bagController, actualMainPassenger, localSeatDict))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[HandleNullStateTransition] ValidateNullStateTransition failed, aborting.");
+                Log.Debug($"[HandleNullStateTransition] ValidateNullStateTransition failed, aborting.");
                 return;
             }
             var seatForCurrent = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
@@ -116,8 +116,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (isBagFull && NetworkServer.active && sourceAdditionalSeat == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[HandleNullToObjectTransition] Bag is full, keeping {targetObject.name} in additional seat instead of main seat");
+                    Log.Debug($"[HandleNullToObjectTransition] Bag is full, keeping {targetObject.name} in additional seat instead of main seat");
 
                 var targetAdditionalSeat = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
                 if (targetAdditionalSeat != null)
@@ -130,10 +129,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[HandleNullToObjectTransition] Saving state before AssignPassenger (null -> {targetObject.name})");
-            }
+            Log.Debug($"[HandleNullToObjectTransition] Saving state before AssignPassenger (null -> {targetObject.name})");
 
             BagPatches.SetMainSeatObject(bagController, targetObject);
 

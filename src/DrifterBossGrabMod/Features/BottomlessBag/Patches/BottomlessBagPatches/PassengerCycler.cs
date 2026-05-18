@@ -51,7 +51,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (bagController.vehicleSeat == null)
             {
-                Log.Info($" [BottomlessBag] ERROR: vehicleSeat is null!");
+                Log.Debug($" [BottomlessBag] ERROR: vehicleSeat is null!");
                 return;
             }
 
@@ -276,13 +276,12 @@ namespace DrifterBossGrabMod.Patches
 
                     if (!isInValidObjects)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[CycleToNextObject] mainPassenger {mainPassenger.name} not in validObjects and not in seat, returning early");
+                        Log.Debug($"[CycleToNextObject] mainPassenger {mainPassenger.name} not in validObjects and not in seat, returning early");
                         return;
                     }
-                    else if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    else
                     {
-                        Log.Info($"[CycleToNextObject] Trusting mainSeatDict for {mainPassenger.name} (client-grabbed object)");
+                        Log.Debug($"[CycleToNextObject] Trusting mainSeatDict for {mainPassenger.name} (client-grabbed object)");
                     }
                 }
             }
@@ -358,7 +357,7 @@ namespace DrifterBossGrabMod.Patches
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 var target = (nextIndex >= 0 && nextIndex < validObjects.Count) ? validObjects[nextIndex] : null;
-                Log.Info($"[PassengerCycler] User scrolled to index {nextIndex}. Target={(target != null ? target.name : "null")}");
+                Log.Debug($"[PassengerCycler] User scrolled to index {nextIndex}. Target={(target != null ? target.name : "null")}");
             }
 
             bool nextIsNull = (nextIndex == validObjects.Count);
@@ -368,15 +367,11 @@ namespace DrifterBossGrabMod.Patches
 
             int direction = Math.Sign(amount);
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}, IsBagFull={isBagFull}");
-            }
+            Log.Debug($"[CycleToNextObject] Index Calc: Current={currentIndex} (IsNull={currentIsNull}), Amount={amount}, Next={nextIndex} (IsNull={nextIsNull}), TotalPos={totalPositions}, IsBagFull={isBagFull}");
 
             if (isBagFull && nextIsNull)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
+                    Log.Debug($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
 
                 nextIndex = (direction > 0) ? 0 : validObjects.Count - 1;
                 nextIsNull = false;
@@ -387,7 +382,7 @@ namespace DrifterBossGrabMod.Patches
             bool hasValidSeatConfiguration = SeatValidator.ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);
             if (!hasValidSeatConfiguration)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[CycleToNextObject] Invalid Seat Conf, Aborting.");
+                Log.Debug($"[CycleToNextObject] Invalid Seat Conf, Aborting.");
                 return;
             }
             DrifterBossGrabPlugin._isSwappingPassengers = true;

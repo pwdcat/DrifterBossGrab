@@ -23,20 +23,14 @@ namespace DrifterBossGrabMod.Patches
 
             PersistenceManager.ClearPersistedObjects();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Persistence system initialized on run start");
-            }
+            Log.Debug($" Persistence system initialized on run start");
         }
         private static void OnRunDestroyGlobal(Run run)
         {
 
             PersistenceManager.Cleanup();
             PersistenceObjectsTracker.ClearTrackedObjects();
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($" Persistence system cleaned up on run destroy");
-            }
+            Log.Debug($" Persistence system cleaned up on run destroy");
         }
     }
 }

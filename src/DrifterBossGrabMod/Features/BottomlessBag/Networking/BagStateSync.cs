@@ -37,9 +37,9 @@ namespace DrifterBossGrabMod.Networking
             {
                 if (!drifterBody.GetComponent<BottomlessBagNetworkController>())
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info("[BagStateSync] Adding BottomlessBagNetworkController to DrifterBody prefab");
+                    Log.Debug("[BagStateSync] Adding BottomlessBagNetworkController to DrifterBody prefab");
                     drifterBody.AddComponent<BottomlessBagNetworkController>();
-                    Log.Info("[BagStateSync] Successfully added BottomlessBagNetworkController to DrifterBody prefab!");
+                    Log.Debug("[BagStateSync] Successfully added BottomlessBagNetworkController to DrifterBody prefab!");
                 }
             }
             else if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -88,7 +88,7 @@ namespace DrifterBossGrabMod.Networking
 
         private static void OnClientConnect(NetworkConnection conn)
         {
-            Log.Info("[BagStateSync] OnClientConnect firing");
+            Log.Debug("[BagStateSync] OnClientConnect firing");
             if (NetworkManager.singleton?.client != null)
             {
 
@@ -97,7 +97,7 @@ namespace DrifterBossGrabMod.Networking
 
         private static void OnServerStart()
         {
-            Log.Info("[BagStateSync] OnServerStart firing");
+            Log.Debug("[BagStateSync] OnServerStart firing");
             if (DrifterBossGrabPlugin.Instance != null)
             {
                 DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedServerHooksInit());
@@ -116,7 +116,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (NetworkServer.active)
             {
-                Log.Info($"[BagStateSync] NetworkServer.active became true after {elapsed:F1}s, initializing server hooks");
+                Log.Debug($"[BagStateSync] NetworkServer.active became true after {elapsed:F1}s, initializing server hooks");
                 PersistenceNetworkHandler.RegisterServerHooks();
             }
             else
@@ -129,7 +129,7 @@ namespace DrifterBossGrabMod.Networking
         {
             if (NetworkServer.active)
             {
-                Log.Info("[BagStateSync] OnRunStart - re-initializing server hooks");
+                Log.Debug("[BagStateSync] OnRunStart - re-initializing server hooks");
                 PersistenceNetworkHandler.RegisterServerHooks();
             }
         }

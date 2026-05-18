@@ -313,7 +313,10 @@ namespace DrifterBossGrabMod
 
         public void Start()
         {
-            SetupRiskOfOptions();
+            if (RooInstalled)
+            {
+                SetupRiskOfOptions();
+            }
         }
 
         public void Update()
@@ -322,6 +325,32 @@ namespace DrifterBossGrabMod
             {
                 Patches.BottomlessBagPatches.HandleInput();
             }
+        }
+    }
+
+    internal static class Log
+    {
+        private static BepInEx.Logging.ManualLogSource? _logger;
+        private static bool _enableDebugLogs;
+
+        internal static bool EnableDebugLogs
+        {
+            get => _enableDebugLogs;
+            set => _enableDebugLogs = value;
+        }
+
+        internal static void Init(BepInEx.Logging.ManualLogSource logSource) => _logger = logSource;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Error(object data) => _logger?.LogError(data.ToString());
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Warning(object data) => _logger?.LogWarning(data.ToString());
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Debug(object data)
+        {
+            if (_enableDebugLogs && _logger != null)
+                _logger.LogDebug(data.ToString());
         }
     }
 }

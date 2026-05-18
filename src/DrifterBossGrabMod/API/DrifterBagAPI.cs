@@ -153,10 +153,7 @@ namespace DrifterBossGrabMod.API
                     var bagStateMachine = EntityStateMachine.FindByCustomName(targetBody.gameObject, "Bag");
                     if (bagStateMachine != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[DrifterBagAPI] Setting BaggedObject state on {targetBody.name} for {obj.name}");
-                        }
+                        Log.Debug($"[DrifterBagAPI] Setting BaggedObject state on {targetBody.name} for {obj.name}");
                         var baggedObjectState = new BaggedObject();
                         baggedObjectState.targetObject = obj;
                         bagStateMachine.SetNextState(baggedObjectState);

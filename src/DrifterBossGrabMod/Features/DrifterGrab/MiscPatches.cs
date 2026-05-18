@@ -39,10 +39,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(ThrownObjectProjectileController __instance)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[EjectPassenger] CALLED for {__instance.name} | Passenger: {(__instance.Networkpassenger != null ? __instance.Networkpassenger.name : "null")} | Server: {UnityEngine.Networking.NetworkServer.active}");
-                }
+                Log.Debug($"[EjectPassenger] CALLED for {__instance.name} | Passenger: {(__instance.Networkpassenger != null ? __instance.Networkpassenger.name : "null")} | Server: {UnityEngine.Networking.NetworkServer.active}");
 
                 return true;
             }

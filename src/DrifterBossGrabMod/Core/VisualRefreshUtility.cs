@@ -12,8 +12,7 @@ namespace DrifterBossGrabMod.Core
         {
             if (target == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[VisualRefreshUtility] Starting refresh for {target.name}");
+            Log.Debug($"[VisualRefreshUtility] Starting refresh for {target.name}");
 
             try
             {
@@ -63,7 +62,7 @@ namespace DrifterBossGrabMod.Core
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
                             string matName = sharedMats[i] == null ? "NULL" : sharedMats[i]!.name;
-                            Log.Info($"[VisualRefreshUtility] Renderer '{r.name}' on {target.name} has invalid material at slot {i} (Mat: {matName}). Disabling renderer.");
+                            Log.Debug($"[VisualRefreshUtility] Renderer '{r.name}' on {target.name} has invalid material at slot {i} (Mat: {matName}). Disabling renderer.");
                         }
 
                         r.enabled = false;
@@ -90,16 +89,14 @@ namespace DrifterBossGrabMod.Core
             var printControllers = target.GetComponentsInChildren<PrintController>(true);
             foreach (var pc in printControllers)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[VisualRefreshUtility] Removing stuck PrintController from {target.name}");
+                Log.Debug($"[VisualRefreshUtility] Removing stuck PrintController from {target.name}");
                 Object.Destroy(pc);
             }
 
             var ditherModels = target.GetComponentsInChildren<DitherModel>(true);
             foreach (var dm in ditherModels)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[VisualRefreshUtility] Removing stuck DitherModel from {target.name}");
+                Log.Debug($"[VisualRefreshUtility] Removing stuck DitherModel from {target.name}");
                 Object.Destroy(dm);
             }
         }

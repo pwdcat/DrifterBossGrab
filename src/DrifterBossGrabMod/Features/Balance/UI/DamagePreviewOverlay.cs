@@ -108,7 +108,7 @@ namespace DrifterBossGrabMod.UI
             }
             GameObject barInstance = Instantiate(barPrefab, barContainer);
             barInstance.name = "DamagePreview";
-            Log.Info("[DamagePreviewOverlay] Created damage preview inside barContainer");
+            Log.Debug("[DamagePreviewOverlay] Created damage preview inside barContainer");
 
             _previewRect = barInstance.GetComponent<RectTransform>();
             if (!_previewRect)
@@ -119,12 +119,7 @@ namespace DrifterBossGrabMod.UI
                 _previewImage = barInstance.AddComponent<Image>();
 
             _previewImage.color = PluginConfig.Instance.DamagePreviewColor.Value;
-            _previewImage.raycastTarget = true;
-
-            var draggable = barInstance.AddComponent<HudDraggable>();
-            draggable.ElementType = HudElementType.DamagePreview;
-            draggable.DragSizePadding = new Vector2(0, 0);
-            draggable.DragOffset = new Vector2(0, 0);
+            _previewImage.raycastTarget = false;
         }
 
         private void UpdatePreviewBar()

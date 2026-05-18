@@ -37,8 +37,8 @@ namespace DrifterBossGrabMod
             Instance.SelectedHudElement.Value = HudElementType.All;
 
             Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel.");
-            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 20.0f, "X position offset for stats panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 0.0f, "Y position offset for stats panel.");
+            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 450.0f, "X position offset for stats panel.");
+            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 85.0f, "Y position offset for stats panel.");
             Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale for stats panel.");
             Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for stats panel.");
             Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the custom weight icon.");

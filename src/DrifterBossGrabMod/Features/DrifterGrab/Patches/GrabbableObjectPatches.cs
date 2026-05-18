@@ -170,10 +170,7 @@ namespace DrifterBossGrabMod.Patches
             if (!PluginConfig.IsGrabbable(obj))
                 return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToGrabbableObject called for {objName}");
-            }
+            Log.Debug($"[GrabbableObjectPatches] AddSpecialObjectAttributesToGrabbableObject called for {objName}");
 
             if (lowerObjName.Contains("survivorpod"))
             {
@@ -362,10 +359,7 @@ namespace DrifterBossGrabMod.Patches
                 return;
 
             string objName = obj.name;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GrabbableObjectPatches] AddSpecialObjectAttributesToProjectile called for {objName}");
-            }
+            Log.Debug($"[GrabbableObjectPatches] AddSpecialObjectAttributesToProjectile called for {objName}");
 
             string lowerObjName = objName.ToLowerInvariant();
 

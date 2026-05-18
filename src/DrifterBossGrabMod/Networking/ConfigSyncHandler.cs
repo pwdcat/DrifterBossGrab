@@ -18,10 +18,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ConfigSyncHandler] Sync disabled by host config. Skipping send to client {conn.connectionId}.");
-                }
+                Log.Debug($"[ConfigSyncHandler] Sync disabled by host config. Skipping send to client {conn.connectionId}.");
                 return;
             }
 
@@ -79,10 +76,7 @@ namespace DrifterBossGrabMod.Networking
                 AllFlagMultiplier = PluginConfig.Instance.AllFlagMultiplier.Value,
             };
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
-            }
+            Log.Debug($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
 
             conn.Send(Constants.Network.SyncConfigMessageType, msg);
         }
@@ -107,19 +101,13 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info("[ConfigSyncHandler] Config sync disabled by client setting. Ignoring config from host.");
-                }
+                Log.Debug("[ConfigSyncHandler] Config sync disabled by client setting. Ignoring config from host.");
                 return;
             }
 
             var msg = netMsg.ReadMessage<SyncConfigMessage>();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
-            }
+            Log.Debug($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
 
             ApplySyncedConfig(msg);
         }
@@ -181,10 +169,7 @@ namespace DrifterBossGrabMod.Networking
 
             GrabbableObjectPatches.EnsureAllGrabbableObjectsHaveSpecialObjectAttributes();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[ConfigSyncHandler] Local config updated and scene objects re-scanned.");
-            }
+            Log.Debug("[ConfigSyncHandler] Local config updated and scene objects re-scanned.");
         }
 
         private static System.Collections.IEnumerator DelayBroadcast()
@@ -196,17 +181,11 @@ namespace DrifterBossGrabMod.Networking
 
             if (!PluginConfig.Instance.EnableConfigSync.Value)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ConfigSyncHandler] Sync disabled by host config. Skipping broadcast.");
-                }
+                Log.Debug($"[ConfigSyncHandler] Sync disabled by host config. Skipping broadcast.");
                 yield break;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[ConfigSyncHandler] Broadcasting updated config to all connected clients.");
-            }
+            Log.Debug($"[ConfigSyncHandler] Broadcasting updated config to all connected clients.");
 
             foreach (var conn in NetworkServer.connections)
             {

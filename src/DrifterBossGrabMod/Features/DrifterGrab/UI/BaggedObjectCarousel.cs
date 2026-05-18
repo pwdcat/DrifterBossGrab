@@ -140,7 +140,11 @@ namespace DrifterBossGrabMod.UI
             var rect = GetComponent<RectTransform>();
             if (rect)
             {
-                rect.anchoredPosition = new Vector2(PluginConfig.Instance.CenterSlotX.Value, PluginConfig.Instance.CenterSlotY.Value);
+                var draggable = GetComponent<HudDraggable>();
+                if (draggable == null || !draggable.IsDragging)
+                {
+                    rect.anchoredPosition = new Vector2(PluginConfig.Instance.CenterSlotX.Value, PluginConfig.Instance.CenterSlotY.Value);
+                }
             }
         }
 

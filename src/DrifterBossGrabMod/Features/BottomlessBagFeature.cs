@@ -13,7 +13,7 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.Info($"[{FeatureName}] Applying patches...");
+            Log.Debug($"[{FeatureName}] Applying patches...");
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.BaggedObject_TryOverrideUtility)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectPatches.BaggedObject_TryOverridePrimary)).Patch();
@@ -36,7 +36,7 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnExit_Patch)).Patch();
 
-            Log.Info($"[{FeatureName}] Patches applied successfully.");
+            Log.Debug($"[{FeatureName}] Patches applied successfully.");
         }
     }
 }

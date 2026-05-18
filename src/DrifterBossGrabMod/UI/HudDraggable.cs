@@ -24,6 +24,7 @@ namespace DrifterBossGrabMod.UI
         private static Color DraggingHighlightColor = new Color(1f, 1f, 0f, 0.4f);
 
         private bool _isDragging = false;
+        public bool IsDragging => _isDragging;
         private bool _isHovering = false;
 
         private void Awake()
@@ -36,6 +37,8 @@ namespace DrifterBossGrabMod.UI
             _highlight = highlightObj.AddComponent<Image>();
             _highlight.color = NormalHighlightColor;
             _highlight.raycastTarget = true;
+            var layoutElement = highlightObj.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
 
             var highlightRect = _highlight.rectTransform;
             highlightRect.anchorMin = Vector2.zero;
@@ -52,6 +55,8 @@ namespace DrifterBossGrabMod.UI
             if (_highlight != null && _highlight.gameObject.activeSelf != editorActive)
             {
                 _highlight.gameObject.SetActive(editorActive);
+                if (editorActive)
+                    _highlight.transform.SetAsLastSibling();
 
                 _highlight.rectTransform.sizeDelta = DragSizePadding;
                 _highlight.rectTransform.anchoredPosition = DragOffset;

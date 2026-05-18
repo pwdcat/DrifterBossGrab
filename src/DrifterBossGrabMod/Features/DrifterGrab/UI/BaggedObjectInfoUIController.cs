@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 using RoR2;
 using RoR2.UI;
 using DrifterBossGrabMod.Core;
@@ -133,6 +134,16 @@ namespace DrifterBossGrabMod.UI
             rectTransform.anchorMin = new Vector2(0, 0.5f);
             rectTransform.anchorMax = new Vector2(0, 0.5f);
             rectTransform.pivot = new Vector2(0, 0.5f);
+            var layoutGroup = _uiPanel.AddComponent<VerticalLayoutGroup>();
+            layoutGroup.padding = new RectOffset(10, 10, 10, 10);
+            layoutGroup.childForceExpandWidth = true;
+            layoutGroup.childForceExpandHeight = false;
+            layoutGroup.childControlWidth = true;
+            layoutGroup.childControlHeight = true;
+
+            var fitter = _uiPanel.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             ApplyConfigValues(rectTransform);
 
@@ -140,11 +151,6 @@ namespace DrifterBossGrabMod.UI
             textObj.transform.SetParent(_uiPanel.transform, false);
 
             var textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = new Vector2(0, 0);
-            textRect.anchorMax = new Vector2(1, 1);
-            textRect.pivot = new Vector2(0.5f, 0.5f);
-            textRect.offsetMin = new Vector2(10, 10);
-            textRect.offsetMax = new Vector2(-10, -10);
 
             _statsText = textObj.AddComponent<HGTextMeshProUGUI>();
             _statsText.fontSize = 20;
@@ -155,8 +161,6 @@ namespace DrifterBossGrabMod.UI
 
             var draggable = _uiPanel.AddComponent<HudDraggable>();
             draggable.ElementType = HudElementType.StatsPanel;
-            draggable.DragSizePadding = new Vector2(-300, -25);
-            draggable.DragOffset = new Vector2(-150, 20);
             draggable.XConfig = PluginConfig.Instance.BaggedObjectInfoX;
             draggable.YConfig = PluginConfig.Instance.BaggedObjectInfoY;
             draggable.ScaleConfig = PluginConfig.Instance.BaggedObjectInfoScale;
@@ -168,7 +172,6 @@ namespace DrifterBossGrabMod.UI
         {
             rectTransform.anchoredPosition = new Vector2(PluginConfig.Instance.BaggedObjectInfoX.Value, PluginConfig.Instance.BaggedObjectInfoY.Value);
             rectTransform.localScale = Vector3.one * PluginConfig.Instance.BaggedObjectInfoScale.Value;
-            rectTransform.sizeDelta = new Vector2(500, 400);
         }
 
         // ========================================================================================

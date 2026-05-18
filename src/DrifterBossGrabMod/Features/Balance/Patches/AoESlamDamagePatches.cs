@@ -29,10 +29,7 @@ namespace DrifterBossGrabMod.Patches
             var bagState = BagPatches.GetState(__instance);
             var baggedObjects = bagState.BaggedObjects;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[AoESlamDamage] Prefix: Coef={damageCoef}, Count={(baggedObjects?.Count ?? 0)}, DistMode={PluginConfig.Instance.AoEDamageDistribution.Value}");
-            }
+            Log.Debug($"[AoESlamDamage] Prefix: Coef={damageCoef}, Count={(baggedObjects?.Count ?? 0)}, DistMode={PluginConfig.Instance.AoEDamageDistribution.Value}");
 
             if (baggedObjects == null || baggedObjects.Count <= 1) return;
 
@@ -41,10 +38,7 @@ namespace DrifterBossGrabMod.Patches
                 damageCoef /= baggedObjects.Count;
                 __state = damageCoef;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AoESlamDamage] Split mode enabled. Split Coef: {__state} (Original/{baggedObjects.Count})");
-                }
+                Log.Debug($"[AoESlamDamage] Split mode enabled. Split Coef: {__state} (Original/{baggedObjects.Count})");
             }
         }
 
@@ -66,10 +60,7 @@ namespace DrifterBossGrabMod.Patches
 
             float effectiveCoef = __state;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[AoESlamDamage] Postfix: EffectiveCoef={effectiveCoef}, StateCoef={__state}");
-            }
+            Log.Debug($"[AoESlamDamage] Postfix: EffectiveCoef={effectiveCoef}, StateCoef={__state}");
 
             if (effectiveCoef <= 0f) return;
 
@@ -93,14 +84,12 @@ namespace DrifterBossGrabMod.Patches
                         float chance = 1f / ((float)baggedObjects.Count);
                         if (UnityEngine.Random.value > chance)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[AoESlamDamage] Split RNG: {obj.name} SKIPPED (Chance={chance:F2})");
+                            Log.Debug($"[AoESlamDamage] Split RNG: {obj.name} SKIPPED (Chance={chance:F2})");
                             continue;
                         }
                         else
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[AoESlamDamage] Split RNG: {obj.name} HIT (Chance={chance:F2})");
+                            Log.Debug($"[AoESlamDamage] Split RNG: {obj.name} HIT (Chance={chance:F2})");
                         }
                     }
                 }
@@ -109,9 +98,9 @@ namespace DrifterBossGrabMod.Patches
                 hitCount++;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value && hitCount > 0)
+            if (hitCount > 0)
             {
-                Log.Info($"[AoESlamDamage] Applied AoE damage to {hitCount} additional objects with coef {effectiveCoef}");
+                Log.Debug($"[AoESlamDamage] Applied AoE damage to {hitCount} additional objects with coef {effectiveCoef}");
             }
 
             DamagePreviewOverlay.InvalidateAllCaches();
@@ -138,9 +127,9 @@ namespace DrifterBossGrabMod.Patches
                     };
                     body.healthComponent.TakeDamage(damageInfo);
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value && targetObject.GetComponent<JunkCubeController>())
+                    if (targetObject.GetComponent<JunkCubeController>())
                     {
-                        Log.Info($"[AoESlamDamage] Dealt force-damage to JunkCube {targetObject.name}");
+                        Log.Debug($"[AoESlamDamage] Dealt force-damage to JunkCube {targetObject.name}");
                     }
                 }
                 return;

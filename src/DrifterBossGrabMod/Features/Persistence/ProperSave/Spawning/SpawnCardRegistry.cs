@@ -24,7 +24,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
             OnRunStart(null!);
 
             _initialized = true;
-            Log.Info("[SpawnCardRegistry] Initialized");
+            Log.Debug("[SpawnCardRegistry] Initialized");
         }
 
         private static void OnRunStart(Run run)
@@ -55,7 +55,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 }
             }
 
-            Log.Info($"[SpawnCardRegistry] Indexed {_spawnCardByAssetId.Count} spawn cards by AssetId");
+            Log.Debug($"[SpawnCardRegistry] Indexed {_spawnCardByAssetId.Count} spawn cards by AssetId");
         }
 
         private static SpawnCard[] GetAllSpawnCards()
@@ -69,7 +69,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 if (resourceCards != null && resourceCards.Length > 0)
                 {
                     cards.AddRange(resourceCards);
-                    Log.Info($"[SpawnCardRegistry] Found {resourceCards.Length} spawn cards via Resources.FindObjectsOfTypeAll");
+                    Log.Debug($"[SpawnCardRegistry] Found {resourceCards.Length} spawn cards via Resources.FindObjectsOfTypeAll");
                 }
 
                 var stageInfo = ClassicStageInfo.instance;

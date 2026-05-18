@@ -387,14 +387,21 @@ namespace DrifterBossGrabMod.UI
 
             if (_massCapacityUIRectTransform != null)
             {
-                _massCapacityUIRectTransform.anchoredPosition = new Vector2(
-                    PluginConfig.Instance.MassCapacityUIPositionX.Value,
-                    PluginConfig.Instance.MassCapacityUIPositionY.Value
-                );
+                var draggable = _massCapacityUIInstance != null ? _massCapacityUIInstance.GetComponent<UI.HudDraggable>() : null;
+                if (draggable == null || !draggable.IsDragging)
+                {
+                    _massCapacityUIRectTransform.anchoredPosition = new Vector2(
+                        PluginConfig.Instance.MassCapacityUIPositionX.Value,
+                        PluginConfig.Instance.MassCapacityUIPositionY.Value
+                    );
+                }
             }
 
             float scale = PluginConfig.Instance.MassCapacityUIScale.Value;
-            _massCapacityUIInstance.transform.localScale = Vector3.one * scale;
+            if (_massCapacityUIInstance != null)
+            {
+                _massCapacityUIInstance.transform.localScale = Vector3.one * scale;
+            }
         }
 
         private void OnDestroy()

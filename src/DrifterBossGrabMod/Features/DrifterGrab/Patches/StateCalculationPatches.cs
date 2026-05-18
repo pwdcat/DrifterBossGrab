@@ -28,10 +28,7 @@ namespace DrifterBossGrabMod.Patches
 
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {__instance.damageCoefficient:F2}");
-                }
+                Log.Debug($"[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {__instance.damageCoefficient:F2}");
             }
         }
 
@@ -61,9 +58,9 @@ namespace DrifterBossGrabMod.Patches
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[SuffocateSlam_OnEnter] Applied formula-based damage:");
-                    Log.Info($"  Damage Coef: {__instance.damageCoefficient:F2} (mass={bagController.baggedMass:F1}, capacity={damageCapacity:F1})");
-                    Log.Info($"  Base Duration: {__instance.baseDuration:F2}s");
+                    Log.Debug($"[SuffocateSlam_OnEnter] Applied formula-based damage:");
+                    Log.Debug($"  Damage Coef: {__instance.damageCoefficient:F2} (mass={bagController.baggedMass:F1}, capacity={damageCapacity:F1})");
+                    Log.Debug($"  Base Duration: {__instance.baseDuration:F2}s");
                 }
             }
         }
@@ -90,8 +87,8 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
-                        Log.Info($"  OverlapAttack Damage: {overlapAttack.damage:F2} (coef={effectiveCoef:F2}, baseDamage={drifterBody.damage:F2})");
+                        Log.Debug($"[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
+                        Log.Debug($"  OverlapAttack Damage: {overlapAttack.damage:F2} (coef={effectiveCoef:F2}, baseDamage={drifterBody.damage:F2})");
                     }
                 }
             }

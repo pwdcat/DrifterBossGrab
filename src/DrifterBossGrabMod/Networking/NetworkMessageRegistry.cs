@@ -28,10 +28,40 @@ namespace DrifterBossGrabMod.Networking
 
             try
             {
-                var methods = Assembly.GetExecutingAssembly()
-                    .GetTypes()
-                    .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-                    .Where(m => m.GetCustomAttribute<NetworkMessageHandlerAttribute>() != null);
+                Type[] types;
+                try
+                {
+                    types = Assembly.GetExecutingAssembly().GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types.Where(t => t != null).ToArray()!;
+                    Log.Warning($"[NetworkMessageRegistry] Some types failed to load (soft dependency missing?). Loaded {types.Length} types. Loader exceptions: {string.Join(", ", ex.LoaderExceptions.Select(e => e?.Message ?? "null"))}");
+                }
+
+                var methods = types
+                    .SelectMany(t =>
+                    {
+                        try
+                        {
+                            return t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                        }
+                        catch (Exception)
+                        {
+                            return Array.Empty<MethodInfo>();
+                        }
+                    })
+                    .Where(m =>
+                    {
+                        try
+                        {
+                            return m.GetCustomAttribute<NetworkMessageHandlerAttribute>() != null;
+                        }
+                        catch (Exception)
+                        {
+                            return false;
+                        }
+                    });
 
                 foreach (var method in methods)
                 {
@@ -56,10 +86,7 @@ namespace DrifterBossGrabMod.Networking
                 Log.Error($"[NetworkMessageRegistry] Failed to scan NetworkMessageHandler attributes: {ex}");
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[NetworkMessageRegistry] Found {_clientHandlers.Count} client handlers and {_serverHandlers.Count} server handlers.");
-            }
+            Log.Debug($"[NetworkMessageRegistry] Found {_clientHandlers.Count} client handlers and {_serverHandlers.Count} server handlers.");
 
             NetworkManagerSystem.onStartClientGlobal += OnStartClientGlobal;
             NetworkManagerSystem.onStartServerGlobal += OnStartServerGlobal;
@@ -70,10 +97,7 @@ namespace DrifterBossGrabMod.Networking
             foreach (var handler in _clientHandlers)
             {
                 client.RegisterHandler(handler.msgType, handler.handlerDelegate);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkMessageRegistry] Client Registered MsgId {handler.msgType} on {client.connection?.connectionId}");
-                }
+                Log.Debug($"[NetworkMessageRegistry] Client Registered MsgId {handler.msgType} on {client.connection?.connectionId}");
             }
         }
 
@@ -82,10 +106,7 @@ namespace DrifterBossGrabMod.Networking
             foreach (var handler in _serverHandlers)
             {
                 NetworkServer.RegisterHandler(handler.msgType, handler.handlerDelegate);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[NetworkMessageRegistry] Server Registered MsgId {handler.msgType}");
-                }
+                Log.Debug($"[NetworkMessageRegistry] Server Registered MsgId {handler.msgType}");
             }
         }
 
@@ -97,10 +118,7 @@ namespace DrifterBossGrabMod.Networking
             _clientHandlers.Clear();
             _serverHandlers.Clear();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[NetworkMessageRegistry] Cleanup called.");
-            }
+            Log.Debug("[NetworkMessageRegistry] Cleanup called.");
         }
     }
 }

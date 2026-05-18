@@ -54,7 +54,6 @@ namespace DrifterBossGrabMod
         public static class SpecialObjectAttributes
         {
             public static readonly FieldInfo CollidersToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("collidersList", BindingFlags.NonPublic | BindingFlags.Instance);
-            public static readonly FieldInfo BehavioursToDisable = typeof(RoR2.SpecialObjectAttributes).GetField("behavioursToDisable", BindingFlags.Public | BindingFlags.Instance);
         }
 
         public static class HackingMainState

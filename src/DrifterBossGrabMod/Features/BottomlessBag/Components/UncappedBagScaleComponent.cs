@@ -48,7 +48,7 @@ namespace DrifterBossGrabMod.Features
             {
                 FilterAndCacheBagBones();
                 _isInitialized = true;
-                Log.Info("[UncappedBagScaleComponent] Successfully initialized with " + (_filteredBones?.Length ?? 0) + " bag bones");
+                Log.Debug("[UncappedBagScaleComponent] Successfully initialized with " + (_filteredBones?.Length ?? 0) + " bag bones");
             }
             else
             {
@@ -70,7 +70,7 @@ namespace DrifterBossGrabMod.Features
 
                     if (foundTransform != null)
                     {
-                        Log.Info($"[UncappedBagScaleComponent] Found meshBag via modelLocator: {modelTransform.name}>meshBag");
+                        Log.Debug($"[UncappedBagScaleComponent] Found meshBag via modelLocator: {modelTransform.name}>meshBag");
                     }
                 }
             }
@@ -115,7 +115,7 @@ namespace DrifterBossGrabMod.Features
                 }
             }
 
-            Log.Info($"[UncappedBagScaleComponent] Found {bagBoneCount} bones matching scale keywords out of {_bones.Length} total bones");
+            Log.Debug($"[UncappedBagScaleComponent] Found {bagBoneCount} bones matching scale keywords out of {_bones.Length} total bones");
 
             _filteredBones = new Transform[bagBoneCount];
             _originalBoneScales = new Vector3[bagBoneCount];
@@ -127,7 +127,7 @@ namespace DrifterBossGrabMod.Features
                 {
                     _filteredBones[filteredIndex] = _bones[i];
                     _originalBoneScales[filteredIndex] = _bones[i].localScale;
-                    Log.Info($"[UncappedBagScaleComponent] Filtered bone [{filteredIndex}]: {_bones[i].name}");
+                    Log.Debug($"[UncappedBagScaleComponent] Filtered bone [{filteredIndex}]: {_bones[i].name}");
                     filteredIndex++;
                 }
             }
@@ -166,10 +166,7 @@ namespace DrifterBossGrabMod.Features
             if (mass <= maxCapacity)
             {
                 TargetScale = 1.0f;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UncappedBagScaleComponent] Mass {mass} <= maxCapacity {maxCapacity}, using original animation system");
-                }
+                Log.Debug($"[UncappedBagScaleComponent] Mass {mass} <= maxCapacity {maxCapacity}, using original animation system");
                 return;
             }
 
@@ -186,10 +183,7 @@ namespace DrifterBossGrabMod.Features
 
             TargetScale = newScale;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[UncappedBagScaleComponent] Mass {mass} > maxCapacity {maxCapacity}, calculated scale {newScale:F2} (t={t:F2})");
-            }
+            Log.Debug($"[UncappedBagScaleComponent] Mass {mass} > maxCapacity {maxCapacity}, calculated scale {newScale:F2} (t={t:F2})");
         }
 
         private void LateUpdate()
@@ -242,9 +236,9 @@ namespace DrifterBossGrabMod.Features
                 }
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value && bonesUpdated > 0)
+            if (bonesUpdated > 0)
             {
-                Log.Info($"[UncappedBagScaleComponent] Applied scale {_currentScale:F2} (target: {_targetScale:F2}) to {bonesUpdated} bag bones");
+                Log.Debug($"[UncappedBagScaleComponent] Applied scale {_currentScale:F2} (target: {_targetScale:F2}) to {bonesUpdated} bag bones");
             }
         }
 
@@ -270,10 +264,7 @@ namespace DrifterBossGrabMod.Features
             _currentScale = 1.0f;
             _targetScale = 1.0f;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[UncappedBagScaleComponent] Reset {_filteredBones.Length} bag bones to original scales");
-            }
+            Log.Debug($"[UncappedBagScaleComponent] Reset {_filteredBones.Length} bag bones to original scales");
         }
 
     }

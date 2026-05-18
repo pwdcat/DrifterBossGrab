@@ -187,14 +187,14 @@ namespace DrifterBossGrabMod.Core
                 var field = typeof(JunkCubeController).GetField("_maxActivationCount", BindingFlags.NonPublic | BindingFlags.Instance);
                 int maxCount = field != null ? (int)field.GetValue(junkController) : 3;
                 float frac = maxCount > 0 ? 1f / maxCount : 0f;
-                Log.Info($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
+                Log.Debug($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
             }
 
             else if (body && body.healthComponent)
             {
                 float totalHealth = body.healthComponent.fullCombinedHealth;
                 float frac = totalHealth > 0f ? Mathf.Clamp01(finalDamage / totalHealth) : 1f;
-                Log.Info($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
+                Log.Debug($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
             }
 
             else
@@ -202,11 +202,11 @@ namespace DrifterBossGrabMod.Core
                 var attributes = target.GetComponent<SpecialObjectAttributes>();
                 if (attributes && attributes.maxDurability > 0)
                 {
-                    Log.Info($"  FractionPath: DURABILITY (durability={attributes.durability}/{attributes.maxDurability}, previewFrac={1f / attributes.maxDurability:F3})");
+                    Log.Debug($"  FractionPath: DURABILITY (durability={attributes.durability}/{attributes.maxDurability}, previewFrac={1f / attributes.maxDurability:F3})");
                 }
                 else
                 {
-                    Log.Info($"  FractionPath: NONE (hasAttributes={attributes != null}, hasBody={body != null}, hasHC={body?.healthComponent != null})");
+                    Log.Debug($"  FractionPath: NONE (hasAttributes={attributes != null}, hasBody={body != null}, hasHC={body?.healthComponent != null})");
                 }
             }
         }

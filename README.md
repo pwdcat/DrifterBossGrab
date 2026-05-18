@@ -13,9 +13,7 @@ See [Wiki](https://thunderstore.io/package/pwdcat/DrifterBossGrab/wiki/4854-home
 
 ## Bug Reports & Suggestions
 
-If you encounter any bugs or have feature suggestions, you can reach out in the discord in the ideas channel -> DrifterBossGrab.
-<br>[Risk of Rain 2 Modding Discord](https://discord.com/invite/5MbXZvd) or in [github](https://github.com/pwdcat/DrifterBossGrab/issues).
-
+If you encounter any bugs or have feature suggestions, you can reach out in the [discord](https://discord.com/invite/5MbXZvd) in the ideas channel -> DrifterBossGrab.
 Discord is (`@crustaceous`).
 
 ## Credits

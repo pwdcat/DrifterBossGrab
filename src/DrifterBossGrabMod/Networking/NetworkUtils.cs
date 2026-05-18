@@ -25,7 +25,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (obj != null)
             {
-                Log.Info($"[NetworkUtils.{operation}] Successfully found {obj.name} (netId={netId.Value}) on {(isServer ? "server" : "client")}");
+                Log.Debug($"[NetworkUtils.{operation}] Successfully found {obj.name} (netId={netId.Value}) on {(isServer ? "server" : "client")}");
                 return obj;
             }
 
@@ -116,6 +116,67 @@ namespace DrifterBossGrabMod.Networking
             return true;
         }
 
+        public static bool TryEnsureNetworkIdentityActive(GameObject obj)
+        {
+            if (obj == null) return false;
+
+            var netId = obj.GetComponent<NetworkIdentity>();
+            if (netId == null) return false;
+
+            if (!obj.activeInHierarchy)
+            {
+                obj.SetActive(true);
+                if (!obj.activeInHierarchy) return false;
+            }
+
+            if (netId.isActiveAndEnabled) return true;
+
+            try
+            {
+                netId.enabled = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[NetworkUtils.TryEnsureNetworkIdentityActive] Failed to set enabled on {obj.name}: {ex.Message}");
+                return false;
+            }
+
+            if (!netId.isActiveAndEnabled)
+            {
+                Log.Warning($"[NetworkUtils.TryEnsureNetworkIdentityActive] NetworkIdentity still not active after enable for {obj.name}");
+                return false;
+            }
+
+            InvalidateReadyCache(obj);
+            Log.Debug($"[NetworkUtils.TryEnsureNetworkIdentityActive] Successfully re-enabled NetworkIdentity for {obj.name}");
+            return true;
+        }
+
+        public static bool ValidateObjectReadyWithRecovery(GameObject? obj)
+        {
+            if (ValidateObjectReady(obj)) return true;
+
+            if (obj == null) return false;
+
+            var netId = obj.GetComponent<NetworkIdentity>();
+            if (netId != null && !netId.isActiveAndEnabled)
+            {
+                if (TryEnsureNetworkIdentityActive(obj))
+                {
+                    return ValidateObjectReady(obj);
+                }
+            }
+
+            return false;
+        }
+
+        public static bool IsNetworkIdentityInactive(GameObject obj)
+        {
+            if (obj == null) return false;
+            var netId = obj.GetComponent<NetworkIdentity>();
+            return netId != null && !netId.isActiveAndEnabled;
+        }
+
         public static void InvalidateReadyCache(GameObject? obj)
         {
             if (obj == null) return;
@@ -139,14 +200,14 @@ namespace DrifterBossGrabMod.Networking
             }
 
             var netId = obj.GetComponent<NetworkIdentity>();
-            Log.Info($"[NetworkUtils.LogObjectDetails] {context}:");
-            Log.Info($"  Name: {obj.name}");
-            Log.Info($"  activeInHierarchy: {obj.activeInHierarchy}");
-            Log.Info($"  NetworkIdentity: {(netId != null ? $"netId={netId.netId.Value}" : "null")}");
-            Log.Info($"  NetworkIdentity.isActiveAndEnabled: {(netId != null && netId.isActiveAndEnabled)}");
-            Log.Info($"  InstanceID: {obj.GetInstanceID()}");
-            Log.Info($"  Transform.position: {obj.transform.position}");
-            Log.Info($"  Parent: {(obj.transform.parent != null ? obj.transform.parent.name : "null")}");
+            Log.Debug($"[NetworkUtils.LogObjectDetails] {context}:");
+            Log.Debug($"  Name: {obj.name}");
+            Log.Debug($"  activeInHierarchy: {obj.activeInHierarchy}");
+            Log.Debug($"  NetworkIdentity: {(netId != null ? $"netId={netId.netId.Value}" : "null")}");
+            Log.Debug($"  NetworkIdentity.isActiveAndEnabled: {(netId != null && netId.isActiveAndEnabled)}");
+            Log.Debug($"  InstanceID: {obj.GetInstanceID()}");
+            Log.Debug($"  Transform.position: {obj.transform.position}");
+            Log.Debug($"  Parent: {(obj.transform.parent != null ? obj.transform.parent.name : "null")}");
         }
 
         public static string GetSafeObjectName(GameObject? obj)
@@ -183,7 +244,7 @@ namespace DrifterBossGrabMod.Networking
                 }
             }
 
-            Log.Info(logBuilder.ToString());
+            Log.Debug(logBuilder.ToString());
         }
 
         public static string GetPlayerIdString(NetworkUserId id)

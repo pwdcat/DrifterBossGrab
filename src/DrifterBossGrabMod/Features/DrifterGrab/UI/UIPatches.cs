@@ -19,18 +19,12 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[UIPatches] InitializeMassCapacityUI() called for {drifterBody.name}");
-            }
+            Log.Debug($"[UIPatches] InitializeMassCapacityUI() called for {drifterBody.name}");
 
             if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
             {
                 drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] Added BaggedObjectInfoUIController to {drifterBody.name}");
-                }
+                Log.Debug($"[UIPatches] Added BaggedObjectInfoUIController to {drifterBody.name}");
             }
 
             if (!drifterBody.hasAuthority)
@@ -43,28 +37,19 @@ namespace DrifterBossGrabMod.Patches
             {
                 drifterBody.gameObject.AddComponent<MassCapacityUIController>();
                 _massCapacityUIControllerObject = drifterBody.gameObject;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] Added MassCapacityUIController to {drifterBody.name}");
-                }
+                Log.Debug($"[UIPatches] Added MassCapacityUIController to {drifterBody.name}");
             }
             else
             {
                 _massCapacityUIControllerObject = drifterBody.gameObject;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[UIPatches] MassCapacityUIController already exists on {drifterBody.name}");
-                }
+                Log.Debug($"[UIPatches] MassCapacityUIController already exists on {drifterBody.name}");
             }
         }
 
         public static void CleanupMassCapacityUI()
         {
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[UIPatches] MassCapacityUIController cleanup not needed (component on DrifterBody)");
-            }
+            Log.Debug("[UIPatches] MassCapacityUIController cleanup not needed (component on DrifterBody)");
         }
 
         public static void UpdateMassCapacityUIOnCapacityChange(DrifterBagController controller)

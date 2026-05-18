@@ -140,12 +140,9 @@ namespace DrifterBossGrabMod.Core
                     this.smacks = Convert.ToInt32(ReflectionCache.DrifterBagController.Smacks.GetValue(bagController));
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[BaggedObjectStateData] Captured state for {targetObject?.name ?? "null"}: " +
-                            $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
-                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
-                }
+                Log.Debug($"[BaggedObjectStateData] Captured state for {targetObject?.name ?? "null"}: " +
+                        $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
+                        $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
             }
             catch (Exception ex)
             {
@@ -174,11 +171,8 @@ namespace DrifterBossGrabMod.Core
                     this.smacks = (int)ReflectionCache.DrifterBagController.Smacks.GetValue(breakoutBagController);
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[BaggedObjectStateData] Captured breakout state for {targetObject?.name ?? "null"}: " +
-                            $"age={elapsedBreakoutTime}, breakoutTime={breakoutTime}");
-                }
+                Log.Debug($"[BaggedObjectStateData] Captured breakout state for {targetObject?.name ?? "null"}: " +
+                        $"age={elapsedBreakoutTime}, breakoutTime={breakoutTime}");
             }
             catch (Exception ex)
             {
@@ -199,15 +193,13 @@ namespace DrifterBossGrabMod.Core
 
             if (this.targetObject == null && this.baggedMass == 0f)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info("[BaggedObjectStateData] Skipping application of uninitialized 'stub' state (targetObject is null).");
+                Log.Debug("[BaggedObjectStateData] Skipping application of uninitialized 'stub' state (targetObject is null).");
                 return;
             }
 
             if (this.targetObject == null || (this.targetObject is UnityEngine.Object uo && !uo))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info("[BaggedObjectStateData] Skipping application - targetObject is null or destroyed.");
+                Log.Debug("[BaggedObjectStateData] Skipping application - targetObject is null or destroyed.");
                 return;
             }
 
@@ -256,7 +248,7 @@ namespace DrifterBossGrabMod.Core
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     string targetName = this.targetObject != null ? this.targetObject.name : (state.targetObject != null ? state.targetObject.name : "null");
-                    Log.Info($"[BaggedObjectStateData] Applied state to {targetName}: " +
+                    Log.Debug($"[BaggedObjectStateData] Applied state to {targetName}: " +
                             $"mass={baggedMass}, age={elapsedBreakoutTime}, scale={bagScale01}, penalty={movespeedPenalty}, " +
                             $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}, " +
                             $"level={level}, isElite={isElite}");
@@ -272,8 +264,7 @@ namespace DrifterBossGrabMod.Core
         {
             if (body == null) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[ApplyToCharacterBody] ENTRY: body.name={body.name}, body.baseMaxHealth={body.baseMaxHealth}, state.baseMaxHealth={baseMaxHealth}");
+            Log.Debug($"[ApplyToCharacterBody] ENTRY: body.name={body.name}, body.baseMaxHealth={body.baseMaxHealth}, state.baseMaxHealth={baseMaxHealth}");
 
             if (baseMaxHealth <= 0)
             {
@@ -285,8 +276,7 @@ namespace DrifterBossGrabMod.Core
             {
                 body.baseMaxHealth = baseMaxHealth;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[ApplyToCharacterBody] AFTER SET: body.baseMaxHealth={body.baseMaxHealth}");
+                    Log.Debug($"[ApplyToCharacterBody] AFTER SET: body.baseMaxHealth={body.baseMaxHealth}");
                 body.baseRegen = baseRegen;
                 body.baseMaxShield = baseMaxShield;
                 body.baseMoveSpeed = baseMoveSpeed;
@@ -303,10 +293,7 @@ namespace DrifterBossGrabMod.Core
 
                 body.RecalculateStats();
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ApplyToCharacterBody] Captured stats: baseMaxHealth={baseMaxHealth}, baseRegen={baseRegen}, baseDamage={baseDamage}, level={level}");
-                }
+                Log.Debug($"[ApplyToCharacterBody] Captured stats: baseMaxHealth={baseMaxHealth}, baseRegen={baseRegen}, baseDamage={baseDamage}, level={level}");
 
                 if (baseMaxHealth <= 0)
                 {
@@ -353,10 +340,7 @@ namespace DrifterBossGrabMod.Core
                     {
                         int oldCounter = hurtBoxGroup.hurtBoxesDeactivatorCounter;
                         hurtBoxGroup.hurtBoxesDeactivatorCounter = 0;
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[BaggedObjectStateData] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {target.name}");
-                        }
+                        Log.Debug($"[BaggedObjectStateData] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {target.name}");
                     }
                 }
             }
@@ -371,7 +355,7 @@ namespace DrifterBossGrabMod.Core
             {
                 var stackTrace = new System.Diagnostics.StackTrace();
                 var callerMethod = stackTrace.GetFrame(1).GetMethod();
-                Log.Info($"[CalculateFromObject] ENTRY: targetObject={targetObject?.name ?? "null"}, caller={callerMethod?.DeclaringType?.Name}.{callerMethod?.Name}");
+                Log.Debug($"[CalculateFromObject] ENTRY: targetObject={targetObject?.name ?? "null"}, caller={callerMethod?.DeclaringType?.Name}.{callerMethod?.Name}");
 
                 string traceSnippet = "";
                 for (int i = 1; i < Math.Min(stackTrace.FrameCount, 5); i++)
@@ -379,7 +363,7 @@ namespace DrifterBossGrabMod.Core
                     var frame = stackTrace.GetFrame(i).GetMethod();
                     traceSnippet += $" -> {frame.DeclaringType?.Name}.{frame.Name}";
                 }
-                Log.Info($"[CalculateFromObject] CALL STACK: {traceSnippet}");
+                Log.Debug($"[CalculateFromObject] CALL STACK: {traceSnippet}");
             }
 
             if (targetObject == null)
@@ -415,11 +399,11 @@ namespace DrifterBossGrabMod.Core
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Info($"[CalculateFromObject] targetObject={targetObject.name}, targetBody={(targetBody != null ? targetBody.name : "null")}, healthComponent={(healthComponent != null ? "exists" : "null")}");
+                    Log.Debug($"[CalculateFromObject] targetObject={targetObject.name}, targetBody={(targetBody != null ? targetBody.name : "null")}, healthComponent={(healthComponent != null ? "exists" : "null")}");
                     if (healthComponent != null && healthComponent.body != null)
-                        Log.Info($"[CalculateFromObject] healthComponent.body={healthComponent.body.name}, healthComponent.body.baseMaxHealth={healthComponent.body.baseMaxHealth}");
+                        Log.Debug($"[CalculateFromObject] healthComponent.body={healthComponent.body.name}, healthComponent.body.baseMaxHealth={healthComponent.body.baseMaxHealth}");
                     if (targetBody != null)
-                        Log.Info($"[CalculateFromObject] targetBody.baseMaxHealth={targetBody.baseMaxHealth}");
+                        Log.Debug($"[CalculateFromObject] targetBody.baseMaxHealth={targetBody.baseMaxHealth}");
                 }
 
                 baggedMass = controller.CalculateBaggedObjectMass(targetObject);
@@ -480,8 +464,7 @@ namespace DrifterBossGrabMod.Core
                 }
                 movespeedPenalty = penalty;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[CalculateFromObject] About to capture stats. targetBody={(targetBody != null ? "NOT NULL" : "NULL")}");
+                    Log.Debug($"[CalculateFromObject] About to capture stats. targetBody={(targetBody != null ? "NOT NULL" : "NULL")}");
 
                 if (targetBody != null)
                 {
@@ -516,7 +499,7 @@ namespace DrifterBossGrabMod.Core
                         }
                         else
                         {
-                            Log.Info($"[CalculateFromObject] Captured valid stats for {targetObject.name}: baseMaxHealth={baseMaxHealth}, level={level}");
+                            Log.Debug($"[CalculateFromObject] Captured valid stats for {targetObject.name}: baseMaxHealth={baseMaxHealth}, level={level}");
                         }
                     }
                 }
@@ -561,12 +544,9 @@ namespace DrifterBossGrabMod.Core
 
                 junkSpawnCount = CalculateJunkSpawnCount(baggedMass);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[BaggedObjectStateData] Calculated state for {targetObject.name}: " +
-                            $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
-                            $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
-                }
+                Log.Debug($"[BaggedObjectStateData] Calculated state for {targetObject.name}: " +
+                        $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
+                        $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
             }
             catch (Exception ex)
             {
@@ -582,10 +562,7 @@ namespace DrifterBossGrabMod.Core
             this.breakoutAttempts = timer.breakoutAttempts;
             this.elapsedBreakoutTime = timer.GetElapsedBreakoutTime();
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[BaggedObjectStateData] Captured timer state from AdditionalSeat: age={elapsedBreakoutTime}, attempts={breakoutAttempts}");
-            }
+            Log.Debug($"[BaggedObjectStateData] Captured timer state from AdditionalSeat: age={elapsedBreakoutTime}, attempts={breakoutAttempts}");
         }
 
         // ========================================================================================
@@ -603,10 +580,7 @@ namespace DrifterBossGrabMod.Core
             this.elapsedBreakoutTime = 0f;
             this.smacks = 0;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[BaggedObjectStateData] Reset breakout data for {targetObject?.name ?? "null"}");
-            }
+            Log.Debug($"[BaggedObjectStateData] Reset breakout data for {targetObject?.name ?? "null"}");
         }
     }
 }

@@ -61,7 +61,7 @@ namespace DrifterBossGrabMod
                 (body) => 0f,
                 "Base mass (for flag multipliers)");
 
-            Log.Info("[FormulaInit] Default variables initialized");
+            Log.Debug("[FormulaInit] Default variables initialized");
         }
 
         // ========================================================================================

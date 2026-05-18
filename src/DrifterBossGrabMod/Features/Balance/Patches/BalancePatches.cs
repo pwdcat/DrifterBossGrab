@@ -77,10 +77,7 @@ namespace DrifterBossGrabMod.Patches
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[EmptyBag_ModifyProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
-                }
+                Log.Debug($"[EmptyBag_ModifyProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
             }
         }
 
@@ -136,9 +133,9 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Info($"[EmptyBag_OnEnter_Patch] Mass={bagObjectMass:F1}, num={num:F4}, clampedNum={clampedNum:F4}");
-                        Log.Info($"[EmptyBag_OnEnter_Patch] Speed: Original={originalSpeed:F1} -> Target={finalSpeed:F1}");
-                        Log.Info($"[EmptyBag_OnEnter_Patch] Distance: Original={originalMaxDistance:F1} -> Target={finalMaxDistance:F1}");
+                        Log.Debug($"[EmptyBag_OnEnter_Patch] Mass={bagObjectMass:F1}, num={num:F4}, clampedNum={clampedNum:F4}");
+                        Log.Debug($"[EmptyBag_OnEnter_Patch] Speed: Original={originalSpeed:F1} -> Target={finalSpeed:F1}");
+                        Log.Debug($"[EmptyBag_OnEnter_Patch] Distance: Original={originalMaxDistance:F1} -> Target={finalMaxDistance:F1}");
                     }
                 }
             }
@@ -174,10 +171,7 @@ namespace DrifterBossGrabMod.Patches
 
                     bool isGrounded = __instance.characterBody != null && __instance.characterBody.characterMotor != null && __instance.characterBody.characterMotor.isGrounded;
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[EmptyBag_FireProjectile_Patch] Prefix: Grounded={isGrounded}, Original airKnockbackForce={_originalAirKnockbackForce:F1}, Target Mass={bagObjectMass:F1}, Drifter Mass={drifterMass:F1}, Predicted Recoil Speed={normalRecoilSpeed:F2} m/s");
-                    }
+                    Log.Debug($"[EmptyBag_FireProjectile_Patch] Prefix: Grounded={isGrounded}, Original airKnockbackForce={_originalAirKnockbackForce:F1}, Target Mass={bagObjectMass:F1}, Drifter Mass={drifterMass:F1}, Predicted Recoil Speed={normalRecoilSpeed:F2} m/s");
 
                     if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed))
                     {
@@ -186,10 +180,7 @@ namespace DrifterBossGrabMod.Patches
                             float sign = Mathf.Sign(_originalAirKnockbackForce);
                             __instance.airKnockbackForce = sign * maxLaunchSpeed * maxMass * drifterMass / bagObjectMass;
 
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            {
-                                Log.Info($"[EmptyBag_FireProjectile_Patch] CLAMPED airKnockbackForce to {__instance.airKnockbackForce:F1} (Recoil speed capped to MaxLaunchSpeed={maxLaunchSpeed:F1} m/s)");
-                            }
+                                Log.Debug($"[EmptyBag_FireProjectile_Patch] CLAMPED airKnockbackForce to {__instance.airKnockbackForce:F1} (Recoil speed capped to MaxLaunchSpeed={maxLaunchSpeed:F1} m/s)");
                         }
                     }
                 }
@@ -216,10 +207,7 @@ namespace DrifterBossGrabMod.Patches
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[ProjectileManager_FireProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
-                }
+                Log.Debug($"[ProjectileManager_FireProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
             }
         }
     }

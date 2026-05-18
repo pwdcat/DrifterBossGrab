@@ -318,10 +318,10 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(DrifterBagController __instance, GameObject passengerObject)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value && passengerObject != null)
+                if (passengerObject != null)
                 {
                     var state = GetState(__instance);
-                    Log.Info($"[AssignPassenger.Prefix] START: incoming={passengerObject.name}");
+                    Log.Debug($"[AssignPassenger.Prefix] START: incoming={passengerObject.name}");
                 }
 
                 if (passengerObject != null)
@@ -366,10 +366,7 @@ namespace DrifterBossGrabMod.Patches
                     var healthComponent = body.healthComponent;
                     if (healthComponent != null && !healthComponent.alive)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[AssignPassenger.Prefix] Blocking grab of dead body: {passengerObject.name}");
-                        }
+                        Log.Debug($"[AssignPassenger.Prefix] Blocking grab of dead body: {passengerObject.name}");
                         return false;
                     }
 
@@ -422,10 +419,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (isAlreadyInMainSeat)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AssignPassenger.Prefix] Passenger {passengerObject.name} is already in the main seat. Skipping assignment to avoid vanilla vehicle validation failure.");
-                    }
+                    Log.Debug($"[AssignPassenger.Prefix] Passenger {passengerObject.name} is already in the main seat. Skipping assignment to avoid vanilla vehicle validation failure.");
                     return false;
                 }
 
@@ -440,17 +434,11 @@ namespace DrifterBossGrabMod.Patches
 
                 if ((!prioritize || mainSeatOccupied) && TryAssignToAdditionalSeat(__instance!, passengerObject, effectiveCapacity, isAlreadyTrackedByThisController))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AssignPassenger.Prefix] Redirected {passengerObject.name} to AdditionalSeat. _usingAdditionalSeat={_usingAdditionalSeat}, skipping original method.");
-                    }
+                    Log.Debug($"[AssignPassenger.Prefix] Redirected {passengerObject.name} to AdditionalSeat. _usingAdditionalSeat={_usingAdditionalSeat}, skipping original method.");
                     return false;
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AssignPassenger.Prefix] Proceeding to Main Seat for {passengerObject.name}. _usingAdditionalSeat={_usingAdditionalSeat}");
-                }
+                Log.Debug($"[AssignPassenger.Prefix] Proceeding to Main Seat for {passengerObject.name}. _usingAdditionalSeat={_usingAdditionalSeat}");
                 return true;
             }
 
@@ -459,16 +447,17 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (passengerObject == null || ProjectileRecoveryPatches.IsInProjectileState(passengerObject)) return;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AssignPassenger.Postfix] START: passengerObject={passengerObject.name}, _usingAdditionalSeat={_usingAdditionalSeat}.");
-                }
+                Log.Debug($"[AssignPassenger.Postfix] START: passengerObject={passengerObject.name}, _usingAdditionalSeat={_usingAdditionalSeat}.");
 
                 BagHelpers.AddTracker(__instance, passengerObject);
 
                 if (!_usingAdditionalSeat && __instance.vehicleSeat != null && NetworkServer.active)
                 {
                     if (__instance.vehicleSeat.NetworkpassengerBodyObject != passengerObject) __instance.vehicleSeat.AssignPassenger(passengerObject);
+                    if (Networking.NetworkUtils.IsNetworkIdentityInactive(passengerObject))
+                    {
+                        Networking.NetworkUtils.TryEnsureNetworkIdentityActive(passengerObject);
+                    }
                 }
 
                 var state = GetState(__instance);
@@ -476,20 +465,14 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!_usingAdditionalSeat)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AssignPassenger.Postfix] Assigning to main seat: {passengerObject.name}");
-                    }
+                    Log.Debug($"[AssignPassenger.Postfix] Assigning to main seat: {passengerObject.name}");
                     GameObject? previousMain = GetMainSeatObject(__instance);
                     SetMainSeatObject(__instance, passengerObject);
                     API.DrifterBagAPI.InvokeOnMainPassengerChanged(__instance, previousMain, passengerObject);
                 }
                 else
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[AssignPassenger.Postfix] Skipping main seat assignment for {passengerObject.name} (assigned to additional seat)");
-                    }
+                        Log.Debug($"[AssignPassenger.Postfix] Skipping main seat assignment for {passengerObject.name} (assigned to additional seat)");
                 }
 
                 var list = state.BaggedObjects;
@@ -541,8 +524,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[AssignPassenger.Postfix] Updating selection to {finalIndex} (Intent was {state.IntendedSelectedIndex}) for {passengerObject.name}");
+                    Log.Debug($"[AssignPassenger.Postfix] Updating selection to {finalIndex} (Intent was {state.IntendedSelectedIndex}) for {passengerObject.name}");
 
                     BagCarouselUpdater.UpdateNetworkBagState(__instance, finalIndex);
 
@@ -559,7 +541,7 @@ namespace DrifterBossGrabMod.Patches
                 int targetIndex = state.IntendedSelectedIndex;
                 var seatDict = state.AdditionalSeats;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Searching for seat for {passengerObject.name}. Capacity={effectiveCapacity}, Intent={targetIndex}.");
+                Log.Debug($"[TryAssignToAdditionalSeat] Searching for seat for {passengerObject.name}. Capacity={effectiveCapacity}, Intent={targetIndex}.");
 
                 var newSeat = AdditionalSeatManager.FindOrCreateEmptySeat(__instance, ref seatDict);
                 var list = state.BaggedObjects;
@@ -568,7 +550,7 @@ namespace DrifterBossGrabMod.Patches
                 if (newSeat != null)
                 {
                     _usingAdditionalSeat = true;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Found additional seat, setting _usingAdditionalSeat=true for {passengerObject.name}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Found additional seat, setting _usingAdditionalSeat=true for {passengerObject.name}");
 
                     BagHelpers.AddTracker(__instance, passengerObject);
                     if (GetMainSeatObject(__instance) == passengerObject) SetMainSeatObject(__instance, null);
@@ -596,6 +578,10 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active)
                     {
                         newSeat.AssignPassenger(passengerObject);
+                        if (Networking.NetworkUtils.IsNetworkIdentityInactive(passengerObject))
+                        {
+                            Networking.NetworkUtils.TryEnsureNetworkIdentityActive(passengerObject);
+                        }
                         var body = passengerObject.GetComponent<CharacterBody>();
                         if (body != null)
                         {
@@ -626,14 +612,14 @@ namespace DrifterBossGrabMod.Patches
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat. Main seat object={currentMain?.name ?? "null"}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat. Main seat object={currentMain?.name ?? "null"}");
 
                     return true;
                 }
                 else if (!NetworkServer.active)
                 {
                     _usingAdditionalSeat = true;
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Client mode, setting _usingAdditionalSeat=true for {passengerObject.name}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Client mode, setting _usingAdditionalSeat=true for {passengerObject.name}");
 
                     BagHelpers.AddTracker(__instance, passengerObject);
                     if (!state.ContainsInstanceId(passengerInstanceId))
@@ -657,7 +643,7 @@ namespace DrifterBossGrabMod.Patches
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
-                    if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat (client). Main seat object={currentMain?.name ?? "null"}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat (client). Main seat object={currentMain?.name ?? "null"}");
 
                     return true;
                 }
@@ -671,10 +657,7 @@ namespace DrifterBossGrabMod.Patches
             var oldObj = GetState(controller).MainSeatObject;
             GetState(controller).MainSeatObject = obj;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[SetMainSeatObject] {controller.name}: {oldObj?.name ?? "null"} -> {obj?.name ?? "null"}");
-            }
+            Log.Debug($"[SetMainSeatObject] {controller.name}: {oldObj?.name ?? "null"} -> {obj?.name ?? "null"}");
         }
 
         public static GameObject? GetMainSeatObject(DrifterBagController? controller)
@@ -686,10 +669,7 @@ namespace DrifterBossGrabMod.Patches
                 GetState(controller).MainSeatObject = null;
                 return null;
             }
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[GetMainSeatObject] {controller.name}: returning {obj?.name ?? "null"}");
-            }
+            Log.Debug($"[GetMainSeatObject] {controller.name}: returning {obj?.name ?? "null"}");
             return obj;
         }
     }
@@ -784,8 +764,7 @@ namespace DrifterBossGrabMod.Patches
                             }
                             if (list.Count != charModel.baseRendererInfos.Length)
                             {
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[OnPassengerExit.Prefix] Sanitized baseRendererInfos for {passenger.name}: removed {charModel.baseRendererInfos.Length - list.Count} null renderers");
+                                Log.Debug($"[OnPassengerExit.Prefix] Sanitized baseRendererInfos for {passenger.name}: removed {charModel.baseRendererInfos.Length - list.Count} null renderers");
                                 charModel.baseRendererInfos = list.ToArray();
                             }
                         }

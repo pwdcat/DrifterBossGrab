@@ -131,10 +131,7 @@ namespace DrifterBossGrabMod
                     var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
                     if (teleporterInteraction != null)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
-                        }
+                        Log.Debug($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
                         MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
                     }
                 }

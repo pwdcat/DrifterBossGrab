@@ -19,21 +19,7 @@ namespace DrifterBossGrabMod.Patches
 
         private static readonly FieldInfo _targetObjectField = ReflectionCache.BaggedObject.TargetObject;
         private static readonly FieldInfo _collidersToDisableField = ReflectionCache.SpecialObjectAttributes.CollidersToDisable;
-        private static readonly FieldInfo _behavioursToDisableField = ReflectionCache.SpecialObjectAttributes.BehavioursToDisable;
         private static readonly FieldInfo _uiOverlayControllerField = ReflectionCache.BaggedObject.UIOverlayController;
-
-        private static bool IsEssentialBehaviour(MonoBehaviour behaviour)
-        {
-            return behaviour is HealthComponent
-                || behaviour is CharacterBody
-                || behaviour is CharacterMotor
-                || behaviour is EntityStateMachine
-                || behaviour is NetworkBehaviour
-                || behaviour is ModelLocator
-                || behaviour is SkillLocator
-                || behaviour is InputBankTest
-                || behaviour is CameraTargetParams;
-        }
 
         private static bool IsEssentialCollider(Collider collider, GameObject root)
         {
@@ -100,21 +86,6 @@ namespace DrifterBossGrabMod.Patches
                         if (!collidersToDisable.Contains(collider))
                         {
                             collidersToDisable.Add(collider);
-                        }
-                    }
-                }
-
-                var behavioursToDisable = _behavioursToDisableField?.GetValue(specialAttrs) as List<MonoBehaviour>;
-                if (behavioursToDisable != null)
-                {
-                    var behaviors = targetObject.GetComponentsInChildren<MonoBehaviour>(true);
-                    foreach (var behavior in behaviors)
-                    {
-                        if (IsEssentialBehaviour(behavior))
-                            continue;
-                        if (!behavioursToDisable.Contains(behavior))
-                        {
-                            behavioursToDisable.Add(behavior);
                         }
                     }
                 }

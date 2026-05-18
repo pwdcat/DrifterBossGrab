@@ -23,10 +23,7 @@ namespace DrifterBossGrabMod
 
         private void PopulateCache()
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[BodyColliderCache] Populating collider cache for {gameObject.name}");
-            }
+            Log.Debug($"[BodyColliderCache] Populating collider cache for {gameObject.name}");
 
             var modelLocator = GetComponent<ModelLocator>();
             if (modelLocator != null && modelLocator.modelTransform != null)
@@ -40,10 +37,7 @@ namespace DrifterBossGrabMod
                 _colliders = GetComponentsInChildren<Collider>(true);
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[BodyColliderCache] Found {_colliders?.Length ?? 0} colliders for {gameObject.name}");
-            }
+            Log.Debug($"[BodyColliderCache] Found {_colliders?.Length ?? 0} colliders for {gameObject.name}");
 
             _isInitialized = true;
         }

@@ -32,7 +32,7 @@ namespace DrifterBossGrabMod.Patches
 
         public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[UpdateCarousel] Controller: {(controller ? controller.name : "null")} Dir: {direction}.");
+            Log.Debug($"[UpdateCarousel] Controller: {(controller ? controller.name : "null")} Dir: {direction}.");
             for (int i = ActiveCarousels.Count - 1; i >= 0; i--)
             {
                 var carousel = ActiveCarousels[i];
@@ -106,15 +106,15 @@ namespace DrifterBossGrabMod.Patches
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
                                 var reason = isActuallyInMainSeat ? "physically in main seat" : "tracked as main (client)";
-                                Log.Info($"[UpdateNetworkBagState] Setting selectedIndex to {i} for {obj.name} ({reason}).");
+                                Log.Debug($"[UpdateNetworkBagState] Setting selectedIndex to {i} for {obj.name} ({reason}).");
                             }
                             break;
                         }
                     }
                 }
-                else if (mainPassenger != null && PluginConfig.Instance.EnableDebugLogs.Value)
+                else if (mainPassenger != null)
                 {
-                    Log.Info($"[UpdateNetworkBagState] Skipping selectedIndex calculation - {mainPassenger.name} is tracked as main but not physically in main seat. " +
+                    Log.Debug($"[UpdateNetworkBagState] Skipping selectedIndex calculation - {mainPassenger.name} is tracked as main but not physically in main seat. " +
                             $"isActuallyInMainSeat={isActuallyInMainSeat}, useTrackedMainSeat={useTrackedMainSeat}. " +
                             $"Physical passenger: {controller.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}.");
                 }

@@ -39,13 +39,11 @@ namespace DrifterBossGrabMod.Core
         {
             if (targetObject == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
+                Log.Debug($"[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
                 return new BaggedObjectStateData();
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[GetIndividualObjectState] Checking for existing state for {targetObject.name}");
+            Log.Debug($"[GetIndividualObjectState] Checking for existing state for {targetObject.name}");
 
             float preservedBreakoutTime = 0f;
             float preservedBreakoutAttempts = 0f;
@@ -85,14 +83,12 @@ namespace DrifterBossGrabMod.Core
             var storedState = BaggedObjectPatches.LoadObjectState(controller, targetObject);
             if (storedState != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE REUSE] GetIndividualObjectState reusing stored state for {targetObject.name}: baseMaxHealth={storedState.baseMaxHealth}");
+                Log.Debug($"[STATE REUSE] GetIndividualObjectState reusing stored state for {targetObject.name}: baseMaxHealth={storedState.baseMaxHealth}");
                 state = storedState;
             }
             else
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetIndividualObjectState creating new state for {targetObject.name}");
+                Log.Debug($"[STATE CREATION] GetIndividualObjectState creating new state for {targetObject.name}");
                 state = new BaggedObjectStateData();
                 state.CalculateFromObject(targetObject, controller);
             }
@@ -123,8 +119,7 @@ namespace DrifterBossGrabMod.Core
             var baggedObjects = BagPatches.GetState(controller).BaggedObjects;
             if (baggedObjects == null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[STATE CREATION] GetAggregateState returning empty state - baggedObjects is null");
+                Log.Debug($"[STATE CREATION] GetAggregateState returning empty state - baggedObjects is null");
                 return new BaggedObjectStateData();
             }
 
@@ -170,8 +165,7 @@ namespace DrifterBossGrabMod.Core
                 var storedMainState = BaggedObjectPatches.LoadObjectState(controller, mainPassenger);
                 if (storedMainState != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[GetAggregateState] Using stored state for main passenger {mainPassenger.name}: level={storedMainState.level}");
+                    Log.Debug($"[GetAggregateState] Using stored state for main passenger {mainPassenger.name}: level={storedMainState.level}");
 
                     aggregateState.targetObject = storedMainState.targetObject ?? mainPassenger;
                     aggregateState.targetBody = storedMainState.targetBody;
@@ -196,8 +190,7 @@ namespace DrifterBossGrabMod.Core
                 }
                 else
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[GetAggregateState] No stored state for {mainPassenger.name}, calculating from object");
+                    Log.Debug($"[GetAggregateState] No stored state for {mainPassenger.name}, calculating from object");
                     aggregateState.CalculateFromObject(mainPassenger, controller);
                 }
             }

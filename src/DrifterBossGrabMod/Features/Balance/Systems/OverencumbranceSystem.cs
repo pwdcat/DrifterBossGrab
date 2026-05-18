@@ -46,10 +46,7 @@ namespace DrifterBossGrabMod.Balance
                 {
                     StartRemovalTimer(body);
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[Overencumbrance] Started removal timer for debuff");
-                    }
+                    Log.Debug($"[Overencumbrance] Started removal timer for debuff");
                 }
                 return;
             }
@@ -60,10 +57,7 @@ namespace DrifterBossGrabMod.Balance
             {
                 ApplyTransferDebuff(body);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[Overencumbrance] Applied debuff: Overencumbrance%={overencumbrancePercent:P1}");
-                }
+                Log.Debug($"[Overencumbrance] Applied debuff: Overencumbrance%={overencumbrancePercent:P1}");
             }
         }
 
@@ -88,10 +82,7 @@ namespace DrifterBossGrabMod.Balance
                     body.StopCoroutine(timerCoroutine);
                     _overencumbranceTimers.Remove(body);
 
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[Overencumbrance] Stopped removal timer for {body.name}");
-                    }
+                        Log.Debug($"[Overencumbrance] Stopped removal timer for {body.name}");
                 }
             }
         }
@@ -105,10 +96,7 @@ namespace DrifterBossGrabMod.Balance
                 RemoveTransferDebuff(body);
                 _overencumbranceTimers.Remove(body);
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[Overencumbrance] Removed debuff after {OverencumbranceDebuffRemovalDelay:F1}s");
-                }
+                Log.Debug($"[Overencumbrance] Removed debuff after {OverencumbranceDebuffRemovalDelay:F1}s");
             }
         }
 

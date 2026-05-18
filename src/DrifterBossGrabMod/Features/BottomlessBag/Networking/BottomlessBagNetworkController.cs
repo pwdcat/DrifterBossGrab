@@ -227,8 +227,7 @@ namespace DrifterBossGrabMod.Networking
         {
             if (!NetworkServer.active) return;
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Info($"[BottomlessBagNetworkController] ServerUpdateFromClient for {gameObject.name}. index={index}, objects={baggedIds.Length}");
+            Log.Debug($"[BottomlessBagNetworkController] ServerUpdateFromClient for {gameObject.name}. index={index}, objects={baggedIds.Length}");
 
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
 
@@ -256,8 +255,7 @@ namespace DrifterBossGrabMod.Networking
                     if (seatIdList.Count > 0)
                     {
                         actualSeatIds = seatIdList.ToArray();
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[ServerUpdateFromClient] Replaced client seatIds (count={seatIds.Length}) with {actualSeatIds.Length} recovered seat IDs");
+                            Log.Debug($"[ServerUpdateFromClient] Replaced client seatIds (count={seatIds.Length}) with {actualSeatIds.Length} recovered seat IDs");
                     }
                 }
 
@@ -275,8 +273,7 @@ namespace DrifterBossGrabMod.Networking
                                 if (baggedIds[i] == mainNetId.netId.Value)
                                 {
                                     correctedIndex = i;
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        Log.Info($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
+                                        Log.Debug($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
                                     break;
                                 }
                             }
@@ -610,10 +607,7 @@ namespace DrifterBossGrabMod.Networking
             {
                 if (ctx.MainSeatObject.transform.parent != null)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Info($"[DoSync_Client_Actions] Unparenting main seat object {ctx.MainSeatObject.name} from {ctx.MainSeatObject.transform.parent.name}");
-                    }
+                    Log.Debug($"[DoSync_Client_Actions] Unparenting main seat object {ctx.MainSeatObject.name} from {ctx.MainSeatObject.transform.parent.name}");
                     ctx.MainSeatObject.transform.SetParent(null, true);
                 }
 

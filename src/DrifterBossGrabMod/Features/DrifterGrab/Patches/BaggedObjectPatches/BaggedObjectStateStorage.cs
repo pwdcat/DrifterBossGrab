@@ -23,10 +23,7 @@ namespace DrifterBossGrabMod.Patches
 
             try
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[SaveObjectState] Saving state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
-                }
+                Log.Debug($"[SaveObjectState] Saving state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
 
                 if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                 {
@@ -44,8 +41,7 @@ namespace DrifterBossGrabMod.Patches
                 int instanceId = obj.GetInstanceID();
                 if (objectStates.ContainsKey(instanceId))
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[SaveObjectState] Overwriting existing state for {obj.name}");
+                        Log.Debug($"[SaveObjectState] Overwriting existing state for {obj.name}");
                 }
 
                 objectStates[instanceId] = state;
@@ -70,10 +66,7 @@ namespace DrifterBossGrabMod.Patches
                     int instanceId = obj.GetInstanceID();
                     if (objectStates.TryGetValue(instanceId, out var state))
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Debug($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
-                        }
+                        Log.Debug($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
 
                         if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                         {
@@ -85,10 +78,7 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[LoadObjectState] No state found for {obj.name}");
-                }
+                Log.Debug($"[LoadObjectState] No state found for {obj.name}");
                 return null;
             }
             catch (Exception ex)
@@ -167,8 +157,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 int instanceId = obj.GetInstanceID();
                 tempStates[instanceId] = state;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[PreserveStateForThrow] Preserved state for {obj.name}");
+                Log.Debug($"[PreserveStateForThrow] Preserved state for {obj.name}");
             }
         }
 
@@ -185,8 +174,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 objectStates[instanceId] = preservedState;
                 tempStates.Remove(instanceId);
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[RestorePreservedState] Restored preserved state for {obj.name}");
+                Log.Debug($"[RestorePreservedState] Restored preserved state for {obj.name}");
             }
         }
 

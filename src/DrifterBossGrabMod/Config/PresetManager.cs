@@ -227,6 +227,7 @@ namespace DrifterBossGrabMod.Config
             var configEntry = category switch
             {
                 "General" => GetGeneralConfigEntry(key),
+                "Recovery" => GetRecoveryConfigEntry(key),
                 "Persistence" => GetPersistenceConfigEntry(key),
                 "BottomlessBag" => GetBottomlessBagConfigEntry(key),
                 "Hud" => GetHudConfigEntry(key),
@@ -236,6 +237,20 @@ namespace DrifterBossGrabMod.Config
             };
 
             return configEntry;
+        }
+
+        private static ConfigEntryBase? GetRecoveryConfigEntry(string key)
+        {
+            var instance = PluginConfig.Instance;
+            return key switch
+            {
+                "EnableRecoveryFeature" => instance.EnableRecoveryFeature,
+                "EnemyRecoveryMode" => instance.EnemyRecoveryMode,
+                "RecoverBaggedBosses" => instance.RecoverBaggedBosses,
+                "RecoverBaggedNPCs" => instance.RecoverBaggedNPCs,
+                "RecoverBaggedEnvironmentObjects" => instance.RecoverBaggedEnvironmentObjects,
+                _ => null
+            };
         }
 
         private static ConfigEntryBase? GetGeneralConfigEntry(string key)
@@ -368,6 +383,7 @@ namespace DrifterBossGrabMod.Config
                 "BagScaleCap" => instance.BagScaleCap,
                 "MassCap" => instance.MassCap,
                 "MaxLaunchSpeed" => instance.MaxLaunchSpeed,
+                "SearchRadiusMultiplier" => instance.SearchRadiusMultiplier,
                 _ => null
             };
         }

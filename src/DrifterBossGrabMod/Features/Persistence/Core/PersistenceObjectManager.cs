@@ -64,19 +64,13 @@ namespace DrifterBossGrabMod
 
             if (IsPlayerOrSurvivor(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AddPersistedObject] Refusing to add {obj.name}: Object represents a player or survivor.");
-                }
+                Log.Debug($"[AddPersistedObject] Refusing to add {obj.name}: Object represents a player or survivor.");
                 return;
             }
 
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[AddPersistedObject] Refusing to add {obj.name}: Object is blacklisted.");
-                }
+                Log.Debug($"[AddPersistedObject] Refusing to add {obj.name}: Object is blacklisted.");
                 return;
             }
             var command = new AddPersistedObjectCommand(obj, ownerPlayerId);
@@ -214,20 +208,20 @@ namespace DrifterBossGrabMod
 
             if (IsPlayerOrSurvivor(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Represents a player or survivor.");
+                Log.Debug($"[IsValidForPersistence] Rejected {obj.name}: Represents a player or survivor.");
                 return false;
             }
 
             var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
             if (projectileController != null)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Is a transient projectile.");
+                Log.Debug($"[IsValidForPersistence] Rejected {obj.name}: Is a transient projectile.");
                 return false;
             }
 
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Matched persistence blacklist.");
+                Log.Debug($"[IsValidForPersistence] Rejected {obj.name}: Matched persistence blacklist.");
                 return false;
             }
 
@@ -243,8 +237,7 @@ namespace DrifterBossGrabMod
                 var toRemove = _persistedObjects.Where(obj => obj != null && PluginConfig.IsPersistenceBlacklisted(obj)).ToList();
                 foreach (var obj in toRemove)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[CaptureCurrentlyBaggedObjects] Pruning now-blacklisted object: {obj.name}");
+                    Log.Debug($"[CaptureCurrentlyBaggedObjects] Pruning now-blacklisted object: {obj.name}");
                     RemovePersistedObjectInternal(obj, false);
                 }
             }

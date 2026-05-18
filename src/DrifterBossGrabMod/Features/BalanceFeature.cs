@@ -11,7 +11,7 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.Info($"[{FeatureName}] Applying balance patches...");
+            Log.Debug($"[{FeatureName}] Applying balance patches...");
 
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_RecalculateStats_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_OnDestroy_Patch)).Patch();
@@ -30,7 +30,7 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_UpdateBaggedObjectMass)).Patch();
 
-            Log.Info($"[{FeatureName}] Balance patches applied successfully.");
+            Log.Debug($"[{FeatureName}] Balance patches applied successfully.");
         }
     }
 }

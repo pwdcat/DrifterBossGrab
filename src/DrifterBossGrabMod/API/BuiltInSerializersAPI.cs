@@ -101,10 +101,7 @@ namespace DrifterBossGrabMod.API
                 .AddAction("isVoid", c => c.isVoid, (c, v) => c.isVoid = v)
                 .AddAction("bestName", c => c.bestName, (c, v) => c.bestName = v);
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info("[BuiltInSerializersAPI] Created SpecialObjectAttributes serializer");
-            }
+            Log.Debug("[BuiltInSerializersAPI] Created SpecialObjectAttributes serializer");
 
             return serializer;
         }
@@ -194,10 +191,7 @@ namespace DrifterBossGrabMod.API
                 targetHealth = Mathf.Clamp(targetHealth, 0f, health.fullHealth);
                 health.Networkhealth = targetHealth;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[RestoreJunkCubeHealth] Restored health: {health.health}/{health.fullHealth} (fraction: {savedHealthFraction:F3}, activation: {junkCube.ActivationCount})");
-                }
+                Log.Debug($"[RestoreJunkCubeHealth] Restored health: {health.health}/{health.fullHealth} (fraction: {savedHealthFraction:F3}, activation: {junkCube.ActivationCount})");
             }
 
             if (state.TryGetValue("shieldFraction", out var shieldFraction))
@@ -301,10 +295,7 @@ namespace DrifterBossGrabMod.API
             if (bossGroup != null)
             {
                 bossGroup.bonusRewardCount = restoredStacks;
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Info($"[RestoreTeleporterInteraction] Successfully synced bossGroup.bonusRewardCount to {restoredStacks}");
-                }
+                Log.Debug($"[RestoreTeleporterInteraction] Successfully synced bossGroup.bonusRewardCount to {restoredStacks}");
             }
         }
 
@@ -490,12 +481,9 @@ namespace DrifterBossGrabMod.API
                     var newState = EntityStateCatalog.InstantiateState(stateType);
                     if (newState != null)
                     {
-                        Log.Info($"[EntityStateMachine] Setting state {stateTypeName} on {component.gameObject.name}");
+                        Log.Debug($"[EntityStateMachine] Setting state {stateTypeName} on {component.gameObject.name}");
                         stateMachine.SetState(newState);
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Info($"[EntityStateMachine] Restored {component.gameObject.name} to state {stateTypeName}");
-                        }
+                        Log.Debug($"[EntityStateMachine] Restored {component.gameObject.name} to state {stateTypeName}");
                     }
                 }
                 else

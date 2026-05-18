@@ -255,7 +255,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception e)
                 {
-                    Log.Info($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
+                    Log.Debug($" [RemoveUIOverlayForNullState] Exception removing overlay: {e.Message}");
                 }
             }
         }

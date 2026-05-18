@@ -36,7 +36,7 @@ namespace DrifterBossGrabMod.Input
             if (_initialized) return;
             _initialized = true;
 
-            Log.Info("[InputSetup] Initializing Rewired input actions...");
+            Log.Debug("[InputSetup] Initializing Rewired input actions...");
 
             AddActionsToInputCatalog();
 
@@ -45,7 +45,7 @@ namespace DrifterBossGrabMod.Input
             MethodInfo? userDataInit = FindUserDataInitMethod();
             if (userDataInit != null)
             {
-                Log.Info($"[InputSetup] Found UserData init method: {userDataInit.Name} (DeclaringType: {userDataInit.DeclaringType?.FullName})");
+                Log.Debug($"[InputSetup] Found UserData init method: {userDataInit.Name} (DeclaringType: {userDataInit.DeclaringType?.FullName})");
 
                 try
                 {
@@ -53,7 +53,7 @@ namespace DrifterBossGrabMod.Input
                         userDataInit,
                         typeof(InputSetup).GetMethod(nameof(AddCustomActions), BindingFlags.NonPublic | BindingFlags.Static)!
                     );
-                    Log.Info($"[InputSetup] Successfully hooked UserData init method via MonoMod.RuntimeDetour.Hook");
+                    Log.Debug($"[InputSetup] Successfully hooked UserData init method via MonoMod.RuntimeDetour.Hook");
                 }
                 catch (Exception e)
                 {
@@ -68,7 +68,7 @@ namespace DrifterBossGrabMod.Input
                 {
                     if (m.ReturnType == typeof(void) && m.GetParameters().Length == 0)
                     {
-                        Log.Info($"[InputSetup]   Candidate: {m.Name}");
+                        Log.Debug($"[InputSetup]   Candidate: {m.Name}");
                     }
                 }
             }
@@ -76,11 +76,11 @@ namespace DrifterBossGrabMod.Input
             _actionElementMapApplyMethod = FindActionElementMapApplyMethod();
             if (_actionElementMapApplyMethod != null)
             {
-                Log.Info($"[InputSetup] Found ActionElementMap apply method: {_actionElementMapApplyMethod.Name}");
+                Log.Debug($"[InputSetup] Found ActionElementMap apply method: {_actionElementMapApplyMethod.Name}");
             }
             else
             {
-                Log.Info("[InputSetup] ActionElementMap apply method not found. Using fallback for profile bindings.");
+                Log.Debug("[InputSetup] ActionElementMap apply method not found. Using fallback for profile bindings.");
             }
 
             var loadDefaultProfile = AccessTools.Method(typeof(UserProfile), nameof(UserProfile.LoadDefaultProfile));
@@ -103,7 +103,7 @@ namespace DrifterBossGrabMod.Input
             if (getStringMethod != null)
                 harmony.Patch(getStringMethod, prefix: new HarmonyMethod(typeof(InputSetup), nameof(OnLanguageGetString)));
 
-            Log.Info("[InputSetup] Rewired input actions registered successfully.");
+            Log.Debug("[InputSetup] Rewired input actions registered successfully.");
         }
 
         private static bool OnLanguageGetString(string token, ref string __result)
@@ -133,7 +133,7 @@ namespace DrifterBossGrabMod.Input
                 return null;
             }
 
-            Log.Info($"[InputSetup] Looking for methods referencing field: {actionsField.Name} ({actionsField.FieldType})");
+            Log.Debug($"[InputSetup] Looking for methods referencing field: {actionsField.Name} ({actionsField.FieldType})");
 
             MethodInfo? bestCandidate = null;
             int bestLocalCount = 0;
@@ -155,7 +155,7 @@ namespace DrifterBossGrabMod.Input
                     {
                         var body = method.GetMethodBody();
                         int localCount = body?.LocalVariables.Count ?? 0;
-                        Log.Info($"[InputSetup] Found candidate method: {method.Name} (locals={localCount}, IL instructions={instructions.Count})");
+                        Log.Debug($"[InputSetup] Found candidate method: {method.Name} (locals={localCount}, IL instructions={instructions.Count})");
 
                         if (localCount > bestLocalCount)
                         {
@@ -166,13 +166,13 @@ namespace DrifterBossGrabMod.Input
                 }
                 catch (Exception e)
                 {
-                    Log.Info($"[InputSetup] Could not analyze method {method.Name}: {e.GetType().Name}");
+                    Log.Debug($"[InputSetup] Could not analyze method {method.Name}: {e.GetType().Name}");
                 }
             }
 
             if (bestCandidate != null)
             {
-                Log.Info($"[InputSetup] Selected best candidate: {bestCandidate.Name} (locals={bestLocalCount})");
+                Log.Debug($"[InputSetup] Selected best candidate: {bestCandidate.Name} (locals={bestLocalCount})");
             }
 
             return bestCandidate;
@@ -202,7 +202,7 @@ namespace DrifterBossGrabMod.Input
 
         private static void AddCustomActions(UserDataInitDelegate orig, UserData self)
         {
-            Log.Info("[InputSetup] AddCustomActions hook fired!");
+            Log.Debug("[InputSetup] AddCustomActions hook fired!");
 
             if (self.actions != null)
             {
@@ -213,7 +213,7 @@ namespace DrifterBossGrabMod.Input
                     var existingByName = self.actions.Find(a => a.name == action.Name);
                     if (existingByName != null)
                     {
-                        Log.Info($"[InputSetup] Action '{action.Name}' already registered (id={existingByName.id}). Skipping.");
+                        Log.Debug($"[InputSetup] Action '{action.Name}' already registered (id={existingByName.id}). Skipping.");
                         continue;
                     }
 
@@ -237,7 +237,7 @@ namespace DrifterBossGrabMod.Input
                     }
 
                     self.actions.Add(action);
-                    Log.Info($"[InputSetup] Added action '{action.Name}' (id={action.ActionId}) to UserData.actions");
+                    Log.Debug($"[InputSetup] Added action '{action.Name}' (id={action.ActionId}) to UserData.actions");
                 }
 
                 if (self.keyboardMaps != null && self.joystickMaps != null)
@@ -252,7 +252,7 @@ namespace DrifterBossGrabMod.Input
             }
 
             orig(self);
-            Log.Info("[InputSetup] Original UserData init completed.");
+            Log.Debug("[InputSetup] Original UserData init completed.");
         }
 
         // ========================================================================================
@@ -303,7 +303,7 @@ namespace DrifterBossGrabMod.Input
                 {
                     AddActionBindingToSettings(RewiredActions.ScrollBagUp.Name, jumpBindingTransform);
                     AddActionBindingToSettings(RewiredActions.ScrollBagDown.Name, jumpBindingTransform);
-                    Log.Info($"[InputSetup] Added keybind entries to {__instance.name}");
+                    Log.Debug($"[InputSetup] Added keybind entries to {__instance.name}");
                 }
                 else
                 {

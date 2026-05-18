@@ -54,8 +54,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (PluginConfig.IsRecoveryBlacklisted(passenger.name))
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[Recovery] {passenger.name} is blacklisted from recovery, letting vanilla handle");
+                Log.Debug($"[Recovery] {passenger.name} is blacklisted from recovery, letting vanilla handle");
                 return;
             }
 
@@ -67,8 +66,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Recovery] Boss recovery disabled for {passenger.name}, letting vanilla handle");
+                        Log.Debug($"[Recovery] Boss recovery disabled for {passenger.name}, letting vanilla handle");
                         return;
                     }
                 }
@@ -77,8 +75,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Recovery] NPC recovery disabled for {passenger.name}, letting vanilla handle");
+                        Log.Debug($"[Recovery] NPC recovery disabled for {passenger.name}, letting vanilla handle");
                         return;
                     }
                 }
@@ -88,8 +85,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
                 {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Info($"[Recovery] Environment object recovery disabled for {passenger.name}, letting vanilla handle");
+                    Log.Debug($"[Recovery] Environment object recovery disabled for {passenger.name}, letting vanilla handle");
                     return;
                 }
             }
@@ -121,15 +117,9 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[Recovery] Recovering {passenger.name} for {bagController.characterBody.name}");
-            }
+            Log.Debug($"[Recovery] Recovering {passenger.name} for {bagController.characterBody.name}");
 
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                Log.Info($"[Recovery] Attempting to recover bagged object: {passenger.name}");
-            }
+            Log.Debug($"[Recovery] Attempting to recover bagged object: {passenger.name}");
 
             Vector3 teleportPos = bagController.characterBody.corePosition + bagController.characterBody.transform.forward * ProjectileRecovery.TeleportForwardDistance + Vector3.up * ProjectileRecovery.TeleportUpDistance;
 
@@ -174,9 +164,9 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                if (!NetworkUtils.ValidateObjectReady(passengerObject))
+                if (!NetworkUtils.ValidateObjectReadyWithRecovery(passengerObject))
                 {
-                    Log.Warning($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} is not ready for network operations");
+                    Log.Warning($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} is not ready for network operations (recovery attempted)");
                     return;
                 }
 
@@ -184,8 +174,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (projectileStateObjects.Contains(passengerObject))
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} already processed, skipping");
+                        Log.Debug($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} already processed, skipping");
                         return;
                     }
                 }
@@ -220,8 +209,11 @@ namespace DrifterBossGrabMod.Patches
 
             int targetLayer = 0;
             __instance.gameObject.layer = targetLayer;
+            Transform passengerTransform = passenger.transform;
             foreach (var transform in __instance.GetComponentsInChildren<Transform>(true))
             {
+                if (transform == passengerTransform || transform.IsChildOf(passengerTransform))
+                    continue;
                 transform.gameObject.layer = targetLayer;
             }
 
@@ -245,8 +237,7 @@ namespace DrifterBossGrabMod.Patches
                     if (NetworkServer.active)
                     {
 
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
+                        Log.Debug($"[ProcessThrownObject] SERVER: Removing {passengerName} from bag tracking (throw operation)");
 
                         BaggedObjectStatePatches.PerformPassengerRestoration(bagController, passenger);
 
@@ -261,13 +252,11 @@ namespace DrifterBossGrabMod.Patches
                             if (netController != null)
                             {
                                 netController.RemoveBaggedObjectId(passengerNetId.netId);
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
+                                    Log.Debug($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
                             }
 
                             Networking.CycleNetworkHandler.SendBagStateUpdate(bagController, passengerNetId.netId, isThrowOperation: true);
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[ProcessThrownObject] SERVER: Sent bag state update for thrown {passengerName}");
+                            Log.Debug($"[ProcessThrownObject] SERVER: Sent bag state update for thrown {passengerName}");
                         }
                         else
                         {
@@ -336,8 +325,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (__instance.zoneType != MapZone.ZoneType.OutOfBounds) return true;
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Info($"[Recovery] MapZone triggered: {__instance.name} (ZoneLayer: {__instance.gameObject.layer}) | Object: {other.name} | ObjectLayer: {other.gameObject.layer}");
+                Log.Debug($"[Recovery] MapZone triggered: {__instance.name} (ZoneLayer: {__instance.gameObject.layer}) | Object: {other.name} | ObjectLayer: {other.gameObject.layer}");
 
                 var body = other.GetComponent<CharacterBody>();
 
@@ -348,13 +336,11 @@ namespace DrifterBossGrabMod.Patches
 
                     if (IsInProjectileState(target))
                     {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Recovery] Tracked object {target.name} hit OOB zone {__instance.name}");
+                        Log.Debug($"[Recovery] Tracked object {target.name} hit OOB zone {__instance.name}");
 
                         if (PluginConfig.IsRecoveryBlacklisted(target.name))
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[Recovery] {target.name} is blacklisted from recovery, letting vanilla handle");
+                            Log.Debug($"[Recovery] {target.name} is blacklisted from recovery, letting vanilla handle");
                             return true;
                         }
 
@@ -362,8 +348,7 @@ namespace DrifterBossGrabMod.Patches
 
                         if (isEnemy && PluginConfig.Instance.EnemyRecoveryMode.Value == EnemyRecoveryMode.Kill)
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[Recovery] Letting vanilla handle OOB for enemy {body!.name} (Kill mode)");
+                            Log.Debug($"[Recovery] Letting vanilla handle OOB for enemy {body!.name} (Kill mode)");
                             return true;
                         }
 
@@ -371,32 +356,26 @@ namespace DrifterBossGrabMod.Patches
                         {
                             if (body.isBoss || body.isChampion)
                             {
-
                                 if (!PluginConfig.Instance.RecoverBaggedBosses.Value)
                                 {
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        Log.Info($"[Recovery] Boss recovery disabled for {body.name}, letting vanilla handle");
+                                    Log.Debug($"[Recovery] Boss recovery disabled for {body.name}, letting vanilla handle");
                                     return true;
                                 }
                             }
                             else
                             {
-
                                 if (!PluginConfig.Instance.RecoverBaggedNPCs.Value)
                                 {
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        Log.Info($"[Recovery] NPC recovery disabled for {body.name}, letting vanilla handle");
+                                    Log.Debug($"[Recovery] NPC recovery disabled for {body.name}, letting vanilla handle");
                                     return true;
                                 }
                             }
                         }
                         else
                         {
-
                             if (!PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value)
                             {
-                                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    Log.Info($"[Recovery] Environment object recovery disabled for {target.name}, letting vanilla handle");
+                                Log.Debug($"[Recovery] Environment object recovery disabled for {target.name}, letting vanilla handle");
                                 return true;
                             }
                         }
@@ -409,14 +388,13 @@ namespace DrifterBossGrabMod.Patches
                 {
 
                     var projectileController = other.GetComponent<ProjectileController>() ?? other.GetComponentInParent<ProjectileController>();
-                    if (projectileController && !other.GetComponent<CharacterBody>())
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Info($"[Recovery] Generic Projectile hit MapZone: {other.name} (Parent: {projectileController.name})");
+                        if (projectileController && !other.GetComponent<CharacterBody>())
+                        {
+                            Log.Debug($"[Recovery] Generic Projectile hit MapZone: {other.name} (Parent: {projectileController.name})");
 
-                        RecoverProjectile(projectileController.gameObject);
-                        return false;
-                    }
+                            RecoverProjectile(projectileController.gameObject);
+                            return false;
+                        }
                 }
 
                 return true;
@@ -432,10 +410,10 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableDebugLogs.Value && __instance.Networkpassenger != null)
                 {
                     var passenger = __instance.Networkpassenger;
-                    Log.Info($"[Impact.Prefix] Projectile: {__instance.name} | Passenger: {passenger.name}");
-                    Log.Info($"  Proj Pos: {__instance.transform.position}");
-                    Log.Info($"  Pass Pos: {passenger.transform.position}");
-                    Log.Info($"  Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
+                    Log.Debug($"[Impact.Prefix] Projectile: {__instance.name} | Passenger: {passenger.name}");
+                    Log.Debug($"  Proj Pos: {__instance.transform.position}");
+                    Log.Debug($"  Pass Pos: {passenger.transform.position}");
+                    Log.Debug($"  Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
 
                     try
                     {
@@ -443,7 +421,7 @@ namespace DrifterBossGrabMod.Patches
                         _calculatePassengerFinalPositionMethod.Invoke(__instance, parameters);
                         var calculatedPos = (Vector3)parameters[0];
                         var calculatedRot = (Quaternion)parameters[1];
-                        Log.Info($"  Calculated Final Pos: {calculatedPos}, Rot: {calculatedRot}");
+                        Log.Debug($"  Calculated Final Pos: {calculatedPos}, Rot: {calculatedRot}");
                     }
                     catch (Exception ex)
                     {
@@ -460,10 +438,10 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var passenger = __instance.Networkpassenger;
-                        Log.Info($"[Impact.Postfix] Projectile: {__instance.name} | Passenger: {passenger.name}");
-                        Log.Info($"  Final Pass Pos: {passenger.transform.position}");
-                        Log.Info($"  Final Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
-                        Log.Info($"[Recovery] ThrownObjectProjectileController impacted. Clearing throw state for {passenger.name}");
+                    Log.Debug($"[Impact.Postfix] Projectile: {__instance.name} | Passenger: {passenger.name}");
+                    Log.Debug($"  Final Pass Pos: {passenger.transform.position}");
+                    Log.Debug($"  Final Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
+                    Log.Debug($"[Recovery] ThrownObjectProjectileController impacted. Clearing throw state for {passenger.name}");
                     }
 
                     lock (_throwTrackingLock)
@@ -490,8 +468,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         if (_objectsUndergoingThrow.Contains(__instance.Networkpassenger))
                         {
-                            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                Log.Info($"[Recovery] ThrownObjectProjectileController destroyed. Safety clearing throw state for {__instance.Networkpassenger.name}");
+                            Log.Debug($"[Recovery] ThrownObjectProjectileController destroyed. Safety clearing throw state for {__instance.Networkpassenger.name}");
                             _objectsUndergoingThrow.Remove(__instance.Networkpassenger);
                         }
                     }
