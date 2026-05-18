@@ -649,9 +649,9 @@ namespace DrifterBossGrabMod.UI
 
                 Color targetColor;
                 if (normalizedX <= 0.5f)
-                    targetColor = Color.Lerp(colorEnd, colorMid, normalizedX * 2f);
+                    targetColor = Color.Lerp(colorStart, colorMid, normalizedX * 2f);
                 else
-                    targetColor = Color.Lerp(colorMid, colorStart, (normalizedX - 0.5f) * 2f);
+                    targetColor = Color.Lerp(colorMid, colorEnd, (normalizedX - 0.5f) * 2f);
 
                 Color gradientColor = targetColor;
                 gradientColor.a *= vertex.color.a;

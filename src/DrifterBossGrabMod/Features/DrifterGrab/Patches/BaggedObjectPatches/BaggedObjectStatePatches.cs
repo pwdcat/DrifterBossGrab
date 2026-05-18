@@ -431,8 +431,31 @@ namespace DrifterBossGrabMod.Patches
                     {
                         try
                         {
-                            float baggedMass = bagController != null ? bagController.baggedMass : (float)ReflectionCache.BaggedObject.BaggedMass.GetValue(__instance);
-                            if (__instance != null) BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
+                            float baggedMass;
+                            if (bagController != null)
+                            {
+                                baggedMass = 0f;
+                                var bagState = BagPatches.GetState(bagController);
+                                if (bagState?.BaggedObjects != null)
+                                {
+                                    foreach (var obj in bagState.BaggedObjects)
+                                    {
+                                        if (obj != null)
+                                        {
+                                            baggedMass += bagController.CalculateBaggedObjectMass(obj);
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                baggedMass = (float)ReflectionCache.BaggedObject.BaggedMass.GetValue(__instance);
+                            }
+                            if (__instance != null)
+                            {
+                                ReflectionCache.BaggedObject.BaggedMass.SetValue(__instance, baggedMass);
+                                BaggedObjectPatches.UpdateBagScale(__instance, baggedMass);
+                            }
                             else
                             {
                                 Log.Warning($"[BaggedObject_OnEnter.Postfix] __instance is null, cannot update bag scale");

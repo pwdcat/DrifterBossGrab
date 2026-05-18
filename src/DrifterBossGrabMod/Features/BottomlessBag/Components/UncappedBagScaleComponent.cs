@@ -204,7 +204,28 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            if (_targetScale <= 1.0f) return;
+            if (_targetScale <= 1.0f)
+            {
+                if (_currentScale <= 1.0f) return;
+
+                _currentScale = Mathf.Lerp(_currentScale, 1.0f, Time.deltaTime * 10f);
+
+                if (Mathf.Approximately(_currentScale, 1.0f))
+                {
+                    _currentScale = 1.0f;
+                    ResetBoneScales();
+                    return;
+                }
+
+                for (int i = 0; i < _filteredBones.Length; i++)
+                {
+                    if (_filteredBones[i] != null)
+                    {
+                        _filteredBones[i].localScale = _originalBoneScales[i] * _currentScale;
+                    }
+                }
+                return;
+            }
 
             if (Mathf.Approximately(_currentScale, _targetScale)) return;
 

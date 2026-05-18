@@ -281,6 +281,11 @@ namespace DrifterBossGrabMod.Patches
                 __result = false;
                 if (hurtBox && hurtBox.healthComponent)
                 {
+                    if (!hurtBox.healthComponent.alive)
+                    {
+                        return;
+                    }
+
                     var body = hurtBox.healthComponent.body;
                     bool allowTargeting = false;
                     if (body)

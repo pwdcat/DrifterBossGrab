@@ -353,9 +353,24 @@ namespace DrifterBossGrabMod.Patches
                     if (body.baseMaxHealth <= 0 || body.levelMaxHealth < 0 ||
                         body.teamComponent == null || body.teamComponent.teamIndex < 0) return false;
 
+                    var healthComponent = body.healthComponent;
+                    if (healthComponent != null && !healthComponent.alive)
+                    {
+                        if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        {
+                            Log.Info($"[AssignPassenger.Prefix] Blocking grab of dead body: {passengerObject.name}");
+                        }
+                        return false;
+                    }
+
                     if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && body.currentVehicle != null)
                     {
-                        body.currentVehicle.EjectPassenger(passengerObject);
+                        bool isOurOwnSeat = body.currentVehicle == __instance.vehicleSeat || 
+                                           (GetState(__instance).AdditionalSeats.Values.Contains(body.currentVehicle));
+                        if (!isOurOwnSeat)
+                        {
+                            body.currentVehicle.EjectPassenger(passengerObject);
+                        }
                     }
                 }
 
@@ -407,12 +422,17 @@ namespace DrifterBossGrabMod.Patches
                 int passengerInstanceId = passengerObject.GetInstanceID();
                 bool isAlreadyTrackedByThisController = GetState(__instance!).ContainsInstanceId(passengerInstanceId);
 
-                if (effectiveCapacity <= 1 && isAlreadyTrackedByThisController)
+                bool isAlreadyInMainSeat = __instance!.vehicleSeat != null &&
+                    __instance.vehicleSeat.hasPassenger &&
+                    ReferenceEquals(__instance.vehicleSeat.NetworkpassengerBodyObject, passengerObject);
+
+                if (isAlreadyInMainSeat)
                 {
-                    bool isAlreadyInMainSeat = __instance!.vehicleSeat != null &&
-                        __instance.vehicleSeat.hasPassenger &&
-                        ReferenceEquals(__instance.vehicleSeat.NetworkpassengerBodyObject, passengerObject);
-                    if (isAlreadyInMainSeat) return false;
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[AssignPassenger.Prefix] Passenger {passengerObject.name} is already in the main seat. Skipping assignment to avoid vanilla vehicle validation failure.");
+                    }
+                    return false;
                 }
 
                 bool prioritize = PluginConfig.Instance.PrioritizeMainSeat.Value;

@@ -104,24 +104,24 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.AutoPromoteMainSeat, new CheckBoxConfig { name = "Auto-Promote Main Seat", category = "Bottomless Bag" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PrioritizeMainSeat, new CheckBoxConfig { name = "Prioritize Main Seat", category = "Bottomless Bag" }));
 
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance", category = "Balance" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab, new ChoiceConfig { name = "Balance Filter", category = "Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula, new InputFieldConfig { name = "Mass Capacity Formula" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlamDamageFormula, new InputFieldConfig { name = "Slam Damage Formula" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula, new InputFieldConfig { name = "Speed Penalty Formula" }));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode, new ChoiceConfig { name = "State Calculation" }));
-            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution, new ChoiceConfig { name = "AoE Damage" }));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMax, new FloatFieldConfig { name = "Max Overencumbrance (%)" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula, new InputFieldConfig { name = "Mass Capacity Formula", category = "Balance" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlamDamageFormula, new InputFieldConfig { name = "Slam Damage Formula", category = "Balance" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula, new InputFieldConfig { name = "Speed Penalty Formula", category = "Balance" }));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode, new ChoiceConfig { name = "State Calculation", category = "Balance" }));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution, new ChoiceConfig { name = "AoE Damage", category = "Balance" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMax, new FloatFieldConfig { name = "Max Overencumbrance (%)", category = "Balance" }));
 
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag, new ChoiceConfig { name = "Flag", category = "Balance" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SelectedFlagMultiplier, new InputFieldConfig { name = "Multiplier", category = "Balance" }));
 
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRadiusMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Grab Range Multiplier", min = 1f, max = 100f, increment = 0.1f }));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Breakout Time Multiplier" }));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks, new IntSliderConfig { name = "Max Hits Before Breakout" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MaxLaunchSpeed, new InputFieldConfig { name = "Max Launch Speed" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap, new InputFieldConfig { name = "Bag Visual Size Cap" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap, new InputFieldConfig { name = "Bagged Entity Mass Cap" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRadiusMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Grab Range Multiplier", category = "Balance", min = 1f, max = 100f, increment = 0.1f }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Breakout Time Multiplier", category = "Balance" }));
+            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks, new IntSliderConfig { name = "Max Hits Before Breakout", category = "Balance" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MaxLaunchSpeed, new InputFieldConfig { name = "Max Launch Speed", category = "Balance" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap, new InputFieldConfig { name = "Bag Visual Size Cap", category = "Balance" }));
+            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap, new InputFieldConfig { name = "Bagged Entity Mass Cap", category = "Balance" }));
 
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedHudElement, new ChoiceConfig { name = "HUD Filter", category = "Hud" }));
 
@@ -246,6 +246,11 @@ namespace DrifterBossGrabMod
 
             string expectedToken = $"{Constants.PluginGuid}.{configEntry.Definition.Section}.{configEntry.Definition.Key}.STRING_INPUT_FIELD".Replace(" ", "_").ToUpper();
 
+            if (configEntry == PluginConfig.Instance.SelectedFlagMultiplier)
+            {
+                expectedToken = $"{Constants.PluginGuid}.BALANCE.MULTIPLIER.STRING_INPUT_FIELD".Replace(" ", "_").ToUpper();
+            }
+
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
 
             foreach (var setting in allSettings)
@@ -275,12 +280,43 @@ namespace DrifterBossGrabMod
                 PluginConfig.HudSettingToSubTab,
                 (settingToken, subTabs) => selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
+            string filterToken = $"{Constants.PluginGuid}.HUD.HUD_FILTER.CHOICE".ToUpper();
+            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            foreach (var setting in allSettings)
+            {
+                if (setting.settingToken == filterToken)
+                {
+                    var callback = setting.GetComponent<OnEnableCallback>();
+                    if (callback == null)
+                    {
+                        callback = setting.gameObject.AddComponent<OnEnableCallback>();
+                        callback.Action = () =>
+                        {
+                            if (PluginConfig.Instance.SelectedHudElement.Value != HudElementType.All)
+                            {
+                                PluginConfig.Instance.SelectedHudElement.Value = HudElementType.All;
+                            }
+                            else
+                            {
+                                UpdateHudSubTabVisibility();
+                            }
+                        };
+                    }
+                    break;
+                }
+            }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         public void UpdateBalanceSubTabVisibility()
         {
             if (!RooInstalled) return;
+            var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+            var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
+            if (flagConfig != null)
+            {
+                PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value;
+            }
 
             var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
 
@@ -289,6 +325,38 @@ namespace DrifterBossGrabMod
                 PluginConfig.BalanceSettingToSubTab,
                 (settingToken, subTabs) => selectedSubTab == BalanceSubTabType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
+            string filterToken = $"{Constants.PluginGuid}.BALANCE.BALANCE_FILTER.CHOICE".ToUpper();
+            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            foreach (var setting in allSettings)
+            {
+                if (setting.settingToken == filterToken)
+                {
+                    var callback = setting.GetComponent<OnEnableCallback>();
+                    if (callback == null)
+                    {
+                        callback = setting.gameObject.AddComponent<OnEnableCallback>();
+                        callback.Action = () =>
+                        {
+                            if (PluginConfig.Instance.SelectedBalanceSubTab.Value != BalanceSubTabType.All)
+                            {
+                                PluginConfig.Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
+                            }
+                            else
+                            {
+                                UpdateBalanceSubTabVisibility();
+                            }
+                            var currentFlag = PluginConfig.Instance.SelectedFlag.Value;
+                            var currentFlagConfig = PluginConfig.GetFlagMultiplierConfig(currentFlag);
+                            if (currentFlagConfig != null)
+                            {
+                                PluginConfig.Instance.SelectedFlagMultiplier.Value = currentFlagConfig.Value;
+                            }
+                            RefreshStringInputFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
+                        };
+                    }
+                    break;
+                }
+            }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
@@ -434,6 +502,15 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
+        }
+    }
+
+    public class OnEnableCallback : UnityEngine.MonoBehaviour
+    {
+        public System.Action? Action;
+        public void OnEnable()
+        {
+            Action?.Invoke();
         }
     }
 }

@@ -251,6 +251,16 @@ namespace DrifterBossGrabMod.Patches
                     {
                         BagPassengerManager.UpdateUncappedBagScale(controller, mass);
                     }
+
+                    bool uncappedActivelyScaling = mass > maxCapacity;
+                    if (!uncappedActivelyScaling && _setScaleMethod != null)
+                    {
+                        _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
+                    }
+                }
+                else if (_setScaleMethod != null)
+                {
+                    _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
                 }
             }
             else if (_setScaleMethod != null)
@@ -646,6 +656,16 @@ namespace DrifterBossGrabMod.Patches
             var bagController = seat.GetComponentInParent<DrifterBagController>();
             if (bagController == null) return;
             if (DrifterBossGrabPlugin.IsSwappingPassengers) return;
+
+            var incomingObject = BagPatches.GetState(bagController).IncomingObject;
+            if (incomingObject != null && ReferenceEquals(passenger, incomingObject))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[HandlePassengerExit] Skipping RemoveBaggedObject for {passenger.name} - same as IncomingObject (reassignment, not true exit)");
+                }
+                return;
+            }
 
             var baggedObjectsList = BagPatches.GetState(bagController).BaggedObjects;
             bool isInBaggedObjects = baggedObjectsList != null && baggedObjectsList.Contains(passenger);

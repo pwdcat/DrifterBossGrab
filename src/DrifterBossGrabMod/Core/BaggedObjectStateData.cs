@@ -190,6 +190,13 @@ namespace DrifterBossGrabMod.Core
                 return;
             }
 
+            if (this.targetObject == null || (this.targetObject is UnityEngine.Object uo && !uo))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Info("[BaggedObjectStateData] Skipping application - targetObject is null or destroyed.");
+                return;
+            }
+
             try
             {
                 _targetBodyField?.SetValue(state, targetBody);

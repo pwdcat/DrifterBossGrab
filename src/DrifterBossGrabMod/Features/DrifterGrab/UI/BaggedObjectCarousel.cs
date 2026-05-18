@@ -917,25 +917,6 @@ namespace DrifterBossGrabMod.UI
                                             PluginConfig.Instance.CapacityGradientColorEnd.Value);
                                     }
                                 }
-                                else
-                                {
-                                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                    {
-                                        Log.Debug($"[BaggedObjectCarousel] Health info for {passenger!.name}: health={healthComponent!.health}, fullHealth={healthComponent!.fullHealth}, fullCombinedHealth={healthComponent!.fullCombinedHealth}, baseMaxHealth={body!.baseMaxHealth}");
-                                    }
-
-                                    if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
-                                    {
-                                        try
-                                        {
-                                            baggedCardController.healthBar.Update();
-                                        }
-                                        catch (NullReferenceException)
-                                        {
-                                            Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
-                                        }
-                                    }
-                                }
 
                                 var weightDisplayMode = PluginConfig.Instance.WeightDisplayMode.Value;
                                 bool showOverencumbranceIcon = isOverencumbered && PluginConfig.Instance.UseNewWeightIcon.Value && PluginConfig.Instance.ShowOverencumberIcon.Value && PluginConfig.Instance.ShowTotalMassOnWeightIcon.Value;

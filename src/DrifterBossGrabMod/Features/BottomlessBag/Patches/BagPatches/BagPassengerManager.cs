@@ -299,10 +299,6 @@ namespace DrifterBossGrabMod.Patches
             if (controller == null) return;
 
             var state = BagPatches.GetState(controller);
-            if (!state.IsMassDirty)
-            {
-                return;
-            }
 
             float previousTotalMass = 0f;
             if (_baggedMassField != null)
@@ -340,6 +336,17 @@ namespace DrifterBossGrabMod.Patches
                 else
                 {
                     totalMass = 0f;
+                    var fallbackList = BagPatches.GetState(controller).BaggedObjects;
+                    if (fallbackList != null)
+                    {
+                        foreach (var obj in fallbackList)
+                        {
+                            if (obj != null && !ProjectileRecoveryPatches.IsInProjectileState(obj))
+                            {
+                                totalMass += controller.CalculateBaggedObjectMass(obj);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -357,6 +364,7 @@ namespace DrifterBossGrabMod.Patches
                     if (esm.customName == "Bag" && esm.state is BaggedObject baggedObject)
                     {
                         BaggedObjectPatches.UpdateBagScale(baggedObject, totalMass);
+                        ReflectionCache.BaggedObject.BaggedMass.SetValue(baggedObject, totalMass);
                         break;
                     }
                 }

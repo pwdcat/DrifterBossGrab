@@ -62,7 +62,7 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color for overencumbrance gradient.");
-            Instance.IsHudEditorEnabled = cfg.Bind("Hidden", "IsHudEditorEnabled", false, "Toggle to enable the in-game HUD Editor.");
+            Instance.IsHudEditorEnabled = cfg.Bind("Hidden", "IsHudEditorEnabled", false, "Toggle to enable the in-game HUD Editor. You MUST be in game for it to work.");
             Instance.IsHudEditorEnabled.Value = false;
 
             WireHudEventHandlers();

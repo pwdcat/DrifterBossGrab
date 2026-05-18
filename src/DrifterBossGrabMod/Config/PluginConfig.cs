@@ -75,10 +75,9 @@ namespace DrifterBossGrabMod
     public enum BalanceSubTabType
     {
         All,
-        Capacity,
+        Formulas,
         Multipliers,
-        Penalty,
-        Misc
+        Limits
     }
 
     public enum PresetType
@@ -346,27 +345,25 @@ namespace DrifterBossGrabMod
 
         public static readonly Dictionary<string, BalanceSubTabType[]> BalanceSettingToSubTab = new()
         {
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ENABLE_BALANCE.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.UNCAP_CAPACITY.CHECKBOX"] = new[] { BalanceSubTabType.Capacity },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Capacity },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.CHARACTER_FLAGS.ALL_FLAG_MULTIPLIER.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Multipliers },
 
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_OVERENCUMBRANCE_(%).FLOAT_FIELD"] = new[] { BalanceSubTabType.Penalty },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATE_CALCULATION.CHOICE"] = new[] { BalanceSubTabType.Penalty },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_MULTIPLIER_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SPEED_PENALTY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Penalty },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_OVERENCUMBRANCE_(%).FLOAT_FIELD"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.STATE_CALCULATION.CHOICE"] = new[] { BalanceSubTabType.Formulas },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_MULTIPLIER_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SPEED_PENALTY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
 
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLAM_DAMAGE_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Misc }
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Multipliers },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Multipliers },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLAM_DAMAGE_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas }
         };
 
         internal ICachedValue<HashSet<string>> _blacklistCache = null!;

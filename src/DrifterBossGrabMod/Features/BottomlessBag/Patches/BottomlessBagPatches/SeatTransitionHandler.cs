@@ -54,8 +54,10 @@ namespace DrifterBossGrabMod.Patches
             BagPatches.SetMainSeatObject(bagController, null);
             if (seatForCurrent != null && actualMainPassenger != null)
             {
-                seatForCurrent.AssignPassenger(actualMainPassenger);
                 localSeatDict[actualMainPassenger] = seatForCurrent;
+                BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+                seatForCurrent.AssignPassenger(actualMainPassenger);
 
                 if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(actualMainPassenger) && !actualMainPassenger.GetComponent<AdditionalSeatBreakoutTimer>())
                 {
@@ -120,8 +122,10 @@ namespace DrifterBossGrabMod.Patches
                 var targetAdditionalSeat = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
                 if (targetAdditionalSeat != null)
                 {
-                    targetAdditionalSeat.AssignPassenger(targetObject);
                     localSeatDict[targetObject] = targetAdditionalSeat;
+                    BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+                    targetAdditionalSeat.AssignPassenger(targetObject);
                     return;
                 }
             }
@@ -132,7 +136,19 @@ namespace DrifterBossGrabMod.Patches
             }
 
             BagPatches.SetMainSeatObject(bagController, targetObject);
-            bagController.AssignPassenger(targetObject);
+
+            BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+            bool wasSwapping = DrifterBossGrabPlugin._isSwappingPassengers;
+            DrifterBossGrabPlugin._isSwappingPassengers = true;
+            try
+            {
+                bagController.AssignPassenger(targetObject);
+            }
+            finally
+            {
+                DrifterBossGrabPlugin._isSwappingPassengers = wasSwapping;
+            }
         }
 
         internal static void HandleObjectSwap(DrifterBagController bagController, RoR2.VehicleSeat vehicleSeat, GameObject currentObject, GameObject targetObject, ConcurrentDictionary<GameObject, RoR2.VehicleSeat> localSeatDict, int direction)
@@ -192,12 +208,14 @@ namespace DrifterBossGrabMod.Patches
 
                     targetAdditionalSeat.EjectPassenger(targetObject);
                     localSeatDict.TryRemove(targetObject, out _);
-                    targetAdditionalSeat.AssignPassenger(currentObject);
                     if (currentObject != null)
                     {
                         BaggedObjectPatches.RemoveUIOverlay(currentObject, bagController);
+                        localSeatDict[currentObject] = targetAdditionalSeat;
                     }
-                    if (currentObject != null) localSeatDict[currentObject] = targetAdditionalSeat;
+                    BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+                    targetAdditionalSeat.AssignPassenger(currentObject);
 
                     if (currentObject != null && UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                     {
@@ -224,12 +242,15 @@ namespace DrifterBossGrabMod.Patches
                     var newSeat = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
                     if (newSeat != null && currentObject != null)
                     {
-                        newSeat.AssignPassenger(currentObject);
                         localSeatDict[currentObject] = newSeat;
+                        BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+                        newSeat.AssignPassenger(currentObject);
                     }
                 }
 
                 BagPatches.SetMainSeatObject(bagController, targetObject);
+                BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
                 vehicleSeat.AssignPassenger(targetObject);
 
                 if (targetObject != null)
@@ -272,8 +293,10 @@ namespace DrifterBossGrabMod.Patches
                     localSeatDict.TryRemove(targetObject, out _);
                     if (currentObject != null)
                     {
-                        targetAdditionalSeat.AssignPassenger(currentObject);
                         localSeatDict[currentObject] = targetAdditionalSeat;
+                        BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
+
+                        targetAdditionalSeat.AssignPassenger(currentObject);
 
                         if (UnityEngine.Networking.NetworkServer.active && AdditionalSeatBreakoutTimer.CanBreakout(currentObject) && !currentObject.GetComponent<AdditionalSeatBreakoutTimer>())
                         {
@@ -300,12 +323,8 @@ namespace DrifterBossGrabMod.Patches
                 BagPatches.SetMainSeatObject(bagController, targetObject);
                 if (targetObject != null)
                 {
-
-                    var realDict = BagPatches.GetState(bagController).AdditionalSeats;
-                    if (realDict != null)
-                    {
-                        realDict.TryRemove(targetObject, out _);
-                    }
+                    localSeatDict.TryRemove(targetObject, out _);
+                    BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
 
                     vehicleSeat.AssignPassenger(targetObject);
 

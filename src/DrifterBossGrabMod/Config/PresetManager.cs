@@ -121,6 +121,12 @@ namespace DrifterBossGrabMod.Config
 
                 PluginConfig.Instance.SelectedPreset.Value = presetType;
                 PluginConfig.Instance.LastSelectedPreset.Value = presetType;
+                var selectedFlag = PluginConfig.Instance.SelectedFlag.Value;
+                var flagConfig = PluginConfig.GetFlagMultiplierConfig(selectedFlag);
+                if (flagConfig != null)
+                {
+                    PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value;
+                }
 
                 RefreshAllBagControllers();
 
