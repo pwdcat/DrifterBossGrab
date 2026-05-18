@@ -62,6 +62,15 @@ namespace DrifterBossGrabMod
         {
             if (obj == null) return;
 
+            if (IsPlayerOrSurvivor(obj))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[AddPersistedObject] Refusing to add {obj.name}: Object represents a player or survivor.");
+                }
+                return;
+            }
+
             if (PluginConfig.IsPersistenceBlacklisted(obj))
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -169,10 +178,45 @@ namespace DrifterBossGrabMod
         // ========================================================================================
         // VALIDATION & CAPTURE
         // ========================================================================================
+        public static bool IsPlayerOrSurvivor(GameObject obj)
+        {
+            if (obj == null) return false;
+
+            var body = obj.GetComponent<CharacterBody>();
+            if (body != null)
+            {
+                if (body.isPlayerControlled) return true;
+                if (SurvivorCatalog.GetSurvivorIndexFromBodyIndex(body.bodyIndex) != SurvivorIndex.None) return true;
+            }
+
+            var master = body != null ? body.master : obj.GetComponent<CharacterMaster>();
+            if (master != null)
+            {
+                if (master.playerCharacterMasterController != null) return true;
+
+                if (master.bodyPrefab != null)
+                {
+                    var prefabBody = master.bodyPrefab.GetComponent<CharacterBody>();
+                    if (prefabBody != null && SurvivorCatalog.GetSurvivorIndexFromBodyIndex(prefabBody.bodyIndex) != SurvivorIndex.None)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static bool IsValidForPersistence(GameObject obj)
         {
             if (obj == null) return false;
             if (_persistedObjects.Contains(obj)) return false;
+
+            if (IsPlayerOrSurvivor(obj))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Info($"[IsValidForPersistence] Rejected {obj.name}: Represents a player or survivor.");
+                return false;
+            }
 
             var projectileController = obj.GetComponent<ThrownObjectProjectileController>();
             if (projectileController != null)

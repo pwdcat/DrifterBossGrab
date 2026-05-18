@@ -45,7 +45,7 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                if (body.name == "DrifterBody")
+                if (body.name.StartsWith("DrifterBody"))
                 {
 
                     PersistenceManager.ScheduleAutoGrab(__instance);

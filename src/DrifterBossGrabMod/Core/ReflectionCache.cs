@@ -92,6 +92,11 @@ namespace DrifterBossGrabMod
             public static readonly MethodInfo OnUIOverlayInstanceRemove = AccessTools.Method(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnUIOverlayInstanceRemove");
         }
 
+        public static class EmptyBag
+        {
+            public static readonly FieldInfo ProjectileBaseSpeed = AccessTools.Field(typeof(EntityStates.AimThrowableBase), "projectileBaseSpeed");
+        }
+
         public static class BaggedObjectAdditional
         {
             private static readonly Type BaggedObjectType = System.Type.GetType("EntityStates.Drifter.Bag.BaggedObject, RoR2") ?? typeof(EntityStates.Drifter.Bag.BaggedObject);

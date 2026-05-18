@@ -83,71 +83,79 @@ namespace DrifterBossGrabMod.Patches
                     return;
             }
 
-            var bagStateMachine = GetBagStateMachine(controller);
-            if (NetworkServer.active)
+            DrifterBossGrabPlugin._isSwappingPassengers = true;
+            try
             {
-                var stateMachines = controller.GetComponents<EntityStateMachine>();
-                foreach (var esm in stateMachines)
-                {
-                    if (esm.customName == "Bag")
-                    {
-                        if (esm.state is BaggedObject)
-                        {
-                            esm.SetNextStateToMain();
-                        }
-                        break;
-                    }
-                }
-            }
-
-            if (state.AdditionalSeats.TryGetValue(newMain, out var existingSeat) && existingSeat != null)
-            {
+                var bagStateMachine = GetBagStateMachine(controller);
                 if (NetworkServer.active)
-                    existingSeat.EjectPassenger(newMain);
-                state.AdditionalSeats.TryRemove(newMain, out _);
-            }
-
-            if (NetworkServer.active)
-            {
-                if (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger)
                 {
-                    var currentPassenger = controller.vehicleSeat.NetworkpassengerBodyObject;
-                    bool isDeadOrDestroyed = currentPassenger == null ||
-                        (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
-                        (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
-                    if (isDeadOrDestroyed)
-                    {
-                        controller.vehicleSeat.EjectPassenger();
-                    }
-                }
-
-                controller.AssignPassenger(newMain);
-
-                if (controller.vehicleSeat != null)
-                {
-                    if (controller.vehicleSeat.NetworkpassengerBodyObject != newMain)
-                    {
-                        controller.vehicleSeat.AssignPassenger(newMain);
-                    }
-
                     var stateMachines = controller.GetComponents<EntityStateMachine>();
                     foreach (var esm in stateMachines)
                     {
                         if (esm.customName == "Bag")
                         {
-                            var newState = new BaggedObject();
-                            newState.targetObject = newMain;
-                            esm.SetNextState(newState);
+                            if (esm.state is BaggedObject)
+                            {
+                                esm.SetNextStateToMain();
+                            }
                             break;
                         }
                     }
                 }
+
+                if (state.AdditionalSeats.TryGetValue(newMain, out var existingSeat) && existingSeat != null)
+                {
+                    if (NetworkServer.active)
+                        existingSeat.EjectPassenger(newMain);
+                    state.AdditionalSeats.TryRemove(newMain, out _);
+                }
+
+                if (NetworkServer.active)
+                {
+                    if (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger)
+                    {
+                        var currentPassenger = controller.vehicleSeat.NetworkpassengerBodyObject;
+                        bool isDeadOrDestroyed = currentPassenger == null ||
+                            (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
+                            (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
+                        if (isDeadOrDestroyed)
+                        {
+                            controller.vehicleSeat.EjectPassenger();
+                        }
+                    }
+
+                    controller.AssignPassenger(newMain);
+
+                    if (controller.vehicleSeat != null)
+                    {
+                        if (controller.vehicleSeat.NetworkpassengerBodyObject != newMain)
+                        {
+                            controller.vehicleSeat.AssignPassenger(newMain);
+                        }
+
+                        var stateMachines = controller.GetComponents<EntityStateMachine>();
+                        foreach (var esm in stateMachines)
+                        {
+                            if (esm.customName == "Bag")
+                            {
+                                var newState = new BaggedObject();
+                                newState.targetObject = newMain;
+                                esm.SetNextState(newState);
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (controller.hasAuthority)
+                {
+                    GameObject? previousMain = BagPatches.GetMainSeatObject(controller);
+                    BagPatches.SetMainSeatObject(controller, newMain);
+                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, previousMain, newMain);
+                }
             }
-            else if (controller.hasAuthority)
+            finally
             {
-                GameObject? previousMain = BagPatches.GetMainSeatObject(controller);
-                BagPatches.SetMainSeatObject(controller, newMain);
-                API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, previousMain, newMain);
+                DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
         }
 
@@ -187,70 +195,78 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
-                if (NetworkServer.active)
-                {
-                    var stateMachines = _controller.GetComponents<EntityStateMachine>();
-                    foreach (var esm in stateMachines)
-                    {
-                        if (esm.customName == "Bag")
-                        {
-                            if (esm.state is BaggedObject)
-                            {
-                                esm.SetNextStateToMain();
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (state.AdditionalSeats.TryGetValue(_newMain, out var existingSeat) && existingSeat != null)
+                DrifterBossGrabPlugin._isSwappingPassengers = true;
+                try
                 {
                     if (NetworkServer.active)
-                        existingSeat.EjectPassenger(_newMain);
-                    state.AdditionalSeats.TryRemove(_newMain, out _);
-                }
-
-                if (NetworkServer.active)
-                {
-                    if (_controller.vehicleSeat != null && _controller.vehicleSeat.hasPassenger)
                     {
-                        var currentPassenger = _controller.vehicleSeat.NetworkpassengerBodyObject;
-                        bool isDeadOrDestroyed = currentPassenger == null ||
-                            (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
-                            (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
-                        if (isDeadOrDestroyed)
-                        {
-                            _controller.vehicleSeat.EjectPassenger();
-                        }
-                    }
-
-                    _controller.AssignPassenger(_newMain);
-
-                    if (_controller.vehicleSeat != null)
-                    {
-                        if (_controller.vehicleSeat.NetworkpassengerBodyObject != _newMain)
-                        {
-                            _controller.vehicleSeat.AssignPassenger(_newMain);
-                        }
-
                         var stateMachines = _controller.GetComponents<EntityStateMachine>();
                         foreach (var esm in stateMachines)
                         {
                             if (esm.customName == "Bag")
                             {
-                                var newState = new BaggedObject();
-                                newState.targetObject = _newMain;
-                                esm.SetNextState(newState);
+                                if (esm.state is BaggedObject)
+                                {
+                                    esm.SetNextStateToMain();
+                                }
                                 break;
                             }
                         }
                     }
+
+                    if (state.AdditionalSeats.TryGetValue(_newMain, out var existingSeat) && existingSeat != null)
+                    {
+                        if (NetworkServer.active)
+                            existingSeat.EjectPassenger(_newMain);
+                        state.AdditionalSeats.TryRemove(_newMain, out _);
+                    }
+
+                    if (NetworkServer.active)
+                    {
+                        if (_controller.vehicleSeat != null && _controller.vehicleSeat.hasPassenger)
+                        {
+                            var currentPassenger = _controller.vehicleSeat.NetworkpassengerBodyObject;
+                            bool isDeadOrDestroyed = currentPassenger == null ||
+                                (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
+                                (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
+                            if (isDeadOrDestroyed)
+                            {
+                                _controller.vehicleSeat.EjectPassenger();
+                            }
+                        }
+
+                        _controller.AssignPassenger(_newMain);
+
+                        if (_controller.vehicleSeat != null)
+                        {
+                            if (_controller.vehicleSeat.NetworkpassengerBodyObject != _newMain)
+                            {
+                                _controller.vehicleSeat.AssignPassenger(_newMain);
+                            }
+
+                            var stateMachines = _controller.GetComponents<EntityStateMachine>();
+                            foreach (var esm in stateMachines)
+                            {
+                                if (esm.customName == "Bag")
+                                {
+                                    var newState = new BaggedObject();
+                                    newState.targetObject = _newMain;
+                                    esm.SetNextState(newState);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else if (_controller.hasAuthority)
+                    {
+                        GameObject? previousMain = BagPatches.GetMainSeatObject(_controller);
+                        BagPatches.SetMainSeatObject(_controller, _newMain);
+                        API.DrifterBagAPI.InvokeOnMainPassengerChanged(_controller, previousMain, _newMain);
+                    }
                 }
-                else if (_controller.hasAuthority)
+                finally
                 {
-                    GameObject? previousMain = BagPatches.GetMainSeatObject(_controller);
-                    BagPatches.SetMainSeatObject(_controller, _newMain);
-                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(_controller, previousMain, _newMain);
+                    DrifterBossGrabPlugin._isSwappingPassengers = false;
                 }
             }
             Destroy(gameObject);
@@ -712,6 +728,49 @@ namespace DrifterBossGrabMod.Patches
             var seatDict = BagPatches.GetState(drifterBagController).AdditionalSeats;
             foreach (var kvp in seatDict) if (kvp.Value == __instance && kvp.Key != bodyObject) seatDict.TryRemove(kvp.Key, out _);
             seatDict[bodyObject] = __instance;
+        }
+    }
+
+    [HarmonyPatch(typeof(RoR2.VehicleSeat), "OnPassengerExit")]
+    public static class VehicleSeat_OnPassengerExit_Patch
+    {
+        [HarmonyPrefix]
+        public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
+        {
+            if (passenger == null) return;
+            try
+            {
+                var body = passenger.GetComponent<CharacterBody>();
+                if (body != null && body.modelLocator != null)
+                {
+                    var modelTransform = body.modelLocator.modelTransform;
+                    if (modelTransform != null)
+                    {
+                        var charModel = modelTransform.GetComponent<CharacterModel>();
+                        if (charModel != null && charModel.baseRendererInfos != null)
+                        {
+                            var list = new List<CharacterModel.RendererInfo>();
+                            foreach (var info in charModel.baseRendererInfos)
+                            {
+                                if (info.renderer != null)
+                                {
+                                    list.Add(info);
+                                }
+                            }
+                            if (list.Count != charModel.baseRendererInfos.Length)
+                            {
+                                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                                    Log.Info($"[OnPassengerExit.Prefix] Sanitized baseRendererInfos for {passenger.name}: removed {charModel.baseRendererInfos.Length - list.Count} null renderers");
+                                charModel.baseRendererInfos = list.ToArray();
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[OnPassengerExit.Prefix] Exception during sanitization: {ex}");
+            }
         }
     }
 

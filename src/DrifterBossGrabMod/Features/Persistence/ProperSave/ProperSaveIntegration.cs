@@ -12,6 +12,7 @@ using DrifterBossGrabMod.ProperSave.Core;
 using DrifterBossGrabMod.ProperSave.Data;
 using DrifterBossGrabMod.ProperSave.Spawning;
 using DrifterBossGrabMod.ProperSave.Serializers;
+using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod.ProperSave
 {
@@ -451,6 +452,15 @@ namespace DrifterBossGrabMod.ProperSave
         private static BaggedObjectSaveData? CaptureObjectData(GameObject obj, HashSet<int>? capturedInstanceIds = null)
         {
             if (obj == null) return null;
+
+            if (PersistenceObjectManager.IsPlayerOrSurvivor(obj))
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[ProperSaveIntegration.CaptureObjectData] Skipping {obj.name}: Represents a player or survivor.");
+                }
+                return null;
+            }
 
             var networkIdentity = obj.GetComponent<NetworkIdentity>();
             if (networkIdentity == null)

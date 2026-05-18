@@ -151,6 +151,13 @@ namespace DrifterBossGrabMod
             Run.onPlayerFirstCreatedServer += OnPlayerFirstCreated;
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnSceneChanged;
             CharacterBody.onBodyStartGlobal += OnBodyStart;
+            RoR2.VehicleSeat.onPassengerExitGlobal += OnPassengerExitGlobal;
+        }
+
+        private static void OnPassengerExitGlobal(RoR2.VehicleSeat seat, GameObject passenger)
+        {
+            if (seat == null || passenger == null) return;
+            Patches.BaggedObjectPatches.HandlePassengerExit(seat, passenger);
         }
 
         private void OnBodyStart(CharacterBody body)
@@ -264,6 +271,7 @@ namespace DrifterBossGrabMod
             Run.onPlayerFirstCreatedServer -= OnPlayerFirstCreated;
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged -= OnSceneChanged;
             CharacterBody.onBodyStartGlobal -= OnBodyStart;
+            RoR2.VehicleSeat.onPassengerExitGlobal -= OnPassengerExitGlobal;
             ConfigChangeNotifier.RemoveObserver(this);
             ConfigChangeNotifier.Cleanup();
             RemoveConfigurationEventHandlers();

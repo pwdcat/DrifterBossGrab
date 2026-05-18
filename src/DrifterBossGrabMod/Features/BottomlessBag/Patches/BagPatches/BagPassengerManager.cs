@@ -144,7 +144,7 @@ namespace DrifterBossGrabMod.Patches
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                                 Log.Info($"[RemoveBaggedObject] Triggering autopromote for: {newMain.name}");
 
-                            DelayedAutoPromote.Schedule(controller, newMain, 0.0f);
+                            DelayedAutoPromote.Schedule(controller, newMain, 0.05f);
                         }
                     }
                 }

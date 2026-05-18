@@ -592,6 +592,15 @@ namespace DrifterBossGrabMod.Networking
                 && ctx.SyncedObjects != null && ctx.SyncedObjects.Contains(ctx.MainSeatObject)
                 && !ProjectileRecoveryPatches.IsInProjectileState(ctx.MainSeatObject))
             {
+                if (ctx.MainSeatObject.transform.parent != null)
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Info($"[DoSync_Client_Actions] Unparenting main seat object {ctx.MainSeatObject.name} from {ctx.MainSeatObject.transform.parent.name}");
+                    }
+                    ctx.MainSeatObject.transform.SetParent(null, true);
+                }
+
                 var baggedObject = BaggedObjectPatches.FindOrCreateBaggedObjectState(controller, ctx.MainSeatObject);
                 if (baggedObject != null)
                 {
@@ -634,10 +643,10 @@ namespace DrifterBossGrabMod.Networking
                     var storedState = BaggedObjectPatches.LoadObjectState(controller, obj);
                     if (storedState != null)
                     {
-                        var baggedState = BaggedObjectPatches.FindOrCreateBaggedObjectState(controller, obj);
-                        if (baggedState != null)
+                        var charBody = obj.GetComponent<CharacterBody>();
+                        if (charBody != null)
                         {
-                            storedState.ApplyToBaggedObject(baggedState);
+                            storedState.ApplyToCharacterBody(charBody);
                         }
                     }
 

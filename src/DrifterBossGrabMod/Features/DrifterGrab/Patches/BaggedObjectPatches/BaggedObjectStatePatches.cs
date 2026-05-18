@@ -28,11 +28,20 @@ namespace DrifterBossGrabMod.Patches
         {
             if (restoreTarget == null) return;
 
+            if (restoreTarget.transform.parent != null)
+            {
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                {
+                    Log.Info($"[PerformPassengerRestoration] Unparenting {restoreTarget.name} from {restoreTarget.transform.parent.name}");
+                }
+                restoreTarget.transform.SetParent(null, true);
+            }
+
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 Log.Info($"[PerformPassengerRestoration] Restoring {restoreTarget.name}");
                 Log.Info($"  Current Pos: {restoreTarget.transform.position}");
-                Log.Info($"  Current Parent: {(restoreTarget.transform.parent ? restoreTarget.transform.parent.name : "null")}");
+                Log.Info($"  Current Parent: {(restoreTarget.transform.parent != null ? restoreTarget.transform.parent.name : "null")}");
             }
 
             var bagState = (bagController != null) ? BagPatches.GetState(bagController) : null;
@@ -154,7 +163,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         Log.Warning("[BaggedObject_OnEnter.Prefix] targetObject is null - likely deserialization failure or object destroyed");
                         NetworkUtils.LogObjectDetails(__instance?.outer?.gameObject, "BaggedObject_OnEnter.Prefix");
-                        return true;
+                        return false;
                     }
                 }
 

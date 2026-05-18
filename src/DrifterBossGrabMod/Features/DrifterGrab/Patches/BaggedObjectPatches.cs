@@ -641,45 +641,24 @@ namespace DrifterBossGrabMod.Patches
         public static void HandlePassengerExit(RoR2.VehicleSeat seat, GameObject passenger)
         {
             if (seat == null || passenger == null) return;
-            var bagController = seat.GetComponent<DrifterBagController>();
+            if (!UnityEngine.Networking.NetworkServer.active) return;
+
+            var bagController = seat.GetComponentInParent<DrifterBagController>();
             if (bagController == null) return;
             if (DrifterBossGrabPlugin.IsSwappingPassengers) return;
 
-            var mainSeatObject = BagPatches.GetMainSeatObject(bagController);
-            bool isTrackedAsMainSeat = mainSeatObject != null && ReferenceEquals(mainSeatObject, passenger);
-
             var baggedObjectsList = BagPatches.GetState(bagController).BaggedObjects;
-            bool isInBaggedObjects = baggedObjectsList != null && baggedObjectsList!.Contains(passenger);
+            bool isInBaggedObjects = baggedObjectsList != null && baggedObjectsList.Contains(passenger);
 
-            bool isInMainSeat = bagController.vehicleSeat != null &&
-                                bagController.vehicleSeat.hasPassenger &&
-                                ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, passenger);
-
-            var currentAssignedSeat = BagHelpers.GetAdditionalSeat(bagController, passenger);
-            bool isInAdditionalSeat = currentAssignedSeat != null &&
-                                      currentAssignedSeat.hasPassenger &&
-                                      ReferenceEquals(currentAssignedSeat.NetworkpassengerBodyObject, passenger);
-
-            if (isInMainSeat || isInAdditionalSeat)
+            if (isInBaggedObjects)
             {
-                return;
-            }
-
-            if ((isTrackedAsMainSeat || isInBaggedObjects) && !IsPassengerDeadOrDestroyed(passenger))
-            {
-                if (isTrackedAsMainSeat) BagPatches.SetMainSeatObject(bagController, null);
-                if (isInBaggedObjects && baggedObjectsList != null)
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    baggedObjectsList.Remove(passenger);
-                    BagPatches.GetState(bagController).RemoveInstanceId(passenger.GetInstanceID());
+                    Log.Info($"[HandlePassengerExit] Passenger {passenger.name} exited seat {seat.name}. Triggering full RemoveBaggedObject.");
                 }
 
-                BagCarouselUpdater.UpdateCarousel(bagController);
-                BagCarouselUpdater.UpdateNetworkBagState(bagController);
-                BagPassengerManager.ForceRecalculateMass(bagController);
                 RemoveUIOverlay(passenger, bagController);
-
-                BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(passenger);
+                BagPassengerManager.RemoveBaggedObject(bagController, passenger);
             }
         }
 

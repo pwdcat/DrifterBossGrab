@@ -182,19 +182,6 @@ namespace DrifterBossGrabMod.Patches
                 {
                     __instance.gameObject.AddComponent<Networking.BottomlessBagNetworkController>();
                 }
-
-                var seat = __instance.GetComponent<VehicleSeat>();
-                if (seat != null)
-                {
-                    seat.onPassengerEnter += (passenger) =>
-                    {
-
-                    };
-                    seat.onPassengerExit += (passenger) =>
-                    {
-                        BaggedObjectPatches.HandlePassengerExit(seat, passenger);
-                    };
-                }
             }
         }
         [HarmonyPatch(typeof(EntityStates.Drifter.Bag.BaggedObject), "OnEnter")]

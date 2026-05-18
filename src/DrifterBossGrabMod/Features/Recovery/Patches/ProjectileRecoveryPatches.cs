@@ -439,8 +439,11 @@ namespace DrifterBossGrabMod.Patches
 
                     try
                     {
-                        var calculatedPos = (Vector3)_calculatePassengerFinalPositionMethod.Invoke(__instance, null);
-                        Log.Info($"  Calculated Final Pos: {calculatedPos}");
+                        var parameters = new object[2];
+                        _calculatePassengerFinalPositionMethod.Invoke(__instance, parameters);
+                        var calculatedPos = (Vector3)parameters[0];
+                        var calculatedRot = (Quaternion)parameters[1];
+                        Log.Info($"  Calculated Final Pos: {calculatedPos}, Rot: {calculatedRot}");
                     }
                     catch (Exception ex)
                     {
