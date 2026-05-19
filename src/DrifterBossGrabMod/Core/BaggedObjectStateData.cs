@@ -276,7 +276,7 @@ namespace DrifterBossGrabMod.Core
             {
                 body.baseMaxHealth = baseMaxHealth;
 
-                    Log.Debug($"[ApplyToCharacterBody] AFTER SET: body.baseMaxHealth={body.baseMaxHealth}");
+                Log.Debug($"[ApplyToCharacterBody] AFTER SET: body.baseMaxHealth={body.baseMaxHealth}");
                 body.baseRegen = baseRegen;
                 body.baseMaxShield = baseMaxShield;
                 body.baseMoveSpeed = baseMoveSpeed;
@@ -464,7 +464,7 @@ namespace DrifterBossGrabMod.Core
                 }
                 movespeedPenalty = penalty;
 
-                    Log.Debug($"[CalculateFromObject] About to capture stats. targetBody={(targetBody != null ? "NOT NULL" : "NULL")}");
+                Log.Debug($"[CalculateFromObject] About to capture stats. targetBody={(targetBody != null ? "NOT NULL" : "NULL")}");
 
                 if (targetBody != null)
                 {

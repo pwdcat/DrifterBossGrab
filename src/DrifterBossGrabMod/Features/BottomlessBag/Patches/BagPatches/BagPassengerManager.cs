@@ -171,7 +171,7 @@ namespace DrifterBossGrabMod.Patches
                 try
                 {
                     ejectedAdditionalSeat.EjectPassenger(obj);
-                        Log.Debug($"[RemoveBaggedObject] Ejected {obj.name} from additional seat");
+                    Log.Debug($"[RemoveBaggedObject] Ejected {obj.name} from additional seat");
                 }
                 catch (Exception ex)
                 {
@@ -552,11 +552,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                        Log.Debug($"[RemoveBaggedObject] About to eject passenger from main seat: {BagHelpers.GetSafeName(obj)}");
+                    Log.Debug($"[RemoveBaggedObject] About to eject passenger from main seat: {BagHelpers.GetSafeName(obj)}");
 
                     controller.vehicleSeat.EjectPassenger(obj);
 
-                        Log.Debug($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
+                    Log.Debug($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
                 }
                 catch (Exception ex)
                 {
@@ -564,7 +564,7 @@ namespace DrifterBossGrabMod.Patches
 
                     try
                     {
-                            Log.Debug($"[RemoveBaggedObject] Forcibly clearing passenger state due to exception.");
+                        Log.Debug($"[RemoveBaggedObject] Forcibly clearing passenger state due to exception.");
 
                         var passengerField = typeof(RoR2.VehicleSeat).GetField("passengerBodyObject", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                         if (passengerField != null) passengerField.SetValue(controller.vehicleSeat, null);

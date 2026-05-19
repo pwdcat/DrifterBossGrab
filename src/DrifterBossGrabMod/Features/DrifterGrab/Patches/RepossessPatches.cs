@@ -161,7 +161,7 @@ namespace DrifterBossGrabMod.Patches
                             {
                                 baggedObject.targetObject = __instance.baggedObject;
                                 BaggedObjectPatches.UpdateTargetFields(baggedObject);
-                                    Log.Debug($"[OnSyncBaggedObject] Active Recovery: Pushed {__instance.baggedObject.name} into BaggedObject state.");
+                                Log.Debug($"[OnSyncBaggedObject] Active Recovery: Pushed {__instance.baggedObject.name} into BaggedObject state.");
                             }
                             break;
                         }

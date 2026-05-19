@@ -82,7 +82,7 @@ namespace DrifterBossGrabMod.Balance
                     body.StopCoroutine(timerCoroutine);
                     _overencumbranceTimers.Remove(body);
 
-                        Log.Debug($"[Overencumbrance] Stopped removal timer for {body.name}");
+                    Log.Debug($"[Overencumbrance] Stopped removal timer for {body.name}");
                 }
             }
         }

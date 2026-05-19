@@ -88,7 +88,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (currentController == null)
             {
-                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: controller is null");
+                Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: controller is null");
                 Destroy(this);
                 return;
             }
@@ -112,7 +112,7 @@ namespace DrifterBossGrabMod.Patches
                         return;
                     }
 
-                        Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: no longer in an additional seat");
+                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] Destroying timer on {gameObject.name}: no longer in an additional seat");
 
                     ManualSave();
                     Destroy(this);
@@ -144,7 +144,7 @@ namespace DrifterBossGrabMod.Patches
                 float mass = currentController.CalculateBaggedObjectMass(gameObject);
                 breakoutTime = Mathf.Max(10f - 0.005f * mass, 1f) * PluginConfig.Instance.BreakoutTimeMultiplier.Value;
 
-                    Log.Debug($"[AdditionalSeatBreakoutTimer] Initialized breakoutTime for {gameObject.name} to {breakoutTime:F2}s");
+                Log.Debug($"[AdditionalSeatBreakoutTimer] Initialized breakoutTime for {gameObject.name} to {breakoutTime:F2}s");
             }
 
             if (_breakoutTimer >= breakoutTime * 0.5f)
@@ -159,7 +159,7 @@ namespace DrifterBossGrabMod.Patches
                 breakoutTime *= 0.65f;
                 breakoutAttempts += 1;
 
-                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} breakout attempt #{breakoutAttempts}. Breakout time adjusted to {breakoutTime:F2}");
+                Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} breakout attempt #{breakoutAttempts}. Breakout time adjusted to {breakoutTime:F2}");
 
                 if (_cachedSfxLocator != null && _cachedSfxLocator.barkSound != null)
                 {
@@ -168,7 +168,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!DrifterBagController.bagDisableBreakout && UnityEngine.Random.Range(0, _baseBreakoutChance1inX) == 0)
                 {
-                        Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} successfully broke out from the additional seat!");
+                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} successfully broke out from the additional seat!");
                     Breakout();
                     Patches.BagPassengerManager.RemoveBaggedObject(currentController, gameObject, false);
                     return;

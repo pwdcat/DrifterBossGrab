@@ -360,7 +360,7 @@ namespace DrifterBossGrabMod
                             if (body != null)
                             {
 
-                                    Log.Debug($"[RestorePersistedObjects] Re-linked master {master.name} to body {bodyObj.name}");
+                                Log.Debug($"[RestorePersistedObjects] Re-linked master {master.name} to body {bodyObj.name}");
                             }
                         }
                     }
@@ -464,7 +464,7 @@ namespace DrifterBossGrabMod
                             var playerForward = targetBody.transform.forward;
                             var targetPos = playerPos + playerForward * Constants.Limits.PositionOffset + Vector3.up * Constants.Limits.PositionOffset;
 
-                                Log.Debug($"[PersistedObjectSeeker] Found owner {targetBody.name} after {elapsed:F2}s. Teleporting {name} to {targetPos}");
+                            Log.Debug($"[PersistedObjectSeeker] Found owner {targetBody.name} after {elapsed:F2}s. Teleporting {name} to {targetPos}");
 
                             transform.position = targetPos;
                             transform.rotation = Quaternion.identity;
@@ -849,7 +849,7 @@ namespace DrifterBossGrabMod
                         }
                         else
                         {
-                                Log.Debug($" Could not find Bag state machine for CharacterBody {obj.name}");
+                            Log.Debug($" Could not find Bag state machine for CharacterBody {obj.name}");
                         }
                     }
                     else
@@ -857,7 +857,7 @@ namespace DrifterBossGrabMod
 
                         try
                         {
-                                Log.Debug($" Manually assigning CharacterBody {obj.name} to additional seat");
+                            Log.Debug($" Manually assigning CharacterBody {obj.name} to additional seat");
 
                             var seatObject = new GameObject($"AdditionalSeat_AutoGrab_{DateTime.Now.Ticks}");
                             seatObject.transform.SetParent(bagController.transform);
@@ -902,7 +902,7 @@ namespace DrifterBossGrabMod
                             var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
                             seatDict[obj] = newSeat;
 
-                                Log.Debug($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
+                            Log.Debug($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
                         }
                         catch (Exception ex)
                         {
@@ -962,7 +962,7 @@ namespace DrifterBossGrabMod
 
                 MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
 
-                    Log.Debug($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
+                Log.Debug($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
             }
 
             if (duringSceneRestoration)
@@ -971,7 +971,7 @@ namespace DrifterBossGrabMod
             }
             else
             {
-                    Log.Debug($" No TeleporterInteraction found on persisted object {obj.name}");
+                Log.Debug($" No TeleporterInteraction found on persisted object {obj.name}");
             }
 
             var characterMaster = obj.GetComponent<CharacterMaster>();
@@ -1003,7 +1003,7 @@ namespace DrifterBossGrabMod
                             if (modelAnimator != null && modelAnimator.runtimeAnimatorController != null)
                             {
                                 animator.runtimeAnimatorController = modelAnimator.runtimeAnimatorController;
-                                    Log.Debug($" Restored Animator controller on {obj.name} from model");
+                                Log.Debug($" Restored Animator controller on {obj.name} from model");
                             }
                         }
 

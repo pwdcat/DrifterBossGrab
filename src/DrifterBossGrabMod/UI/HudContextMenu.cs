@@ -55,7 +55,7 @@ namespace DrifterBossGrabMod.UI
             _menuInstance.transform.SetParent(canvas.transform, false);
 
             var rect = _menuInstance.AddComponent<RectTransform>();
-            
+
             float pivotX = 0f;
             float pivotY = 1f;
 

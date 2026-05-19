@@ -118,7 +118,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (characterMaster != null)
             {
-                    Log.Debug($"[PrefabSpawner] Spawning body from master...");
+                Log.Debug($"[PrefabSpawner] Spawning body from master...");
                 spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
 
                 if (spawnedBody != null)

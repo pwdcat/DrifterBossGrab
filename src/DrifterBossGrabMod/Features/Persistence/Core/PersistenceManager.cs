@@ -86,7 +86,7 @@ namespace DrifterBossGrabMod
             {
                 if (_teleportersCurrentlyBagged.Remove(obj))
                 {
-                        Log.Debug($" Unmarked {obj.name} as bagged, total remaining: {_teleportersCurrentlyBagged.Count}");
+                    Log.Debug($" Unmarked {obj.name} as bagged, total remaining: {_teleportersCurrentlyBagged.Count}");
                 }
             }
         }

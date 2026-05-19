@@ -371,7 +371,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (isBagFull && nextIsNull)
             {
-                    Log.Debug($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
+                Log.Debug($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
 
                 nextIndex = (direction > 0) ? 0 : validObjects.Count - 1;
                 nextIsNull = false;

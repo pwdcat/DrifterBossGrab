@@ -12,8 +12,6 @@ namespace DrifterBossGrabMod
         private static readonly HashSet<GameObject> _currentlyBaggedObjects = new HashSet<GameObject>();
         private static readonly object _lock = new object();
 
-
-
         public static void SetBaggedObjectVisibility(GameObject obj, bool isVisible)
         {
             if (obj == null) return;

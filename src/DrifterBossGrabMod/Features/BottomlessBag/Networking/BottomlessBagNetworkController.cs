@@ -255,7 +255,7 @@ namespace DrifterBossGrabMod.Networking
                     if (seatIdList.Count > 0)
                     {
                         actualSeatIds = seatIdList.ToArray();
-                            Log.Debug($"[ServerUpdateFromClient] Replaced client seatIds (count={seatIds.Length}) with {actualSeatIds.Length} recovered seat IDs");
+                        Log.Debug($"[ServerUpdateFromClient] Replaced client seatIds (count={seatIds.Length}) with {actualSeatIds.Length} recovered seat IDs");
                     }
                 }
 
@@ -273,7 +273,7 @@ namespace DrifterBossGrabMod.Networking
                                 if (baggedIds[i] == mainNetId.netId.Value)
                                 {
                                     correctedIndex = i;
-                                        Log.Debug($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
+                                    Log.Debug($"[ServerUpdateFromClient] Corrected index from {index} to {correctedIndex} for {mainSeatObj.name}");
                                     break;
                                 }
                             }

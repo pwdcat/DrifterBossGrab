@@ -41,7 +41,7 @@ namespace DrifterBossGrabMod.Patches
                 int instanceId = obj.GetInstanceID();
                 if (objectStates.ContainsKey(instanceId))
                 {
-                        Log.Debug($"[SaveObjectState] Overwriting existing state for {obj.name}");
+                    Log.Debug($"[SaveObjectState] Overwriting existing state for {obj.name}");
                 }
 
                 objectStates[instanceId] = state;

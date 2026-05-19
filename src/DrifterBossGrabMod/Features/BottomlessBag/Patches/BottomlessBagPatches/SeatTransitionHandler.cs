@@ -116,7 +116,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (isBagFull && NetworkServer.active && sourceAdditionalSeat == null)
             {
-                    Log.Debug($"[HandleNullToObjectTransition] Bag is full, keeping {targetObject.name} in additional seat instead of main seat");
+                Log.Debug($"[HandleNullToObjectTransition] Bag is full, keeping {targetObject.name} in additional seat instead of main seat");
 
                 var targetAdditionalSeat = AdditionalSeatManager.FindOrCreateEmptySeat(bagController, ref localSeatDict, true);
                 if (targetAdditionalSeat != null)

@@ -34,6 +34,8 @@ namespace DrifterBossGrabMod.Patches
         private static readonly object _throwTrackingLock = new object();
 
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController> lastKnownOwners = new System.Runtime.CompilerServices.ConditionalWeakTable<GameObject, DrifterBagController>();
+        private static readonly Dictionary<GameObject, int> _originalLayersByObject = new Dictionary<GameObject, int>();
+        private static readonly object _layerLock = new object();
 
         private static readonly FieldInfo _projectileControllerField = ReflectionCache.ThrownObjectProjectileController.ProjectileController;
         private static readonly MethodInfo _calculatePassengerFinalPositionMethod = ReflectionCache.ThrownObjectProjectileController.CalculatePassengerFinalPosition;
@@ -207,14 +209,25 @@ namespace DrifterBossGrabMod.Patches
 
             lock (_projectileStateLock) { projectileStateObjects.Add(passenger); }
 
-            int targetLayer = 0;
-            __instance.gameObject.layer = targetLayer;
-            Transform passengerTransform = passenger.transform;
-            foreach (var transform in __instance.GetComponentsInChildren<Transform>(true))
+            if (PluginConfig.Instance.EnableRecoveryFeature.Value)
             {
-                if (transform == passengerTransform || transform.IsChildOf(passengerTransform))
-                    continue;
-                transform.gameObject.layer = targetLayer;
+                int targetLayer = 0;
+                __instance.gameObject.layer = targetLayer;
+                Transform passengerTransform = passenger.transform;
+                lock (_layerLock)
+                {
+                    if (!_originalLayersByObject.ContainsKey(passenger))
+                        _originalLayersByObject[passenger] = passenger.layer;
+                }
+
+                passenger.layer = targetLayer;
+
+                foreach (var transform in __instance.GetComponentsInChildren<Transform>(true))
+                {
+                    if (transform == passengerTransform || transform.IsChildOf(passengerTransform))
+                        continue;
+                    transform.gameObject.layer = targetLayer;
+                }
             }
 
             var projectileController = _projectileControllerField?.GetValue(__instance) as RoR2.Projectile.ProjectileController;
@@ -252,7 +265,7 @@ namespace DrifterBossGrabMod.Patches
                             if (netController != null)
                             {
                                 netController.RemoveBaggedObjectId(passengerNetId.netId);
-                                    Log.Debug($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
+                                Log.Debug($"[ProcessThrownObject] SERVER: Removed {passengerName} (netId={passengerNetId.netId.Value}) from network state");
                             }
 
                             Networking.CycleNetworkHandler.SendBagStateUpdate(bagController, passengerNetId.netId, isThrowOperation: true);
@@ -388,13 +401,28 @@ namespace DrifterBossGrabMod.Patches
                 {
 
                     var projectileController = other.GetComponent<ProjectileController>() ?? other.GetComponentInParent<ProjectileController>();
-                        if (projectileController && !other.GetComponent<CharacterBody>())
-                        {
-                            Log.Debug($"[Recovery] Generic Projectile hit MapZone: {other.name} (Parent: {projectileController.name})");
+                    if (projectileController && !other.GetComponent<CharacterBody>())
+                    {
+                        Log.Debug($"[Recovery] Generic Projectile hit MapZone: {other.name} (Parent: {projectileController.name})");
 
-                            RecoverProjectile(projectileController.gameObject);
-                            return false;
+                        var thrownController = projectileController.GetComponent<ThrownObjectProjectileController>();
+                        if (thrownController != null && thrownController.Networkpassenger != null)
+                        {
+                            var passenger = thrownController.Networkpassenger;
+                            var passengerBody = passenger.GetComponent<CharacterBody>();
+                            bool isEnemy = passengerBody != null && passengerBody.teamComponent != null
+                                && passengerBody.teamComponent.teamIndex != TeamIndex.Player;
+
+                            if (isEnemy && PluginConfig.Instance.EnemyRecoveryMode.Value == EnemyRecoveryMode.Kill)
+                            {
+                                Log.Debug($"[Recovery] Letting vanilla handle OOB for thrown enemy {passenger.name} (Kill mode)");
+                                return true;
+                            }
                         }
+
+                        RecoverProjectile(projectileController.gameObject);
+                        return false;
+                    }
                 }
 
                 return true;
@@ -438,10 +466,10 @@ namespace DrifterBossGrabMod.Patches
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var passenger = __instance.Networkpassenger;
-                    Log.Debug($"[Impact.Postfix] Projectile: {__instance.name} | Passenger: {passenger.name}");
-                    Log.Debug($"  Final Pass Pos: {passenger.transform.position}");
-                    Log.Debug($"  Final Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
-                    Log.Debug($"[Recovery] ThrownObjectProjectileController impacted. Clearing throw state for {passenger.name}");
+                        Log.Debug($"[Impact.Postfix] Projectile: {__instance.name} | Passenger: {passenger.name}");
+                        Log.Debug($"  Final Pass Pos: {passenger.transform.position}");
+                        Log.Debug($"  Final Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
+                        Log.Debug($"[Recovery] ThrownObjectProjectileController impacted. Clearing throw state for {passenger.name}");
                     }
 
                     lock (_throwTrackingLock)
@@ -510,6 +538,17 @@ namespace DrifterBossGrabMod.Patches
             if (obj != null)
             {
                 lock (_projectileStateLock) { projectileStateObjects.Remove(obj); }
+            }
+            if (PluginConfig.Instance.EnableRecoveryFeature.Value && obj != null)
+            {
+                lock (_layerLock)
+                {
+                    if (_originalLayersByObject.TryGetValue(obj, out int originalLayer))
+                    {
+                        obj.layer = originalLayer;
+                        _originalLayersByObject.Remove(obj);
+                    }
+                }
             }
         }
     }

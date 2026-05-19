@@ -372,7 +372,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && body.currentVehicle != null)
                     {
-                        bool isOurOwnSeat = body.currentVehicle == __instance.vehicleSeat || 
+                        bool isOurOwnSeat = body.currentVehicle == __instance.vehicleSeat ||
                                            (GetState(__instance).AdditionalSeats.Values.Contains(body.currentVehicle));
                         if (!isOurOwnSeat)
                         {
@@ -472,7 +472,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                        Log.Debug($"[AssignPassenger.Postfix] Skipping main seat assignment for {passengerObject.name} (assigned to additional seat)");
+                    Log.Debug($"[AssignPassenger.Postfix] Skipping main seat assignment for {passengerObject.name} (assigned to additional seat)");
                 }
 
                 var list = state.BaggedObjects;

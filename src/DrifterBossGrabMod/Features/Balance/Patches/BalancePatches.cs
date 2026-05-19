@@ -180,7 +180,7 @@ namespace DrifterBossGrabMod.Patches
                             float sign = Mathf.Sign(_originalAirKnockbackForce);
                             __instance.airKnockbackForce = sign * maxLaunchSpeed * maxMass * drifterMass / bagObjectMass;
 
-                                Log.Debug($"[EmptyBag_FireProjectile_Patch] CLAMPED airKnockbackForce to {__instance.airKnockbackForce:F1} (Recoil speed capped to MaxLaunchSpeed={maxLaunchSpeed:F1} m/s)");
+                            Log.Debug($"[EmptyBag_FireProjectile_Patch] CLAMPED airKnockbackForce to {__instance.airKnockbackForce:F1} (Recoil speed capped to MaxLaunchSpeed={maxLaunchSpeed:F1} m/s)");
                         }
                     }
                 }

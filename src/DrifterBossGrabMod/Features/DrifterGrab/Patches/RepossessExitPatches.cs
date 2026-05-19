@@ -111,7 +111,7 @@ namespace DrifterBossGrabMod.Patches
                 else if (chosenTarget == null && originalChosenTarget != null)
                 {
                     var component2 = originalChosenTarget.GetComponent<CharacterBody>();
-                        Log.Debug($" Checking body: {component2}, ungrabbable: {component2 && component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}");
+                    Log.Debug($" Checking body: {component2}, ungrabbable: {component2 && component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}");
                     if (component2)
                     {
                         bool isBoss = component2.isBoss || component2.isChampion;
@@ -126,7 +126,7 @@ namespace DrifterBossGrabMod.Patches
                                         PluginConfig.Instance.EnableLockedObjectGrabbing.Value;
 
                         bool isBlacklisted = PluginConfig.IsBlacklisted(component2.name);
-                            Log.Debug($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, isStandardRejected={isStandardNPCRejectedByVanilla}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
+                        Log.Debug($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, isStandardRejected={isStandardNPCRejectedByVanilla}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
                         if (canGrab && !isBlacklisted)
                         {
                             _chosenTargetField?.SetValue(__instance, originalChosenTarget);
@@ -151,7 +151,7 @@ namespace DrifterBossGrabMod.Patches
                         var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                         if (bagController != null)
                         {
-                                Log.Debug($"[RepossessExit Postfix] Sending grab request to host for {originalChosenTarget.name}");
+                            Log.Debug($"[RepossessExit Postfix] Sending grab request to host for {originalChosenTarget.name}");
                             CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
                         }
                     }
@@ -177,7 +177,7 @@ namespace DrifterBossGrabMod.Patches
                     if (stored != null)
                     {
                         _chosenTargetField?.SetValue(__instance, stored);
-                            Log.Debug($"[RepossessExit OnSerialize] Restored chosenTarget for serialization: {stored.name}");
+                        Log.Debug($"[RepossessExit OnSerialize] Restored chosenTarget for serialization: {stored.name}");
                     }
                 }
             }
@@ -204,7 +204,7 @@ namespace DrifterBossGrabMod.Patches
                 if (deserializedTarget != null)
                 {
                     StoreOriginalTarget(__instance, deserializedTarget);
-                        Log.Debug($"[RepossessExit OnDeserialize] Received chosenTarget: {deserializedTarget.name}");
+                    Log.Debug($"[RepossessExit OnDeserialize] Received chosenTarget: {deserializedTarget.name}");
                 }
             }
         }
@@ -344,7 +344,7 @@ namespace DrifterBossGrabMod.Patches
 
                         if (isInMainSeat || isInAdditionalSeat)
                         {
-                                Log.Debug($" [BaggedObject.OnExit] Skipping restoration for {targetObject.name} - still in bag (Main={isInMainSeat}, Additional={isInAdditionalSeat})");
+                            Log.Debug($" [BaggedObject.OnExit] Skipping restoration for {targetObject.name} - still in bag (Main={isInMainSeat}, Additional={isInAdditionalSeat})");
                             return;
                         }
                     }

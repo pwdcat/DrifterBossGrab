@@ -49,7 +49,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (_hasCapturedForScene)
             {
-                    Log.Debug("[SceneExitPatches] Persistence capture already executed for this scene transition. Skipping.");
+                Log.Debug("[SceneExitPatches] Persistence capture already executed for this scene transition. Skipping.");
                 return;
             }
 

@@ -103,7 +103,7 @@ namespace DrifterBossGrabMod.Config
                 ["Hud.BaggedObjectInfoScale"] = 1.0f,
                 ["Hud.BaggedObjectInfoColor"] = new Color(1f, 1f, 1f, 0.9f),
 
-                                ["Balance.EnableBalance"] = false,
+                ["Balance.EnableBalance"] = false,
                 ["Balance.BreakoutTimeMultiplier"] = 1.0f,
                 ["Balance.MaxSmacks"] = 3,
                 ["Balance.MaxLaunchSpeed"] = "30",
