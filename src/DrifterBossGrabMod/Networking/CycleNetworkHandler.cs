@@ -23,8 +23,6 @@ namespace DrifterBossGrabMod.Networking
         // ========================================================================================
         public static void SendClientPreferences(NetworkIdentity controllerIdentity, bool autoPromote, bool prioritize)
         {
-            if (!NetworkManager.singleton || NetworkManager.singleton.client == null) return;
-
             var msg = new ClientPreferencesMessage
             {
                 controllerNetId = controllerIdentity.netId,
@@ -32,7 +30,7 @@ namespace DrifterBossGrabMod.Networking
                 prioritizeMainSeat = prioritize
             };
 
-            NetworkManager.singleton.client.Send(Constants.Network.ClientPreferencesMessageType, msg);
+            NetworkMessageRegistry.SendToServer(Constants.Network.ClientPreferencesSubMessageType, msg);
         }
 
         public static void SendCycleRequest(DrifterBagController bagController, int amount)
@@ -46,7 +44,7 @@ namespace DrifterBossGrabMod.Networking
                 amount = amount
             };
 
-            NetworkManager.singleton.client.Send(Constants.Network.CycleRequestMessageType, msg);
+            NetworkMessageRegistry.SendToServer(Constants.Network.CycleRequestSubMessageType, msg);
         }
 
         public static void SendClientBagState(DrifterBagController bagController, int selectedIndex, uint[] baggedIds, uint[] seatIds)
@@ -62,7 +60,7 @@ namespace DrifterBossGrabMod.Networking
                 seatIds = seatIds
             };
 
-            NetworkManager.singleton.client.Send(Constants.Network.ClientUpdateBagStateMessageType, msg);
+            NetworkMessageRegistry.SendToServer(Constants.Network.ClientUpdateBagStateSubMessageType, msg);
         }
 
         public static void SendGrabObjectRequest(DrifterBagController bagController, GameObject targetObject)
@@ -79,7 +77,7 @@ namespace DrifterBossGrabMod.Networking
                 targetObjectNetId = targetNi.netId
             };
 
-            NetworkManager.singleton.client.Send(Constants.Network.GrabObjectMessageType, msg);
+            NetworkMessageRegistry.SendToServer(Constants.Network.GrabObjectSubMessageType, msg);
         }
 
         // ========================================================================================
@@ -135,18 +133,36 @@ namespace DrifterBossGrabMod.Networking
                 breakoutTimes = totalTimes
             };
 
-            NetworkServer.SendToAll(Constants.Network.BagStateUpdatedMessageType, msg);
+            NetworkMessageRegistry.SendToAll(Constants.Network.BagStateUpdatedSubMessageType, msg);
 
             Log.Debug($"[SendBagStateUpdate] Sent bag state update for {bagController.name} - selectedIndex={netController.selectedIndex}, isThrow={isThrowOperation}, removedObject={(removedObjectNetId == NetworkInstanceId.Invalid ? "none" : removedObjectNetId.Value.ToString())}");
+        }
+
+        public static void RegisterMessages()
+        {
+            NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.ClientPreferencesSubMessageType, HandleClientPreferencesMessage);
+            NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.CycleRequestSubMessageType, HandleCycleRequestMessage);
+            NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.ClientUpdateBagStateSubMessageType, HandleClientBagStateMessage);
+            NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.GrabObjectSubMessageType, HandleGrabObjectMessage);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType, HandleBagStateUpdatedMessage);
+        }
+
+        public static void UnregisterMessages()
+        {
+            NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.ClientPreferencesSubMessageType);
+            NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.CycleRequestSubMessageType);
+            NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.ClientUpdateBagStateSubMessageType);
+            NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.GrabObjectSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType);
         }
 
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS (SERVER)
         // ========================================================================================
-        [NetworkMessageHandler(msgType = Constants.Network.ClientPreferencesMessageType, server = true, client = false)]
-        public static void HandleClientPreferencesMessage(NetworkMessage netMsg)
+        public static void HandleClientPreferencesMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<ClientPreferencesMessage>();
+            var msg = new ClientPreferencesMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
@@ -158,10 +174,10 @@ namespace DrifterBossGrabMod.Networking
             netController.prioritizeMainSeat = msg.prioritizeMainSeat;
         }
 
-        [NetworkMessageHandler(msgType = Constants.Network.CycleRequestMessageType, server = true, client = false)]
-        public static void HandleCycleRequestMessage(NetworkMessage netMsg)
+        public static void HandleCycleRequestMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<CyclePassengersMessage>();
+            var msg = new CyclePassengersMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = NetworkServer.FindLocalObject(msg.bagControllerNetId);
             if (!controllerObj) return;
@@ -174,10 +190,10 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        [NetworkMessageHandler(msgType = Constants.Network.ClientUpdateBagStateMessageType, server = true, client = false)]
-        public static void HandleClientBagStateMessage(NetworkMessage netMsg)
+        public static void HandleClientBagStateMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<ClientUpdateBagStateMessage>();
+            var msg = new ClientUpdateBagStateMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
@@ -188,7 +204,6 @@ namespace DrifterBossGrabMod.Networking
             SuppressBroadcasts = true;
             try
             {
-
                 foreach (var idValue in msg.baggedIds)
                 {
                     var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
@@ -215,10 +230,10 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        [NetworkMessageHandler(msgType = Constants.Network.GrabObjectMessageType, server = true, client = false)]
-        public static void HandleGrabObjectMessage(NetworkMessage netMsg)
+        public static void HandleGrabObjectMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<GrabObjectMessage>();
+            var msg = new GrabObjectMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = NetworkUtils.FindLocalObjectWithLogging(msg.bagControllerNetId, "HandleGrabObjectMessage", isServer: true);
             if (controllerObj == null) return;
@@ -264,10 +279,10 @@ namespace DrifterBossGrabMod.Networking
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS (CLIENT)
         // ========================================================================================
-        [NetworkMessageHandler(msgType = Constants.Network.BagStateUpdatedMessageType, server = false, client = true)]
-        public static void HandleBagStateUpdatedMessage(NetworkMessage netMsg)
+        public static void HandleBagStateUpdatedMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<BagStateUpdatedMessage>();
+            var msg = new BagStateUpdatedMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
@@ -306,7 +321,6 @@ namespace DrifterBossGrabMod.Networking
                 var removedObj = ClientScene.FindLocalObject(msg.removedObjectNetId);
                 if (removedObj != null)
                 {
-
                     Log.Debug($"[HandleBagStateUpdatedMessage] Cleaning up removed object {removedObj.name}");
                     NetworkUtils.InvalidateReadyCache(removedObj);
 

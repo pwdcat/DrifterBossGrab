@@ -130,6 +130,8 @@ namespace DrifterBossGrabMod.Config
 
                 RefreshAllBagControllers();
 
+                DrifterBossGrabMod.Networking.NetworkMessageRegistry.RegisterIfNecessary();
+
                 RefreshAllRiskOfOptionsUI();
             }
             finally

@@ -148,8 +148,7 @@ namespace DrifterBossGrabMod.Networking
                     breakoutAttempts = attempts.ToArray(),
                     breakoutTimes = totalTimes.ToArray()
                 };
-
-                NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
+                NetworkMessageRegistry.SendToAll(Constants.Network.UpdateBagStateSubMessageType, msg);
 
                 UpdateLocalState(index, baggedIds, seatIds);
             }
@@ -306,7 +305,7 @@ namespace DrifterBossGrabMod.Networking
                     scrollDirection = 0,
                     collidersDisabled = collidersDisabled.ToArray()
                 };
-                NetworkServer.SendToAll(Constants.Network.UpdateBagStateMessageType, msg);
+                NetworkMessageRegistry.SendToAll(Constants.Network.UpdateBagStateSubMessageType, msg);
 
                 if (actualSeatIds != seatIds)
                 {

@@ -3,6 +3,16 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1]
+
+### Added
+- Added a safeguard to prevent ID conflicts with other mods
+- Added network guards to disable multiplayer sync packets when Bottomless Bag or Persistence features are turned off
+
+### Fixed
+- Fixed client-side skill override issue, removed a fallback
+- Fixed lobby connection desyncs and hangs - fixed bc of the two guards above due to message conflicts
+
 ## [1.8.0]
 
 ### Added
@@ -41,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Destroyed passenger ejection
 - Persistence + Save autograb bag order
 - AdditionalSeatBreakout fixes, resets properly + collision
-- Objects floating away after impact
+- Objects floating away after impact on touch
 - Bugs with multiplayer and cycling (breakout during a cycle)
 - Bag caps off by 1 for clients
 - Performance issues with balance during cycling
@@ -57,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AddedCapacity superseeded with SlotScalingFormula
 - Mid air grab blocker
 - 50 Persistence Object cap
+
+### Note
+- Issue with the client throwing an extra projectile on breakout, so minor that I just dont care
+- Autograb when loading a save is still buggy for only the client in multiplayer
+- For the hud editor you need the hud elements to be enabled since they are added in on spawn and aren't always on
 
 ## [1.7.2]  
 

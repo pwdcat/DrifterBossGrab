@@ -7,7 +7,7 @@ namespace DrifterBossGrabMod
         public const string CloneSuffix = "(Clone)";
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.8.0";
+        public const string PluginVersion = "1.8.1";
 
         public static class Timeouts
         {
@@ -52,14 +52,18 @@ namespace DrifterBossGrabMod
 
         public static class Network
         {
-            public const short BaggedObjectsPersistenceMessageType = 201;
-            public const short CycleRequestMessageType = 205;
-            public const short UpdateBagStateMessageType = 206;
-            public const short ClientUpdateBagStateMessageType = 207;
-            public const short GrabObjectMessageType = 208;
-            public const short ClientPreferencesMessageType = 209;
-            public const short SyncConfigMessageType = 210;
-            public const short BagStateUpdatedMessageType = 211;
+            public const short MultiplexerMessageType = 16259;
+            public const uint MSG_SIGNATURE = 0x444247; // DBG
+
+            // Sub-message types
+            public const byte BaggedObjectsPersistenceSubMessageType = 1;
+            public const byte UpdateBagStateSubMessageType = 2;
+            public const byte CycleRequestSubMessageType = 3;
+            public const byte ClientUpdateBagStateSubMessageType = 4;
+            public const byte GrabObjectSubMessageType = 5;
+            public const byte SyncConfigSubMessageType = 6;
+            public const byte ClientPreferencesSubMessageType = 7;
+            public const byte BagStateUpdatedSubMessageType = 8;
         }
 
     }

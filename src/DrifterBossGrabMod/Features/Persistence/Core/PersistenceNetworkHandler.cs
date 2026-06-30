@@ -75,18 +75,29 @@ namespace DrifterBossGrabMod
 
             if (message.baggedObjectNetIds.Count > 0)
             {
-                NetworkServer.SendToAll(Constants.Network.BaggedObjectsPersistenceMessageType, message);
+                NetworkMessageRegistry.SendToAll(Constants.Network.BaggedObjectsPersistenceSubMessageType, message);
             }
+        }
+
+        public static void RegisterMessages()
+        {
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType, HandleBaggedObjectsPersistenceMessage);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType, HandleUpdateBagStateMessage);
+        }
+
+        public static void UnregisterMessages()
+        {
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType);
         }
 
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS
         // ========================================================================================
-        [NetworkMessageHandler(msgType = Constants.Network.BaggedObjectsPersistenceMessageType, client = true, server = false)]
-        public static void HandleBaggedObjectsPersistenceMessage(NetworkMessage netMsg)
+        public static void HandleBaggedObjectsPersistenceMessage(NetworkReader reader, NetworkConnection conn)
         {
             BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
-            message.Deserialize(netMsg.reader);
+            message.Deserialize(reader);
 
             for (int i = 0; i < message.baggedObjectNetIds.Count; i++)
             {
@@ -179,10 +190,10 @@ namespace DrifterBossGrabMod
             }
         }
 
-        [NetworkMessageHandler(msgType = Constants.Network.UpdateBagStateMessageType, client = true, server = false)]
-        public static void HandleUpdateBagStateMessage(NetworkMessage netMsg)
+        public static void HandleUpdateBagStateMessage(NetworkReader reader, NetworkConnection conn)
         {
-            var msg = netMsg.ReadMessage<UpdateBagStateMessage>();
+            var msg = new UpdateBagStateMessage();
+            msg.Deserialize(reader);
 
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)

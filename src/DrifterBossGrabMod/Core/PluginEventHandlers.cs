@@ -76,6 +76,7 @@ namespace DrifterBossGrabMod
                     _bottomlessBagFeature?.Toggle(isEnabled);
                     _wasBottomlessBagEnabled = isEnabled;
                     UpdateBottomlessBagVisibility();
+                    Networking.NetworkMessageRegistry.RegisterIfNecessary();
                 }
             };
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged += bottomlessBagToggleHandler;
@@ -88,6 +89,7 @@ namespace DrifterBossGrabMod
                     _persistenceFeature?.Toggle(isEnabled);
                     _wasPersistenceEnabled = isEnabled;
                     UpdatePersistenceVisibility();
+                    Networking.NetworkMessageRegistry.RegisterIfNecessary();
                 }
             };
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged += persistenceToggleHandler;

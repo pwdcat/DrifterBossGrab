@@ -78,7 +78,7 @@ namespace DrifterBossGrabMod.Networking
 
             Log.Debug($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
 
-            conn.Send(Constants.Network.SyncConfigMessageType, msg);
+            NetworkMessageRegistry.SendToClient(conn, Constants.Network.SyncConfigSubMessageType, msg);
         }
 
         public static void BroadcastConfigToClients()
@@ -94,8 +94,17 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
-        [NetworkMessageHandler(msgType = Constants.Network.SyncConfigMessageType, client = true, server = false)]
-        public static void HandleSyncConfigMessage(NetworkMessage netMsg)
+        public static void RegisterMessages()
+        {
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.SyncConfigSubMessageType, HandleSyncConfigMessage);
+        }
+
+        public static void UnregisterMessages()
+        {
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.SyncConfigSubMessageType);
+        }
+
+        public static void HandleSyncConfigMessage(NetworkReader reader, NetworkConnection conn)
         {
             if (NetworkServer.active) return;
 
@@ -105,7 +114,8 @@ namespace DrifterBossGrabMod.Networking
                 return;
             }
 
-            var msg = netMsg.ReadMessage<SyncConfigMessage>();
+            var msg = new SyncConfigMessage();
+            msg.Deserialize(reader);
 
             Log.Debug($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
 

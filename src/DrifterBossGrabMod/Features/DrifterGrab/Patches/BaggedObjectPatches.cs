@@ -316,23 +316,8 @@ namespace DrifterBossGrabMod.Patches
             }
             else
             {
-                var outerSeat = bagController.vehicleSeat;
-                if (outerSeat == null)
-                {
-                    reason = "vehicle seat is null";
-                }
-                else
-                {
-                    var outerCurrentPassengerBodyObject = outerSeat.NetworkpassengerBodyObject;
-                    result = outerCurrentPassengerBodyObject != null && ReferenceEquals(targetObject, outerCurrentPassengerBodyObject);
-                    reason = $"physical seat match: {result}";
-
-                    if (result && BagHelpers.GetAdditionalSeat(bagController, targetObject) != null)
-                    {
-                        result = false;
-                        reason += " (but in additional seat)";
-                    }
-                }
+                result = false;
+                reason = "tracked main seat is null";
             }
 
             Log.Debug($"[IsInMainSeat] {(targetObject ? targetObject.name : "null")}: result={result}, reason={reason}");
