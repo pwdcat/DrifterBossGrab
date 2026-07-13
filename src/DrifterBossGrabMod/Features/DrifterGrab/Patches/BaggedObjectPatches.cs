@@ -205,7 +205,7 @@ namespace DrifterBossGrabMod.Patches
                 value = Mathf.Max(mass, 1f);
             }
 
-            float t = (value - 1f) / (maxCapacity - 1f);
+            float t = StateCalculator.GetMassScaleRatio(value, maxCapacity);
             float bagScale01 = 0.5f + 0.5f * t;
 
             if (_bagScale01Field != null)

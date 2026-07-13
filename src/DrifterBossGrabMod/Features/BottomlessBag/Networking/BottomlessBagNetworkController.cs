@@ -740,10 +740,7 @@ namespace DrifterBossGrabMod.Networking
             if (controller != null)
             {
                 BagPassengerManager.ForceRecalculateMass(controller);
-                if (ctx.SyncedObjects != null)
-                {
-                    BagPassengerManager.MarkMassDirty(controller);
-                }
+
                 if (triggerUIUpdate)
                 {
                     if (Patches.BagPassengerManager.IsProcessingThrowRemoval)

@@ -23,25 +23,9 @@ namespace DrifterBossGrabMod.Core
 
         public GameObject? IncomingObject { get; set; }
 
-        public int IntendedSelectedIndex { get; set; } = -1;
-
         public UncappedBagScaleComponent? UncappedBagScale { get; set; }
 
         public ConcurrentDictionary<GameObject, Dictionary<Collider, bool>> DisabledCollidersByObject { get; } = new ConcurrentDictionary<GameObject, Dictionary<Collider, bool>>();
-
-        private bool _massDirty = true;
-
-        public bool IsMassDirty => _massDirty;
-
-        public void MarkMassDirty()
-        {
-            _massDirty = true;
-        }
-
-        internal void ClearMassDirty()
-        {
-            _massDirty = false;
-        }
 
         public bool ContainsInstanceId(int instanceId)
         {

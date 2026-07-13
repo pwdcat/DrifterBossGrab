@@ -32,12 +32,6 @@ namespace DrifterBossGrabMod.Patches
 
         public static volatile bool IsProcessingThrowRemoval = false;
 
-        public static void MarkMassDirty(DrifterBagController controller)
-        {
-            if (controller == null) return;
-            BagPatches.GetState(controller).MarkMassDirty();
-        }
-
         public static void RemoveBaggedObject(DrifterBagController? controller, GameObject obj, bool isDestroying = false, bool skipStateReset = false, bool preserveStateDuringThrow = false)
         {
             if (controller == null || ReferenceEquals(obj, null)) return;
@@ -179,6 +173,11 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
+            if (wasMainPassenger && controller != null && obj != null)
+            {
+                BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
+            }
+
             if (preserveStateDuringThrow)
             {
                 if (controller != null && obj != null)
@@ -194,11 +193,6 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 if (obj != null) BaggedObjectStatePatches.BaggedObject_OnExit.ClearObjectSuccessfullyInitialized(obj);
-            }
-
-            if (wasMainPassenger && controller != null && obj != null)
-            {
-                BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
             }
 
             if (obj != null)
@@ -255,11 +249,6 @@ namespace DrifterBossGrabMod.Patches
                         break;
                     }
                 }
-            }
-            if (controller != null)
-            {
-
-                MarkMassDirty(controller);
             }
 
             if (obj != null && !isDestroying && !isThrowing)
@@ -389,8 +378,6 @@ namespace DrifterBossGrabMod.Patches
                     UpdateUncappedBagScale(controller, totalMass);
                 }
             }
-
-            state.ClearMassDirty();
 
             API.DrifterBagAPI.InvokeOnMassRecalculated(controller, totalMass, previousTotalMass);
 

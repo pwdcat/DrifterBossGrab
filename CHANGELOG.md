@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed client-side skill override issue, removed a fallback
-- Fixed lobby connection desyncs and hangs - fixed bc of the two guards above due to message conflicts
+- Fixed lobby desyncs and hangs, fixed bc of the two guards above, due to message conflicts
+- Fixed skill overrides malfunctioning after an enemy breaks out and another is auto-promoted
 
 ## [1.8.0]
 

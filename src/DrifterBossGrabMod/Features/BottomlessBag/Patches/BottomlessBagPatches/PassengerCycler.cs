@@ -377,8 +377,6 @@ namespace DrifterBossGrabMod.Patches
                 nextIsNull = false;
             }
 
-            BagPatches.GetState(bagController).IntendedSelectedIndex = nextIndex;
-
             bool hasValidSeatConfiguration = SeatValidator.ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);
             if (!hasValidSeatConfiguration)
             {

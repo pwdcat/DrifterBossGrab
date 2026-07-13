@@ -69,6 +69,7 @@ namespace DrifterBossGrabMod
         public static class GenericSkill
         {
             public static readonly FieldInfo SkillOverrides = AccessTools.Field(typeof(RoR2.GenericSkill), "skillOverrides");
+            public static readonly FieldInfo OnSkillChangedBackingField = AccessTools.Field(typeof(RoR2.GenericSkill), "onSkillChanged");
         }
 
         public static class Misc

@@ -77,10 +77,25 @@ namespace DrifterBossGrabMod.Patches
         public static void ForceCleanupOverrides(DrifterBagController bagController, GameObject targetObject)
         {
             if (bagController == null || targetObject == null) return;
+
             var existingState = BaggedObjectPatches.FindExistingBaggedObjectState(bagController, targetObject);
             if (existingState != null)
             {
                 UnsetAllOverrides(existingState);
+            }
+
+            // safety net
+            var body = bagController.GetComponent<CharacterBody>();
+            var skillLocator = body?.skillLocator;
+            if (skillLocator != null)
+            {
+                if (skillLocator.primary) CleanupAllBaggedObjectOverridesFromSkill(skillLocator.primary);
+                if (skillLocator.secondary) CleanupAllBaggedObjectOverridesFromSkill(skillLocator.secondary);
+                if (skillLocator.utility) CleanupAllBaggedObjectOverridesFromSkill(skillLocator.utility);
+                if (skillLocator.special) CleanupAllBaggedObjectOverridesFromSkill(skillLocator.special);
+
+                ScrubAllBaggedObjectEventSubscriptions(skillLocator.utility);
+                ScrubAllBaggedObjectEventSubscriptions(skillLocator.primary);
             }
         }
 
@@ -685,6 +700,12 @@ namespace DrifterBossGrabMod.Patches
                 var body = instance.outer?.GetComponent<CharacterBody>();
                 Log.Debug($"[BaggedObjectStatePatches.UnsetAllOverrides] Starting cleanup for instance of {instance.GetType().Name} on {(!body ? "null" : body!.name)}.");
 
+                var skillLocator = body?.skillLocator;
+                if (skillLocator != null)
+                {
+                    UnsubscribeInstanceFromSkillChanged(instance, skillLocator.utility);
+                    UnsubscribeInstanceFromSkillChanged(instance, skillLocator.primary);
+                }
                 if (ReflectionCache.BaggedObject.OverriddenUtility != null && ReflectionCache.BaggedObject.UtilityOverride != null)
                 {
                     var overriddenUtility = (GenericSkill)ReflectionCache.BaggedObject.OverriddenUtility.GetValue(instance);
@@ -707,7 +728,6 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                var skillLocator = body?.skillLocator;
                 if (skillLocator != null)
                 {
                     if (skillLocator.primary) CleanupSkillFromLocator(instance, skillLocator.primary);
@@ -719,6 +739,97 @@ namespace DrifterBossGrabMod.Patches
             catch (Exception ex)
             {
                 Log.Error($"Error in UnsetAllOverrides: {ex.Message}");
+            }
+        }
+        private static void UnsubscribeInstanceFromSkillChanged(BaggedObject instance, GenericSkill? skill)
+        {
+            if (skill == null || instance == null) return;
+            if (ReflectionCache.GenericSkill.OnSkillChangedBackingField == null) return;
+            try
+            {
+                var currentDelegate = ReflectionCache.GenericSkill.OnSkillChangedBackingField.GetValue(skill) as Action<GenericSkill>;
+                if (currentDelegate == null) return;
+
+                bool changed = false;
+                foreach (var d in currentDelegate.GetInvocationList())
+                {
+                    if (ReferenceEquals(d.Target, instance))
+                    {
+                        currentDelegate = (Action<GenericSkill>?)System.Delegate.Remove(currentDelegate, (Action<GenericSkill>)d);
+                        changed = true;
+                        Log.Debug($"[UnsubscribeInstanceFromSkillChanged] Removed onSkillChanged subscription from BaggedObject instance on {skill.skillName}");
+                    }
+                }
+
+                if (changed)
+                {
+                    ReflectionCache.GenericSkill.OnSkillChangedBackingField.SetValue(skill, currentDelegate);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[UnsubscribeInstanceFromSkillChanged] Error: {ex.Message}");
+            }
+        }
+        private static void ScrubAllBaggedObjectEventSubscriptions(GenericSkill? skill)
+        {
+            if (skill == null) return;
+            if (ReflectionCache.GenericSkill.OnSkillChangedBackingField == null) return;
+            try
+            {
+                var currentDelegate = ReflectionCache.GenericSkill.OnSkillChangedBackingField.GetValue(skill) as Action<GenericSkill>;
+                if (currentDelegate == null) return;
+
+                bool changed = false;
+                foreach (var d in currentDelegate.GetInvocationList())
+                {
+                    if (d.Target is BaggedObject)
+                    {
+                        currentDelegate = (Action<GenericSkill>?)System.Delegate.Remove(currentDelegate, (Action<GenericSkill>)d);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    ReflectionCache.GenericSkill.OnSkillChangedBackingField.SetValue(skill, currentDelegate);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[ScrubAllBaggedObjectEventSubscriptions] Error: {ex.Message}");
+            }
+        }
+        private static void CleanupAllBaggedObjectOverridesFromSkill(GenericSkill skill)
+        {
+            if (!skill) return;
+            try
+            {
+                if (ReflectionCache.GenericSkill.SkillOverrides == null || _skillOverrideSourceField == null) return;
+                var overridesList = (System.Collections.IList)ReflectionCache.GenericSkill.SkillOverrides.GetValue(skill);
+                if (overridesList == null || overridesList.Count == 0) return;
+
+                for (int i = overridesList.Count - 1; i >= 0; i--)
+                {
+                    var skillOverride = overridesList[i];
+                    var source = _skillOverrideSourceField?.GetValue(skillOverride);
+
+                    if (source is BaggedObject)
+                    {
+                        var skillDef = _skillOverrideSkillDefField?.GetValue(skillOverride) as SkillDef;
+                        var priority = (GenericSkill.SkillOverridePriority)(_skillOverridePriorityField?.GetValue(skillOverride) ?? GenericSkill.SkillOverridePriority.Contextual);
+
+                        if (skillDef != null)
+                        {
+                            Log.Debug($"[CleanupAllBaggedObjectOverridesFromSkill] Removing orphaned override '{((UnityEngine.ScriptableObject)skillDef).name}' (priority={priority}) from {skill.skillName}");
+                            skill.UnsetSkillOverride(source, skillDef, priority);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[CleanupAllBaggedObjectOverridesFromSkill] Failed to cleanup skill overrides: {ex.Message}");
             }
         }
         private static void RemoveWalkSpeedPenalty(BaggedObject instance)

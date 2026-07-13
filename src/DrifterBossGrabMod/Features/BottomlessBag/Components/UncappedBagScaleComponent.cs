@@ -172,7 +172,7 @@ namespace DrifterBossGrabMod.Features
 
             float value = Mathf.Max(mass, 1f);
 
-            float t = (value - 1f) / (maxCapacity - 1f);
+            float t = Core.StateCalculator.GetMassScaleRatio(value, maxCapacity);
 
             float newScale = 1.0f + t;
 

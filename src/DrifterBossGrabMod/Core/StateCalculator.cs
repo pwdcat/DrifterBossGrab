@@ -289,17 +289,7 @@ namespace DrifterBossGrabMod.Core
                 float massCapacity = CapacityScalingSystem.CalculateMassCapacity(controller);
                 float totalCapacity = CapacityScalingSystem.GetTotalCapacity(controller);
 
-                float massCap = 700f;
-                string massCapStr = PluginConfig.Instance.MassCap.Value;
-                if (string.Equals(massCapStr, "INF", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(massCapStr, "Infinity", StringComparison.OrdinalIgnoreCase))
-                {
-                    massCap = float.MaxValue;
-                }
-                else if (!float.TryParse(massCapStr, out massCap))
-                {
-                    massCap = 700f;
-                }
+                float massCap = PluginConfig.Instance.ParsedMassCap;
 
                 var penaltyVars = new Dictionary<string, float>
                 {
@@ -334,8 +324,14 @@ namespace DrifterBossGrabMod.Core
                 value = Mathf.Max(mass, 1f);
             }
 
-            float t = (value - 1f) / (maxCapacity - 1f);
+            float t = GetMassScaleRatio(value, maxCapacity);
             return 0.5f + 0.5f * t;
+        }
+
+        public static float GetMassScaleRatio(float value, float maxCapacity)
+        {
+            float denom = Mathf.Max(maxCapacity - 1f, 0.0001f);
+            return (value - 1f) / denom;
         }
     }
 }

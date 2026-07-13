@@ -507,28 +507,22 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!DrifterBossGrabPlugin.IsSwappingPassengers)
                 {
-                    int finalIndex = state.IntendedSelectedIndex;
+                    int finalIndex = -1;
 
                     var currentMain = GetMainSeatObject(__instance);
-                    if (finalIndex < 0)
+                    if (currentMain != null)
                     {
-
-                        if (currentMain != null)
-                        {
-                            finalIndex = list.IndexOf(currentMain);
-                        }
-
-                        if (finalIndex < 0)
-                        {
-                            finalIndex = list.Count - 1;
-                        }
+                        finalIndex = list.IndexOf(currentMain);
                     }
 
-                    Log.Debug($"[AssignPassenger.Postfix] Updating selection to {finalIndex} (Intent was {state.IntendedSelectedIndex}) for {passengerObject.name}");
+                    if (finalIndex < 0)
+                    {
+                        finalIndex = list.Count > 0 ? list.Count - 1 : 0;
+                    }
+
+                    Log.Debug($"[AssignPassenger.Postfix] Updating selection to {finalIndex} for {passengerObject.name}");
 
                     BagCarouselUpdater.UpdateNetworkBagState(__instance, finalIndex);
-
-                    state.IntendedSelectedIndex = -1;
                 }
                 DamagePreviewOverlay.InvalidateAllCaches();
             }
@@ -538,10 +532,9 @@ namespace DrifterBossGrabMod.Patches
                 if (isAlreadyTrackedByThisController || effectiveCapacity <= 1) return false;
 
                 var state = GetState(__instance);
-                int targetIndex = state.IntendedSelectedIndex;
                 var seatDict = state.AdditionalSeats;
 
-                Log.Debug($"[TryAssignToAdditionalSeat] Searching for seat for {passengerObject.name}. Capacity={effectiveCapacity}, Intent={targetIndex}.");
+                Log.Debug($"[TryAssignToAdditionalSeat] Searching for seat for {passengerObject.name}. Capacity={effectiveCapacity}.");
 
                 var newSeat = AdditionalSeatManager.FindOrCreateEmptySeat(__instance, ref seatDict);
                 var list = state.BaggedObjects;

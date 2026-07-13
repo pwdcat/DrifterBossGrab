@@ -93,10 +93,16 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                bool useTrackedMainSeat = !NetworkServer.active && controller.hasAuthority && mainPassenger != null && !isActuallyInMainSeat;
+                bool useTrackedMainSeat = mainPassenger != null && !isActuallyInMainSeat;
 
                 if (isActuallyInMainSeat || useTrackedMainSeat)
                 {
+                    if (useTrackedMainSeat && PluginConfig.Instance.EnableDebugLogs.Value)
+                    {
+                        Log.Debug($"[UpdateNetworkBagState] Main passenger {mainPassenger?.name} is tracked as main but not physically in main seat, using fallback. " +
+                                $"Physical passenger: {controller.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}.");
+                    }
+
                     for (int i = 0; i < baggedObjects.Count; i++)
                     {
                         var obj = baggedObjects[i];
@@ -105,18 +111,12 @@ namespace DrifterBossGrabMod.Patches
                             selectedIndex = i;
                             if (PluginConfig.Instance.EnableDebugLogs.Value)
                             {
-                                var reason = isActuallyInMainSeat ? "physically in main seat" : "tracked as main (client)";
+                                var reason = isActuallyInMainSeat ? "physically in main seat" : "tracked as main (fallback)";
                                 Log.Debug($"[UpdateNetworkBagState] Setting selectedIndex to {i} for {obj.name} ({reason}).");
                             }
                             break;
                         }
                     }
-                }
-                else if (mainPassenger != null)
-                {
-                    Log.Debug($"[UpdateNetworkBagState] Skipping selectedIndex calculation - {mainPassenger.name} is tracked as main but not physically in main seat. " +
-                            $"isActuallyInMainSeat={isActuallyInMainSeat}, useTrackedMainSeat={useTrackedMainSeat}. " +
-                            $"Physical passenger: {controller.vehicleSeat?.NetworkpassengerBodyObject?.name ?? "null"}.");
                 }
 
                 netController.SetBagState(selectedIndex, baggedObjects, additionalSeats, direction);
