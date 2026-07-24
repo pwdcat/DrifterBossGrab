@@ -454,25 +454,17 @@ namespace DrifterBossGrabMod.API
                     return;
                 }
 
-                Type? stateType = null;
-                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+                Type? stateType = Type.GetType(stateTypeName);
+                if (stateType == null || !typeof(EntityState).IsAssignableFrom(stateType))
                 {
-                    try
+                    foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                     {
-                        var types = asm.GetTypes();
-                        foreach (var t in types)
+                        var t = asm.GetType(stateTypeName);
+                        if (t != null && typeof(EntityState).IsAssignableFrom(t))
                         {
-                            if (t.FullName == stateTypeName && typeof(EntityState).IsAssignableFrom(t))
-                            {
-                                stateType = t;
-                                break;
-                            }
+                            stateType = t;
+                            break;
                         }
-                        if (stateType != null) break;
-                    }
-                    catch (ReflectionTypeLoadException)
-                    {
-                        continue;
                     }
                 }
 

@@ -432,31 +432,7 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "ImpactBehavior")]
         public class ThrownObjectProjectileController_ImpactBehavior_Patch
         {
-            [HarmonyPrefix]
-            public static void Prefix(ThrownObjectProjectileController __instance)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value && __instance.Networkpassenger != null)
-                {
-                    var passenger = __instance.Networkpassenger;
-                    Log.Debug($"[Impact.Prefix] Projectile: {__instance.name} | Passenger: {passenger.name}");
-                    Log.Debug($"  Proj Pos: {__instance.transform.position}");
-                    Log.Debug($"  Pass Pos: {passenger.transform.position}");
-                    Log.Debug($"  Pass Parent: {(passenger.transform.parent ? passenger.transform.parent.name : "null")}");
 
-                    try
-                    {
-                        var parameters = new object[2];
-                        _calculatePassengerFinalPositionMethod.Invoke(__instance, parameters);
-                        var calculatedPos = (Vector3)parameters[0];
-                        var calculatedRot = (Quaternion)parameters[1];
-                        Log.Debug($"  Calculated Final Pos: {calculatedPos}, Rot: {calculatedRot}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"  Failed to invoke CalculatePassengerFinalPosition: {(ex.InnerException != null ? ex.InnerException.Message : ex.Message)}");
-                    }
-                }
-            }
 
             [HarmonyPostfix]
             public static void Postfix(ThrownObjectProjectileController __instance)

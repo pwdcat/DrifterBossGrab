@@ -352,114 +352,7 @@ namespace DrifterBossGrabMod.API
             TryGetBaggedObjectsByComponent<CharacterBody>(controller, buffer);
         }
 
-        public static List<GameObject> GetBaggedObjectsByName(DrifterBagController controller, string nameContains)
-        {
-            var result = new List<GameObject>();
-            TryGetBaggedObjectsByName(controller, nameContains, result);
-            return result;
-        }
 
-        public static void TryGetBaggedObjectsByName(DrifterBagController controller, string nameContains, List<GameObject> buffer)
-        {
-            if (buffer == null) return;
-            buffer.Clear();
-            if (controller == null || nameContains == null) return;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            if (list == null) return;
-            foreach (var obj in list)
-            {
-                if (obj != null && obj.name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    buffer.Add(obj);
-                }
-            }
-        }
-
-        public static List<GameObject> GetBaggedObjectsByExactName(DrifterBagController controller, string exactName)
-        {
-            var result = new List<GameObject>();
-            TryGetBaggedObjectsByExactName(controller, exactName, result);
-            return result;
-        }
-
-        public static void TryGetBaggedObjectsByExactName(DrifterBagController controller, string exactName, List<GameObject> buffer)
-        {
-            if (buffer == null) return;
-            buffer.Clear();
-            if (controller == null || exactName == null) return;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            if (list == null) return;
-            foreach (var obj in list)
-            {
-                if (obj != null && string.Equals(obj.name, exactName, StringComparison.OrdinalIgnoreCase))
-                {
-                    buffer.Add(obj);
-                }
-            }
-        }
-
-        public static List<GameObject> GetBaggedObjectsByMassRange(DrifterBagController controller, float minMass, float maxMass)
-        {
-            var result = new List<GameObject>();
-            TryGetBaggedObjectsByMassRange(controller, minMass, maxMass, result);
-            return result;
-        }
-
-        public static void TryGetBaggedObjectsByMassRange(DrifterBagController controller, float minMass, float maxMass, List<GameObject> buffer)
-        {
-            if (buffer == null) return;
-            buffer.Clear();
-            if (controller == null) return;
-            var list = BagPatches.GetState(controller).BaggedObjects;
-            if (list == null) return;
-            foreach (var obj in list)
-            {
-                if (obj != null)
-                {
-                    float mass = GetObjectMass(controller, obj);
-                    if (mass >= minMass && mass <= maxMass)
-                    {
-                        buffer.Add(obj);
-                    }
-                }
-            }
-        }
-
-        public static GameObject? GetHeaviestObject(DrifterBagController controller)
-        {
-            GameObject? heaviest = null;
-            float maxMass = 0f;
-
-            ForEachBaggedObject(controller, obj =>
-            {
-                float mass = GetObjectMass(controller, obj);
-                if (mass > maxMass)
-                {
-                    maxMass = mass;
-                    heaviest = obj;
-                }
-            });
-
-            return heaviest;
-        }
-
-        public static GameObject? GetLightestObject(DrifterBagController controller)
-        {
-            GameObject? lightest = null;
-            float minMass = float.MaxValue;
-
-            ForEachBaggedObject(controller, obj =>
-            {
-                float mass = GetObjectMass(controller, obj);
-                if (mass < minMass)
-                {
-                    minMass = mass;
-                    lightest = obj;
-                }
-            });
-
-            return lightest;
-        }
 
         // ========================================================================================
         // OPERATIONS
@@ -542,28 +435,7 @@ namespace DrifterBossGrabMod.API
             });
         }
 
-        public static Dictionary<string, int> GetBaggedObjectCounts(DrifterBagController controller)
-        {
-            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            GetBaggedObjectCountsInto(controller, counts);
-            return counts;
-        }
 
-        public static void GetBaggedObjectCountsInto(DrifterBagController controller, Dictionary<string, int> buffer)
-        {
-            if (buffer == null) return;
-            buffer.Clear();
-            if (controller == null) return;
-            ForEachBaggedObject(controller, obj =>
-            {
-                string name = GetObjectName(obj);
-                if (!buffer.ContainsKey(name))
-                {
-                    buffer[name] = 0;
-                }
-                buffer[name]++;
-            });
-        }
 
         // ========================================================================================
         // EVENTS
