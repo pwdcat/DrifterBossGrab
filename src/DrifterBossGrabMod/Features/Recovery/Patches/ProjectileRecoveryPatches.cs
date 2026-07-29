@@ -433,7 +433,6 @@ namespace DrifterBossGrabMod.Patches
         public class ThrownObjectProjectileController_ImpactBehavior_Patch
         {
 
-
             [HarmonyPostfix]
             public static void Postfix(ThrownObjectProjectileController __instance)
             {

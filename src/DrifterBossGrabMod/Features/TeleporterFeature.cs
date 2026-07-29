@@ -13,6 +13,7 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BossGroupPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.TeleporterSafetyPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.CombatDirectorPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches)).Patch();
         }
     }
 }

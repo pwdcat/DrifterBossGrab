@@ -2,8 +2,10 @@
 using HarmonyLib;
 using RoR2;
 using UnityEngine.Networking;
+
 namespace DrifterBossGrabMod.Patches
 {
+    [HarmonyPatch(typeof(SceneExitController))]
     public static class SceneExitPatches
     {
         private static bool _hasCapturedForScene = false;
@@ -13,31 +15,14 @@ namespace DrifterBossGrabMod.Patches
             _hasCapturedForScene = false;
         }
 
-        [HarmonyPatch(typeof(SceneExitController), "OnEnable")]
-        public class SceneExitController_OnEnable
+        [HarmonyPatch("SetState")]
+        [HarmonyPrefix]
+        private static void SetStatePrefix(SceneExitController __instance, SceneExitController.ExitState newState)
         {
-            [HarmonyPostfix]
-            public static void Postfix(SceneExitController __instance)
+            if (newState != SceneExitController.ExitState.Idle)
             {
-
-                SceneExitController.onBeginExit += OnBeginExit;
+                ExecutePersistenceCapture();
             }
-        }
-
-        [HarmonyPatch(typeof(SceneExitController), "OnDisable")]
-        public class SceneExitController_OnDisable
-        {
-            [HarmonyPostfix]
-            public static void Postfix(SceneExitController __instance)
-            {
-                SceneExitController.onBeginExit -= OnBeginExit;
-            }
-        }
-
-        private static void OnBeginExit(SceneExitController exitController)
-        {
-            Log.Debug($"[SceneExitPatches] SceneExitController.onBeginExit called. Executing persistence capture.");
-            ExecutePersistenceCapture();
         }
 
         private static void ExecutePersistenceCapture()
@@ -70,3 +55,4 @@ namespace DrifterBossGrabMod.Patches
         }
     }
 }
+

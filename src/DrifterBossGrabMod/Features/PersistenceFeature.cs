@@ -10,8 +10,7 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches.SceneExitController_OnEnable)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches.SceneExitController_OnDisable)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SceneExitPatches)).Patch();
             Patches.RunLifecyclePatches.Initialize();
         }
 

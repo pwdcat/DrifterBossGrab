@@ -46,7 +46,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                     Log.Warning($"[BossGroup] BossGroup {__instance.name} has no dropTable! Injecting dtTier2Item fallback.");
-                __instance.dropTable = Addressables.LoadAssetAsync<PickupDropTable>("RoR2/Base/Common/dtTier2Item.asset").WaitForCompletion();
+                __instance.dropTable = LegacyResourcesAPI.Load<PickupDropTable>("DropTables/dtTier2Item");
             }
         }
 

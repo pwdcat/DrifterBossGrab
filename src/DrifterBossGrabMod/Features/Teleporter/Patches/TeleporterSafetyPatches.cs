@@ -49,7 +49,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (__instance.dropTable == null)
                 {
-                    __instance.dropTable = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<PickupDropTable>("RoR2/Base/Common/dtTier2Item.asset").WaitForCompletion();
+                    __instance.dropTable = LegacyResourcesAPI.Load<PickupDropTable>("DropTables/dtTier2Item");
                 }
 
                 if (ReflectionCache.BossGroup.rng.GetValue(__instance) == null)
