@@ -41,6 +41,12 @@ namespace DrifterBossGrabMod
                 }
 
                 var specialAttrs = obj.GetComponent<RoR2.SpecialObjectAttributes>();
+                if (specialAttrs == null && PluginConfig.IsGrabbable(obj))
+                {
+                    Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
+                    specialAttrs = obj.GetComponent<RoR2.SpecialObjectAttributes>();
+                }
+
                 if (specialAttrs != null)
                 {
                     if (specialAttrs.renderersToDisable != null)

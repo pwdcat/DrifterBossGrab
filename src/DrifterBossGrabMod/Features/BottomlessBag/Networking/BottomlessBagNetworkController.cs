@@ -573,6 +573,11 @@ namespace DrifterBossGrabMod.Networking
                 {
                     if (obj == null) continue;
 
+                    if (obj.GetComponent<RoR2.SpecialObjectAttributes>() == null && PluginConfig.IsGrabbable(obj))
+                    {
+                        Patches.GrabbableObjectPatches.AddSpecialObjectAttributesToGrabbableObject(obj);
+                    }
+
                     if (!PersistenceObjectsTracker.IsObjectCurrentlyBagged(obj))
                     {
                         PersistenceObjectsTracker.TrackBaggedObject(obj);
