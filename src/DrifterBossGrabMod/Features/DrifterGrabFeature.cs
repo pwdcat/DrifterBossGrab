@@ -52,6 +52,7 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.ProjectilePatches.ProjectileController_Start_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.UIPatches.BaggedCardCompatibilityPatches)).Patch();
         }
     }
 }

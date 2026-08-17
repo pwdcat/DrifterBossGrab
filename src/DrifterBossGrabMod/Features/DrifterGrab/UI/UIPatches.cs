@@ -63,5 +63,31 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        [HarmonyPatch]
+        public static class BaggedCardCompatibilityPatches
+        {
+            [HarmonyPatch(typeof(RoR2.UI.AllyCardController), nameof(RoR2.UI.AllyCardController.Awake))]
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            public static void StripIncompatibleAllyComponents(RoR2.UI.AllyCardController __instance)
+            {
+                if (__instance is RoR2.UI.BaggedCardController)
+                {
+                    foreach (var mb in __instance.GetComponents<MonoBehaviour>())
+                    {
+                        if (mb != null && mb.GetType().Name == "AllyCardData")
+                        {
+                            UnityEngine.Object.DestroyImmediate(mb);
+                        }
+                    }
+
+                    var extraSlot = __instance.transform.Find("WhatchaGotThere EquipmentSlot");
+                    if (extraSlot != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(extraSlot.gameObject);
+                    }
+                }
+            }
+        }
     }
 }

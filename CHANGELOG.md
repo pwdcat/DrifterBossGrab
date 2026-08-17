@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed lobby desyncs and hangs, fixed bc of the two guards above, due to message conflicts
 - Fixed skill overrides malfunctioning after an enemy breaks out and another is auto-promoted
 - Fixed client-side SOA issues on save loading
+- Incompatibility with [WhatchaGotThere](https://thunderstore.io/c/riskofrain2/p/WarperSan/WhatchaGotThere/)
+    - Seems like an issue with WhatchaGotThere + Drifter, will remove the bandaid fix once it gets patched.
 
 ## [1.8.0]
 

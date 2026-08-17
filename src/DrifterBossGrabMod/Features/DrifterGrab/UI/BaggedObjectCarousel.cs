@@ -225,10 +225,28 @@ namespace DrifterBossGrabMod.UI
                 s.SetActive(false);
                 if (!s.GetComponent<CanvasGroup>()) s.AddComponent<CanvasGroup>();
                 ApplyWeightIconTransform(s);
+                CleanIncompatibleSlotComponents(s);
             }
 
             PopulateCarousel();
             UpdateToggles();
+        }
+
+        private static void CleanIncompatibleSlotComponents(GameObject slot)
+        {
+            foreach (var mb in slot.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb != null && mb.GetType().Name == "AllyCardData")
+                {
+                    DestroyImmediate(mb);
+                }
+            }
+
+            var extraSlot = slot.transform.Find("WhatchaGotThere EquipmentSlot");
+            if (extraSlot != null)
+            {
+                DestroyImmediate(extraSlot.gameObject);
+            }
         }
 
         // ========================================================================================
