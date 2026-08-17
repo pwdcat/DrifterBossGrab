@@ -60,13 +60,19 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged += configChangedHandler;
 
             PluginConfig.Instance.EnableCarouselHUD.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselOrientation.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselAnimationDuration.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EnableCarouselInactivityFade.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeDelay.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeDuration.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeOpacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotX.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotY.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotShowIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowBackground.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotShowWeightIcon.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotShowName.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CenterSlotShowHealthBar.SettingChanged += configChangedHandler;
@@ -76,6 +82,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.SideSlotScale.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotOpacity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotShowIcon.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SideSlotShowBackground.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotShowWeightIcon.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotShowName.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged += configChangedHandler;
@@ -124,13 +131,19 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableMouseWheelScrolling.SettingChanged -= configChangedHandler;
 
             PluginConfig.Instance.EnableCarouselHUD.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselOrientation.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselAnimationDuration.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EnableCarouselInactivityFade.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeDelay.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeDuration.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CarouselInactivityFadeOpacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotX.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotY.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotScale.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotOpacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotShowIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.CenterSlotShowBackground.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotShowWeightIcon.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotShowName.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CenterSlotShowHealthBar.SettingChanged -= configChangedHandler;
@@ -140,6 +153,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.SideSlotScale.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotOpacity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotShowIcon.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SideSlotShowBackground.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotShowWeightIcon.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotShowName.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged -= configChangedHandler;

@@ -238,6 +238,12 @@ namespace DrifterBossGrabMod.Networking
         public string GrabbableComponentTypes = string.Empty;
         public string GrabbableKeywordBlacklist = string.Empty;
 
+        public bool EnableRecoveryFeature;
+        public EnemyRecoveryMode EnemyRecoveryMode;
+        public bool RecoverBaggedBosses;
+        public bool RecoverBaggedNPCs;
+        public bool RecoverBaggedEnvironmentObjects;
+
         public bool EnableObjectPersistence;
         public bool EnableAutoGrab;
         public bool PersistBaggedBosses;
@@ -284,11 +290,18 @@ namespace DrifterBossGrabMod.Networking
 
             writer.Write(BreakoutTimeMultiplier);
             writer.Write(MaxSmacks);
+            writer.Write(MaxLaunchSpeed);
 
             writer.Write(BodyBlacklist);
             writer.Write(RecoveryObjectBlacklist);
             writer.Write(GrabbableComponentTypes);
             writer.Write(GrabbableKeywordBlacklist);
+
+            writer.Write(EnableRecoveryFeature);
+            writer.Write((int)EnemyRecoveryMode);
+            writer.Write(RecoverBaggedBosses);
+            writer.Write(RecoverBaggedNPCs);
+            writer.Write(RecoverBaggedEnvironmentObjects);
 
             writer.Write(EnableObjectPersistence);
             writer.Write(EnableAutoGrab);
@@ -337,11 +350,18 @@ namespace DrifterBossGrabMod.Networking
 
             BreakoutTimeMultiplier = reader.ReadSingle();
             MaxSmacks = reader.ReadInt32();
+            MaxLaunchSpeed = reader.ReadString();
 
             BodyBlacklist = reader.ReadString();
             RecoveryObjectBlacklist = reader.ReadString();
             GrabbableComponentTypes = reader.ReadString();
             GrabbableKeywordBlacklist = reader.ReadString();
+
+            EnableRecoveryFeature = reader.ReadBoolean();
+            EnemyRecoveryMode = (EnemyRecoveryMode)reader.ReadInt32();
+            RecoverBaggedBosses = reader.ReadBoolean();
+            RecoverBaggedNPCs = reader.ReadBoolean();
+            RecoverBaggedEnvironmentObjects = reader.ReadBoolean();
 
             EnableObjectPersistence = reader.ReadBoolean();
             EnableAutoGrab = reader.ReadBoolean();

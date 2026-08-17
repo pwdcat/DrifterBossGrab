@@ -635,6 +635,10 @@ namespace DrifterBossGrabMod.Networking
                     }
                 }
             }
+            else if (controller != null && ctx.MainSeatObject == null)
+            {
+                BaggedObjectStatePatches.ForceCleanupOverrides(controller, null);
+            }
 
             if (ctx.SyncedObjects != null && ctx.AdditionalSeatDict != null && controller != null)
             {
@@ -744,6 +748,11 @@ namespace DrifterBossGrabMod.Networking
 
             if (controller != null)
             {
+                if (ctx.MainSeatObject == null || (oldMain != null && ctx.MainSeatObject != oldMain))
+                {
+                    BaggedObjectStatePatches.ForceCleanupOverrides(controller, oldMain);
+                }
+
                 BagPassengerManager.ForceRecalculateMass(controller);
 
                 if (triggerUIUpdate)

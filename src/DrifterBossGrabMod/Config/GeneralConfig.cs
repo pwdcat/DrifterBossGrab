@@ -10,7 +10,7 @@ namespace DrifterBossGrabMod
             Instance.SelectedPreset = cfg.Bind("General", "SelectedPreset", PresetType.Intended,
                 "Preset to load. Changes are auto-applied.");
 
-            Instance.LastSelectedPreset = cfg.Bind("Hidden", "LastSelectedPreset", PresetType.Intended,
+            Instance.LastSelectedPreset = cfg.Bind("Hidden", "LastSelectedPreset", (PresetType)(-1),
                 "Internal tracker of the last applied preset.");
 
             Instance.EnableBossGrabbing = cfg.Bind("General", "EnableBossGrabbing", true, "Allow grabbing bosses.");

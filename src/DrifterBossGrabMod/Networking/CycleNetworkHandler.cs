@@ -313,6 +313,8 @@ namespace DrifterBossGrabMod.Networking
                 { "baggedCount", msg.baggedIds.Length }
             });
 
+            var previousMainPassenger = BagPatches.GetMainSeatObject(bagController);
+
             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds, msg.seatIds, msg.scrollDirection,
                 msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes);
 
@@ -331,19 +333,33 @@ namespace DrifterBossGrabMod.Networking
                         BaggedObjectStatePatches.PerformPassengerRestoration(bagController, removedObj);
                         BagPassengerManager.RemoveBaggedObject(bagController, removedObj, isDestroying: false);
                     }
+
+                    if (previousMainPassenger == removedObj || msg.selectedIndex < 0)
+                    {
+                        BaggedObjectStatePatches.ForceCleanupOverrides(bagController, removedObj);
+                    }
                 }
                 else
                 {
                     Log.Debug($"[HandleBagStateUpdatedMessage] Removed object (netId={msg.removedObjectNetId.Value}) not found - likely destroyed/already thrown");
+                    if (previousMainPassenger != null)
+                    {
+                        BaggedObjectStatePatches.ForceCleanupOverrides(bagController, previousMainPassenger);
+                    }
                 }
+            }
+
+            if (msg.selectedIndex < 0 || msg.baggedIds == null || msg.baggedIds.Length == 0)
+            {
+                BaggedObjectStatePatches.ForceCleanupOverrides(bagController, previousMainPassenger);
             }
 
             BagCarouselUpdater.UpdateCarousel(bagController);
 
-            Log.Debug($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={msg.baggedIds.Length}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
+            Log.Debug($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={(msg.baggedIds?.Length ?? 0)}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
 
             var bagState = BagPatches.GetState(bagController);
-            if (bagState != null)
+            if (bagState != null && msg.baggedIds != null)
             {
                 bagState.BaggedObjects.Clear();
                 foreach (var idValue in msg.baggedIds)

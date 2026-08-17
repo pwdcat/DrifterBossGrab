@@ -127,14 +127,20 @@ namespace DrifterBossGrabMod
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.IsHudEditorEnabled, new CheckBoxConfig { name = "Enable HUD Editor", category = "Hud" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselHUD, new CheckBoxConfig { name = "Enable Carousel HUD" }));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing, new FloatFieldConfig { name = "Vertical Spacing" }));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CarouselOrientation, new ChoiceConfig { name = "Carousel Orientation" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing, new FloatFieldConfig { name = "Item Spacing" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration, new FloatFieldConfig { name = "Animation Duration" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselInactivityFade, new CheckBoxConfig { name = "Enable Inactivity Fade" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselInactivityFadeDelay, new FloatFieldConfig { name = "Inactivity Fade Delay (s)" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselInactivityFadeDuration, new FloatFieldConfig { name = "Inactivity Fade Duration (s)" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselInactivityFadeOpacity, new FloatFieldConfig { name = "Inactive Opacity" }));
 
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CenterSlotX, new FloatFieldConfig { name = "Main Slot X Offset" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CenterSlotY, new FloatFieldConfig { name = "Main Slot Y Offset" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CenterSlotScale, new FloatFieldConfig { name = "Main Slot Scale" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CenterSlotOpacity, new FloatFieldConfig { name = "Main Slot Opacity" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.CenterSlotShowIcon, new CheckBoxConfig { name = "Show Icon (Main)" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.CenterSlotShowBackground, new CheckBoxConfig { name = "Show Background (Main)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.CenterSlotShowWeightIcon, new CheckBoxConfig { name = "Show Weight Icon (Main)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.CenterSlotShowName, new CheckBoxConfig { name = "Show Name (Main)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.CenterSlotShowHealthBar, new CheckBoxConfig { name = "Show Health (Main)" }));
@@ -145,6 +151,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SideSlotScale, new FloatFieldConfig { name = "Side Slot Scale" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.SideSlotOpacity, new FloatFieldConfig { name = "Side Slot Opacity" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowIcon, new CheckBoxConfig { name = "Show Icon (Side)" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowBackground, new CheckBoxConfig { name = "Show Background (Side)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowWeightIcon, new CheckBoxConfig { name = "Show Weight Icon (Side)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowName, new CheckBoxConfig { name = "Show Name (Side)" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SideSlotShowHealthBar, new CheckBoxConfig { name = "Show Health (Side)" }));
@@ -402,10 +409,11 @@ namespace DrifterBossGrabMod
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableCarouselHUD.Value, "Enable Carousel HUD",
                 token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("DURATION") ||
-                         token.Contains("SHOW_ICON") || token.Contains("SHOW_WEIGHT") || token.Contains("SHOW_NAME") ||
-                         token.Contains("SHOW_HEALTH") || token.Contains("SHOW_SLOT") || token.Contains("WEIGHT_DISPLAY") ||
-                         token.Contains("NEW_WEIGHT_ICON") || token.Contains("SCALE_WEIGHT") || token.Contains("TOTAL_MASS") ||
-                         token.Contains("OVERENCUMBERED_ICON"));
+                         token.Contains("ORIENTATION") || token.Contains("INACTIVITY") || token.Contains("INACTIVE") ||
+                         token.Contains("SHOW_ICON") || token.Contains("SHOW_BACKGROUND") || token.Contains("SHOW_WEIGHT") ||
+                         token.Contains("SHOW_NAME") || token.Contains("SHOW_HEALTH") || token.Contains("SHOW_SLOT") ||
+                         token.Contains("WEIGHT_DISPLAY") || token.Contains("NEW_WEIGHT_ICON") || token.Contains("SCALE_WEIGHT") ||
+                         token.Contains("TOTAL_MASS") || token.Contains("OVERENCUMBERED_ICON"));
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableDamagePreview.Value, "Enable Damage Preview",
                 token => token.Contains("DAMAGE_PREVIEW_COLOR"));

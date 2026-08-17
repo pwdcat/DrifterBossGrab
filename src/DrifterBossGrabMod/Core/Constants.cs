@@ -64,6 +64,7 @@ namespace DrifterBossGrabMod
             public const byte SyncConfigSubMessageType = 6;
             public const byte ClientPreferencesSubMessageType = 7;
             public const byte BagStateUpdatedSubMessageType = 8;
+            public const byte RequestConfigSubMessageType = 9;
         }
 
     }

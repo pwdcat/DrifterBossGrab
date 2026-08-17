@@ -9,14 +9,20 @@ namespace DrifterBossGrabMod
         private static void InitHudConfig(ConfigFile cfg)
         {
             Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD.");
-            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Vertical spacing for carousel items.");
+            Instance.CarouselOrientation = cfg.Bind("Hud", "CarouselOrientation", DrifterBossGrabMod.CarouselOrientation.Vertical, "Layout orientation for carousel items (Vertical or Horizontal).");
+            Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Spacing between carousel items.");
             Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation.");
+            Instance.EnableCarouselInactivityFade = cfg.Bind("Hud", "EnableCarouselInactivityFade", false, "Fade out the carousel after a period of inactivity.");
+            Instance.CarouselInactivityFadeDelay = cfg.Bind("Hud", "CarouselInactivityFadeDelay", 3.0f, "Seconds of inactivity before the carousel starts fading.");
+            Instance.CarouselInactivityFadeDuration = cfg.Bind("Hud", "CarouselInactivityFadeDuration", 0.2f, "Duration of the carousel fade-out animation in seconds.");
+            Instance.CarouselInactivityFadeOpacity = cfg.Bind("Hud", "CarouselInactivityFadeOpacity", 0.0f, "Target opacity when the carousel is inactive (0 = hidden).");
 
             Instance.CenterSlotX = cfg.Bind("Hud", "CenterSlotX", 25.0f, "X position offset for center slot.");
             Instance.CenterSlotY = cfg.Bind("Hud", "CenterSlotY", 50.0f, "Y position offset for center slot.");
             Instance.CenterSlotScale = cfg.Bind("Hud", "CenterSlotScale", 1.0f, "Scale for center slot.");
             Instance.CenterSlotOpacity = cfg.Bind("Hud", "CenterSlotOpacity", 1.0f, "Opacity for center slot.");
             Instance.CenterSlotShowIcon = cfg.Bind("Hud", "CenterSlotShowIcon", true, "Show icon in center slot.");
+            Instance.CenterSlotShowBackground = cfg.Bind("Hud", "CenterSlotShowBackground", true, "Show background in center slot.");
             Instance.CenterSlotShowWeightIcon = cfg.Bind("Hud", "CenterSlotShowWeightIcon", true, "Show weight icon in center slot.");
             Instance.CenterSlotShowName = cfg.Bind("Hud", "CenterSlotShowName", true, "Show name in center slot.");
             Instance.CenterSlotShowHealthBar = cfg.Bind("Hud", "CenterSlotShowHealthBar", true, "Show health bar in center slot.");
@@ -27,6 +33,7 @@ namespace DrifterBossGrabMod
             Instance.SideSlotScale = cfg.Bind("Hud", "SideSlotScale", 0.8f, "Scale for side slots.");
             Instance.SideSlotOpacity = cfg.Bind("Hud", "SideSlotOpacity", 0.3f, "Opacity for side slots.");
             Instance.SideSlotShowIcon = cfg.Bind("Hud", "SideSlotShowIcon", true, "Show icon in side slots.");
+            Instance.SideSlotShowBackground = cfg.Bind("Hud", "SideSlotShowBackground", true, "Show background in side slots.");
             Instance.SideSlotShowWeightIcon = cfg.Bind("Hud", "SideSlotShowWeightIcon", true, "Show weight icon in side slots.");
             Instance.SideSlotShowName = cfg.Bind("Hud", "SideSlotShowName", true, "Show name in side slots.");
             Instance.SideSlotShowHealthBar = cfg.Bind("Hud", "SideSlotShowHealthBar", true, "Show health bar in side slots.");
@@ -37,8 +44,8 @@ namespace DrifterBossGrabMod
             Instance.SelectedHudElement.Value = HudElementType.All;
 
             Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel.");
-            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 450.0f, "X position offset for stats panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", 85.0f, "Y position offset for stats panel.");
+            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 580.0f, "X position offset for stats panel.");
+            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", -325.0f, "Y position offset for stats panel.");
             Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale for stats panel.");
             Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for stats panel.");
             Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the custom weight icon.");
@@ -71,11 +78,21 @@ namespace DrifterBossGrabMod
         private static void WireHudEventHandlers()
         {
             Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselOrientation.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselSpacing.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselAnimationDuration.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.EnableCarouselInactivityFade.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselInactivityFadeDelay.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselInactivityFadeDuration.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CarouselInactivityFadeOpacity.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowBackground.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.CenterSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CenterSlotShowSlotNumber.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.SideSlotShowIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SideSlotShowBackground.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.SideSlotShowWeightIcon.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.SideSlotShowName.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.SideSlotShowHealthBar.SettingChanged += (sender, args) => UpdateBagUIToggles();

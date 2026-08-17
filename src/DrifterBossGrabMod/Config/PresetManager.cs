@@ -26,7 +26,8 @@ namespace DrifterBossGrabMod.Config
         {
             if (presetType == PresetType.Custom)
             {
-
+                PluginConfig.Instance.SelectedPreset.Value = PresetType.Custom;
+                PluginConfig.Instance.LastSelectedPreset.Value = PresetType.Custom;
                 return;
             }
 
@@ -140,14 +141,71 @@ namespace DrifterBossGrabMod.Config
             }
         }
 
+        public static bool DoesConfigMatchPreset(PresetType presetType)
+        {
+            if (presetType == PresetType.Custom) return true;
+            if (!PresetDefinitions.Presets.TryGetValue(presetType, out var presetValues))
+            {
+                return false;
+            }
+
+            foreach (var kvp in presetValues)
+            {
+                var entry = GetConfigEntry(kvp.Key);
+                if (entry == null) continue;
+
+                var entryValue = entry.BoxedValue;
+                var presetValue = kvp.Value;
+
+                if (entryValue == null || presetValue == null)
+                {
+                    if (entryValue != presetValue) return false;
+                    continue;
+                }
+
+                if (presetValue is float pFloat && entryValue is float eFloat)
+                {
+                    if (Math.Abs(pFloat - eFloat) > 0.0001f) return false;
+                }
+                else if (presetValue is Color pColor && entryValue is Color eColor)
+                {
+                    if (pColor != eColor) return false;
+                }
+                else if (presetValue is string pStr && entryValue is string eStr)
+                {
+                    if (!string.Equals(pStr, eStr, StringComparison.Ordinal)) return false;
+                }
+                else if (!object.Equals(entryValue, presetValue))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public static void CheckAndApplyPresetOnStartup()
         {
             var selected = PluginConfig.Instance.SelectedPreset.Value;
             var lastSelected = PluginConfig.Instance.LastSelectedPreset.Value;
 
+            if (selected == PresetType.Custom)
+            {
+                PluginConfig.Instance.LastSelectedPreset.Value = PresetType.Custom;
+                return;
+            }
+
             if (selected != lastSelected)
             {
                 ApplyPreset(selected);
+            }
+            else
+            {
+                if (!DoesConfigMatchPreset(selected))
+                {
+                    PluginConfig.Instance.SelectedPreset.Value = PresetType.Custom;
+                    PluginConfig.Instance.LastSelectedPreset.Value = PresetType.Custom;
+                }
             }
         }
 
@@ -319,14 +377,20 @@ namespace DrifterBossGrabMod.Config
             return key switch
             {
                 "EnableCarouselHUD" => instance.EnableCarouselHUD,
+                "CarouselOrientation" => instance.CarouselOrientation,
                 "CarouselSpacing" => instance.CarouselSpacing,
                 "CarouselAnimationDuration" => instance.CarouselAnimationDuration,
+                "EnableCarouselInactivityFade" => instance.EnableCarouselInactivityFade,
+                "CarouselInactivityFadeDelay" => instance.CarouselInactivityFadeDelay,
+                "CarouselInactivityFadeDuration" => instance.CarouselInactivityFadeDuration,
+                "CarouselInactivityFadeOpacity" => instance.CarouselInactivityFadeOpacity,
                 "SelectedHudElement" => instance.SelectedHudElement,
                 "CenterSlotX" => instance.CenterSlotX,
                 "CenterSlotY" => instance.CenterSlotY,
                 "CenterSlotScale" => instance.CenterSlotScale,
                 "CenterSlotOpacity" => instance.CenterSlotOpacity,
                 "CenterSlotShowIcon" => instance.CenterSlotShowIcon,
+                "CenterSlotShowBackground" => instance.CenterSlotShowBackground,
                 "CenterSlotShowWeightIcon" => instance.CenterSlotShowWeightIcon,
                 "CenterSlotShowName" => instance.CenterSlotShowName,
                 "CenterSlotShowHealthBar" => instance.CenterSlotShowHealthBar,
@@ -336,6 +400,7 @@ namespace DrifterBossGrabMod.Config
                 "SideSlotScale" => instance.SideSlotScale,
                 "SideSlotOpacity" => instance.SideSlotOpacity,
                 "SideSlotShowIcon" => instance.SideSlotShowIcon,
+                "SideSlotShowBackground" => instance.SideSlotShowBackground,
                 "SideSlotShowWeightIcon" => instance.SideSlotShowWeightIcon,
                 "SideSlotShowName" => instance.SideSlotShowName,
                 "SideSlotShowHealthBar" => instance.SideSlotShowHealthBar,

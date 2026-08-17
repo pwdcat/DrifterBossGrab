@@ -18,6 +18,11 @@ namespace DrifterBossGrabMod
         ConfigEntry<bool> EnableDebugLogs { get; }
         ConfigEntry<string> BodyBlacklist { get; }
         ConfigEntry<string> RecoveryObjectBlacklist { get; }
+        ConfigEntry<bool> EnableRecoveryFeature { get; }
+        ConfigEntry<EnemyRecoveryMode> EnemyRecoveryMode { get; }
+        ConfigEntry<bool> RecoverBaggedBosses { get; }
+        ConfigEntry<bool> RecoverBaggedNPCs { get; }
+        ConfigEntry<bool> RecoverBaggedEnvironmentObjects { get; }
         ConfigEntry<string> GrabbableComponentTypes { get; }
         ConfigEntry<string> GrabbableKeywordBlacklist { get; }
         ConfigEntry<bool> EnableObjectPersistence { get; }

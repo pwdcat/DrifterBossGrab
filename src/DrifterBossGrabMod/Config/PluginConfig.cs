@@ -61,6 +61,12 @@ namespace DrifterBossGrabMod
         Void
     }
 
+    public enum CarouselOrientation
+    {
+        Vertical = 0,
+        Horizontal = 1
+    }
+
     public enum HudElementType
     {
         All,
@@ -193,8 +199,13 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> AutoGrabDelay { get; private set; } = null!;
 
         public ConfigEntry<bool> EnableCarouselHUD { get; private set; } = null!;
+        public ConfigEntry<CarouselOrientation> CarouselOrientation { get; private set; } = null!;
         public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCarouselInactivityFade { get; private set; } = null!;
+        public ConfigEntry<float> CarouselInactivityFadeDelay { get; private set; } = null!;
+        public ConfigEntry<float> CarouselInactivityFadeDuration { get; private set; } = null!;
+        public ConfigEntry<float> CarouselInactivityFadeOpacity { get; private set; } = null!;
 
         public ConfigEntry<HudElementType> SelectedHudElement { get; private set; } = null!;
         public ConfigEntry<float> CenterSlotX { get; private set; } = null!;
@@ -202,6 +213,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> CenterSlotScale { get; private set; } = null!;
         public ConfigEntry<float> CenterSlotOpacity { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowIcon { get; private set; } = null!;
+        public ConfigEntry<bool> CenterSlotShowBackground { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowWeightIcon { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowName { get; private set; } = null!;
         public ConfigEntry<bool> CenterSlotShowHealthBar { get; private set; } = null!;
@@ -211,6 +223,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> SideSlotScale { get; private set; } = null!;
         public ConfigEntry<float> SideSlotOpacity { get; private set; } = null!;
         public ConfigEntry<bool> SideSlotShowIcon { get; private set; } = null!;
+        public ConfigEntry<bool> SideSlotShowBackground { get; private set; } = null!;
         public ConfigEntry<bool> SideSlotShowWeightIcon { get; private set; } = null!;
         public ConfigEntry<bool> SideSlotShowName { get; private set; } = null!;
         public ConfigEntry<bool> SideSlotShowHealthBar { get; private set; } = null!;

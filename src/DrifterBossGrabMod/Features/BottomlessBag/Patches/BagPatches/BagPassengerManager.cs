@@ -52,12 +52,12 @@ namespace DrifterBossGrabMod.Patches
             }
 
             GameObject? mainPassengerBefore = BagPatches.GetMainSeatObject(controller);
-            bool wasMainPassenger = (mainPassengerBefore != null && mainPassengerBefore == obj);
+            bool wasMainPassenger = (mainPassengerBefore != null && (mainPassengerBefore == obj || mainPassengerBefore.GetInstanceID() == obj.GetInstanceID()))
+                                 || (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger && controller.vehicleSeat.NetworkpassengerBodyObject == obj);
 
-            if (mainPassengerBefore != null && mainPassengerBefore.GetInstanceID() == obj.GetInstanceID())
+            if (wasMainPassenger)
             {
                 BagPatches.SetMainSeatObject(controller, null);
-                wasMainPassenger = true;
             }
 
             var seatDict = BagPatches.GetState(controller).AdditionalSeats;
@@ -173,7 +173,7 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            if (wasMainPassenger && controller != null && obj != null)
+            if (controller != null && (wasMainPassenger || list == null || list.Count == 0 || BagPatches.GetMainSeatObject(controller) == null))
             {
                 BaggedObjectStatePatches.ForceCleanupOverrides(controller, obj);
             }

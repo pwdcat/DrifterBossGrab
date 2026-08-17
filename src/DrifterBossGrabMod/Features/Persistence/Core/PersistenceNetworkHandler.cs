@@ -291,8 +291,15 @@ namespace DrifterBossGrabMod
                     }
                 }
             }
+            var previousMain = BagPatches.GetMainSeatObject(controller);
+
             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection,
                 msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes);
+
+            if (!NetworkServer.active && (msg.selectedIndex < 0 || msg.baggedIds == null || msg.baggedIds.Length == 0))
+            {
+                BaggedObjectStatePatches.ForceCleanupOverrides(controller, previousMain);
+            }
         }
 
         private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)

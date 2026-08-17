@@ -18,6 +18,14 @@ namespace DrifterBossGrabMod.Balance
             return BagCapacityCalculator.GetUtilityMaxStock(bagController);
         }
 
+        public static bool IsMassCapacityUnlimited(DrifterBagController? bagController)
+        {
+            if (!PluginConfig.Instance.EnableBalance.Value) return true;
+
+            float massCapacity = CalculateMassCapacity(bagController);
+            return massCapacity >= float.MaxValue || float.IsInfinity(massCapacity) || massCapacity <= 0f;
+        }
+
         public static float CalculateMassCapacity(DrifterBagController? bagController)
         {
 

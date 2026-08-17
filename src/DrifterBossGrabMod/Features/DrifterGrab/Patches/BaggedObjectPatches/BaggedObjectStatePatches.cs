@@ -74,14 +74,17 @@ namespace DrifterBossGrabMod.Patches
         private static GameObject? _lastProcessedObject;
         private static float _lastProcessTime;
 
-        public static void ForceCleanupOverrides(DrifterBagController bagController, GameObject targetObject)
+        public static void ForceCleanupOverrides(DrifterBagController bagController, GameObject? targetObject = null)
         {
-            if (bagController == null || targetObject == null) return;
+            if (bagController == null) return;
 
-            var existingState = BaggedObjectPatches.FindExistingBaggedObjectState(bagController, targetObject);
-            if (existingState != null)
+            if (targetObject != null)
             {
-                UnsetAllOverrides(existingState);
+                var existingState = BaggedObjectPatches.FindExistingBaggedObjectState(bagController, targetObject);
+                if (existingState != null)
+                {
+                    UnsetAllOverrides(existingState);
+                }
             }
 
             // safety net

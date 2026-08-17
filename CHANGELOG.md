@@ -6,16 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.1]
 
 ### Added
-- Added a safeguard to prevent ID conflicts with other mods
-- Added network guards to disable multiplayer sync packets when Bottomless Bag or Persistence features are turned off
+- Safeguard to prevent ID conflicts with other mods
+- Network guards to disable multiplayer sync packets when Bottomless Bag or Persistence features are turned off
+- Mid-match config sync
+- Carousel layout orientation option (`Vertical` vs `Horizontal`)
+- Carousel inactivity fade-out
+- `Show Background` toggle for center and side carousel slots for when you want everything but the icon off
 
 ### Fixed
-- Fixed client-side skill override issue, removed a fallback
-- Fixed lobby desyncs and hangs, fixed bc of the two guards above, due to message conflicts
-- Fixed skill overrides malfunctioning after an enemy breaks out and another is auto-promoted
-- Fixed client-side SOA issues on save loading
+- Client-side skill overrides getting stuck when throwing the main passenger or when the bag is empty
+- Client state desync when bagged objects are destroyed while in additional seats
+- Lobby desyncs and hangs due to message registration and scene desync
+- Skill overrides malfunctioning after an enemy breaks out and another is auto-promoted
+- Client-side SOA issues on save loading
+- Config sync not using the host's `EnableConfigSync` setting
+- Missing Recovery Config Sync
+- Config presets not set as custom on startup when settings are changed
 - Incompatibility with [WhatchaGotThere](https://thunderstore.io/c/riskofrain2/p/WarperSan/WhatchaGotThere/)
-    - Seems like an issue with WhatchaGotThere + Drifter, will remove the bandaid fix once it gets patched.
+    - Seems like an issue with WhatchaGotThere + Drifter, will remove the bandaid fix once it gets patched
+
+### Changed
+- StatsPanel default X/Y for the 100th time
 
 ## [1.8.0]
 

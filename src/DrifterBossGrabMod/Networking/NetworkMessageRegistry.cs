@@ -1,10 +1,13 @@
 #nullable enable
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
+using RoR2;
 using RoR2.Networking;
 
 namespace DrifterBossGrabMod.Networking
@@ -14,7 +17,6 @@ namespace DrifterBossGrabMod.Networking
     {
         public delegate void SubMessageDelegate(NetworkReader reader, NetworkConnection conn);
 
-        private static bool _isNetworkRegistered = false;
         private static readonly Dictionary<byte, SubMessageDelegate> _clientSubHandlers = new Dictionary<byte, SubMessageDelegate>();
         private static readonly Dictionary<byte, SubMessageDelegate> _serverSubHandlers = new Dictionary<byte, SubMessageDelegate>();
 
@@ -43,39 +45,38 @@ namespace DrifterBossGrabMod.Networking
 
         public static void Initialize()
         {
-            Log.Debug("[NetworkMessageRegistry] Initializing event hooks...");
+            Log.Debug("[NetworkMessageRegistry] Initializing network message hooks...");
+            NetworkManagerSystem.onStartClientGlobal -= OnStartClientGlobal;
             NetworkManagerSystem.onStartClientGlobal += OnStartClientGlobal;
+
+            NetworkManagerSystem.onStartServerGlobal -= OnStartServerGlobal;
             NetworkManagerSystem.onStartServerGlobal += OnStartServerGlobal;
 
+            NetworkManagerSystem.onClientConnectGlobal -= OnClientConnectGlobal;
+            NetworkManagerSystem.onClientConnectGlobal += OnClientConnectGlobal;
+
+            RegisterSubHandlers();
             RegisterIfNecessary();
+        }
+
+        public static void RegisterSubHandlers()
+        {
+            ConfigSyncHandler.RegisterMessages();
+            CycleNetworkHandler.RegisterMessages();
+            PersistenceNetworkHandler.RegisterMessages();
         }
 
         public static void RegisterIfNecessary()
         {
-            if (_isNetworkRegistered) return;
-
-            bool needsMultiplexer = PluginConfig.Instance.BottomlessBagEnabled.Value || PluginConfig.Instance.EnableObjectPersistence.Value;
-
-            if (needsMultiplexer)
+            if (NetworkManager.singleton?.client != null)
             {
-                _isNetworkRegistered = true;
-
-                ConfigSyncHandler.RegisterMessages();
-                CycleNetworkHandler.RegisterMessages();
-                PersistenceNetworkHandler.RegisterMessages();
-
-                if (NetworkManager.singleton?.client != null)
-                {
-                    NetworkManager.singleton.client.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleClientMultiplexedMessage);
-                    Log.Debug("[NetworkMessageRegistry] Client multiplexer handler registered.");
-                }
-                if (NetworkServer.active)
-                {
-                    NetworkServer.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleServerMultiplexedMessage);
-                    Log.Debug("[NetworkMessageRegistry] Server multiplexer handler registered.");
-                }
-
-                Log.Debug("[NetworkMessageRegistry] Successfully registered all network message handlers.");
+                NetworkManager.singleton.client.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleClientMultiplexedMessage);
+                Log.Debug("[NetworkMessageRegistry] Client multiplexer handler registered.");
+            }
+            if (NetworkServer.active)
+            {
+                NetworkServer.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleServerMultiplexedMessage);
+                Log.Debug("[NetworkMessageRegistry] Server multiplexer handler registered.");
             }
         }
 
@@ -113,7 +114,7 @@ namespace DrifterBossGrabMod.Networking
 
         private static void OnStartClientGlobal(NetworkClient client)
         {
-            if (_isNetworkRegistered)
+            if (client != null)
             {
                 client.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleClientMultiplexedMessage);
                 Log.Debug($"[NetworkMessageRegistry] Client Registered Multiplexer MsgId {Constants.Network.MultiplexerMessageType}");
@@ -122,10 +123,21 @@ namespace DrifterBossGrabMod.Networking
 
         private static void OnStartServerGlobal()
         {
-            if (_isNetworkRegistered)
+            NetworkServer.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleServerMultiplexedMessage);
+            Log.Debug($"[NetworkMessageRegistry] Server Registered Multiplexer MsgId {Constants.Network.MultiplexerMessageType}");
+        }
+
+        private static void OnClientConnectGlobal(NetworkConnection conn)
+        {
+            if (NetworkManager.singleton?.client != null)
             {
-                NetworkServer.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleServerMultiplexedMessage);
-                Log.Debug($"[NetworkMessageRegistry] Server Registered Multiplexer MsgId {Constants.Network.MultiplexerMessageType}");
+                NetworkManager.singleton.client.RegisterHandler(Constants.Network.MultiplexerMessageType, HandleClientMultiplexedMessage);
+                Log.Debug($"[NetworkMessageRegistry] (OnClientConnect) Verified Multiplexer MsgId {Constants.Network.MultiplexerMessageType} registered on client.");
+            }
+
+            if (!NetworkServer.active && NetworkClient.active)
+            {
+                ConfigSyncHandler.RequestConfigFromServer();
             }
         }
 
@@ -136,8 +148,9 @@ namespace DrifterBossGrabMod.Networking
             {
                 multiplexed = netMsg.ReadMessage<MultiplexedMessage>();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Debug($"[NetworkMessageRegistry] Failed to deserialize multiplexed message on client: {ex.Message}");
                 return;
             }
 
@@ -154,8 +167,19 @@ namespace DrifterBossGrabMod.Networking
 
             if (handler != null)
             {
-                var reader = new NetworkReader(multiplexed.payload);
-                handler(reader, netMsg.conn);
+                try
+                {
+                    var reader = new NetworkReader(multiplexed.payload);
+                    handler(reader, netMsg.conn);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[NetworkMessageRegistry] Error executing client sub-handler {multiplexed.subMessageType}: {ex}");
+                }
+            }
+            else
+            {
+                Log.Debug($"[NetworkMessageRegistry] No client sub-handler registered for sub-type {multiplexed.subMessageType}. Ignoring.");
             }
         }
 
@@ -166,8 +190,9 @@ namespace DrifterBossGrabMod.Networking
             {
                 multiplexed = netMsg.ReadMessage<MultiplexedMessage>();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Debug($"[NetworkMessageRegistry] Failed to deserialize multiplexed message on server: {ex.Message}");
                 return;
             }
 
@@ -184,8 +209,19 @@ namespace DrifterBossGrabMod.Networking
 
             if (handler != null)
             {
-                var reader = new NetworkReader(multiplexed.payload);
-                handler(reader, netMsg.conn);
+                try
+                {
+                    var reader = new NetworkReader(multiplexed.payload);
+                    handler(reader, netMsg.conn);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[NetworkMessageRegistry] Error executing server sub-handler {multiplexed.subMessageType}: {ex}");
+                }
+            }
+            else
+            {
+                Log.Debug($"[NetworkMessageRegistry] No server sub-handler registered for sub-type {multiplexed.subMessageType}. Ignoring.");
             }
         }
 
@@ -244,10 +280,10 @@ namespace DrifterBossGrabMod.Networking
         {
             NetworkManagerSystem.onStartClientGlobal -= OnStartClientGlobal;
             NetworkManagerSystem.onStartServerGlobal -= OnStartServerGlobal;
+            NetworkManagerSystem.onClientConnectGlobal -= OnClientConnectGlobal;
 
             lock (_clientSubHandlers) _clientSubHandlers.Clear();
             lock (_serverSubHandlers) _serverSubHandlers.Clear();
-            _isNetworkRegistered = false;
 
             Log.Debug("[NetworkMessageRegistry] Cleanup called.");
         }

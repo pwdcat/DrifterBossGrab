@@ -28,10 +28,11 @@ namespace DrifterBossGrabMod
         private EventHandler? teleporterToggleHandler;
         private EventHandler? balanceToggleHandler;
         private EventHandler? recoveryToggleHandler;
+        private EventHandler? configSyncToggleHandler;
 
         private void OnConfigSettingChangedEvent(object sender, SettingChangedEventArgs args)
         {
-            if (NetworkServer.active)
+            if (NetworkServer.active && PluginConfig.Instance.EnableConfigSync.Value)
             {
                 Networking.ConfigSyncHandler.BroadcastConfigToClients();
             }
@@ -68,6 +69,12 @@ namespace DrifterBossGrabMod
 
         private void SetupFeatureToggleHandlers()
         {
+            configSyncToggleHandler = (sender, args) =>
+            {
+                Networking.ConfigSyncHandler.UpdateRegistration();
+            };
+            PluginConfig.Instance.EnableConfigSync.SettingChanged += configSyncToggleHandler;
+
             bottomlessBagToggleHandler = (sender, args) =>
             {
                 bool isEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
@@ -183,6 +190,10 @@ namespace DrifterBossGrabMod
 
         private void RemoveFeatureToggleHandlers()
         {
+            if (configSyncToggleHandler != null)
+            {
+                PluginConfig.Instance.EnableConfigSync.SettingChanged -= configSyncToggleHandler;
+            }
             PluginConfig.Instance.BottomlessBagEnabled.SettingChanged -= bottomlessBagToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= persistenceToggleHandler;
             PluginConfig.Instance.EnableObjectPersistence.SettingChanged -= teleporterToggleHandler;

@@ -42,6 +42,12 @@ namespace DrifterBossGrabMod.Networking
                 GrabbableComponentTypes = PluginConfig.Instance.GrabbableComponentTypes.Value,
                 GrabbableKeywordBlacklist = PluginConfig.Instance.GrabbableKeywordBlacklist.Value,
 
+                EnableRecoveryFeature = PluginConfig.Instance.EnableRecoveryFeature.Value,
+                EnemyRecoveryMode = PluginConfig.Instance.EnemyRecoveryMode.Value,
+                RecoverBaggedBosses = PluginConfig.Instance.RecoverBaggedBosses.Value,
+                RecoverBaggedNPCs = PluginConfig.Instance.RecoverBaggedNPCs.Value,
+                RecoverBaggedEnvironmentObjects = PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value,
+
                 EnableObjectPersistence = PluginConfig.Instance.EnableObjectPersistence.Value,
                 EnableAutoGrab = PluginConfig.Instance.EnableAutoGrab.Value,
                 PersistBaggedBosses = PluginConfig.Instance.PersistBaggedBosses.Value,
@@ -76,7 +82,7 @@ namespace DrifterBossGrabMod.Networking
                 AllFlagMultiplier = PluginConfig.Instance.AllFlagMultiplier.Value,
             };
 
-            Log.Debug($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance)");
+            Log.Debug($"[ConfigSyncHandler] Sending config to client {conn.connectionId} (general, bottomlessbag, persistence, balance, recovery)");
 
             NetworkMessageRegistry.SendToClient(conn, Constants.Network.SyncConfigSubMessageType, msg);
         }
@@ -94,14 +100,115 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
+        public class RequestConfigMessage : MessageBase
+        {
+            public override void Serialize(NetworkWriter writer) { }
+            public override void Deserialize(NetworkReader reader) { }
+        }
+
         public static void RegisterMessages()
         {
+            if (PluginConfig.Instance == null || !PluginConfig.Instance.EnableConfigSync.Value)
+            {
+                Log.Debug("[ConfigSyncHandler] EnableConfigSync is disabled. Sub-handlers will not be registered.");
+                UnregisterMessages();
+                return;
+            }
+
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.SyncConfigSubMessageType, HandleSyncConfigMessage);
+            NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.RequestConfigSubMessageType, HandleRequestConfigMessage);
+
+            NetworkUser.onNetworkUserDiscovered -= OnNetworkUserDiscovered;
+            NetworkUser.onNetworkUserDiscovered += OnNetworkUserDiscovered;
+
+            Stage.onStageStartGlobal -= OnStageStartClient;
+            Stage.onStageStartGlobal += OnStageStartClient;
+
+            Log.Debug("[ConfigSyncHandler] SyncConfig client/server sub-handlers and join hooks registered.");
         }
 
         public static void UnregisterMessages()
         {
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.SyncConfigSubMessageType);
+            NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.RequestConfigSubMessageType);
+
+            NetworkUser.onNetworkUserDiscovered -= OnNetworkUserDiscovered;
+            Stage.onStageStartGlobal -= OnStageStartClient;
+
+            Log.Debug("[ConfigSyncHandler] SyncConfig client/server sub-handlers and join hooks unregistered.");
+        }
+
+        public static void UpdateRegistration()
+        {
+            RegisterMessages();
+        }
+
+        public static void RequestConfigFromServer()
+        {
+            if (NetworkServer.active || !NetworkClient.active) return;
+
+            if (PluginConfig.Instance == null || !PluginConfig.Instance.EnableConfigSync.Value) return;
+
+            var client = NetworkManager.singleton?.client;
+            if (client != null && client.isConnected)
+            {
+                Log.Debug("[ConfigSyncHandler] Requesting current config from host...");
+                NetworkMessageRegistry.SendToServer(Constants.Network.RequestConfigSubMessageType, new RequestConfigMessage());
+            }
+        }
+
+        public static void HandleRequestConfigMessage(NetworkReader reader, NetworkConnection conn)
+        {
+            if (!NetworkServer.active) return;
+
+            if (!PluginConfig.Instance.EnableConfigSync.Value)
+            {
+                Log.Debug($"[ConfigSyncHandler] Received RequestConfig from client {conn.connectionId}, but config sync is disabled on host.");
+                return;
+            }
+
+            Log.Debug($"[ConfigSyncHandler] Received RequestConfig from client {conn.connectionId}. Sending active config...");
+            SendConfigToClient(conn);
+        }
+
+        private static void OnNetworkUserDiscovered(NetworkUser user)
+        {
+            if (!NetworkServer.active || !PluginConfig.Instance.EnableConfigSync.Value) return;
+
+            if (user != null && DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedSendConfigToUser(user));
+            }
+        }
+
+        private static System.Collections.IEnumerator DelayedSendConfigToUser(NetworkUser user)
+        {
+            float elapsed = 0f;
+            const float timeout = 5.0f;
+
+            while (elapsed < timeout)
+            {
+                if (user == null) yield break;
+
+                var conn = user.connectionToClient;
+                if (conn != null && conn.isReady)
+                {
+                    Log.Debug($"[ConfigSyncHandler] Discovered new player '{user.userName}' (connId: {conn.connectionId}). Pushing config...");
+                    SendConfigToClient(conn);
+                    yield break;
+                }
+
+                yield return new WaitForSeconds(0.3f);
+                elapsed += 0.3f;
+            }
+        }
+
+        private static void OnStageStartClient(Stage stage)
+        {
+            if (!NetworkServer.active && NetworkClient.active)
+            {
+                RequestConfigFromServer();
+            }
         }
 
         public static void HandleSyncConfigMessage(NetworkReader reader, NetworkConnection conn)
@@ -117,7 +224,7 @@ namespace DrifterBossGrabMod.Networking
             var msg = new SyncConfigMessage();
             msg.Deserialize(reader);
 
-            Log.Debug($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance).");
+            Log.Debug($"[ConfigSyncHandler] Received config from host (general, bottomlessbag, persistence, balance, recovery).");
 
             ApplySyncedConfig(msg);
         }
@@ -141,6 +248,12 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.RecoveryObjectBlacklist.Value = msg.RecoveryObjectBlacklist;
             PluginConfig.Instance.GrabbableComponentTypes.Value = msg.GrabbableComponentTypes;
             PluginConfig.Instance.GrabbableKeywordBlacklist.Value = msg.GrabbableKeywordBlacklist;
+
+            PluginConfig.Instance.EnableRecoveryFeature.Value = msg.EnableRecoveryFeature;
+            PluginConfig.Instance.EnemyRecoveryMode.Value = msg.EnemyRecoveryMode;
+            PluginConfig.Instance.RecoverBaggedBosses.Value = msg.RecoverBaggedBosses;
+            PluginConfig.Instance.RecoverBaggedNPCs.Value = msg.RecoverBaggedNPCs;
+            PluginConfig.Instance.RecoverBaggedEnvironmentObjects.Value = msg.RecoverBaggedEnvironmentObjects;
 
             PluginConfig.Instance.EnableObjectPersistence.Value = msg.EnableObjectPersistence;
             PluginConfig.Instance.EnableAutoGrab.Value = msg.EnableAutoGrab;

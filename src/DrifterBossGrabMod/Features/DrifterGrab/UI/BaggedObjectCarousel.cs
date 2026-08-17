@@ -72,8 +72,22 @@ namespace DrifterBossGrabMod.UI
             }
         }
 
+        private CanvasGroup? _rootCanvasGroup;
+        private float _timeSinceLastActivity = 0f;
+
+        public void ResetInactivityTimer()
+        {
+            _timeSinceLastActivity = 0f;
+            if (_rootCanvasGroup != null && !PluginConfig.Instance.EnableCarouselInactivityFade.Value)
+            {
+                _rootCanvasGroup.alpha = 1f;
+            }
+        }
+
         private void OnEnable()
         {
+            _rootCanvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+            ResetInactivityTimer();
             BagCarouselUpdater.ActiveCarousels.Add(this);
             ConfigChangeNotifier.AddObserver(this);
         }
@@ -84,9 +98,43 @@ namespace DrifterBossGrabMod.UI
             ConfigChangeNotifier.RemoveObserver(this);
         }
 
+        private void Update()
+        {
+            if (_rootCanvasGroup == null)
+            {
+                _rootCanvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+            }
+
+            bool fadeEnabled = PluginConfig.Instance.EnableCarouselInactivityFade.Value;
+            bool isEditorActive = HudEditorManager.IsEditorActive;
+
+            if (!fadeEnabled || isEditorActive)
+            {
+                _timeSinceLastActivity = 0f;
+                _rootCanvasGroup.alpha = 1f;
+                return;
+            }
+
+            _timeSinceLastActivity += Time.deltaTime;
+            float delay = PluginConfig.Instance.CarouselInactivityFadeDelay.Value;
+            float duration = PluginConfig.Instance.CarouselInactivityFadeDuration.Value;
+            float targetOpacity = PluginConfig.Instance.CarouselInactivityFadeOpacity.Value;
+
+            if (_timeSinceLastActivity < delay)
+            {
+                _rootCanvasGroup.alpha = Mathf.MoveTowards(_rootCanvasGroup.alpha, 1f, Time.deltaTime * 5f);
+            }
+            else
+            {
+                float fadeElapsed = _timeSinceLastActivity - delay;
+                float t = duration > 0.001f ? Mathf.Clamp01(fadeElapsed / duration) : 1f;
+                _rootCanvasGroup.alpha = Mathf.Lerp(1f, targetOpacity, t);
+            }
+        }
+
         public void OnConfigChanged(string key, object value)
         {
-
+            ResetInactivityTimer();
             UpdateToggles();
             UpdateParentPosition();
             PopulateCarousel();
@@ -254,6 +302,7 @@ namespace DrifterBossGrabMod.UI
         // ========================================================================================
         public void PopulateCarousel(int direction = 0)
         {
+            ResetInactivityTimer();
             DrifterBagController? bagController = GetOrRefreshBagController();
 
             if (bagController == null)
@@ -603,17 +652,36 @@ namespace DrifterBossGrabMod.UI
                 scale *= 0.8f;
             }
 
+            bool isHorizontal = PluginConfig.Instance.CarouselOrientation.Value == CarouselOrientation.Horizontal;
+
             Vector2 pos;
-            switch (state)
+            if (isHorizontal)
             {
-                case 0: pos = Vector2.zero; break;
-                case 1: pos = new Vector2(sideX, sideY - spacing); break;
-                case -1: pos = new Vector2(sideX, sideY + spacing); break;
-                case 2: pos = new Vector2(sideX, sideY - 2 * spacing); break;
-                case -2: pos = new Vector2(sideX, sideY + 2 * spacing); break;
-                case 3: pos = new Vector2(sideX, sideY - 3 * spacing); break;
-                case -3: pos = new Vector2(sideX, sideY + 3 * spacing); break;
-                default: pos = Vector2.zero; break;
+                switch (state)
+                {
+                    case 0: pos = Vector2.zero; break;
+                    case 1: pos = new Vector2(sideX + spacing, sideY); break;
+                    case -1: pos = new Vector2(sideX - spacing, sideY); break;
+                    case 2: pos = new Vector2(sideX + 2 * spacing, sideY); break;
+                    case -2: pos = new Vector2(sideX - 2 * spacing, sideY); break;
+                    case 3: pos = new Vector2(sideX + 3 * spacing, sideY); break;
+                    case -3: pos = new Vector2(sideX - 3 * spacing, sideY); break;
+                    default: pos = Vector2.zero; break;
+                }
+            }
+            else
+            {
+                switch (state)
+                {
+                    case 0: pos = Vector2.zero; break;
+                    case 1: pos = new Vector2(sideX, sideY - spacing); break;
+                    case -1: pos = new Vector2(sideX, sideY + spacing); break;
+                    case 2: pos = new Vector2(sideX, sideY - 2 * spacing); break;
+                    case -2: pos = new Vector2(sideX, sideY + 2 * spacing); break;
+                    case 3: pos = new Vector2(sideX, sideY - 3 * spacing); break;
+                    case -3: pos = new Vector2(sideX, sideY + 3 * spacing); break;
+                    default: pos = Vector2.zero; break;
+                }
             }
             return (pos, scale, opacity);
         }
@@ -1094,10 +1162,17 @@ namespace DrifterBossGrabMod.UI
             {
 
                 bool showIcon = isCenter ? PluginConfig.Instance.CenterSlotShowIcon.Value : PluginConfig.Instance.SideSlotShowIcon.Value;
+                bool showBackground = isCenter ? PluginConfig.Instance.CenterSlotShowBackground.Value : PluginConfig.Instance.SideSlotShowBackground.Value;
                 bool showWeight = isCenter ? PluginConfig.Instance.CenterSlotShowWeightIcon.Value : PluginConfig.Instance.SideSlotShowWeightIcon.Value;
                 bool showName = isCenter ? PluginConfig.Instance.CenterSlotShowName.Value : PluginConfig.Instance.SideSlotShowName.Value;
                 bool showHealthBar = isCenter ? PluginConfig.Instance.CenterSlotShowHealthBar.Value : PluginConfig.Instance.SideSlotShowHealthBar.Value;
                 bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
+
+                var cardImage = baggedCardController.GetComponent<UnityEngine.UI.Image>();
+                if (cardImage)
+                {
+                    cardImage.enabled = showBackground;
+                }
 
                 if (baggedCardController.portraitIconImage)
                 {

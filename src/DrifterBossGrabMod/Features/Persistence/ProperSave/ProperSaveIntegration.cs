@@ -129,9 +129,12 @@ namespace DrifterBossGrabMod.ProperSave
         {
             Log.Debug($"[ProperSave] OnActiveSceneChanged called - prevScene: {prevScene.name}, nextScene: {nextScene.name}");
 
-            if (_pendingSaveData == null) return;
+            if (_pendingSaveData == null || Run.instance == null) return;
 
-            Run.instance.StartCoroutine(DelayedSceneLoadRestoration(nextScene));
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(DelayedSceneLoadRestoration(nextScene));
+            }
         }
 
         // ========================================================================================
@@ -147,7 +150,10 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             Log.Debug($"[ProperSave] Starting WaitForDirectorCoreAndRestore coroutine for {_pendingSaveData.BaggedObjects?.Count ?? 0} objects");
-            Run.instance.StartCoroutine(WaitForDirectorCoreAndRestore());
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(WaitForDirectorCoreAndRestore());
+            }
         }
 
         private static System.Collections.IEnumerator WaitForDirectorCoreAndRestore()
@@ -651,7 +657,10 @@ namespace DrifterBossGrabMod.ProperSave
             }
 
             Log.Debug($"[ProperSave] Spawning complete, restoring {objectsToRestore.Count} objects...");
-            Run.instance.StartCoroutine(RestoreAllObjects(objectsToRestore));
+            if (DrifterBossGrabPlugin.Instance != null)
+            {
+                DrifterBossGrabPlugin.Instance.StartCoroutine(RestoreAllObjects(objectsToRestore));
+            }
         }
 
         private static System.Collections.IEnumerator RestoreAllObjects(List<(GameObject obj, BaggedObjectSaveData data)> objectsToRestore)

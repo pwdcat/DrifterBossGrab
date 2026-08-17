@@ -195,10 +195,7 @@ namespace DrifterBossGrabMod.UI
 
             float massCapacity = CapacityScalingSystem.CalculateMassCapacity(_bagController);
 
-            float displayMassCapacity = DrifterBossGrabMod.Balance.CapacityScalingSystem.CalculateMassCapacity(_bagController);
-
-            bool useSlotBasedDisplay = !PluginConfig.Instance.EnableBalance.Value ||
-                PluginConfig.Instance.MassCapacityFormula.Value.Trim() == "0";
+            bool useSlotBasedDisplay = CapacityScalingSystem.IsMassCapacityUnlimited(_bagController);
 
             bool isBottomlessBag = PluginConfig.Instance.BottomlessBagEnabled.Value &&
                 PluginConfig.Instance.IsAddedCapacityInfinite;
@@ -206,7 +203,6 @@ namespace DrifterBossGrabMod.UI
             string capacityStr;
             if (useSlotBasedDisplay)
             {
-
                 int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(_bagController);
                 int slotCapacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
 
@@ -216,15 +212,13 @@ namespace DrifterBossGrabMod.UI
                 }
                 else
                 {
-
                     int displayCapacity = Math.Max(1, slotCapacity);
                     capacityStr = $"{currentCount}/{displayCapacity}";
                 }
             }
             else
             {
-
-                capacityStr = displayMassCapacity >= 100000f ? "INF" : displayMassCapacity.ToString("F0");
+                capacityStr = massCapacity.ToString("F0");
             }
 
             var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
