@@ -34,7 +34,7 @@ namespace DrifterBossGrabMod
                         {
                             if (charModel.invisibilityCount > 0)
                             {
-                                charModel.invisibilityCount--;
+                                charModel.invisibilityCount = 0;
                             }
                         }
                     }

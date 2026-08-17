@@ -61,7 +61,21 @@ namespace DrifterBossGrabMod.Patches
             {
                 restoredData.RestorePhysicsAndHurtboxes(restoreTarget);
             }
+            else
+            {
+                var characterBodyForInvis = restoreTarget.GetComponent<CharacterBody>();
+                if (characterBodyForInvis != null && characterBodyForInvis.modelLocator != null && characterBodyForInvis.modelLocator.modelTransform != null)
+                {
+                    var charModel = characterBodyForInvis.modelLocator.modelTransform.GetComponent<RoR2.CharacterModel>();
+                    if (charModel != null && charModel.invisibilityCount > 0)
+                    {
+                        charModel.invisibilityCount = 0;
+                    }
+                }
+            }
 
+            PersistenceObjectsTracker.UntrackBaggedObject(restoreTarget, false);
+            PersistenceObjectsTracker.SetBaggedObjectVisibility(restoreTarget, true);
         }
 
         // ========================================================================================
@@ -663,21 +677,34 @@ namespace DrifterBossGrabMod.Patches
                 bool isDead = false;
                 if (__instance?.targetObject != null)
                 {
-                    bool isInAdditionalSeat = (bagController != null) && BagHelpers.GetAdditionalSeat(bagController, __instance.targetObject) != null;
-                    bool isCurrentlyTrackedAsMain = (bagController != null) && BagPatches.GetMainSeatObject(bagController) == __instance.targetObject;
+                    var targetObj = __instance.targetObject;
+                    var bagState = (bagController != null) ? BagPatches.GetState(bagController) : null;
+                    bool isInAdditionalSeat = (bagController != null) && BagHelpers.GetAdditionalSeat(bagController, targetObj) != null;
+                    bool isCurrentlyTrackedAsMain = (bagController != null) && ReferenceEquals(BagPatches.GetMainSeatObject(bagController), targetObj);
+                    bool isInBaggedList = (bagState != null && bagState.BaggedObjects != null && bagState.BaggedObjects.Contains(targetObj));
+                    bool isIncoming = (bagState != null && ReferenceEquals(bagState.IncomingObject, targetObj));
+                    bool isPhysicallyInMainSeat = (bagController != null && bagController.vehicleSeat != null && ReferenceEquals(bagController.vehicleSeat.NetworkpassengerBodyObject, targetObj));
+                    bool isSwapping = DrifterBossGrabPlugin.IsSwappingPassengers;
+                    bool isTrackedInBag = PersistenceObjectsTracker.IsObjectCurrentlyBagged(targetObj);
 
-                    if (bagController != null && (isInAdditionalSeat || isCurrentlyTrackedAsMain))
+                    bool isStillInBag = isInAdditionalSeat || isCurrentlyTrackedAsMain || isInBaggedList || isIncoming || isPhysicallyInMainSeat || isSwapping || isTrackedInBag;
+
+                    if (bagController != null && (isInAdditionalSeat || isCurrentlyTrackedAsMain || isInBaggedList))
                     {
-                        var stateToSave = BaggedObjectPatches.LoadObjectState(bagController, __instance.targetObject) ?? new Core.BaggedObjectStateData();
+                        var stateToSave = BaggedObjectPatches.LoadObjectState(bagController, targetObj) ?? new Core.BaggedObjectStateData();
                         stateToSave.CaptureBreakoutStateFromBaggedObject(__instance);
-                        BaggedObjectPatches.SaveObjectState(bagController, __instance.targetObject, stateToSave);
+                        BaggedObjectPatches.SaveObjectState(bagController, targetObj, stateToSave);
                     }
 
-                    if (!isInAdditionalSeat)
+                    if (!isStillInBag)
                     {
-                        PerformPassengerRestoration(bagController, __instance.targetObject);
+                        PerformPassengerRestoration(bagController, targetObj);
                     }
-                    isDead = __instance.targetObject.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
+                    else
+                    {
+                        Log.Debug($" [BaggedObject_OnExit] Skipping restoration for {targetObj.name} - still in bag (Additional={isInAdditionalSeat}, Main={isCurrentlyTrackedAsMain}, BagList={isInBaggedList}, Tracked={isTrackedInBag})");
+                    }
+                    isDead = targetObj.TryGetComponent<HealthComponent>(out var hc) && !hc.alive;
                 }
 
                 if (isDead)

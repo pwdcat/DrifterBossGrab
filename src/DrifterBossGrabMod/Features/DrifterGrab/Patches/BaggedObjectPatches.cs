@@ -117,6 +117,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (isInBag && !isProjectile)
                 {
+                    PersistenceObjectsTracker.SetBaggedObjectVisibility(targetObject, false);
                     var skillLocator = baggedObject.outer.GetComponent<SkillLocator>();
                     if (skillLocator != null)
                     {
@@ -570,7 +571,29 @@ namespace DrifterBossGrabMod.Patches
         public static void HandlePassengerExit(RoR2.VehicleSeat seat, GameObject passenger)
         {
             if (seat == null || passenger == null) return;
-            if (!UnityEngine.Networking.NetworkServer.active) return;
+
+            if (!UnityEngine.Networking.NetworkServer.active)
+            {
+                if (DrifterBossGrabPlugin.IsSwappingPassengers) return;
+                var bagControllerClient = seat.GetComponentInParent<DrifterBagController>();
+                var bagStateClient = (bagControllerClient != null) ? BagPatches.GetState(bagControllerClient) : null;
+                var incomingObjClient = bagStateClient?.IncomingObject;
+                if (incomingObjClient != null && ReferenceEquals(passenger, incomingObjClient)) return;
+
+                bool isInBagList = bagStateClient != null && bagStateClient.BaggedObjects != null && bagStateClient.BaggedObjects.Contains(passenger);
+                bool isTrackedMain = bagStateClient != null && ReferenceEquals(bagStateClient.MainSeatObject, passenger);
+                bool isInAdditional = bagControllerClient != null && BagHelpers.GetAdditionalSeat(bagControllerClient, passenger) != null;
+                bool isTracked = PersistenceObjectsTracker.IsObjectCurrentlyBagged(passenger);
+
+                if (isInBagList || isTrackedMain || isInAdditional || isTracked)
+                {
+                    return;
+                }
+
+                PersistenceObjectsTracker.UntrackBaggedObject(passenger, false);
+                BaggedObjectStatePatches.PerformPassengerRestoration(bagControllerClient, passenger);
+                return;
+            }
 
             if (Networking.NetworkUtils.IsNetworkIdentityInactive(passenger))
             {

@@ -342,6 +342,14 @@ namespace DrifterBossGrabMod.Core
                         hurtBoxGroup.hurtBoxesDeactivatorCounter = 0;
                         Log.Debug($"[BaggedObjectStateData] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {target.name}");
                     }
+
+                    var charModel = modelTransform.GetComponent<RoR2.CharacterModel>();
+                    if (charModel != null && charModel.invisibilityCount > 0)
+                    {
+                        int oldInvis = charModel.invisibilityCount;
+                        charModel.invisibilityCount = 0;
+                        Log.Debug($"[BaggedObjectStateData] Reset invisibilityCount from {oldInvis} to 0 for {target.name}");
+                    }
                 }
             }
         }

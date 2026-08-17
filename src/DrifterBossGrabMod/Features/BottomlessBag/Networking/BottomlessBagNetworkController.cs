@@ -474,7 +474,7 @@ namespace DrifterBossGrabMod.Networking
 
                 state.AdditionalSeats = ctx.AdditionalSeatDict;
                 BagPatches.SetMainSeatObject(controller, ctx.MainSeatObject);
-                if (ctx.SyncedObjects != null && (state.BaggedObjects == null || ctx.SyncedObjects.Count >= state.BaggedObjects.Count))
+                if (ctx.SyncedObjects != null)
                 {
                     state.BaggedObjects = ctx.SyncedObjects;
                 }

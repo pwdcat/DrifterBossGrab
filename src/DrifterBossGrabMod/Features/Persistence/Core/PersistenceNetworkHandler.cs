@@ -259,6 +259,8 @@ namespace DrifterBossGrabMod
                             {
                                 currentObjects.Remove(obj);
                                 bagState.RemoveInstanceId(obj.GetInstanceID());
+                                PersistenceObjectsTracker.UntrackBaggedObject(obj, false);
+                                BaggedObjectStatePatches.PerformPassengerRestoration(controller, obj);
                             }
                         }
                     }
