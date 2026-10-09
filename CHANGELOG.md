@@ -3,6 +3,23 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3]
+
+### Fixed
+- Bindings fixed for the new update
+- Teleporter new stage resets
+- Persisted portals can be used again
+- UI bugs
+- Access nodes showing their ON model
+- Lunar Teleporter prongs visibility
+- gong
+- reap reap
+
+## [1.8.2]
+
+### Fixed
+- Fixed `CharacterModel.invisibilityCount` and `SpecialObjectAttributes` renderers not being cleanly reset
+
 ## [1.8.1]
 
 ### Added

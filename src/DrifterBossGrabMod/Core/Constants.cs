@@ -7,7 +7,7 @@ namespace DrifterBossGrabMod
         public const string CloneSuffix = "(Clone)";
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.8.1";
+        public const string PluginVersion = "1.8.3";
 
         public static class Timeouts
         {
@@ -31,6 +31,7 @@ namespace DrifterBossGrabMod
             public const int DefaultJunkQuantity = 4;
             public const int MinDurabilityThreshold = 1;
             public const float DefaultMassPerStock = 700f;
+            public const float RitualGongMass = 500f;
         }
 
         public static class Multipliers

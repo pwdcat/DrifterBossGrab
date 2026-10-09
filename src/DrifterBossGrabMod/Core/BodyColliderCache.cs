@@ -11,6 +11,30 @@ namespace DrifterBossGrabMod
     {
         private Collider[]? _colliders;
         private bool _isInitialized = false;
+        private readonly Dictionary<Renderer, bool> _renderingStates = new Dictionary<Renderer, bool>();
+
+        public void SetModelVisibility(bool isVisible)
+        {
+            if (isVisible)
+            {
+                foreach (var state in _renderingStates)
+                    if (state.Key != null) state.Key.forceRenderingOff = state.Value;
+                _renderingStates.Clear();
+                return;
+            }
+
+            var renderers = new HashSet<Renderer>(GetComponentsInChildren<Renderer>(true));
+            var model = GetComponent<ModelLocator>()?.modelTransform;
+            if (model != null)
+                renderers.UnionWith(model.GetComponentsInChildren<Renderer>(true));
+            foreach (var renderer in renderers)
+            {
+                if (renderer == null) continue;
+                if (!_renderingStates.ContainsKey(renderer))
+                    _renderingStates.Add(renderer, renderer.forceRenderingOff);
+                renderer.forceRenderingOff = true;
+            }
+        }
 
         public Collider[] GetColliders()
         {

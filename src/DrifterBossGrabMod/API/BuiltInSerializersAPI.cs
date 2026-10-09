@@ -523,7 +523,7 @@ namespace DrifterBossGrabMod.API
             }
             state[prefix + "itemStacks"] = itemStacks;
 
-            var equipment = inventory.GetEquipment(0, 0);
+            var equipment = inventory.GetEquipment(EquipmentLocation.zero);
             if (equipment.equipmentIndex != EquipmentIndex.None)
             {
                 state[prefix + "equipmentIndex"] = (int)equipment.equipmentIndex;
@@ -555,8 +555,7 @@ namespace DrifterBossGrabMod.API
             {
                 var eqIndex = (EquipmentIndex)Convert.ToInt32(eqIndexObj);
                 var charges = state.TryGetValue(prefix + "equipmentCharges", out var eqCharges) ? Convert.ToInt32(eqCharges) : 0;
-                inventory.SetEquipmentIndex(eqIndex, false);
-                inventory.SetEquipment(new EquipmentState(eqIndex, Run.FixedTimeStamp.now, (byte)charges), 0, 0);
+                inventory.SetEquipment(new EquipmentState(eqIndex, Run.FixedTimeStamp.now, (byte)charges), EquipmentLocation.zero);
             }
 
             if (state.TryGetValue(prefix + "infusionBonus", out var infusionBonus))

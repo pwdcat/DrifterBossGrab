@@ -14,6 +14,7 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.Run_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.DrifterBagController_AssignPassenger)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_ScanForTarget_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ReaperSecondPhaseSpawnTransition_ToggleShriekParameters_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
@@ -44,6 +45,11 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.CharacterSpawnPatches.CharacterMaster_OnBodyStart)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.DirectorCore_TrySpawnObject_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.TrialGongInteraction_OnIncomingDamageServer_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_OnSyncPassenger_Gong_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.VehicleSeat_OnPassengerEnter_Gong_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_ImpactBehavior_Gong_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.VehicleSeat_RpcEjectPassenger_Gong_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.BaseCaptainSupplyDropState_OnEnter_Patch)).Patch();
 

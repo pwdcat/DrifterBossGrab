@@ -109,7 +109,16 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedMaster, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
                         }
 
-                        var spawnedBody = characterMaster?.SpawnBody(spawnedMaster.transform.position, spawnedMaster.transform.rotation);
+                        var spawnedBody = characterMaster != null && characterMaster.GetBody() == null
+                            ? characterMaster.Respawn(new CharacterMaster.RespawnArgs
+                            {
+                                spawnBodyArgs = new CharacterMaster.SpawnBodyArgs
+                                {
+                                    spawnPointPosition = spawnedMaster.transform.position,
+                                    spawnPointRotation = spawnedMaster.transform.rotation
+                                }
+                            })
+                            : null;
                         if (spawnedBody != null)
                         {
                             Log.Debug($"[ObjectSpawn] Successfully spawned body {spawnedBody.name} via master {masterName}");
@@ -190,7 +199,16 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                     Log.Debug($"[ObjectSpawn] Assigned team {characterMaster.teamIndex} to {spawnedObject.name}");
 
-                    var spawnedBody = characterMaster.SpawnBody(spawnedObject.transform.position, spawnedObject.transform.rotation);
+                    var spawnedBody = characterMaster.GetBody() == null
+                        ? characterMaster.Respawn(new CharacterMaster.RespawnArgs
+                        {
+                            spawnBodyArgs = new CharacterMaster.SpawnBodyArgs
+                            {
+                                spawnPointPosition = spawnedObject.transform.position,
+                                spawnPointRotation = spawnedObject.transform.rotation
+                            }
+                        })
+                        : null;
 
                     if (spawnedBody != null && objData.PrefabName.EndsWith("Body"))
                     {

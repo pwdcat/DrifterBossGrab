@@ -27,23 +27,16 @@ namespace DrifterBossGrabMod.Patches
 
             var stateMachines = teleporter.GetComponents<EntityStateMachine>();
             var esm = stateMachines.FirstOrDefault(esm => esm.customName == "Body") ?? teleporter.GetComponent<EntityStateMachine>();
+            bool wasCharged = teleporter.isCharged;
             if (esm != null)
             {
                 Log.Debug($"[TeleporterPatches.State] Current State: {esm.state?.GetType().Name ?? "null"}, ActivationState: {teleporter.activationState}, shrineBonusStacks={teleporter.shrineBonusStacks}");
             }
 
-            if (esm != null && teleporter.isInFinalSequence)
+            if (NetworkServer.active && esm != null && teleporter.isInFinalSequence)
             {
-                var chargedStateType = typeof(TeleporterInteraction).GetNestedType("ChargedState", BindingFlags.NonPublic);
-                if (chargedStateType != null)
-                {
-                    var chargedState = System.Activator.CreateInstance(chargedStateType) as EntityStates.EntityState;
-                    if (chargedState != null)
-                    {
-                        Log.Debug($"[TeleporterPatches.State] Teleporter is in FinishedState. Kicking back to ChargedState to allow re-interaction.");
-                        esm.SetNextState(chargedState);
-                    }
-                }
+                Log.Debug("[TeleporterPatches.State] Returning finished persisted teleporter to Charged for re-interaction.");
+                esm.SetNextState(new TeleporterInteraction.ChargedState());
             }
 
             var exitController = teleporter.GetComponent<RoR2.SceneExitController>();
@@ -65,7 +58,10 @@ namespace DrifterBossGrabMod.Patches
                 var holdout = teleporter.GetComponent<RoR2.HoldoutZoneController>();
                 if (holdout != null)
                 {
-                    holdout.Network_charge = 0f;
+                    if (NetworkServer.active)
+                    {
+                        holdout.Network_charge = wasCharged ? 1f : 0f;
+                    }
 
                     object? velocityValue = ReflectionCache.HoldoutZoneController.RadiusVelocity?.GetValue(holdout);
                     float velocity = (velocityValue is float f) ? f : 0f;
@@ -78,7 +74,7 @@ namespace DrifterBossGrabMod.Patches
 
                     holdout.enabled = teleporter.isCharging;
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Debug($"[TeleporterPatches.HoldoutZone] Reset charge/radius for {teleporter.name} (Enabled: {holdout.enabled})");
+                        Log.Debug($"[TeleporterPatches.HoldoutZone] Restored charge/radius for {teleporter.name} (Charge: {holdout.charge}, Enabled: {holdout.enabled})");
                 }
 
                 var locker = teleporter.GetComponent<RoR2.OutsideInteractableLocker>();
@@ -86,17 +82,9 @@ namespace DrifterBossGrabMod.Patches
                 {
                     try
                     {
-                        float oldRadius = locker.radius;
-                        Object.DestroyImmediate(locker);
-
-                        var newLocker = teleporter.gameObject.AddComponent<RoR2.OutsideInteractableLocker>();
-                        if (newLocker != null)
-                        {
-                            newLocker.radius = oldRadius;
-                            newLocker.enabled = teleporter.isCharging;
-                        }
+                        locker.enabled = teleporter.isCharging;
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Debug("[TeleporterPatches] Replaced OutsideInteractableLocker with fresh instance.");
+                            Log.Debug("[TeleporterPatches] Reused OutsideInteractableLocker and refreshed its enabled state.");
                     }
                     catch (System.Exception ex) { Log.Error($"[TeleporterPatches] Locker nuclear reset error: {ex.Message}"); }
                 }

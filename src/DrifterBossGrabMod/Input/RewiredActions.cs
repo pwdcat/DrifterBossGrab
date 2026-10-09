@@ -10,7 +10,19 @@ namespace DrifterBossGrabMod.Input
         public static RewiredActions ScrollBagUp { get; }
         public static RewiredActions ScrollBagDown { get; }
 
-        public int ActionId { get; internal set; }
+        private int _actionId;
+        public int ActionId
+        {
+            get => _actionId;
+            internal set
+            {
+                if (_actionId == value) return;
+                _actionId = value;
+                _defaultJoystickMap = null;
+                _defaultKeyboardMap = null;
+                _inputAction = null;
+            }
+        }
         public string Name { get; private set; } = "";
         public string DisplayToken { get; private set; } = "";
         public KeyboardKeyCode DefaultKeyboardKey { get; private set; }
@@ -30,7 +42,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagUp",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_UP",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 16
+                DefaultJoystickKey = 17
             };
 
             ScrollBagDown = new RewiredActions
@@ -39,7 +51,7 @@ namespace DrifterBossGrabMod.Input
                 Name = "ScrollBagDown",
                 DisplayToken = "DRIFTERBOSSGRAB_SCROLL_BAG_DOWN",
                 DefaultKeyboardKey = KeyboardKeyCode.None,
-                DefaultJoystickKey = 18
+                DefaultJoystickKey = 19
             };
         }
 

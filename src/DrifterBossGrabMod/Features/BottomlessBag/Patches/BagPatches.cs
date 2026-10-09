@@ -318,6 +318,9 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static bool Prefix(DrifterBagController __instance, GameObject passengerObject)
             {
+                if (passengerObject != null && !PluginConfig.IsBlacklisted(passengerObject.name))
+                    Core.EnvironmentCarryState.Prepare(passengerObject);
+
                 if (passengerObject != null)
                 {
                     var state = GetState(__instance);
@@ -724,8 +727,11 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
         {
+            if (__instance.GetComponentInParent<DrifterBagController>() != null)
+                Core.EnvironmentCarryState.Prepare(passenger);
             VehicleSeat_OnPassengerExit_Patch.SanitizePassengerSpecialAttributes(passenger);
         }
+
     }
 
     [HarmonyPatch(typeof(RoR2.VehicleSeat), "OnPassengerExit")]

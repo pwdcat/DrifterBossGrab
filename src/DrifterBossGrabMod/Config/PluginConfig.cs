@@ -304,14 +304,20 @@ namespace DrifterBossGrabMod
                 HudElementType.StatsPanel
             },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.VERTICAL_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSEL_ORIENTATION.CHOICE"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ITEM_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_INACTIVITY_FADE.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DELAY_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DURATION_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVE_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
@@ -322,6 +328,7 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
@@ -713,6 +720,8 @@ namespace DrifterBossGrabMod
             slot == HudElementType.MainSlot ? Instance.CenterSlotOpacity : Instance.SideSlotOpacity;
         public static ConfigEntry<bool> GetSlotShowIconConfig(HudElementType slot) =>
             slot == HudElementType.MainSlot ? Instance.CenterSlotShowIcon : Instance.SideSlotShowIcon;
+        public static ConfigEntry<bool> GetSlotShowBackgroundConfig(HudElementType slot) =>
+            slot == HudElementType.MainSlot ? Instance.CenterSlotShowBackground : Instance.SideSlotShowBackground;
         public static ConfigEntry<bool> GetSlotShowWeightIconConfig(HudElementType slot) =>
             slot == HudElementType.MainSlot ? Instance.CenterSlotShowWeightIcon : Instance.SideSlotShowWeightIcon;
         public static ConfigEntry<bool> GetSlotShowNameConfig(HudElementType slot) =>

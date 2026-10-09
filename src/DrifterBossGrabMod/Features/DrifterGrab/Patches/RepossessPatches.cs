@@ -31,7 +31,12 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 float mass = 0f;
-                if (targetObject.TryGetComponent<CharacterBody>(out var body))
+                if (targetObject.TryGetComponent<TrialGongInteraction>(out _))
+                {
+                    mass = targetObject.TryGetComponent<SpecialObjectAttributes>(out var gongAttributes) && gongAttributes.massOverride > 0f
+                        ? gongAttributes.massOverride : Constants.Limits.RitualGongMass;
+                }
+                else if (targetObject.TryGetComponent<CharacterBody>(out var body))
                 {
                     GameObject? prefab = null;
 #if DEBUG

@@ -74,6 +74,8 @@ namespace DrifterBossGrabMod.UI
 
         private CanvasGroup? _rootCanvasGroup;
         private float _timeSinceLastActivity = 0f;
+        private int _lastPassengerStateHash;
+        private bool _hasPassengerStateHash;
 
         public void ResetInactivityTimer()
         {
@@ -302,7 +304,6 @@ namespace DrifterBossGrabMod.UI
         // ========================================================================================
         public void PopulateCarousel(int direction = 0)
         {
-            ResetInactivityTimer();
             DrifterBagController? bagController = GetOrRefreshBagController();
 
             if (bagController == null)
@@ -368,6 +369,22 @@ namespace DrifterBossGrabMod.UI
             if (mainPassenger != null && !passengerList.Contains(mainPassenger))
             {
                 mainPassenger = null;
+            }
+
+            unchecked
+            {
+                int stateHash = passengerList.Count;
+                for (int i = 0; i < passengerList.Count; i++)
+                {
+                    stateHash = (stateHash * 397) ^ (passengerList[i] ? passengerList[i].GetInstanceID() : 0);
+                }
+                stateHash = (stateHash * 397) ^ (mainPassenger != null ? mainPassenger.GetInstanceID() : 0);
+                if (!_hasPassengerStateHash || stateHash != _lastPassengerStateHash || direction != 0)
+                {
+                    ResetInactivityTimer();
+                    _lastPassengerStateHash = stateHash;
+                    _hasPassengerStateHash = true;
+                }
             }
 
             int currentIndex = -1;
@@ -450,7 +467,7 @@ namespace DrifterBossGrabMod.UI
             Dictionary<GameObject?, int> passengerToIndex = new();
             for (int pi = 0; pi < passengerList.Count; pi++)
             {
-                passengerToIndex[passengerList[pi]] = pi + 1;
+                passengerToIndex[passengerList[pi]] = pi;
             }
 
             float sideScaleVal = PluginConfig.Instance.SideSlotScale.Value;
@@ -1286,9 +1303,9 @@ namespace DrifterBossGrabMod.UI
 
             if (slotNumberTmp && badgeTransform)
             {
-                if (slotIndex > 0)
+                if (slotIndex >= 0 && slotIndex < totalCount)
                 {
-                    slotNumberTmp.text = $"{slotIndex}";
+                    slotNumberTmp.text = $"{slotIndex + 1}";
                     bool isCenter = slot == centerInstance;
                     bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
                     badgeTransform.gameObject.SetActive(showSlotNumber);

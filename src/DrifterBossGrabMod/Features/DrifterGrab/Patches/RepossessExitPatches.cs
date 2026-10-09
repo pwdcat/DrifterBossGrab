@@ -52,10 +52,8 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
-            private static GameObject? originalChosenTarget;
-
             [HarmonyPrefix]
-            public static bool Prefix(RepossessExit __instance)
+            public static bool Prefix(RepossessExit __instance, out GameObject? __state)
             {
                 var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
                 if (chosenTarget == null)
@@ -71,46 +69,46 @@ namespace DrifterBossGrabMod.Patches
                     else
                     {
                         Log.Warning($"[RepossessExit Prefix] chosenTarget is null from {__instance.GetType().Name}");
-                        originalChosenTarget = null;
+                        __state = null;
                         return true;
                     }
                 }
-                originalChosenTarget = chosenTarget;
+                __state = chosenTarget;
 
                 StoreOriginalTarget(__instance, chosenTarget);
 
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     var bagController = __instance.outer?.GetComponent<DrifterBagController>();
-                    Log.Debug($" RepossessExit Prefix: originalChosenTarget = {originalChosenTarget}.");
+                    Log.Debug($" RepossessExit Prefix: originalChosenTarget = {__state}.");
                     Log.Debug($"[RepossessExit Prefix] EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}, hasAuthority={bagController?.hasAuthority}");
                 }
                 return true;
             }
 
             [HarmonyPostfix]
-            public static void Postfix(RepossessExit __instance)
+            public static void Postfix(RepossessExit __instance, GameObject? __state)
             {
 
                 if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                     return;
                 var chosenTarget = _chosenTargetField?.GetValue(__instance) as GameObject;
-                if (chosenTarget == null && originalChosenTarget == null)
+                if (chosenTarget == null && __state == null)
                 {
                     Log.Warning($"[RepossessExit Postfix] chosenTarget is null from {__instance.GetType().Name}");
                     return;
                 }
-                Log.Debug($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {originalChosenTarget}.");
+                Log.Debug($" RepossessExit Postfix: chosenTarget = {chosenTarget}, originalChosenTarget = {__state}.");
 
-                if (chosenTarget == null && originalChosenTarget != null && PluginConfig.IsGrabbable(originalChosenTarget))
+                if (chosenTarget == null && __state != null && PluginConfig.IsGrabbable(__state))
                 {
-                    _chosenTargetField?.SetValue(__instance, originalChosenTarget);
+                    _chosenTargetField?.SetValue(__instance, __state);
                     _activatedHitpauseField?.SetValue(__instance, true);
-                    chosenTarget = originalChosenTarget;
+                    chosenTarget = __state;
                 }
-                else if (chosenTarget == null && originalChosenTarget != null)
+                else if (chosenTarget == null && __state != null)
                 {
-                    var component2 = originalChosenTarget.GetComponent<CharacterBody>();
+                    var component2 = __state.GetComponent<CharacterBody>();
                     Log.Debug($" Checking body: {component2}, ungrabbable: {component2 && component2.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable)}");
                     if (component2)
                     {
@@ -129,30 +127,30 @@ namespace DrifterBossGrabMod.Patches
                         Log.Debug($" Body {component2.name}: isBoss={isBoss}, isElite={isElite}, ungrabbable={isUngrabbable}, isStandardRejected={isStandardNPCRejectedByVanilla}, canGrab={canGrab}, isBlacklisted={isBlacklisted}");
                         if (canGrab && !isBlacklisted)
                         {
-                            _chosenTargetField?.SetValue(__instance, originalChosenTarget);
+                            _chosenTargetField?.SetValue(__instance, __state);
                             _activatedHitpauseField?.SetValue(__instance, true);
-                            chosenTarget = originalChosenTarget;
+                            chosenTarget = __state;
                         }
                     }
                 }
 
-                if (originalChosenTarget != null)
+                if (__state != null)
                 {
 
                     if (!NetworkServer.active && NetworkClient.active)
                     {
 
-                        if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(originalChosenTarget))
+                        if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(__state))
                         {
-                            Log.Warning($"[RepossessExit Postfix] Blocking grab request for {originalChosenTarget.name} - object is currently undergoing throw operation");
+                            Log.Warning($"[RepossessExit Postfix] Blocking grab request for {__state.name} - object is currently undergoing throw operation");
                             return;
                         }
 
                         var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                         if (bagController != null)
                         {
-                            Log.Debug($"[RepossessExit Postfix] Sending grab request to host for {originalChosenTarget.name}");
-                            CycleNetworkHandler.SendGrabObjectRequest(bagController, originalChosenTarget);
+                            Log.Debug($"[RepossessExit Postfix] Sending grab request to host for {__state.name}");
+                            CycleNetworkHandler.SendGrabObjectRequest(bagController, __state);
                         }
                     }
                 }

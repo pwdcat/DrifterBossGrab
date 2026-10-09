@@ -17,6 +17,17 @@ namespace DrifterBossGrabMod
             if (obj == null) return;
             try
             {
+                if (obj.GetComponent<CharacterBody>() != null)
+                {
+                    string bodyName = obj.name.Replace(Constants.CloneSuffix, "");
+                    if (bodyName == "ReaperBody" || bodyName == "ReaperBossBody" ||
+                        bodyName == "ReaperBossMalachiteBody" || bodyName == "LilReaperBody")
+                    {
+                        var cache = obj.GetComponent<BodyColliderCache>();
+                        if (cache == null && !isVisible) cache = obj.AddComponent<BodyColliderCache>();
+                        cache?.SetModelVisibility(isVisible);
+                    }
+                }
                 var modelLocator = obj.GetComponent<RoR2.ModelLocator>();
                 if (modelLocator != null && modelLocator.modelTransform != null)
                 {
@@ -49,6 +60,8 @@ namespace DrifterBossGrabMod
 
                 if (specialAttrs != null)
                 {
+                    if (obj.GetComponent<AccessCodesNodeController>() != null)
+                        Core.EnvironmentCarryState.Prepare(obj);
                     if (specialAttrs.renderersToDisable != null)
                     {
                         foreach (var renderer in specialAttrs.renderersToDisable)

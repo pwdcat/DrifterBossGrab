@@ -95,9 +95,9 @@ namespace DrifterBossGrabMod.Input
             if (loadUserProfiles != null)
                 harmony.Patch(loadUserProfiles, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnLoadUserProfiles)));
 
-            var settingsStart = AccessTools.Method(typeof(SettingsPanelController), "Start");
-            if (settingsStart != null)
-                harmony.Patch(settingsStart, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnSettingsPanelStart)));
+            var settingsAwake = AccessTools.Method(typeof(SettingsPanelController), "Awake");
+            if (settingsAwake != null)
+                harmony.Patch(settingsAwake, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnSettingsPanelAwake)));
 
             var getStringMethod = AccessTools.Method(typeof(Language), nameof(Language.GetString), new[] { typeof(string) });
             if (getStringMethod != null)
@@ -213,6 +213,7 @@ namespace DrifterBossGrabMod.Input
                     var existingByName = self.actions.Find(a => a.name == action.Name);
                     if (existingByName != null)
                     {
+                        action.ActionId = existingByName.id;
                         Log.Debug($"[InputSetup] Action '{action.Name}' already registered (id={existingByName.id}). Skipping.");
                         continue;
                     }
@@ -294,31 +295,32 @@ namespace DrifterBossGrabMod.Input
         // ========================================================================================
         // SETTINGS UI
         // ========================================================================================
-        private static void OnSettingsPanelStart(SettingsPanelController __instance)
+        private static void OnSettingsPanelAwake(SettingsPanelController __instance)
         {
-            if (__instance.name == "SettingsSubPanel, Controls (M&KB)" || __instance.name == "SettingsSubPanel, Controls (Gamepad)")
+            var bindingControls = __instance.GetComponentsInChildren<InputBindingControl>(true);
+            foreach (var jumpBinding in bindingControls.Where(control => control.actionName == "Jump"))
             {
-                var jumpBindingTransform = __instance.transform.Find("Scroll View/Viewport/VerticalLayout/SettingsEntryButton, Binding (Jump)");
-                if (jumpBindingTransform != null)
-                {
-                    AddActionBindingToSettings(RewiredActions.ScrollBagUp.Name, jumpBindingTransform);
-                    AddActionBindingToSettings(RewiredActions.ScrollBagDown.Name, jumpBindingTransform);
-                    Log.Debug($"[InputSetup] Added keybind entries to {__instance.name}");
-                }
-                else
-                {
-                    Log.Warning($"[InputSetup] Could not find Jump binding transform in {__instance.name}");
-                }
+                AddActionBindingToSettings(RewiredActions.ScrollBagUp.Name, jumpBinding.transform);
+                AddActionBindingToSettings(RewiredActions.ScrollBagDown.Name, jumpBinding.transform);
             }
         }
 
         private static void AddActionBindingToSettings(string actionName, Transform buttonToCopy)
         {
+            var existingBindings = buttonToCopy.parent.GetComponentsInChildren<InputBindingControl>(true);
+            var templateBinding = buttonToCopy.GetComponent<InputBindingControl>();
+            if (existingBindings.Any(control => control.actionName == actionName && control.inputSource == templateBinding.inputSource))
+            {
+                return;
+            }
+
             var inputBindingObject = UnityEngine.Object.Instantiate(buttonToCopy, buttonToCopy.parent);
+            inputBindingObject.name = $"SettingsEntryButton, Binding ({actionName})";
             var inputBindingControl = inputBindingObject.GetComponent<InputBindingControl>();
             inputBindingControl.actionName = actionName;
 
             inputBindingControl.Awake();
+            Log.Debug($"[InputSetup] Added {actionName} binding entry for {inputBindingControl.inputSource} in {buttonToCopy.parent.name}");
         }
 
         // ========================================================================================
@@ -356,12 +358,10 @@ namespace DrifterBossGrabMod.Input
         {
             foreach (var (_, map) in userProfile.HardwareJoystickMaps2)
             {
-                if (map.AllMaps.All(m => m.actionId != action.ActionId))
-                {
-                    map.CreateElementMap(action.DefaultJoystickMap.actionId, action.DefaultJoystickMap.axisContribution, action.DefaultJoystickMap.elementIdentifierId, action.DefaultJoystickMap.elementType, action.DefaultJoystickMap.axisRange, action.DefaultJoystickMap.invert);
-                    ApplyElementMapToControllerMap(action.DefaultJoystickMap, map);
-                }
+                AddJoystickBinding(action, map);
             }
+
+            AddJoystickBinding(action, userProfile.joystickMap);
 
             if (action.DefaultKeyboardKey != KeyboardKeyCode.None)
             {
@@ -371,6 +371,16 @@ namespace DrifterBossGrabMod.Input
                     resultMap._keyboardKeyCode = action.DefaultKeyboardKey;
                     ApplyElementMapToControllerMap(action.DefaultKeyboardMap, userProfile.keyboardMap);
                 }
+            }
+        }
+
+        private static void AddJoystickBinding(RewiredActions action, ControllerMap map)
+        {
+            if (map.AllMaps.All(m => m.actionId != action.ActionId))
+            {
+                var elementMap = action.DefaultJoystickMap;
+                map.CreateElementMap(elementMap.actionId, elementMap.axisContribution, elementMap.elementIdentifierId, elementMap.elementType, elementMap.axisRange, elementMap.invert);
+                ApplyElementMapToControllerMap(elementMap, map);
             }
         }
     }

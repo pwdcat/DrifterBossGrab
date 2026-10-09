@@ -608,6 +608,27 @@ namespace DrifterBossGrabMod.Patches
         // ========================================================================================
         // SPECIAL OBJECT ATTRIBUTES PATCHES
         // ========================================================================================
+        [HarmonyPatch(typeof(TrialGongInteraction), nameof(TrialGongInteraction.OnIncomingDamageServer))]
+        public class TrialGongInteraction_OnIncomingDamageServer_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(DamageInfo damageInfo)
+            {
+                if (!damageInfo.attacker || damageInfo.inflictedHurtbox)
+                    return true;
+
+                if (damageInfo.damage == 0f && damageInfo.damageType.damageType == DamageType.Stun1s &&
+                    damageInfo.inflictor == damageInfo.attacker &&
+                    damageInfo.attacker.GetComponent<DrifterBagController>() != null)
+                {
+                    damageInfo.rejected = true;
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
         [HarmonyPatch(typeof(SpecialObjectAttributes), "Start")]
         public class SpecialObjectAttributes_Start_Patch
         {

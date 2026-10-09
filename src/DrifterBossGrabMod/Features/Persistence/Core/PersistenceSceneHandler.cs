@@ -948,6 +948,26 @@ namespace DrifterBossGrabMod
 
             var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
 
+            if (duringSceneRestoration && NetworkServer.active && teleporterInteraction == null)
+            {
+                var interaction = obj.GetComponent<GenericInteraction>();
+                var exitController = obj.GetComponent<SceneExitController>();
+                if (interaction != null && exitController != null)
+                {
+                    for (int i = 0; i < interaction.onActivation.GetPersistentEventCount(); i++)
+                    {
+                        if (interaction.onActivation.GetPersistentTarget(i) != exitController ||
+                            interaction.onActivation.GetPersistentMethodName(i) != nameof(SceneExitController.Begin)) continue;
+                        AccessTools.Method(typeof(SceneExitController), "CleanupLoadModifiers")?.Invoke(exitController, null);
+                        exitController.SetState(SceneExitController.ExitState.Idle);
+                        if (interaction.interactability == Interactability.Disabled)
+                            interaction.SetInteractabilityAvailable();
+                        Log.Debug($"[HandleSpecialObjectRestoration] Reset persisted portal interaction for {obj.name}");
+                        break;
+                    }
+                }
+            }
+
             string objName = obj.name.ToLower();
 
             Log.Debug($" Checking for TeleporterInteraction on persisted object {obj.name}");
