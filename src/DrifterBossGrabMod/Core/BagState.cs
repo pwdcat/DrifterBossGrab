@@ -19,6 +19,28 @@ namespace DrifterBossGrabMod.Core
 
         public ConcurrentDictionary<GameObject, VehicleSeat> AdditionalSeats { get; set; } = new ConcurrentDictionary<GameObject, VehicleSeat>();
 
+        public int EmptySlotIndex { get; set; } = -1;
+
+        public int GetEmptySlotIndex(int count) => EmptySlotIndex < 0 ? count : Mathf.Clamp(EmptySlotIndex, 0, count);
+
+        public int InsertGrabbedObject(GameObject passenger)
+        {
+            int index = GetEmptySlotIndex(BaggedObjects.Count);
+            BaggedObjects.Insert(index, passenger);
+            if (EmptySlotIndex >= 0) EmptySlotIndex = index + 1;
+            AddInstanceId(passenger.GetInstanceID());
+            return index;
+        }
+
+        public int ToSequenceIndex(int objectIndex, int count)
+            => objectIndex < GetEmptySlotIndex(count) ? objectIndex : objectIndex + 1;
+
+        public int ToObjectIndex(int sequenceIndex, int count)
+        {
+            int empty = GetEmptySlotIndex(count);
+            return sequenceIndex == empty ? -1 : sequenceIndex < empty ? sequenceIndex : sequenceIndex - 1;
+        }
+
         public GameObject? MainSeatObject { get; set; }
 
         public GameObject? IncomingObject { get; set; }

@@ -13,11 +13,14 @@ namespace DrifterBossGrabMod.Patches
     public static class AdditionalSeatManager
     {
 
-        public static void CopySeatProperties(RoR2.VehicleSeat source, RoR2.VehicleSeat target)
+        public static void CopySeatProperties(RoR2.VehicleSeat source, RoR2.VehicleSeat target, bool copyPositions = true)
         {
             if (source == null || target == null) return;
-            target.seatPosition = source.seatPosition;
-            target.exitPosition = source.exitPosition;
+            if (copyPositions)
+            {
+                target.seatPosition = source.seatPosition;
+                target.exitPosition = source.exitPosition;
+            }
             target.ejectOnCollision = source.ejectOnCollision;
             target.hidePassenger = source.hidePassenger;
             target.exitVelocityFraction = source.exitVelocityFraction;
@@ -83,8 +86,8 @@ namespace DrifterBossGrabMod.Patches
             var newSeat = seatObject.GetComponent<RoR2.VehicleSeat>();
             if (newSeat == null) newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
 
-            NetworkServer.Spawn(seatObject);
             CopySeatProperties(vehicleSeat, newSeat);
+            NetworkServer.Spawn(seatObject);
             return newSeat;
         }
 

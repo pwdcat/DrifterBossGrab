@@ -290,7 +290,6 @@ namespace DrifterBossGrabMod.API
                 }
             }
 
-            // Sync the bossGroup's bonusRewardCount immediately!
             var bossGroup = teleporter.GetComponent<RoR2.BossGroup>() ?? teleporter.bossGroup;
             if (bossGroup != null)
             {

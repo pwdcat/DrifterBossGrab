@@ -551,6 +551,16 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
         }
+        [HarmonyPatch(typeof(NetworkIdentity), "OnStartClient")]
+        public class NetworkIdentity_OnStartClient_Patch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(NetworkIdentity __instance)
+            {
+                if (NetworkServer.active || __instance == null || !__instance.isClient) return;
+                AddSpecialObjectAttributesToGrabbableObject(__instance.gameObject);
+            }
+        }
         private static float CalculateObjectSizeMetric(GameObject obj)
         {
             if (obj == null) return 1f;

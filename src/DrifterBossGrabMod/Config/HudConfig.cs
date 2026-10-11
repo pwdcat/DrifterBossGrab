@@ -9,7 +9,16 @@ namespace DrifterBossGrabMod
         private static void InitHudConfig(ConfigFile cfg)
         {
             Instance.EnableCarouselHUD = cfg.Bind("Hud", "EnableCarouselHUD", false, "Enable the custom Carousel HUD.");
+            Instance.EnableCardReleaseAnimation = cfg.Bind("Hud", "EnableCardReleaseAnimation", true, "Animate released cards flying out of the carousel.");
+            Instance.CardReleaseDuration = cfg.Bind("Hud", "CardReleaseDuration", 0.28f, new ConfigDescription("Release animation duration in seconds.", new AcceptableValueRange<float>(0.05f, 0.8f)));
+            Instance.CardReleaseDistance = cfg.Bind("Hud", "CardReleaseDistance", 90f, new ConfigDescription("Release travel distance in HUD units.", new AcceptableValueRange<float>(0.0f, 180.0f)));
+            Instance.EnableCardDestructionAnimation = cfg.Bind("Hud", "EnableCardDestructionAnimation", true, "Shrink and fade cards when their passenger is destroyed.");
+            Instance.CardDestructionDuration = cfg.Bind("Hud", "CardDestructionDuration", 0.18f, new ConfigDescription("Destruction animation duration in seconds.", new AcceptableValueRange<float>(0.05f, 0.8f)));
+            Instance.BreakoutWarningStrength = cfg.Bind("Hud", "BreakoutWarningStrength", 5f, new ConfigDescription("Portrait wobble strength. Zero disables movement.", new AcceptableValueRange<float>(0.0f, 10.0f)));
+            Instance.EnableBreakoutWarning = cfg.Bind("Hud", "EnableBreakoutWarning", true, "Gently wobble the passenger portrait before an escape attempt.");
             Instance.CarouselOrientation = cfg.Bind("Hud", "CarouselOrientation", DrifterBossGrabMod.CarouselOrientation.Vertical, "Layout orientation for carousel items (Vertical or Horizontal).");
+            Instance.SelectedCardPlacement = cfg.Bind("Hud", "SelectedCardPlacement", SelectedCardPosition.Center, "Selected card position: Center, Start (top/left), or End (bottom/right).");
+            Instance.VisibleCardCount = cfg.Bind("Hud", "VisibleCardCount", 3, new ConfigDescription("Maximum number of visible carousel cards.", new AcceptableValueRange<int>(1, 100)));
             Instance.CarouselSpacing = cfg.Bind("Hud", "CarouselSpacing", 45.0f, "Spacing between carousel items.");
             Instance.CarouselAnimationDuration = cfg.Bind("Hud", "CarouselAnimationDuration", 0.4f, "Duration of carousel animation.");
             Instance.EnableCarouselInactivityFade = cfg.Bind("Hud", "EnableCarouselInactivityFade", false, "Fade out the carousel after a period of inactivity.");
@@ -41,13 +50,10 @@ namespace DrifterBossGrabMod
 
             Instance.SelectedHudElement = cfg.Bind("Hidden", "SelectedHudElement", HudElementType.All,
                 "Select which HUD element group to configure.");
-            Instance.SelectedHudElement.Value = HudElementType.All;
 
-            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Enable the Bagged Object Info stats panel.");
-            Instance.BaggedObjectInfoX = cfg.Bind("Hud", "BaggedObjectInfoX", 580.0f, "X position offset for stats panel.");
-            Instance.BaggedObjectInfoY = cfg.Bind("Hud", "BaggedObjectInfoY", -325.0f, "Y position offset for stats panel.");
-            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Scale for stats panel.");
-            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for stats panel.");
+            Instance.EnableBaggedObjectInfo = cfg.Bind("Hud", "EnableBaggedObjectInfo", false, "Show breakout time and extra bag details while holding Info/Tab. Requires Carousel HUD.");
+            Instance.BaggedObjectInfoScale = cfg.Bind("Hud", "BaggedObjectInfoScale", 1.0f, "Text scale for integrated carousel details.");
+            Instance.BaggedObjectInfoColor = cfg.Bind("Hud", "BaggedObjectInfoColor", new Color(1f, 1f, 1f, 0.9f), "Text color for integrated carousel details.");
             Instance.UseNewWeightIcon = cfg.Bind("Hud", "UseNewWeightIcon", false, "Use the custom weight icon.");
             Instance.WeightDisplayMode = cfg.Bind("Hud", "WeightDisplayMode", DrifterBossGrabMod.WeightDisplayMode.Multiplier, "Mode for weight display.");
             Instance.ScaleWeightColor = cfg.Bind("Hud", "ScaleWeightColor", true, "Scale weight icon color by capacity.");
@@ -55,6 +61,11 @@ namespace DrifterBossGrabMod
             Instance.ShowOverencumberIcon = cfg.Bind("Hud", "ShowOverencumberIcon", false, "Show overencumbrance icon.");
             Instance.EnableDamagePreview = cfg.Bind("Hud", "EnableDamagePreview", false, "Show damage preview overlay.");
             Instance.DamagePreviewColor = cfg.Bind("Hud", "DamagePreviewColor", new Color(1f, 0.15f, 0.15f, 0.8f), "Color for damage preview.");
+            Instance.SmoothCapacityFill = cfg.Bind("Hud", "SmoothCapacityFill", true, "Smooth changes to capacity and overencumbrance fill.");
+            Instance.CapacityFillSmoothTime = cfg.Bind("Hud", "CapacityFillSmoothTime", 0.1f, new ConfigDescription("Fill smoothing time in seconds.", new AcceptableValueRange<float>(0.02f, 0.3f)));
+            Instance.EnableCapacityFlashes = cfg.Bind("Hud", "EnableCapacityFlashes", true, "Highlight new fill and flash at capacity and overencumbrance limits.");
+            Instance.CapacityFlashStrength = cfg.Bind("Hud", "CapacityFlashStrength", 1f, new ConfigDescription("Flash strength relative to the default.", new AcceptableValueRange<float>(0.0f, 1.0f)));
+            Instance.CapacityFlashDuration = cfg.Bind("Hud", "CapacityFlashDuration", 0.32f, new ConfigDescription("Limit flash duration in seconds.", new AcceptableValueRange<float>(0.1f, 0.8f)));
             Instance.EnableMassCapacityUI = cfg.Bind("Hud", "EnableMassCapacityUI", false, "Enable the Mass Capacity UI bar.");
             Instance.MassCapacityUIPositionX = cfg.Bind("Hud", "MassCapacityUIPositionX", -20.0f, "X offset for Mass Capacity UI.");
             Instance.MassCapacityUIPositionY = cfg.Bind("Hud", "MassCapacityUIPositionY", 0.0f, "Y offset for Mass Capacity UI.");
@@ -69,7 +80,7 @@ namespace DrifterBossGrabMod
             Instance.OverencumbranceGradientColorStart = cfg.Bind("Hud", "OverencumbranceGradientColorStart", new Color(0f, 1.0f, 1.0f, 1.0f), "Start color for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorMid = cfg.Bind("Hud", "OverencumbranceGradientColorMid", new Color(0.0f, 0.0f, 0.5f, 1.0f), "Mid color for overencumbrance gradient.");
             Instance.OverencumbranceGradientColorEnd = cfg.Bind("Hud", "OverencumbranceGradientColorEnd", new Color(0.0f, 0.0f, 1.0f, 1.0f), "End color for overencumbrance gradient.");
-            Instance.IsHudEditorEnabled = cfg.Bind("Hidden", "IsHudEditorEnabled", false, "Toggle to enable the in-game HUD Editor. You MUST be in game for it to work.");
+            Instance.IsHudEditorEnabled = cfg.Bind("Hidden", "IsHudEditorEnabled", false, "Open the HUD editor. Edit your layout in a run or use sample cards from the menus.");
             Instance.IsHudEditorEnabled.Value = false;
 
             WireHudEventHandlers();
@@ -78,7 +89,10 @@ namespace DrifterBossGrabMod
         private static void WireHudEventHandlers()
         {
             Instance.EnableCarouselHUD.SettingChanged += (sender, args) => UpdateBagUIToggles();
+
             Instance.CarouselOrientation.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.SelectedCardPlacement.SettingChanged += (sender, args) => UpdateBagUIToggles();
+            Instance.VisibleCardCount.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CarouselSpacing.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.CarouselAnimationDuration.SettingChanged += (sender, args) => UpdateBagUIToggles();
             Instance.EnableCarouselInactivityFade.SettingChanged += (sender, args) => UpdateBagUIToggles();

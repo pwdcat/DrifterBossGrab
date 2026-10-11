@@ -10,6 +10,7 @@ namespace DrifterBossGrabMod
         protected override void ApplyPatches(Harmony harmony)
         {
             harmony.CreateClassProcessor(typeof(Patches.TeleporterPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.TeleporterPatches.PositionIndicatorPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BossGroupPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.TeleporterSafetyPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.CombatDirectorPatches)).Patch();

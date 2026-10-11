@@ -63,14 +63,15 @@ namespace DrifterBossGrabMod.Core
                 {
                     preservedBreakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(currentBaggedObject);
                 }
-                if (ReflectionCache.EntityState.FixedAge != null)
+                if (ReflectionCache.BaggedObject.BreakoutTimer != null)
                 {
-                    preservedElapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(currentBaggedObject);
+                    preservedElapsedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTimer.GetValue(currentBaggedObject);
                 }
             }
 
             var additionalTimer = targetObject.GetComponent<Patches.AdditionalSeatBreakoutTimer>();
-            if (additionalTimer != null)
+            if (additionalTimer != null && additionalTimer.isActiveAndEnabled &&
+                BagHelpers.GetAdditionalSeat(controller, targetObject) != null)
             {
                 shouldPreserve = true;
                 preservedBreakoutTime = additionalTimer.breakoutTime;
@@ -99,15 +100,9 @@ namespace DrifterBossGrabMod.Core
                 {
                     state.breakoutTime = preservedBreakoutTime;
                 }
-                if (preservedBreakoutAttempts > 0f || state.breakoutAttempts == 0f)
-                {
-                    state.breakoutAttempts = preservedBreakoutAttempts;
-                }
+                state.breakoutAttempts = preservedBreakoutAttempts;
 
-                if (preservedElapsedBreakoutTime > state.elapsedBreakoutTime)
-                {
-                    state.elapsedBreakoutTime = preservedElapsedBreakoutTime;
-                }
+                state.elapsedBreakoutTime = preservedElapsedBreakoutTime;
             }
 
             return state;
@@ -137,19 +132,11 @@ namespace DrifterBossGrabMod.Core
                 {
                     preservedBreakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(currentBaggedObject);
                 }
-                if (ReflectionCache.EntityState.FixedAge != null)
+                if (ReflectionCache.BaggedObject.BreakoutTimer != null)
                 {
-                    preservedElapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(currentBaggedObject);
+                    preservedElapsedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTimer.GetValue(currentBaggedObject);
                 }
 
-                if (currentBaggedObject.targetObject != null)
-                {
-                    var msStoredState = BaggedObjectPatches.LoadObjectState(controller, currentBaggedObject.targetObject);
-                    if (msStoredState != null && msStoredState.elapsedBreakoutTime > preservedElapsedBreakoutTime)
-                    {
-                        preservedElapsedBreakoutTime = msStoredState.elapsedBreakoutTime;
-                    }
-                }
             }
 
             var aggregateState = new BaggedObjectStateData();

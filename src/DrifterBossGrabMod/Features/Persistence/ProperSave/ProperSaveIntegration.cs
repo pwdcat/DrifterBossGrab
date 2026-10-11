@@ -537,7 +537,7 @@ namespace DrifterBossGrabMod.ProperSave
             }
             else if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Warning($"[ProperSaveIntegration] No serializers handled {obj.name}!");
+                Log.Warning($"[ProperSaveIntegration] No serializers handled {obj.name}.");
             }
 
             return objData;

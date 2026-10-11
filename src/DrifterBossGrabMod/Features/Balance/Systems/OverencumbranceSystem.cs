@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
+using UnityEngine.Networking;
 using DrifterBossGrabMod.Patches;
 
 namespace DrifterBossGrabMod.Balance
@@ -13,6 +14,7 @@ namespace DrifterBossGrabMod.Balance
     public static class OverencumbranceSystem
     {
         private const float OverencumbranceDebuffRemovalDelay = Constants.Timeouts.OverencumbranceDebuffRemovalDelay;
+        private static readonly HashSet<CharacterBody> _ownedDebuffs = new();
         private static readonly Dictionary<CharacterBody, Coroutine> _overencumbranceTimers = new Dictionary<CharacterBody, Coroutine>();
 
         public static float CalculateOverencumbrancePercent(float totalMass, float massCapacity)
@@ -31,7 +33,7 @@ namespace DrifterBossGrabMod.Balance
 
         public static void ApplyOverencumbrance(CharacterBody body, DrifterBagController bagController)
         {
-            if (body == null || bagController == null) return;
+            if (!NetworkServer.active || body == null || bagController == null) return;
 
             float totalMass = GetTotalMass(bagController);
 
@@ -42,7 +44,7 @@ namespace DrifterBossGrabMod.Balance
             if (overencumbrancePercent <= 0)
             {
 
-                if (body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
+                if (_ownedDebuffs.Contains(body) && body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
                 {
                     StartRemovalTimer(body);
 
@@ -65,7 +67,7 @@ namespace DrifterBossGrabMod.Balance
         {
             if (body == null) return;
 
-            StopRemovalTimer(body);
+            if (_overencumbranceTimers.ContainsKey(body)) return;
 
             Coroutine timerCoroutine = body.StartCoroutine(RemovalTimerCoroutine(body));
             _overencumbranceTimers[body] = timerCoroutine;
@@ -91,9 +93,9 @@ namespace DrifterBossGrabMod.Balance
         {
             yield return new WaitForSeconds(OverencumbranceDebuffRemovalDelay);
 
-            if (body != null && body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
+            if (body != null)
             {
-                RemoveTransferDebuff(body);
+                if (NetworkServer.active) RemoveTransferDebuff(body);
                 _overencumbranceTimers.Remove(body);
 
                 Log.Debug($"[Overencumbrance] Removed debuff after {OverencumbranceDebuffRemovalDelay:F1}s");
@@ -110,14 +112,16 @@ namespace DrifterBossGrabMod.Balance
             {
 
                 body.AddBuff(transferDebuff);
+                _ownedDebuffs.Add(body);
             }
         }
 
         private static void RemoveTransferDebuff(CharacterBody body)
         {
-            if (body == null) return;
+            if (body == null || !_ownedDebuffs.Remove(body)) return;
 
-            body.RemoveBuff(DLC3Content.Buffs.TransferDebuffOnHit);
+            if (body.HasBuff(DLC3Content.Buffs.TransferDebuffOnHit))
+                body.RemoveBuff(DLC3Content.Buffs.TransferDebuffOnHit);
         }
 
         private static float GetTotalMass(DrifterBagController bagController)
@@ -129,8 +133,18 @@ namespace DrifterBossGrabMod.Balance
             return totalMass;
         }
 
+        public static void Cleanup()
+        {
+            foreach (var body in new List<CharacterBody>(_overencumbranceTimers.Keys)) StopRemovalTimer(body);
+            _overencumbranceTimers.Clear();
+            foreach (var body in new List<CharacterBody>(_ownedDebuffs))
+                if (body != null && NetworkServer.active) RemoveTransferDebuff(body);
+            _ownedDebuffs.Clear();
+        }
+
         public static void CleanupCharacterBody(CharacterBody body)
         {
+            _ownedDebuffs.Remove(body);
             if (body != null && _overencumbranceTimers.ContainsKey(body))
             {
                 StopRemovalTimer(body);

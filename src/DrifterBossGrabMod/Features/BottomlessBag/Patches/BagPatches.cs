@@ -9,6 +9,7 @@ using UnityEngine.Networking;
 using System.Reflection;
 using DrifterBossGrabMod;
 using DrifterBossGrabMod.Core;
+using DrifterBossGrabMod.Networking;
 using DrifterBossGrabMod.UI;
 using EntityStates;
 using EntityStates.Drifter.Bag;
@@ -55,6 +56,7 @@ namespace DrifterBossGrabMod.Patches
 
         public static void Schedule(DrifterBagController? controller, GameObject? newMain, float delay = 0.0f)
         {
+            if (!NetworkServer.active || !AuthorityGuard.ShouldAutoPromote(controller)) return;
             if (delay <= 0f)
             {
                 ExecutePromotionImmediate(controller, newMain);
@@ -70,7 +72,8 @@ namespace DrifterBossGrabMod.Patches
 
         private static void ExecutePromotionImmediate(DrifterBagController? controller, GameObject? newMain)
         {
-            if (controller == null || newMain == null || ProjectileRecoveryPatches.IsInProjectileState(newMain))
+            if (!NetworkServer.active || !AuthorityGuard.ShouldAutoPromote(controller) ||
+                controller == null || newMain == null || ProjectileRecoveryPatches.IsInProjectileState(newMain))
                 return;
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -151,17 +154,20 @@ namespace DrifterBossGrabMod.Patches
                         }
                     }
                 }
-                else if (controller.hasAuthority)
-                {
-                    GameObject? previousMain = BagPatches.GetMainSeatObject(controller);
-                    BagPatches.SetMainSeatObject(controller, newMain);
-                    API.DrifterBagAPI.InvokeOnMainPassengerChanged(controller, previousMain, newMain);
-                }
             }
             finally
             {
                 DrifterBossGrabPlugin._isSwappingPassengers = false;
             }
+            PublishPromotion(controller, newMain);
+        }
+
+        private static void PublishPromotion(DrifterBagController? controller, GameObject? newMain)
+        {
+            if (!NetworkServer.active || controller == null || newMain == null ||
+                BagPatches.GetMainSeatObject(controller) != newMain) return;
+            BagCarouselUpdater.UpdateNetworkBagState(controller);
+            BagCarouselUpdater.UpdateCarousel(controller);
         }
 
         private static EntityStateMachine? GetBagStateMachine(DrifterBagController controller)
@@ -186,7 +192,8 @@ namespace DrifterBossGrabMod.Patches
 
         private void ExecutePromotion()
         {
-            if (_controller != null && _newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(_newMain))
+            if (NetworkServer.active && AuthorityGuard.ShouldAutoPromote(_controller) &&
+                _controller != null && _newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(_newMain))
             {
                 var state = BagPatches.GetState(_controller);
                 bool stillInBag;
@@ -267,17 +274,12 @@ namespace DrifterBossGrabMod.Patches
                             }
                         }
                     }
-                    else if (_controller.hasAuthority)
-                    {
-                        GameObject? previousMain = BagPatches.GetMainSeatObject(_controller);
-                        BagPatches.SetMainSeatObject(_controller, _newMain);
-                        API.DrifterBagAPI.InvokeOnMainPassengerChanged(_controller, previousMain, _newMain);
-                    }
                 }
                 finally
                 {
                     DrifterBossGrabPlugin._isSwappingPassengers = false;
                 }
+                PublishPromotion(_controller, _newMain);
             }
             Destroy(gameObject);
         }
@@ -384,16 +386,6 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                if (body != null && body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable))
-                {
-                    var bagState = GetState(__instance);
-                    if (!bagState.DisabledCollidersByObject.ContainsKey(passengerObject))
-                    {
-                        bagState.DisabledCollidersByObject[passengerObject] = new Dictionary<Collider, bool>();
-                    }
-                    BodyColliderCache.DisableMovementColliders(passengerObject, bagState.DisabledCollidersByObject[passengerObject]);
-                }
-
                 var teleporterInteraction = passengerObject.GetComponent<RoR2.TeleporterInteraction>();
                 if (teleporterInteraction != null)
                 {
@@ -481,8 +473,7 @@ namespace DrifterBossGrabMod.Patches
                 var list = state.BaggedObjects;
                 if (!state.ContainsInstanceId(passengerObject.GetInstanceID()))
                 {
-                    list.Add(passengerObject);
-                    state.AddInstanceId(passengerObject.GetInstanceID());
+                    int addedIndex = state.InsertGrabbedObject(passengerObject);
 
                     var netController = __instance.GetComponent<Networking.BottomlessBagNetworkController>();
                     if (netController != null)
@@ -491,7 +482,7 @@ namespace DrifterBossGrabMod.Patches
                         if (ni != null) netController.TryAddBaggedObjectId(ni.netId);
                     }
 
-                    int slotIndex = _usingAdditionalSeat ? -1 : list.Count - 1;
+                    int slotIndex = _usingAdditionalSeat ? -1 : addedIndex;
                     API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, slotIndex);
                 }
 
@@ -555,11 +546,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         var timer = passengerObject.AddComponent<AdditionalSeatBreakoutTimer>();
                         timer.controller = __instance;
-                        float mass = __instance.CalculateBaggedObjectMass(passengerObject);
-                        float finalTime = Mathf.Max(10f - 0.005f * mass, 1f) * PluginConfig.Instance.BreakoutTimeMultiplier.Value;
-                        var hc = passengerObject.GetComponent<CharacterBody>();
-                        if (hc && hc.isElite) finalTime *= 0.8f;
-                        timer.breakoutTime = finalTime;
+                        timer.breakoutTime = AdditionalSeatBreakoutTimer.CalculateInitialBreakoutTime(__instance, passengerObject);
 
                         var storedState = BaggedObjectPatches.LoadObjectState(__instance, passengerObject);
                         if (storedState != null)
@@ -578,19 +565,12 @@ namespace DrifterBossGrabMod.Patches
                         {
                             Networking.NetworkUtils.TryEnsureNetworkIdentityActive(passengerObject);
                         }
-                        var body = passengerObject.GetComponent<CharacterBody>();
-                        if (body != null)
-                        {
-                            if (!state.DisabledCollidersByObject.ContainsKey(passengerObject)) state.DisabledCollidersByObject[passengerObject] = new Dictionary<Collider, bool>();
-                            BodyColliderCache.DisableMovementColliders(passengerObject, state.DisabledCollidersByObject[passengerObject]);
-                        }
                     }
 
                     if (!state.ContainsInstanceId(passengerInstanceId))
                     {
-                        list.Add(passengerObject);
-                        state.AddInstanceId(passengerInstanceId);
-                        API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, list.Count - 1);
+                        int addedIndex = state.InsertGrabbedObject(passengerObject);
+                        API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, addedIndex);
                     }
 
                     var existingState = BaggedObjectPatches.LoadObjectState(__instance, passengerObject);
@@ -620,9 +600,8 @@ namespace DrifterBossGrabMod.Patches
                     BagHelpers.AddTracker(__instance, passengerObject);
                     if (!state.ContainsInstanceId(passengerInstanceId))
                     {
-                        list.Add(passengerObject);
-                        state.AddInstanceId(passengerInstanceId);
-                        API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, list.Count - 1);
+                        int addedIndex = state.InsertGrabbedObject(passengerObject);
+                        API.DrifterBagAPI.InvokeOnObjectGrabbed(__instance, passengerObject, addedIndex);
                     }
 
                     var existingState = BaggedObjectPatches.LoadObjectState(__instance, passengerObject);
@@ -665,7 +644,6 @@ namespace DrifterBossGrabMod.Patches
                 GetState(controller).MainSeatObject = null;
                 return null;
             }
-            Log.Debug($"[GetMainSeatObject] {controller.name}: returning {obj?.name ?? "null"}");
             return obj;
         }
     }
@@ -676,20 +654,37 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPrefix]
         public static bool Prefix(RoR2.VehicleSeat __instance, GameObject bodyObject)
         {
+            if (!NetworkServer.active && bodyObject != null && bodyObject.GetComponent<CharacterBody>() != null &&
+                __instance.GetComponentInParent<DrifterBagController>() != null) return false;
+            Core.PassengerReleaseProtection.CapturePassenger(__instance, bodyObject);
             if (!UnityEngine.Networking.NetworkServer.active && bodyObject != null)
             {
                 var drifterBagController = __instance.GetComponentInParent<DrifterBagController>();
                 if (drifterBagController != null)
                 {
 
-                    bodyObject.transform.SetParent(__instance.transform);
-                    bodyObject.transform.localPosition = Vector3.zero;
-                    bodyObject.transform.localRotation = Quaternion.identity;
+                    if (!PersistenceObjectManager.IsObjectPersisted(bodyObject))
+                    {
+                        bodyObject.transform.SetParent(__instance.transform);
+                        bodyObject.transform.localPosition = Vector3.zero;
+                        bodyObject.transform.localRotation = Quaternion.identity;
+                    }
 
                     if (__instance.disableAllCollidersAndHurtboxes)
                     {
+                        var bagState = BagPatches.GetState(drifterBagController);
+                        if (!bagState.DisabledCollidersByObject.TryGetValue(bodyObject, out var originalStates))
+                        {
+                            originalStates = new Dictionary<Collider, bool>();
+                            bagState.DisabledCollidersByObject[bodyObject] = originalStates;
+                        }
                         var allColliders = bodyObject.GetComponentsInChildren<Collider>();
-                        foreach (var collider in allColliders) if (collider != null) collider.enabled = false;
+                        foreach (var collider in allColliders)
+                        {
+                            if (collider == null) continue;
+                            if (!originalStates.ContainsKey(collider)) originalStates[collider] = collider.enabled;
+                            collider.enabled = false;
+                        }
                         var characterBody = bodyObject.GetComponent<CharacterBody>();
                         if (characterBody != null && characterBody.modelLocator != null)
                         {
@@ -741,6 +736,17 @@ namespace DrifterBossGrabMod.Patches
         public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
         {
             if (passenger == null) return;
+            if (passenger.GetComponent<CharacterBody>() != null)
+            {
+                var bag = __instance.GetComponentInParent<DrifterBagController>();
+                var owner = bag != null ? bag.GetComponent<CharacterBody>() :
+                    __instance.GetComponent<RoR2.Projectile.ProjectileController>()?.owner?.GetComponent<CharacterBody>();
+                if (owner != null)
+                {
+                    var protection = passenger.GetComponent<Core.PassengerReleaseProtection>() ?? passenger.AddComponent<Core.PassengerReleaseProtection>();
+                    protection.Begin(owner);
+                }
+            }
             SanitizePassengerSpecialAttributes(passenger);
             try
             {
@@ -774,6 +780,14 @@ namespace DrifterBossGrabMod.Patches
             {
                 Log.Error($"[OnPassengerExit.Prefix] Exception during sanitization: {ex}");
             }
+        }
+
+        [HarmonyPostfix]
+        public static void Postfix(VehicleSeat __instance, GameObject passenger)
+        {
+            if (__instance.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>() != null)
+                ProjectileRecoveryPatches.CompletePassengerFlight(passenger, __instance);
+            passenger?.GetComponent<Core.PassengerReleaseProtection>()?.Apply();
         }
 
         public static void SanitizePassengerSpecialAttributes(GameObject passenger)

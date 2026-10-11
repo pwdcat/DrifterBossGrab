@@ -62,6 +62,8 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableCarouselHUD.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselOrientation.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.VisibleCardCount.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.SelectedCardPlacement.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselAnimationDuration.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableCarouselInactivityFade.SettingChanged += configChangedHandler;
             PluginConfig.Instance.CarouselInactivityFadeDelay.SettingChanged += configChangedHandler;
@@ -133,6 +135,8 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableCarouselHUD.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselOrientation.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselSpacing.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.VisibleCardCount.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.SelectedCardPlacement.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselAnimationDuration.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableCarouselInactivityFade.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.CarouselInactivityFadeDelay.SettingChanged -= configChangedHandler;

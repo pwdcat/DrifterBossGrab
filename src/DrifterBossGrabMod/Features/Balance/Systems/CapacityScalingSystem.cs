@@ -53,7 +53,6 @@ namespace DrifterBossGrabMod.Balance
 
             if (result <= 0f && !float.IsPositiveInfinity(result))
             {
-                Log.Debug($"[CalculateMassCapacity] Formula returned {result}, mass capacity is disabled (unlimited)");
                 return float.MaxValue;
             }
 

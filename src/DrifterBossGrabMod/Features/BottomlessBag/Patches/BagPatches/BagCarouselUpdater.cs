@@ -17,6 +17,32 @@ namespace DrifterBossGrabMod.Patches
 
         internal static readonly List<UI.BaggedObjectCarousel> ActiveCarousels = new List<UI.BaggedObjectCarousel>();
 
+        internal static void AnimatePassengerExit(DrifterBagController controller, GameObject obj, bool wasDestroyed)
+        {
+            for (int i = ActiveCarousels.Count - 1; i >= 0; i--)
+            {
+                var carousel = ActiveCarousels[i];
+                if (carousel == null) continue;
+                try
+                {
+                    carousel.AnimatePassengerExit(controller, obj, wasDestroyed);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[CarouselExit] Could not animate card: {ex.Message}");
+                }
+            }
+        }
+
+        internal static void AnimatePassengerExit(DrifterBagController controller, uint passengerNetId, bool wasDestroyed)
+        {
+            for (int i = ActiveCarousels.Count - 1; i >= 0; i--)
+            {
+                var carousel = ActiveCarousels[i];
+                if (carousel != null) carousel.AnimatePassengerExit(controller, passengerNetId, wasDestroyed);
+            }
+        }
+
         private static bool IsValidBaggedObject(GameObject obj)
         {
             if (obj == null || !obj) return false;

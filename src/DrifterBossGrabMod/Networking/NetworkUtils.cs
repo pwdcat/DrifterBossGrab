@@ -25,7 +25,6 @@ namespace DrifterBossGrabMod.Networking
 
             if (obj != null)
             {
-                Log.Debug($"[NetworkUtils.{operation}] Successfully found {obj.name} (netId={netId.Value}) on {(isServer ? "server" : "client")}");
                 return obj;
             }
 

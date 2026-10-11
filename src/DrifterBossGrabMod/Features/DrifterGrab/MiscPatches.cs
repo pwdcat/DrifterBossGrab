@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RoR2;
 using RoR2.Projectile;
@@ -75,14 +76,33 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(ThrownObjectProjectileController), nameof(ThrownObjectProjectileController.ImpactBehavior))]
-        public static class ThrownObjectProjectileController_ImpactBehavior_Gong_Patch
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "CalculatePassengerFinalPosition")]
+        public static class ThrownObjectProjectileController_CalculatePassengerFinalPosition_Gong_Patch
         {
+            [HarmonyPostfix]
+            public static void Postfix(ThrownObjectProjectileController __instance, Vector3 position, ref Quaternion rotation, Quaternion ___initialRotation)
+            {
+                if (!UnityEngine.Networking.NetworkServer.active || __instance.Networkpassenger == null ||
+                    __instance.Networkpassenger.GetComponent<TrialGongInteraction>() == null) return;
+                var owner = __instance.GetComponent<ProjectileController>()?.owner;
+                var facing = owner != null ? Vector3.ProjectOnPlane(owner.transform.position - position, Vector3.up) : Vector3.zero;
+                var initialRotation = ___initialRotation;
+                rotation = facing.sqrMagnitude > 0.001f
+                    ? Quaternion.LookRotation(facing, Vector3.up)
+                    : Quaternion.Euler(0f, initialRotation.eulerAngles.y, 0f);
+            }
+        }
+
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), nameof(ThrownObjectProjectileController.ImpactBehavior))]
+        public static class ThrownObjectProjectileController_ImpactBehavior_JunkReward_Patch
+        {
+            private static readonly ConditionalWeakTable<ThrownObjectProjectileController, object> _rewardedProjectiles = new();
+
             [HarmonyTranspiler]
             public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
             {
                 var generateJunk = AccessTools.Method(typeof(JunkController), nameof(JunkController.CallCmdGenerateJunkQuantity));
-                var generateImpactJunk = AccessTools.Method(typeof(ThrownObjectProjectileController_ImpactBehavior_Gong_Patch), nameof(GenerateImpactJunk));
+                var generateImpactJunk = AccessTools.Method(typeof(ThrownObjectProjectileController_ImpactBehavior_JunkReward_Patch), nameof(GenerateImpactJunk));
                 bool patched = false;
                 foreach (var instruction in instructions)
                 {
@@ -98,14 +118,35 @@ namespace DrifterBossGrabMod.Patches
                     }
                     yield return instruction;
                 }
-                if (!patched) Log.Warning("[GongImpact] Could not find the thrown-object junk reward call.");
+                if (!patched) Log.Warning("[ImpactJunk] Could not find the thrown-object junk reward call.");
             }
 
             private static void GenerateImpactJunk(JunkController controller, Vector3 position, int quantity, ThrownObjectProjectileController projectile)
             {
                 var passenger = projectile.Networkpassenger;
-                if (passenger != null && passenger.GetComponent<TrialGongInteraction>() != null) return;
+                if (!ImpactJunkPolicy.AllowsReward(passenger)) return;
+                if (_rewardedProjectiles.TryGetValue(projectile, out _))
+                {
+                    if (PluginConfig.Instance.EnableDebugLogs.Value)
+                        Log.Debug($"[ImpactJunk] Skipped duplicate reward: projectile={projectile.GetInstanceID()}, passenger={(passenger != null ? passenger.name : "null")}");
+                    return;
+                }
+                _rewardedProjectiles.Add(projectile, new object());
+                if (PluginConfig.Instance.EnableDebugLogs.Value)
+                    Log.Debug($"[ImpactJunk] Reward: projectile={projectile.GetInstanceID()}, passenger={(passenger != null ? passenger.name : "null")}, quantity={quantity}");
                 controller.CallCmdGenerateJunkQuantity(position, quantity);
+            }
+        }
+
+        [HarmonyPatch(typeof(WakeDonationController), nameof(WakeDonationController.GetInteractability))]
+        public static class WakeDonationController_GetInteractability_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(ref Interactability __result)
+            {
+                if (WakeController.instance != null) return true;
+                __result = Interactability.Disabled;
+                return false;
             }
         }
 

@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RoR2;
 using RoR2.Skills;
@@ -27,11 +29,18 @@ namespace DrifterBossGrabMod.Patches
         public static void PerformPassengerRestoration(DrifterBagController? bagController, UnityEngine.GameObject? restoreTarget)
         {
             if (restoreTarget == null) return;
+            if (restoreTarget.GetComponent<CharacterBody>() != null && ProjectileRecoveryPatches.IsInProjectileState(restoreTarget)) return;
 
             if (restoreTarget.transform.parent != null)
             {
                 Log.Debug($"[PerformPassengerRestoration] Unparenting {restoreTarget.name} from {restoreTarget.transform.parent.name}");
                 restoreTarget.transform.SetParent(null, true);
+            }
+
+            if (BodyColliderCache.ProtectDeadPassenger(restoreTarget))
+            {
+                PersistenceObjectsTracker.UntrackBaggedObject(restoreTarget, true);
+                return;
             }
 
             Log.Debug($"[PerformPassengerRestoration] Restoring {restoreTarget.name}");
@@ -85,8 +94,9 @@ namespace DrifterBossGrabMod.Patches
         private static readonly FieldInfo _skillOverrideSkillDefField = typeof(GenericSkill.SkillOverride).GetField("skillDef", BindingFlags.Public | BindingFlags.Instance);
         private static readonly FieldInfo _skillOverridePriorityField = typeof(GenericSkill.SkillOverride).GetField("priority", BindingFlags.Public | BindingFlags.Instance);
 
-        private static GameObject? _lastProcessedObject;
-        private static float _lastProcessTime;
+        private static readonly ConditionalWeakTable<BaggedObject, object> _enteredBagStates = new();
+
+        internal static bool HasInitializedState(BaggedObject state) => _enteredBagStates.TryGetValue(state, out _);
 
         public static void ForceCleanupOverrides(DrifterBagController bagController, GameObject? targetObject = null)
         {
@@ -101,7 +111,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            // safety net
             var body = bagController.GetComponent<CharacterBody>();
             var skillLocator = body?.skillLocator;
             if (skillLocator != null)
@@ -133,26 +142,21 @@ namespace DrifterBossGrabMod.Patches
                     return false;
                 }
 
-                if (__instance.targetObject != null)
+                if (_enteredBagStates.TryGetValue(__instance, out _))
                 {
-                    var currentTime = Time.time;
-                    if (ReferenceEquals(__instance.targetObject, _lastProcessedObject) &&
-                        (currentTime - _lastProcessTime) < 0.5f)
-                    {
-
-                        Log.Debug($"[BaggedObject_OnEnter.Prefix] Blocking re-entry for {__instance.targetObject.name} (processed {(currentTime - _lastProcessTime):F3}s ago)");
-                        return false;
-                    }
+                    Log.Debug($"[BaggedObject_OnEnter.Prefix] Blocking duplicate initialization of the same bag state for {__instance.targetObject?.name ?? "null"}");
+                    return false;
                 }
 
-                var bagController = __instance?.outer?.GetComponent<DrifterBagController>();
+                var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                 if (bagController == null)
                 {
                     Log.Warning("[BaggedObject_OnEnter.Prefix] bagController is null, proceeding with vanilla OnEnter");
+                    _enteredBagStates.GetValue(__instance, _ => new object());
                     return true;
                 }
 
-                var targetObject = __instance?.targetObject;
+                var targetObject = __instance.targetObject;
                 if (targetObject == null)
                 {
 
@@ -171,7 +175,7 @@ namespace DrifterBossGrabMod.Patches
 
                         if (recovered != null)
                         {
-                            __instance!.targetObject = recovered;
+                            __instance.targetObject = recovered;
                             targetObject = recovered;
                             BaggedObjectPatches.UpdateTargetFields(__instance);
                             Log.Debug($"[BaggedObject_OnEnter.Prefix] RECOVERED targetObject from controller/seat: {recovered.name}");
@@ -181,7 +185,7 @@ namespace DrifterBossGrabMod.Patches
                     if (targetObject == null)
                     {
                         Log.Warning("[BaggedObject_OnEnter.Prefix] targetObject is null - likely deserialization failure or object destroyed");
-                        NetworkUtils.LogObjectDetails(__instance?.outer?.gameObject, "BaggedObject_OnEnter.Prefix");
+                        NetworkUtils.LogObjectDetails(__instance.outer?.gameObject, "BaggedObject_OnEnter.Prefix");
                         return false;
                     }
                 }
@@ -215,7 +219,7 @@ namespace DrifterBossGrabMod.Patches
                         Networking.NetworkUtils.TryEnsureNetworkIdentityActive(targetObject);
                     }
 
-                    __instance?.outer?.SetNextStateToMain();
+                    __instance.outer?.SetNextStateToMain();
 
                     return false;
                 }
@@ -240,7 +244,7 @@ namespace DrifterBossGrabMod.Patches
                                 return false;
                             }
 
-                            Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity}) but FLAGGING to block seat assignment");
+                            Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for new grab of {targetObject!.name} (capacity={effectiveCapacity}) but marking to block seat assignment");
 
                             list.Add(targetObject);
                             BagHelpers.AddTracker(bagController, targetObject);
@@ -254,17 +258,19 @@ namespace DrifterBossGrabMod.Patches
                             int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
                             if (currentCount > effectiveCapacity)
                             {
-                                Log.Debug($"[BaggedObject_OnEnter.Prefix] Client BLOCKING CYCLING of {targetObject!.name} - bag over capacity ({currentCount}/{effectiveCapacity})");
+                                Log.Debug($"[BaggedObject_OnEnter.Prefix] Client blocking cycling of {targetObject!.name} - bag over capacity ({currentCount}/{effectiveCapacity})");
                                 return false;
                             }
 
-                            Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for CYCLING of {targetObject!.name} (capacity={effectiveCapacity})");
+                            Log.Debug($"[BaggedObject_OnEnter.Prefix] Client allowing vanilla OnEnter for cycling of {targetObject!.name} (capacity={effectiveCapacity})");
                         }
 
+                        _enteredBagStates.GetValue(__instance, _ => new object());
                         return true;
                     }
                 }
 
+                _enteredBagStates.GetValue(__instance, _ => new object());
                 return true;
             }
 
@@ -302,18 +308,6 @@ namespace DrifterBossGrabMod.Patches
 
                 BagPassengerManager.SuppressVanillaWalkSpeedModifier(__instance!);
 
-                if (targetObject != null)
-                {
-                    _lastProcessedObject = targetObject;
-                    _lastProcessTime = Time.time;
-                }
-                else
-                {
-
-                    _lastProcessedObject = null;
-                    _lastProcessTime = Time.time;
-                }
-
                 if (bagController == null || targetObject == null) return;
 
                 BaggedObject_OnExit.MarkObjectSuccessfullyInitialized(targetObject);
@@ -330,7 +324,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (effectiveCapacity > 1 && !isAlreadyTracked && !prioritize)
                     {
-                        Log.Debug($"[BaggedObject_OnEnter.Postfix] Client skipping main seat population for NEW GRAB of {targetObject!.name} (capacity={effectiveCapacity})");
+                        Log.Debug($"[BaggedObject_OnEnter.Postfix] Client skipping main seat population for new grab of {targetObject!.name} (capacity={effectiveCapacity})");
 
                     }
                     else
@@ -942,7 +936,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (targetIsDestroyedOrNull && !isSwappingOrHasTarget && wasSuccessfullyInitialized)
                     {
-                        Log.Debug($"[TrySpawnJunk] targetObject is null/destroyed — spawning junk WITHOUT ExecuteBody() to avoid incrementing wrong object's invisibilityCount");
+                        Log.Debug($"[TrySpawnJunk] targetObject is null/destroyed; spawning junk without ExecuteBody() to avoid incrementing wrong object's invisibilityCount");
 
                         var drifterBody = drifterBagController.GetComponent<CharacterBody>();
                         var drifterMotor = drifterBody?.characterMotor;
@@ -963,17 +957,17 @@ namespace DrifterBossGrabMod.Patches
                     }
                     else if (targetIsDestroyedOrNull && isSwappingOrHasTarget)
                     {
-                        Log.Debug($"[TrySpawnJunk] SKIPPED junk spawn - null target detected during passenger swap (isSwapping={DrifterBossGrabPlugin.IsSwappingPassengers}, hasValidBaggedObjectState={hasValidBaggedObjectState})");
+                        Log.Debug($"[TrySpawnJunk] Skipped junk spawn - null target detected during passenger swap (isSwapping={DrifterBossGrabPlugin.IsSwappingPassengers}, hasValidBaggedObjectState={hasValidBaggedObjectState})");
                     }
                     else if (targetIsDestroyedOrNull && !wasSuccessfullyInitialized)
                     {
-                        Log.Debug($"[TrySpawnJunk] SKIPPED junk spawn - null target detected during grab operation (object was not successfully initialized via OnEnter)");
+                        Log.Debug($"[TrySpawnJunk] Skipped junk spawn - null target detected during grab operation (object was not successfully initialized via OnEnter)");
                     }
                     else
                     {
                         if (drifterBagController.baggedBody != null && instance != null && drifterBagController.baggedBody != instance.targetObject)
                         {
-                            Log.Debug($"[TrySpawnJunk] >>> baggedBody changed (auto-promoted)! Manually spawning junk for {BagHelpers.GetSafeName(instance?.targetObject)} to protect new passenger {BagHelpers.GetSafeName(drifterBagController.baggedBody)}.");
+                            Log.Debug($"[TrySpawnJunk] baggedBody changed (auto-promoted). Manually spawning junk for {BagHelpers.GetSafeName(instance?.targetObject)} to protect new passenger {BagHelpers.GetSafeName(drifterBagController.baggedBody)}.");
 
                             var targetAttributes = (instance != null && instance.targetObject != null) ? instance.targetObject.GetComponent<SpecialObjectAttributes>() : null;
                             var drifterBody = drifterBagController.GetComponent<CharacterBody>();
@@ -985,7 +979,7 @@ namespace DrifterBossGrabMod.Patches
                         }
                         else
                         {
-                            Log.Debug($"[TrySpawnJunk] >>> Calling ExecuteBody() to spawn junk for {BagHelpers.GetSafeName(instance?.targetObject)}");
+                            Log.Debug($"[TrySpawnJunk] Calling ExecuteBody() to spawn junk for {BagHelpers.GetSafeName(instance?.targetObject)}");
                             drifterBagController!.ExecuteBody();
                             drifterBagController.ResetBaggedObject();
                         }
@@ -993,7 +987,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
-                    Log.Debug($"[TrySpawnJunk] >>> SKIPPED ExecuteBody - controller null: {drifterBagController == null}, server: {NetworkServer.active}");
+                    Log.Debug($"[TrySpawnJunk] SKIPPED ExecuteBody - controller null: {drifterBagController == null}, server: {NetworkServer.active}");
                 }
             }
             catch (Exception ex)
@@ -1078,8 +1072,7 @@ namespace DrifterBossGrabMod.Patches
             bool shouldRemove = isDead || isDestroyed;
             bool hasAuthority = bagController != null && bagController.hasAuthority;
 
-            bool inSwapOrAutoGrab = DrifterBossGrabPlugin.IsSwappingPassengers ||
-                                     CycleNetworkHandler.SuppressBroadcasts;
+            bool inSwapOrAutoGrab = DrifterBossGrabPlugin.IsSwappingPassengers;
             if (inSwapOrAutoGrab && !shouldRemove)
             {
 
@@ -1155,6 +1148,47 @@ namespace DrifterBossGrabMod.Patches
                 }
 
                 return true;
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(BaggedObject __instance, bool __runOriginal)
+            {
+                if (!__runOriginal || !NetworkServer.active || __instance.isAuthority ||
+                    __instance.outer?.state != __instance || __instance.targetObject == null ||
+                    __instance.drifterBagController == null ||
+                    BagHelpers.GetAdditionalSeat(__instance.drifterBagController, __instance.targetObject) != null) return;
+                if (ReflectionCache.BaggedObject.HoldsBreakoutBody?.Invoke(__instance, null) is bool canBreakout && canBreakout)
+                    __instance.UpdateBreakoutTimer();
+            }
+        }
+
+        [HarmonyPatch(typeof(BaggedObject), nameof(BaggedObject.UpdateBreakoutTimer))]
+        public class BaggedObject_UpdateBreakoutTimer_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(BaggedObject __instance)
+            {
+                return NetworkServer.active && __instance.targetObject != null && __instance.drifterBagController != null &&
+                    BagHelpers.GetAdditionalSeat(__instance.drifterBagController, __instance.targetObject) == null;
+            }
+
+            [HarmonyTranspiler]
+            public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            {
+                var authority = AccessTools.PropertyGetter(typeof(EntityState), nameof(EntityState.isAuthority));
+                var server = AccessTools.PropertyGetter(typeof(NetworkServer), nameof(NetworkServer.active));
+                int replacements = 0;
+                var code = new List<CodeInstruction>(instructions);
+                for (int i = 1; i < code.Count; i++)
+                {
+                    if (!code[i].Calls(authority) || code[i - 1].opcode != OpCodes.Ldarg_0) continue;
+                    code[i - 1].opcode = OpCodes.Nop;
+                    code[i].opcode = OpCodes.Call;
+                    code[i].operand = server;
+                    replacements++;
+                }
+                if (replacements != 1) throw new InvalidOperationException("Could not identify the vanilla breakout authority check.");
+                return code;
             }
         }
 
@@ -1307,7 +1341,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (isIdleOrInit || isMainSafe || isStunSafe) return;
 
-                Log.Debug($"[EntityStateMachine_SetState] Bagged object {obj.name} ESM '{__instance.customName}' transitioning {currentStateName} → {newStateName} (UNAUTHORIZED/ESCAPE) — cleaning up bag tracking");
+                Log.Debug($"[EntityStateMachine_SetState] Bagged object {obj.name} ESM '{__instance.customName}' transitioning {currentStateName} → {newStateName} (unexpected state change); cleaning up bag tracking");
 
                 try
                 {

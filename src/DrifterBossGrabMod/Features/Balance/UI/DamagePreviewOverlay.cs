@@ -136,9 +136,29 @@ namespace DrifterBossGrabMod.UI
                 _cacheValid = true;
             }
 
-            float damageFraction = _cachedDamageFraction;
-            float healthFraction = GetCurrentHealthFraction();
+            DrawPreviewBar(_cachedDamageFraction, GetCurrentHealthFraction());
+        }
 
+        internal void RenderEditorPreview(float damageFraction, bool visible)
+        {
+            _healthBar ??= GetComponent<HealthBar>();
+            if (!visible || !PluginConfig.Instance.EnableDamagePreview.Value)
+            {
+                if (_previewRect != null) _previewRect.gameObject.SetActive(false);
+                return;
+            }
+            if (!_initialized)
+            {
+                CreatePreviewBar();
+                _initialized = _previewImage != null;
+            }
+            if (!_initialized) return;
+            if (_previewRect != null) _previewRect.gameObject.SetActive(true);
+            DrawPreviewBar(Mathf.Clamp01(damageFraction), GetCurrentHealthFraction());
+        }
+
+        private void DrawPreviewBar(float damageFraction, float healthFraction)
+        {
             if (damageFraction <= 0f)
             {
                 if (_previewImage != null) _previewImage.enabled = false;

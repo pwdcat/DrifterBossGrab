@@ -1,66 +1,51 @@
-using RoR2;
-using HarmonyLib;
-using UnityEngine;
-using UnityEngine.Networking;
+#nullable enable
 using System;
-using System.Collections;
-using DrifterBossGrabMod.Core;
+using System.Runtime.CompilerServices;
+using HarmonyLib;
+using RoR2;
+using UnityEngine;
 
 namespace DrifterBossGrabMod.Patches
 {
     [HarmonyPatch]
     public static class TeleporterSafetyPatches
     {
+        private static readonly ConditionalWeakTable<TeleporterInteraction, object> _restored = new();
+
+        public static void MarkRestored(TeleporterInteraction teleporter)
+        {
+            _restored.GetValue(teleporter, _ => new object());
+        }
+
+        internal static bool IsRestored(Component component)
+        {
+            var teleporter = component.GetComponentInParent<TeleporterInteraction>();
+            return teleporter != null && _restored.TryGetValue(teleporter, out _);
+        }
+
+        private static Exception? PreserveUnrelatedException(OutsideInteractableLocker locker, Exception? exception)
+        {
+            if (exception == null || !IsRestored(locker)) return exception;
+            if (!(exception is NullReferenceException) && !(exception is MissingReferenceException)) return exception;
+            var origin = exception.TargetSite?.DeclaringType;
+            if (origin != typeof(OutsideInteractableLocker) && origin?.DeclaringType != typeof(OutsideInteractableLocker))
+                return exception;
+            return null;
+        }
 
         [HarmonyFinalizer]
         [HarmonyPatch(typeof(OutsideInteractableLocker), "FixedUpdate")]
-        public static Exception? LockerFixedUpdateFinalizer(Exception? __exception)
-        {
-            return null;
-        }
+        public static Exception? LockerFixedUpdateFinalizer(OutsideInteractableLocker __instance, Exception? __exception)
+            => PreserveUnrelatedException(__instance, __exception);
 
         [HarmonyFinalizer]
         [HarmonyPatch(typeof(OutsideInteractableLocker), "OnDisable")]
-        public static Exception? LockerOnDisableFinalizer(Exception? __exception)
-        {
-            return null;
-        }
+        public static Exception? LockerOnDisableFinalizer(OutsideInteractableLocker __instance, Exception? __exception)
+            => PreserveUnrelatedException(__instance, __exception);
 
         [HarmonyFinalizer]
         [HarmonyPatch(typeof(OutsideInteractableLocker), "UnlockAll")]
-        public static Exception? LockerUnlockAllFinalizer(Exception? __exception)
-        {
-            return null;
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(BossGroup), nameof(BossGroup.DropRewards))]
-        public static void BossGroupDropRewardsPrefix(BossGroup __instance)
-        {
-            if (!NetworkServer.active) return;
-
-            if (ReflectionCache.BossGroup.rng == null) return;
-
-            if (__instance.dropTable == null || ReflectionCache.BossGroup.rng.GetValue(__instance) == null)
-            {
-                Log.Debug($"[BossGroupSafety] {__instance.name} is missing critical reward data: " +
-                         $"dropTable={(__instance.dropTable != null)}, " +
-                         $"rng={(ReflectionCache.BossGroup.rng.GetValue(__instance) != null)}");
-
-                if (__instance.dropTable == null)
-                {
-                    __instance.dropTable = LegacyResourcesAPI.Load<PickupDropTable>("DropTables/dtTier2Item");
-                }
-
-                if (ReflectionCache.BossGroup.rng.GetValue(__instance) == null)
-                {
-                    ulong seed = (Run.instance?.bossRewardRng != null) ? Run.instance.bossRewardRng.nextUlong : (ulong)System.DateTime.Now.Ticks;
-                    ReflectionCache.BossGroup.rng.SetValue(__instance, new Xoroshiro128Plus(seed));
-                }
-
-                Log.Debug($"[BossGroupSafety] Fallback injection complete for {__instance.name}.");
-            }
-        }
-
+        public static Exception? LockerUnlockAllFinalizer(OutsideInteractableLocker __instance, Exception? __exception)
+            => PreserveUnrelatedException(__instance, __exception);
     }
 }

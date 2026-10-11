@@ -61,7 +61,7 @@ namespace DrifterBossGrabMod.Core
 
         public int junkSpawnCount;
 
-        public float breakoutTime = 10f;
+        public float breakoutTime;
         public float breakoutAttempts = 0f;
         public float elapsedBreakoutTime = 0f;
         public int smacks = 0;
@@ -129,9 +129,9 @@ namespace DrifterBossGrabMod.Core
 
                 if (ReflectionCache.BaggedObject.BreakoutAttempts != null) breakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(state);
 
-                if (ReflectionCache.EntityState.FixedAge != null)
+                if (ReflectionCache.BaggedObject.BreakoutTimer != null)
                 {
-                    elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
+                    elapsedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTimer.GetValue(state);
                 }
 
                 var bagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
@@ -152,7 +152,8 @@ namespace DrifterBossGrabMod.Core
 
         public void CaptureBreakoutStateFromBaggedObject(BaggedObject state)
         {
-            if (state == null) return;
+            if (state == null || state.drifterBagController == null ||
+                ReflectionCache.BaggedObject.BreakoutTime?.GetValue(state) is not float interval || interval <= 0f) return;
 
             try
             {
@@ -160,9 +161,9 @@ namespace DrifterBossGrabMod.Core
 
                 if (ReflectionCache.BaggedObject.BreakoutAttempts != null) breakoutAttempts = (float)ReflectionCache.BaggedObject.BreakoutAttempts.GetValue(state);
 
-                if (ReflectionCache.EntityState.FixedAge != null)
+                if (ReflectionCache.BaggedObject.BreakoutTimer != null)
                 {
-                    elapsedBreakoutTime = (float)ReflectionCache.EntityState.FixedAge.GetValue(state);
+                    elapsedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTimer.GetValue(state);
                 }
 
                 var breakoutBagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
@@ -224,14 +225,14 @@ namespace DrifterBossGrabMod.Core
                     ReflectionCache.BaggedObject.BreakoutTime.SetValue(state, breakoutTime);
                 }
 
-                if (ReflectionCache.BaggedObject.BreakoutAttempts != null && breakoutAttempts > 0f)
+                if (ReflectionCache.BaggedObject.BreakoutAttempts != null && breakoutTime > 0f)
                 {
                     ReflectionCache.BaggedObject.BreakoutAttempts.SetValue(state, breakoutAttempts);
                 }
 
-                if (ReflectionCache.EntityState.FixedAge != null && elapsedBreakoutTime > 0f)
+                if (ReflectionCache.BaggedObject.BreakoutTimer != null && breakoutTime > 0f)
                 {
-                    ReflectionCache.EntityState.FixedAge.SetValue(state, elapsedBreakoutTime);
+                    ReflectionCache.BaggedObject.BreakoutTimer.SetValue(state, elapsedBreakoutTime);
                 }
 
                 var applyBagController = (DrifterBagController?)_drifterBagControllerField?.GetValue(state);
@@ -264,11 +265,10 @@ namespace DrifterBossGrabMod.Core
         {
             if (body == null) return;
 
-            Log.Debug($"[ApplyToCharacterBody] ENTRY: body.name={body.name}, body.baseMaxHealth={body.baseMaxHealth}, state.baseMaxHealth={baseMaxHealth}");
 
             if (baseMaxHealth <= 0)
             {
-                Log.Warning($"[ApplyToCharacterBody] ABORTED: Attempting to apply INVALID baseMaxHealth={baseMaxHealth} to {body.name}. This would have killed the object. State state is likely uninitialized.");
+                Log.Warning($"[ApplyToCharacterBody] Skipped invalid baseMaxHealth={baseMaxHealth} for {body.name}. The saved state may be uninitialized.");
                 return;
             }
 
@@ -276,7 +276,6 @@ namespace DrifterBossGrabMod.Core
             {
                 body.baseMaxHealth = baseMaxHealth;
 
-                Log.Debug($"[ApplyToCharacterBody] AFTER SET: body.baseMaxHealth={body.baseMaxHealth}");
                 body.baseRegen = baseRegen;
                 body.baseMaxShield = baseMaxShield;
                 body.baseMoveSpeed = baseMoveSpeed;
@@ -297,7 +296,7 @@ namespace DrifterBossGrabMod.Core
 
                 if (baseMaxHealth <= 0)
                 {
-                    Log.Error($"[ApplyToCharacterBody] CRITICAL: Attempting to apply INVALID baseMaxHealth={baseMaxHealth} to {body.name}! This will kill the object!");
+                    Log.Error($"[ApplyToCharacterBody] Invalid saved baseMaxHealth={baseMaxHealth} for {body.name}. Health must be positive.");
                 }
             }
             catch (Exception ex)
@@ -308,7 +307,7 @@ namespace DrifterBossGrabMod.Core
 
         public void RestorePhysicsAndHurtboxes(GameObject target)
         {
-            if (target == null) return;
+            if (target == null || target.GetComponent<CharacterBody>() != null) return;
 
             var rb = target.GetComponent<Rigidbody>();
             if (rb)
@@ -328,30 +327,6 @@ namespace DrifterBossGrabMod.Core
                     rb.detectCollisions = true;
                 }
             }
-
-            var characterBody = target.GetComponent<CharacterBody>();
-            if (characterBody != null && characterBody.modelLocator != null)
-            {
-                var modelTransform = characterBody.modelLocator.modelTransform;
-                if (modelTransform != null)
-                {
-                    var hurtBoxGroup = modelTransform.GetComponent<RoR2.HurtBoxGroup>();
-                    if (hurtBoxGroup != null && hurtBoxGroup.hurtBoxesDeactivatorCounter > 0)
-                    {
-                        int oldCounter = hurtBoxGroup.hurtBoxesDeactivatorCounter;
-                        hurtBoxGroup.hurtBoxesDeactivatorCounter = 0;
-                        Log.Debug($"[BaggedObjectStateData] Reset hurtBoxesDeactivatorCounter from {oldCounter} to 0 for {target.name}");
-                    }
-
-                    var charModel = modelTransform.GetComponent<RoR2.CharacterModel>();
-                    if (charModel != null && charModel.invisibilityCount > 0)
-                    {
-                        int oldInvis = charModel.invisibilityCount;
-                        charModel.invisibilityCount = 0;
-                        Log.Debug($"[BaggedObjectStateData] Reset invisibilityCount from {oldInvis} to 0 for {target.name}");
-                    }
-                }
-            }
         }
 
         // ========================================================================================
@@ -359,20 +334,6 @@ namespace DrifterBossGrabMod.Core
         // ========================================================================================
         public void CalculateFromObject(GameObject targetObject, DrifterBagController controller)
         {
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                var stackTrace = new System.Diagnostics.StackTrace();
-                var callerMethod = stackTrace.GetFrame(1).GetMethod();
-                Log.Debug($"[CalculateFromObject] ENTRY: targetObject={targetObject?.name ?? "null"}, caller={callerMethod?.DeclaringType?.Name}.{callerMethod?.Name}");
-
-                string traceSnippet = "";
-                for (int i = 1; i < Math.Min(stackTrace.FrameCount, 5); i++)
-                {
-                    var frame = stackTrace.GetFrame(i).GetMethod();
-                    traceSnippet += $" -> {frame.DeclaringType?.Name}.{frame.Name}";
-                }
-                Log.Debug($"[CalculateFromObject] CALL STACK: {traceSnippet}");
-            }
 
             if (targetObject == null)
             {
@@ -405,14 +366,6 @@ namespace DrifterBossGrabMod.Core
                     hasCapturedRigidbodyState = true;
                 }
 
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Debug($"[CalculateFromObject] targetObject={targetObject.name}, targetBody={(targetBody != null ? targetBody.name : "null")}, healthComponent={(healthComponent != null ? "exists" : "null")}");
-                    if (healthComponent != null && healthComponent.body != null)
-                        Log.Debug($"[CalculateFromObject] healthComponent.body={healthComponent.body.name}, healthComponent.body.baseMaxHealth={healthComponent.body.baseMaxHealth}");
-                    if (targetBody != null)
-                        Log.Debug($"[CalculateFromObject] targetBody.baseMaxHealth={targetBody.baseMaxHealth}");
-                }
 
                 baggedMass = controller.CalculateBaggedObjectMass(targetObject);
 
@@ -472,7 +425,6 @@ namespace DrifterBossGrabMod.Core
                 }
                 movespeedPenalty = penalty;
 
-                Log.Debug($"[CalculateFromObject] About to capture stats. targetBody={(targetBody != null ? "NOT NULL" : "NULL")}");
 
                 if (targetBody != null)
                 {
@@ -503,7 +455,7 @@ namespace DrifterBossGrabMod.Core
                     {
                         if (baseMaxHealth <= 0)
                         {
-                            Log.Error($"[CalculateFromObject] CRITICAL: Captured INVALID baseMaxHealth={baseMaxHealth} for {targetObject.name}! This will cause instant death on restoration.");
+                            Log.Error($"[CalculateFromObject] Captured invalid baseMaxHealth={baseMaxHealth} for {targetObject.name}. Health must be positive before restoration.");
                         }
                         else
                         {

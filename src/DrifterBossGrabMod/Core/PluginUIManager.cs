@@ -74,11 +74,10 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedBosses, new CheckBoxConfig { name = "Persist Bosses" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedNPCs, new CheckBoxConfig { name = "Persist NPCs" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.PersistBaggedEnvironmentObjects, new CheckBoxConfig { name = "Persist Environment" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.PersistenceBlacklist, new InputFieldConfig { name = "Persistence Blacklist" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.StringListOption(PluginConfig.Instance.PersistenceBlacklist, "Persistence Blacklist", "Persistence"));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.AutoGrabDelay, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Auto-Grab Delay", min = 0f, max = 10f, increment = 0.1f }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BodyBlacklist, new InputFieldConfig { name = "Grab Blacklist" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableComponentTypes, new InputFieldConfig { name = "Grabbable Components", category = "General" }));
-            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.ComponentChooserOption(PluginConfig.Instance.ComponentChooserDummyEntry, "Component Chooser", "Click to load and toggle components in the GrabbableComponentTypes list.", "General"));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.StringListOption(PluginConfig.Instance.BodyBlacklist, "Grab Blacklist", "General"));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.StringListOption(PluginConfig.Instance.GrabbableComponentTypes, "Grabbable Components", "General", true));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.ComponentChooserSortModeEntry, new ChoiceConfig { name = "Chooser Sort Mode", category = "General" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableRecoveryFeature, new CheckBoxConfig { name = "Enable Recovery Feature", category = "Recovery" }));
@@ -87,14 +86,14 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedNPCs, new CheckBoxConfig { name = "Recover NPCs", category = "Recovery" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.RecoverBaggedEnvironmentObjects, new CheckBoxConfig { name = "Recover Environment Objects", category = "Recovery" }));
 
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.RecoveryObjectBlacklist, new InputFieldConfig { name = "Recovery Blacklist", category = "Recovery" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.StringListOption(PluginConfig.Instance.RecoveryObjectBlacklist, "Recovery Blacklist", "Recovery"));
 
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.GrabbableKeywordBlacklist, new InputFieldConfig { name = "Keyword Blacklist" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.StringListOption(PluginConfig.Instance.GrabbableKeywordBlacklist, "Keyword Blacklist", "General"));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDebugLogs, new CheckBoxConfig { name = "Enable Debug Logs" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableConfigSync, new CheckBoxConfig { name = "Enable Config Sync" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.BottomlessBagEnabled, new CheckBoxConfig { name = "Enable Bottomless Bag", category = "Bottomless Bag" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlotScalingFormula, new InputFieldConfig { name = "Slot Scaling Formula", category = "Bottomless Bag" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.SlotScalingFormula, "Slot Scaling Formula", "Bottomless Bag", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Slots));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableStockRefreshClamping, new CheckBoxConfig { name = "Refresh Clamping", category = "Bottomless Bag" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSuccessiveGrabStockRefresh, new CheckBoxConfig { name = "Successive Grab Refresh", category = "Bottomless Bag" }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CycleCooldown, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Cycle Cooldown", category = "Bottomless Bag", min = 0f, max = 1f, increment = 0.01f }));
@@ -106,15 +105,15 @@ namespace DrifterBossGrabMod
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance", category = "Balance" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab, new ChoiceConfig { name = "Balance Filter", category = "Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCapacityFormula, new InputFieldConfig { name = "Mass Capacity Formula", category = "Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SlamDamageFormula, new InputFieldConfig { name = "Slam Damage Formula", category = "Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MovespeedPenaltyFormula, new InputFieldConfig { name = "Speed Penalty Formula", category = "Balance" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.MassCapacityFormula, "Mass Capacity Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Capacity));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.SlamDamageFormula, "Slam Damage Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Slam));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.MovespeedPenaltyFormula, "Speed Penalty Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Penalty));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.StateCalculationMode, new ChoiceConfig { name = "State Calculation", category = "Balance" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.AoEDamageDistribution, new ChoiceConfig { name = "AoE Damage", category = "Balance" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.OverencumbranceMax, new FloatFieldConfig { name = "Max Overencumbrance (%)", category = "Balance" }));
 
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag, new ChoiceConfig { name = "Flag", category = "Balance" }));
-            ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.SelectedFlagMultiplier, new InputFieldConfig { name = "Multiplier", category = "Balance" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.SelectedFlagMultiplier, "Multiplier", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Flag));
 
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRadiusMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Grab Range Multiplier", category = "Balance", min = 1f, max = 100f, increment = 0.1f }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Breakout Time Multiplier", category = "Balance" }));
@@ -127,7 +126,16 @@ namespace DrifterBossGrabMod
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.IsHudEditorEnabled, new CheckBoxConfig { name = "Enable HUD Editor", category = "Hud" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselHUD, new CheckBoxConfig { name = "Enable Carousel HUD" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCardReleaseAnimation, new CheckBoxConfig { name = "Card Release Animation" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CardReleaseDuration, new StepSliderConfig { name = "Card Release Duration", min = 0.05f, max = 0.8f, increment = 0.01f }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CardReleaseDistance, new StepSliderConfig { name = "Card Release Distance", min = 0.0f, max = 180.0f, increment = 5.0f }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCardDestructionAnimation, new CheckBoxConfig { name = "Card Destruction Animation" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CardDestructionDuration, new StepSliderConfig { name = "Card Destruction Duration", min = 0.05f, max = 0.8f, increment = 0.01f }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBreakoutWarning, new CheckBoxConfig { name = "Breakout Warning" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutWarningStrength, new StepSliderConfig { name = "Breakout Warning Strength", min = 0.0f, max = 10.0f, increment = 0.05f }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CarouselOrientation, new ChoiceConfig { name = "Carousel Orientation" }));
+            ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedCardPlacement, new ChoiceConfig { name = "Selected Card Position" }));
+            ModSettingsManager.AddOption(new IntFieldOption(PluginConfig.Instance.VisibleCardCount, new IntFieldConfig { name = "Visible Cards", Min = 1, Max = 100 }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselSpacing, new FloatFieldConfig { name = "Item Spacing" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.CarouselAnimationDuration, new FloatFieldConfig { name = "Animation Duration" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCarouselInactivityFade, new CheckBoxConfig { name = "Enable Inactivity Fade" }));
@@ -166,6 +174,11 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.DamagePreviewColor, new ColorOptionConfig { name = "Damage Preview Color" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableMassCapacityUI, new CheckBoxConfig { name = "Enable Capacity UI" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.SmoothCapacityFill, new CheckBoxConfig { name = "Capacity Fill Smoothing" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CapacityFillSmoothTime, new StepSliderConfig { name = "Capacity Fill Smooth Time", min = 0.02f, max = 0.3f, increment = 0.01f }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCapacityFlashes, new CheckBoxConfig { name = "Capacity Flashes" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CapacityFlashStrength, new StepSliderConfig { name = "Capacity Flash Strength", min = 0.0f, max = 1.0f, increment = 0.05f }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CapacityFlashDuration, new StepSliderConfig { name = "Capacity Flash Duration", min = 0.1f, max = 0.8f, increment = 0.01f }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionX, new FloatFieldConfig { name = "Capacity UI X Pos" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIPositionY, new FloatFieldConfig { name = "Capacity UI Y Pos" }));
             ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.MassCapacityUIScale, new FloatFieldConfig { name = "Capacity UI Scale" }));
@@ -178,11 +191,9 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorMid, new ColorOptionConfig { name = "Overencumbrance Mid" }));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.OverencumbranceGradientColorEnd, new ColorOptionConfig { name = "Overencumbrance End" }));
 
-            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBaggedObjectInfo, new CheckBoxConfig { name = "Enable Stats Panel" }));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoX, new FloatFieldConfig { name = "Stats Panel X Pos" }));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoY, new FloatFieldConfig { name = "Stats Panel Y Pos" }));
-            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoScale, new FloatFieldConfig { name = "Stats Panel Scale" }));
-            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.BaggedObjectInfoColor, new ColorOptionConfig { name = "Stats Panel Color" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBaggedObjectInfo, new CheckBoxConfig { name = "Enable Card Details" }));
+            ModSettingsManager.AddOption(new FloatFieldOption(PluginConfig.Instance.BaggedObjectInfoScale, new FloatFieldConfig { name = "Card Details Scale" }));
+            ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.BaggedObjectInfoColor, new ColorOptionConfig { name = "Card Details Color" }));
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
@@ -308,31 +319,6 @@ namespace DrifterBossGrabMod
                 (settingToken, subTabs) => selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
             UpdateHudVisibility();
-            string filterToken = $"{Constants.PluginGuid}.HUD.HUD_FILTER.CHOICE".ToUpper();
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-            foreach (var setting in allSettings)
-            {
-                if (setting.settingToken == filterToken)
-                {
-                    var callback = setting.GetComponent<OnEnableCallback>();
-                    if (callback == null)
-                    {
-                        callback = setting.gameObject.AddComponent<OnEnableCallback>();
-                        callback.Action = () =>
-                        {
-                            if (PluginConfig.Instance.SelectedHudElement.Value != HudElementType.All)
-                            {
-                                PluginConfig.Instance.SelectedHudElement.Value = HudElementType.All;
-                            }
-                            else
-                            {
-                                UpdateHudSubTabVisibility();
-                            }
-                        };
-                    }
-                    break;
-                }
-            }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
@@ -354,38 +340,6 @@ namespace DrifterBossGrabMod
                 (settingToken, subTabs) => selectedSubTab == BalanceSubTabType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
             );
             UpdateBalanceVisibility();
-            string filterToken = $"{Constants.PluginGuid}.BALANCE.BALANCE_FILTER.CHOICE".ToUpper();
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-            foreach (var setting in allSettings)
-            {
-                if (setting.settingToken == filterToken)
-                {
-                    var callback = setting.GetComponent<OnEnableCallback>();
-                    if (callback == null)
-                    {
-                        callback = setting.gameObject.AddComponent<OnEnableCallback>();
-                        callback.Action = () =>
-                        {
-                            if (PluginConfig.Instance.SelectedBalanceSubTab.Value != BalanceSubTabType.All)
-                            {
-                                PluginConfig.Instance.SelectedBalanceSubTab.Value = BalanceSubTabType.All;
-                            }
-                            else
-                            {
-                                UpdateBalanceSubTabVisibility();
-                            }
-                            var currentFlag = PluginConfig.Instance.SelectedFlag.Value;
-                            var currentFlagConfig = PluginConfig.GetFlagMultiplierConfig(currentFlag);
-                            if (currentFlagConfig != null)
-                            {
-                                PluginConfig.Instance.SelectedFlagMultiplier.Value = currentFlagConfig.Value;
-                            }
-                            RefreshStringInputFieldUI(PluginConfig.Instance.SelectedFlagMultiplier);
-                        };
-                    }
-                    break;
-                }
-            }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
@@ -408,23 +362,37 @@ namespace DrifterBossGrabMod
             if (!RooInstalled) return;
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableCarouselHUD.Value, "Enable Carousel HUD",
-                token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("DURATION") ||
+                token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("ANIMATION_DURATION") || token.Contains("FADE_DURATION") || token.Contains("CARD_RELEASE") || token.Contains("CARD_DESTRUCTION") || token.Contains("BREAKOUT_WARNING") ||
                          token.Contains("ORIENTATION") || token.Contains("INACTIVITY") || token.Contains("INACTIVE") ||
                          token.Contains("SHOW_ICON") || token.Contains("SHOW_BACKGROUND") || token.Contains("SHOW_WEIGHT") ||
                          token.Contains("SHOW_NAME") || token.Contains("SHOW_HEALTH") || token.Contains("SHOW_SLOT") ||
                          token.Contains("WEIGHT_DISPLAY") || token.Contains("NEW_WEIGHT_ICON") || token.Contains("SCALE_WEIGHT") ||
                          token.Contains("TOTAL_MASS") || token.Contains("OVERENCUMBERED_ICON"));
 
+            bool carouselEnabled = PluginConfig.Instance.EnableCarouselHUD.Value;
+            UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableCardReleaseAnimation.Value, "Card Release Animation",
+                token => token.Contains("CARD_RELEASE_DURATION") || token.Contains("CARD_RELEASE_DISTANCE"));
+            UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableCardDestructionAnimation.Value, "Card Destruction Animation",
+                token => token.Contains("CARD_DESTRUCTION_DURATION"));
+            UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableBreakoutWarning.Value, "Breakout Warning",
+                token => token.Contains("BREAKOUT_WARNING_STRENGTH"));
+
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableDamagePreview.Value, "Enable Damage Preview",
                 token => token.Contains("DAMAGE_PREVIEW_COLOR"));
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableMassCapacityUI.Value, "Enable Capacity UI",
-                token => token.Contains("CAPACITY_UI_") || token.Contains("ENABLE_SEPARATORS") ||
+                token => token.Contains("CAPACITY_UI_") || token.Contains("CAPACITY_FILL_") || token.Contains("CAPACITY_FLASH") || token.Contains("ENABLE_SEPARATORS") ||
                          token.Contains("GRADIENT_INTENSITY") || token.Contains("GRADIENT_COLOR") ||
                          token.Contains("OVERENCUMBRANCE"));
 
-            UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableBaggedObjectInfo.Value, "Enable Stats Panel",
-                token => token.Contains("STATS_PANEL_"));
+            bool capacityEnabled = PluginConfig.Instance.EnableMassCapacityUI.Value;
+            UpdateCategoryToggledVisibility("Hud", capacityEnabled && PluginConfig.Instance.SmoothCapacityFill.Value, "Capacity Fill Smoothing",
+                token => token.Contains("CAPACITY_FILL_SMOOTH_TIME"));
+            UpdateCategoryToggledVisibility("Hud", capacityEnabled && PluginConfig.Instance.EnableCapacityFlashes.Value, "Capacity Flashes",
+                token => token.Contains("CAPACITY_FLASH_STRENGTH") || token.Contains("CAPACITY_FLASH_DURATION"));
+
+            UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableBaggedObjectInfo.Value, "Enable Card Details",
+                token => token.Contains("CARD_DETAILS_"));
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
@@ -449,7 +417,7 @@ namespace DrifterBossGrabMod
 
             foreach (var setting in allSettings)
             {
-                if (string.IsNullOrEmpty(setting.settingToken)) continue;
+                if (string.IsNullOrEmpty(setting.settingToken) || !setting.settingToken.StartsWith(Constants.PluginGuid + ".", StringComparison.OrdinalIgnoreCase)) continue;
 
                 bool inCategory = setting.settingToken.Contains($".{sanitizedCategory}.");
 
@@ -471,11 +439,11 @@ namespace DrifterBossGrabMod
                     bool shouldBeVisible = true;
                     if (categoryName.Equals("Hud", StringComparison.OrdinalIgnoreCase))
                     {
-                        shouldBeVisible = ShouldHudSettingBeVisible(setting.settingToken);
+                        shouldBeVisible &= ShouldHudSettingBeVisible(setting.settingToken);
                     }
                     else if (categoryName.Equals("Balance", StringComparison.OrdinalIgnoreCase))
                     {
-                        shouldBeVisible = ShouldBalanceSettingBeVisible(setting.settingToken);
+                        shouldBeVisible &= ShouldBalanceSettingBeVisible(setting.settingToken);
                     }
 
                     if (!shouldBeVisible)
@@ -497,11 +465,6 @@ namespace DrifterBossGrabMod
         private void UpdateSubTabVisibility<T>(T selectedSubTab, System.Collections.Generic.Dictionary<string, T[]> settingToSubTabMap, System.Func<string, T[], bool> shouldShowPredicate)
         {
             var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-            int matchedCount = 0;
-            int showCount = 0;
-            int hideCount = 0;
-            int hudSettingsCount = 0;
-            int balanceSettingsCount = 0;
 
             foreach (var setting in allSettings)
             {
@@ -509,18 +472,8 @@ namespace DrifterBossGrabMod
                 {
                     bool foundInDict = settingToSubTabMap.TryGetValue(setting.settingToken, out var subTabs);
 
-                    if (setting.settingToken.Contains(".HUD."))
-                    {
-                        hudSettingsCount++;
-                    }
-                    else if (setting.settingToken.Contains(".BALANCE."))
-                    {
-                        balanceSettingsCount++;
-                    }
-
                     if (foundInDict)
                     {
-                        matchedCount++;
                         bool shouldShow = shouldShowPredicate(setting.settingToken, subTabs);
 
                         var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
@@ -540,14 +493,12 @@ namespace DrifterBossGrabMod
                             canvasGroup.alpha = 1f;
                             canvasGroup.blocksRaycasts = true;
                             layoutElement.ignoreLayout = false;
-                            showCount++;
                         }
                         else
                         {
                             canvasGroup.alpha = 0f;
                             canvasGroup.blocksRaycasts = false;
                             layoutElement.ignoreLayout = true;
-                            hideCount++;
                         }
                     }
                 }

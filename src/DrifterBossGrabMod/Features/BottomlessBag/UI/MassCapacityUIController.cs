@@ -22,6 +22,7 @@ namespace DrifterBossGrabMod.UI
         private void OnDisable()
         {
             ConfigChangeNotifier.RemoveObserver(this);
+            _hasPresentation = false;
         }
 
         public void OnConfigChanged(string key, object value)
@@ -44,6 +45,26 @@ namespace DrifterBossGrabMod.UI
 
         private float _currentCapacity = 0f;
         private float _currentUsedCapacity = 0f;
+        private float _targetFill;
+        private float _targetOverFill;
+        private float _displayFill;
+        private float _displayOverFill;
+        private float _fillVelocity;
+        private float _overFillVelocity;
+        private float _accentAge = 1f;
+        private float _limitAccentAge = 1f;
+        private float _overEntryAccentAge = 1f;
+        private bool _wasOverencumbered;
+        private bool _wasAtMaxOverencumbrance;
+        private bool _wasAtLimit;
+        private float _accentStart;
+        private float _overAccentStart;
+        private int _lastPassengerCount;
+        private float _lastCommittedFill;
+        private float _lastCommittedOverFill;
+        private bool _hasPresentation;
+        private bool _balancePresentation;
+        private bool _editorPreview;
 
         private const float ShowUIThreshold = 1.0f;
 
@@ -107,6 +128,49 @@ namespace DrifterBossGrabMod.UI
             Addressables.Release(handle);
         }
 
+        internal static Transform GetCapacityParent(Transform mainContainer)
+        {
+            var mainRect = mainContainer.Find("MainRect");
+            return mainRect != null ? mainRect.Find("BottomCenterCluster") ?? mainRect : mainContainer;
+        }
+
+        internal void InitializeEditorPreview(GameObject meter)
+        {
+            enabled = false;
+            _editorPreview = true;
+            _massCapacityUIInstance = meter;
+            _massCapacityUIRectTransform = meter.GetComponent<RectTransform>();
+            FindUIElements();
+        }
+
+        internal void UpdateEditorPreview(float load, int slots)
+        {
+            _currentCapacity = Mathf.Max(1, slots);
+            float previousFill = _targetFill;
+            float previousOver = _targetOverFill;
+            _targetFill = Mathf.Clamp01(load);
+            _targetOverFill = Mathf.Clamp01(load - 1f);
+            _balancePresentation = PluginConfig.Instance.EnableBalance.Value;
+            if (_targetFill > previousFill || _targetOverFill > previousOver)
+            {
+                _accentStart = previousFill;
+                _overAccentStart = previousOver;
+                _accentAge = 0f;
+                if (previousFill < 1f && _targetFill >= 1f) _limitAccentAge = 0f;
+                if ((previousOver <= 0f && _targetOverFill > 0f) || (previousOver < 1f && _targetOverFill >= 1f))
+                    _overEntryAccentAge = 0f;
+            }
+            if (_percentageText != null)
+            {
+                _percentageText.text = load > 1f ? $"+{Mathf.RoundToInt((load - 1f) * 100f)}%" : $"{Mathf.RoundToInt(load * 100f)}%";
+                _percentageText.color = load > 1f ? new Color(1f, 0.72f, 0.36f) : Color.white;
+            }
+            UpdateConfig();
+            UpdateGradient(load);
+            if (_separatorTemplate != null) UpdateSeparators(load);
+            ApplyPresentation(Time.unscaledDeltaTime);
+        }
+
         private void InstantiateCapacityUI(GameObject prefab)
         {
 
@@ -117,22 +181,7 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            Transform? targetParent = null;
-            Transform mainContainer = hudCanvas.mainContainer.transform;
-
-            if (mainContainer != null)
-            {
-                Transform mainRect = mainContainer.Find("MainRect");
-                if (mainRect != null)
-                {
-                    Transform bottomCenter = mainRect.Find("BottomCenterCluster");
-                    targetParent = bottomCenter ?? mainRect;
-                }
-                else
-                {
-                    targetParent = mainContainer;
-                }
-            }
+            Transform targetParent = GetCapacityParent(hudCanvas.mainContainer.transform);
 
             _massCapacityUIInstance = UnityEngine.Object.Instantiate(prefab, targetParent);
             _massCapacityUIInstance.name = "CapacityUI";
@@ -181,6 +230,7 @@ namespace DrifterBossGrabMod.UI
             {
                 _fillBarImage.color = PluginConfig.Instance.CapacityGradientColorMid.Value;
                 _gradientEffect = _fillBarImage.gameObject.AddComponent<CapacityUIGradient>();
+                _gradientEffect.ReverseFill = _fillBarImage.fillOrigin == 1;
 
                 Transform junkMeterTransform = _fillBarImage.transform.parent;
                 if (junkMeterTransform != null)
@@ -247,7 +297,7 @@ namespace DrifterBossGrabMod.UI
             _overencumbranceFillImage.fillOrigin = _fillBarImage.fillOrigin;
             _overencumbranceFillImage.fillClockwise = _fillBarImage.fillClockwise;
             _overencumbranceFillImage.fillAmount = 0f;
-            _overencumbranceFillImage.preserveAspect = true;
+            _overencumbranceFillImage.preserveAspect = _fillBarImage.preserveAspect;
             _overencumbranceFillImage.useSpriteMesh = _fillBarImage.useSpriteMesh;
             _overencumbranceFillImage.pixelsPerUnitMultiplier = _fillBarImage.pixelsPerUnitMultiplier;
 
@@ -261,6 +311,7 @@ namespace DrifterBossGrabMod.UI
             _overencumbranceFillImage.raycastTarget = false;
 
             _overencumbranceGradientEffect = overencumbranceFillObj.AddComponent<OverencumbranceUIGradient>();
+            _overencumbranceGradientEffect.ReverseFill = _overencumbranceFillImage.fillOrigin == 1;
         }
 
         public void UpdateCapacityUI()
@@ -290,11 +341,16 @@ namespace DrifterBossGrabMod.UI
                 }
             }
 
-            bool shouldShow = HudEditorManager.IsEditorActive || _currentCapacity >= ShowUIThreshold;
+            bool unlimitedSlots = BagCapacityCalculator.GetUtilityMaxStock(_bagController) == int.MaxValue;
+            bool unlimitedMass = !PluginConfig.Instance.EnableBalance.Value ||
+                _currentCapacity >= float.MaxValue || float.IsPositiveInfinity(_currentCapacity);
+            bool shouldShow = HudEditorManager.IsEditorActive ||
+                (!(unlimitedSlots && unlimitedMass) && _currentCapacity >= ShowUIThreshold);
             _massCapacityUIInstance.SetActive(shouldShow);
 
             if (!shouldShow)
             {
+                _hasPresentation = false;
                 return;
             }
 
@@ -324,49 +380,196 @@ namespace DrifterBossGrabMod.UI
 
             float percentage = PluginConfig.Instance.EnableBalance.Value ? Mathf.Max(massPercentage, slotPercentage) : slotPercentage;
 
-            if (_fillBarImage != null)
+            _targetFill = Mathf.Clamp01(percentage);
+            float overPercent = _bagController != null
+                ? OverencumbranceSystem.CalculateOverencumbrancePercent(_bagController.baggedMass, _currentCapacity)
+                : 0f;
+            float maxOver = PluginConfig.Instance.EnableBalance.Value ? PluginConfig.Instance.OverencumbranceMax.Value / 100f : 0f;
+            _targetOverFill = maxOver > 0f ? Mathf.Clamp01(overPercent / maxOver) : 0f;
+            int passengerCount = BagCapacityCalculator.GetCurrentBaggedCount(_bagController);
+            bool balance = PluginConfig.Instance.EnableBalance.Value;
+            int slotLimit = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
+            float maxMass = balance ? _currentCapacity * (1f + Mathf.Max(0f, maxOver)) : float.PositiveInfinity;
+            bool atMaxOverencumbrance = balance && maxOver > 0f && maxMass > 0f &&
+                !float.IsInfinity(maxMass) && _currentUsedCapacity >= maxMass;
+            bool atLimit = (slotLimit > 0 && passengerCount >= slotLimit) ||
+                (balance && maxMass > 0f && !float.IsInfinity(maxMass) && _currentUsedCapacity >= maxMass);
+            bool initializing = !_hasPresentation || _balancePresentation != balance;
+            if (initializing)
             {
-                _fillBarImage.fillAmount = Mathf.Clamp01(percentage);
+                _displayFill = _targetFill;
+                _displayOverFill = _targetOverFill;
+                _fillVelocity = _overFillVelocity = 0f;
+                _accentAge = 1f;
+                _limitAccentAge = 1f;
+                _overEntryAccentAge = 1f;
+                _hasPresentation = true;
             }
-
-            UpdateOverencumbranceFill(percentage);
-
+            else if (passengerCount > _lastPassengerCount &&
+                (_targetFill > _lastCommittedFill || _targetOverFill > _lastCommittedOverFill))
+            {
+                _accentStart = _lastCommittedFill;
+                _overAccentStart = _lastCommittedOverFill;
+                _accentAge = 0f;
+            }
+            if (!initializing && passengerCount > _lastPassengerCount && atLimit && !_wasAtLimit)
+                _limitAccentAge = 0f;
+            if (!initializing && ((overPercent > 0f && !_wasOverencumbered) ||
+                (passengerCount > _lastPassengerCount && atMaxOverencumbrance && !_wasAtMaxOverencumbrance)))
+                _overEntryAccentAge = 0f;
+            _wasAtMaxOverencumbrance = atMaxOverencumbrance;
+            _wasOverencumbered = overPercent > 0f;
+            _wasAtLimit = atLimit;
+            float committedSlots = (float)passengerCount / Mathf.Max(1, BagCapacityCalculator.GetUtilityMaxStock(_bagController));
+            _lastCommittedFill = Mathf.Clamp01(balance ? Mathf.Max(massPercentage, committedSlots) : committedSlots);
+            _lastCommittedOverFill = _targetOverFill;
+            _lastPassengerCount = passengerCount;
+            _balancePresentation = balance;
             if (_percentageText != null)
             {
-                _percentageText.text = $"{Mathf.RoundToInt(percentage * 100)}%";
+                _percentageText.text = overPercent > 0f ? $"+{Mathf.RoundToInt(overPercent * 100f)}%" : $"{Mathf.RoundToInt(percentage * 100f)}%";
+                _percentageText.color = overPercent > 0f ? new Color(1f, 0.72f, 0.36f) : Color.white;
             }
-
             UpdateGradient(percentage);
             UpdateSeparators(percentage);
+            ApplyPresentation(0f);
         }
 
-        private void UpdateOverencumbranceFill(float currentPercentage)
+        private void LateUpdate()
         {
-            if (_overencumbranceFillImage == null)
+            if (_massCapacityUIInstance == null || !_massCapacityUIInstance.activeInHierarchy || !_hasPresentation) return;
+            ApplyPresentation(Time.unscaledDeltaTime);
+        }
+
+        private static Vector3 GetMeterPoint(float fraction)
+        {
+            float angle = (226.44f - Mathf.Clamp01(fraction) * 98.88f) * Mathf.Deg2Rad;
+            return new Vector3(-37.76f + Mathf.Cos(angle) * 21.53f, 51.92f + Mathf.Sin(angle) * 21.53f, 0f);
+        }
+
+        private float GetVisualFill(float fraction)
+        {
+            if (_fillBarImage == null || fraction <= 0f || fraction >= 1f) return Mathf.Clamp01(fraction);
+            var sprite = _fillBarImage.overrideSprite != null ? _fillBarImage.overrideSprite : _fillBarImage.sprite;
+            var rect = _fillBarImage.GetPixelAdjustedRect();
+            if (sprite != null && _fillBarImage.preserveAspect && sprite.rect.width > 0f && sprite.rect.height > 0f && rect.height > 0f)
             {
-                return;
+                float spriteAspect = sprite.rect.width / sprite.rect.height;
+                float rectAspect = rect.width / rect.height;
+                if (spriteAspect > rectAspect)
+                {
+                    float height = rect.height;
+                    rect.height = rect.width / spriteAspect;
+                    rect.y += (height - rect.height) * _fillBarImage.rectTransform.pivot.y;
+                }
+                else
+                {
+                    float width = rect.width;
+                    rect.width = rect.height * spriteAspect;
+                    rect.x += (width - rect.width) * _fillBarImage.rectTransform.pivot.x;
+                }
             }
-
-            if (PluginConfig.Instance.OverencumbranceMax.Value <= 0)
+            float minX = rect.xMin;
+            float maxX = rect.xMax;
+            if (sprite != null && sprite.rect.width > 0f)
             {
-                _overencumbranceFillImage.gameObject.SetActive(false);
-                return;
+                var padding = UnityEngine.Sprites.DataUtility.GetPadding(sprite);
+                minX += rect.width * padding.x / sprite.rect.width;
+                maxX -= rect.width * padding.z / sprite.rect.width;
             }
+            Vector3 point = _fillBarImage.rectTransform.InverseTransformPoint(
+                _fillBarImage.transform.parent.TransformPoint(GetMeterPoint(fraction)));
+            float amount = Mathf.InverseLerp(minX, maxX, point.x);
+            amount = _fillBarImage.fillOrigin == 1 ? 1f - amount : amount;
+            float endBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.95f, 1f, fraction));
+            return Mathf.Lerp(amount, 1f, endBlend);
+        }
 
-            float overencumbranceFraction = 0f;
-            if (currentPercentage > 1.0f)
+        private static float GetSettleStrength(float age)
+        {
+            age *= 0.32f / PluginConfig.Instance.CapacityFlashDuration.Value;
+            if (age < 0.025f) return Mathf.SmoothStep(0f, 1f, age / 0.025f);
+            if (age < 0.09f) return 1f;
+            return 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - 0.09f) / 0.23f));
+        }
+
+        private void ApplyPresentation(float deltaTime)
+        {
+            if (!PluginConfig.Instance.SmoothCapacityFill.Value)
             {
-
-                float maxOverencumbrancePercent = PluginConfig.Instance.EnableBalance.Value
-                    ? PluginConfig.Instance.OverencumbranceMax.Value / 100.0f
-                    : 0f;
-                float overencumbranceAmount = currentPercentage - 1.0f;
-                overencumbranceFraction = Mathf.Clamp01(overencumbranceAmount / maxOverencumbrancePercent);
+                _displayFill = _targetFill;
+                _displayOverFill = _targetOverFill;
+                _fillVelocity = 0f;
+                _overFillVelocity = 0f;
             }
-
-            _overencumbranceFillImage.fillAmount = overencumbranceFraction;
-
-            _overencumbranceFillImage.gameObject.SetActive(overencumbranceFraction > 0f);
+            if (deltaTime > 0f)
+            {
+                if (PluginConfig.Instance.SmoothCapacityFill.Value)
+                {
+                    _displayFill = Mathf.SmoothDamp(_displayFill, _targetFill, ref _fillVelocity, PluginConfig.Instance.CapacityFillSmoothTime.Value, Mathf.Infinity, deltaTime);
+                    _displayOverFill = Mathf.SmoothDamp(_displayOverFill, _targetOverFill, ref _overFillVelocity, PluginConfig.Instance.CapacityFillSmoothTime.Value, Mathf.Infinity, deltaTime);
+                }
+                _accentAge += deltaTime;
+                _limitAccentAge += deltaTime;
+                _overEntryAccentAge += deltaTime;
+            }
+            float fillTolerance = _targetFill >= 1f ? 0.005f : 0.001f;
+            float overTolerance = _targetOverFill >= 1f ? 0.005f : 0.001f;
+            if (Mathf.Abs(_displayFill - _targetFill) < fillTolerance)
+            {
+                _displayFill = _targetFill;
+                _fillVelocity = 0f;
+            }
+            if (Mathf.Abs(_displayOverFill - _targetOverFill) < overTolerance)
+            {
+                _displayOverFill = _targetOverFill;
+                _overFillVelocity = 0f;
+            }
+            float flashStrength = PluginConfig.Instance.EnableCapacityFlashes.Value && (!HudEditorManager.IsEditorActive || _editorPreview) ? PluginConfig.Instance.CapacityFlashStrength.Value : 0f;
+            float accent = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_accentAge / 0.22f));
+            float fullSettle = GetSettleStrength(_limitAccentAge);
+            float overSettle = GetSettleStrength(_overEntryAccentAge);
+            if (_fillBarImage != null)
+            {
+                _fillBarImage.fillAmount = GetVisualFill(_displayFill);
+                if (_gradientEffect != null)
+                {
+                    float strength = accent * 0.45f * flashStrength;
+                    float settle = _targetFill >= 1f ? fullSettle * 0.85f * flashStrength : 0f;
+                    float accentStart = GetVisualFill(_accentStart);
+                    float accentEnd = GetVisualFill(_targetFill);
+                    if (_gradientEffect.AccentStart != accentStart || _gradientEffect.AccentEnd != accentEnd ||
+                        _gradientEffect.AccentStrength != strength || _gradientEffect.SettleStrength != settle)
+                    {
+                        _gradientEffect.AccentStart = accentStart;
+                        _gradientEffect.AccentEnd = accentEnd;
+                        _gradientEffect.AccentStrength = strength;
+                        _gradientEffect.SettleStrength = settle;
+                        _fillBarImage.SetVerticesDirty();
+                    }
+                }
+            }
+            if (_overencumbranceFillImage != null)
+            {
+                _overencumbranceFillImage.fillAmount = GetVisualFill(_displayOverFill);
+                _overencumbranceFillImage.gameObject.SetActive(_targetOverFill > 0f || _displayOverFill > 0f);
+                if (_overencumbranceGradientEffect != null)
+                {
+                    float strength = accent * 0.45f * flashStrength;
+                    float settle = _targetOverFill > 0f ? Mathf.Max(fullSettle, overSettle) * 0.85f * flashStrength : 0f;
+                    float accentStart = GetVisualFill(_overAccentStart);
+                    float accentEnd = GetVisualFill(_targetOverFill);
+                    if (_overencumbranceGradientEffect.AccentStart != accentStart || _overencumbranceGradientEffect.AccentEnd != accentEnd ||
+                        _overencumbranceGradientEffect.AccentStrength != strength || _overencumbranceGradientEffect.SettleStrength != settle)
+                    {
+                        _overencumbranceGradientEffect.AccentStart = accentStart;
+                        _overencumbranceGradientEffect.AccentEnd = accentEnd;
+                        _overencumbranceGradientEffect.AccentStrength = strength;
+                        _overencumbranceGradientEffect.SettleStrength = settle;
+                        _overencumbranceFillImage.SetVerticesDirty();
+                    }
+                }
+            }
         }
 
         public void UpdateConfig()
@@ -383,7 +586,11 @@ namespace DrifterBossGrabMod.UI
             }
 
             _massCapacityUIInstance.SetActive(shouldExist);
-            if (!shouldExist) return;
+            if (!shouldExist)
+            {
+                _hasPresentation = false;
+                return;
+            }
 
             if (_massCapacityUIRectTransform != null)
             {
@@ -467,7 +674,7 @@ namespace DrifterBossGrabMod.UI
 
             List<float> separatorFractions = new List<float>();
 
-            if (PluginConfig.Instance.EnableBalance.Value)
+            if (PluginConfig.Instance.EnableBalance.Value && _bagController != null)
             {
                 float cumulativeMass = 0f;
 
@@ -594,24 +801,8 @@ namespace DrifterBossGrabMod.UI
                         if (rect != null)
                         {
 
-                            float centerX = -37.76f;
-                            float centerY = 51.92f;
-
-                            float radius = 21.53f;
-
-                            float startAngle = 226.44f;
-                            float totalSweep = 98.88f;
-
-                            float curAngle = startAngle - (frac * totalSweep);
-
-                            float rad = curAngle * Mathf.Deg2Rad;
-                            float posX = centerX + (Mathf.Cos(rad) * radius);
-                            float posY = centerY + (Mathf.Sin(rad) * radius);
-
-                            float rotZ = curAngle + 90.5f;
-
-                            rect.localPosition = new Vector3(posX, posY, 0f);
-                            rect.localEulerAngles = new Vector3(0, 0, rotZ);
+                            rect.localPosition = GetMeterPoint(frac);
+                            rect.localEulerAngles = new Vector3(0f, 0f, 226.44f - frac * 98.88f + 90.5f);
                         }
                     }
                     else
@@ -630,6 +821,11 @@ namespace DrifterBossGrabMod.UI
     public class CapacityUIGradient : UnityEngine.UI.BaseMeshEffect
     {
         public float Intensity = 1f;
+        public float AccentStart;
+        public float AccentEnd;
+        public float AccentStrength;
+        public float SettleStrength;
+        public bool ReverseFill;
 
         public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
         {
@@ -662,7 +858,13 @@ namespace DrifterBossGrabMod.UI
 
                 Color gradientColor = targetColor;
                 gradientColor.a *= vertex.color.a;
-                vertex.color = Color.Lerp(vertex.color, gradientColor, Intensity);
+                Color finalColor = Color.Lerp(vertex.color, gradientColor, Intensity);
+                float fillPosition = ReverseFill ? 1f - normalizedX : normalizedX;
+                float highlight = fillPosition >= AccentStart && fillPosition <= AccentEnd ? AccentStrength : 0f;
+                highlight = Mathf.Max(highlight, SettleStrength);
+                Color bright = Color.Lerp(finalColor, Color.white, highlight);
+                bright.a = finalColor.a;
+                vertex.color = bright;
                 vertices[i] = vertex;
             }
 
@@ -674,6 +876,11 @@ namespace DrifterBossGrabMod.UI
     public class OverencumbranceUIGradient : UnityEngine.UI.BaseMeshEffect
     {
         public float Intensity = 1f;
+        public float AccentStart;
+        public float AccentEnd;
+        public float AccentStrength;
+        public float SettleStrength;
+        public bool ReverseFill;
 
         public override void ModifyMesh(UnityEngine.UI.VertexHelper vh)
         {
@@ -706,7 +913,13 @@ namespace DrifterBossGrabMod.UI
 
                 Color gradientColor = targetColor;
                 gradientColor.a *= vertex.color.a;
-                vertex.color = Color.Lerp(vertex.color, gradientColor, Intensity);
+                Color finalColor = Color.Lerp(vertex.color, gradientColor, Intensity);
+                float fillPosition = ReverseFill ? 1f - normalizedX : normalizedX;
+                float highlight = fillPosition >= AccentStart && fillPosition <= AccentEnd ? AccentStrength : 0f;
+                highlight = Mathf.Max(highlight, SettleStrength);
+                Color bright = Color.Lerp(finalColor, Color.white, highlight);
+                bright.a = finalColor.a;
+                vertex.color = bright;
                 vertices[i] = vertex;
             }
 

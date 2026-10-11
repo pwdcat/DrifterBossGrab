@@ -21,7 +21,8 @@ namespace DrifterBossGrabMod
                 {
                     string bodyName = obj.name.Replace(Constants.CloneSuffix, "");
                     if (bodyName == "ReaperBody" || bodyName == "ReaperBossBody" ||
-                        bodyName == "ReaperBossMalachiteBody" || bodyName == "LilReaperBody")
+                        bodyName == "ReaperBossMalachiteBody" || bodyName == "LilReaperBody" ||
+                        obj.GetComponent<WakeDonationController>() != null)
                     {
                         var cache = obj.GetComponent<BodyColliderCache>();
                         if (cache == null && !isVisible) cache = obj.AddComponent<BodyColliderCache>();

@@ -20,6 +20,38 @@ namespace DrifterBossGrabMod
     // ========================================================================================
     public static class PersistenceNetworkHandler
     {
+        private static readonly Dictionary<uint, object> _pendingPersistence = new();
+        private static readonly Dictionary<uint, (object revision, HashSet<uint> ids)> _clientBagSnapshots = new();
+
+        internal static object RegisterClientBagSnapshot(uint controllerId, uint[] ids)
+        {
+            var receivedIds = new HashSet<uint>(ids);
+            if (_clientBagSnapshots.TryGetValue(controllerId, out var previous))
+            {
+                foreach (var id in previous.ids)
+                    if (!receivedIds.Contains(id)) CancelPendingPersistence(id);
+            }
+            var revision = new object();
+            _clientBagSnapshots[controllerId] = (revision, receivedIds);
+            return revision;
+        }
+
+        internal static bool IsCurrentClientBagSnapshot(uint controllerId, object revision)
+        {
+            return _clientBagSnapshots.TryGetValue(controllerId, out var current) && ReferenceEquals(current.revision, revision);
+        }
+
+        internal static void CancelPendingPersistence(uint id)
+        {
+            _pendingPersistence.Remove(id);
+        }
+
+        private static void ClearClientPendingState(Run run)
+        {
+            _pendingPersistence.Clear();
+            _clientBagSnapshots.Clear();
+        }
+
 
         // ========================================================================================
         // OUTBOUND MESSAGES
@@ -81,12 +113,17 @@ namespace DrifterBossGrabMod
 
         public static void RegisterMessages()
         {
+            Run.onRunDestroyGlobal -= ClearClientPendingState;
+            Run.onRunDestroyGlobal += ClearClientPendingState;
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType, HandleBaggedObjectsPersistenceMessage);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType, HandleUpdateBagStateMessage);
         }
 
         public static void UnregisterMessages()
         {
+            Run.onRunDestroyGlobal -= ClearClientPendingState;
+            _pendingPersistence.Clear();
+            _clientBagSnapshots.Clear();
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType);
         }
@@ -96,95 +133,111 @@ namespace DrifterBossGrabMod
         // ========================================================================================
         public static void HandleBaggedObjectsPersistenceMessage(NetworkReader reader, NetworkConnection conn)
         {
-            BaggedObjectsPersistenceMessage message = new BaggedObjectsPersistenceMessage();
+            var message = new BaggedObjectsPersistenceMessage();
             message.Deserialize(reader);
-
             for (int i = 0; i < message.baggedObjectNetIds.Count; i++)
             {
                 var netId = message.baggedObjectNetIds[i];
-                string? ownerPlayerId = null;
-                bool collidersDisabled = false;
-
-                if (i < message.ownerPlayerIds.Count)
-                {
-                    ownerPlayerId = message.ownerPlayerIds[i];
-                }
-
-                if (i < message.collidersDisabled.Count)
-                {
-                    collidersDisabled = message.collidersDisabled[i];
-                }
-
-                GameObject? obj = FindObjectByNetIdWithRetry(netId, maxRetries: 3, retryDelay: 0.1f);
-
+                if (netId == NetworkInstanceId.Invalid) continue;
+                string? ownerPlayerId = i < message.ownerPlayerIds.Count ? message.ownerPlayerIds[i] : null;
+                bool collidersDisabled = i < message.collidersDisabled.Count && message.collidersDisabled[i];
+                CancelPendingPersistence(netId.Value);
+                var obj = FindObjectByNetId(netId);
                 if (obj != null)
                 {
-                    var projectileControllerCheck = obj.GetComponent<ThrownObjectProjectileController>();
-                    var isBlacklisted = PluginConfig.IsBlacklisted(obj.name);
-                    if (projectileControllerCheck != null && !isBlacklisted)
+                    ApplyPersistenceObject(obj, ownerPlayerId, collidersDisabled);
+                }
+                else if (DrifterBossGrabPlugin.Instance != null)
+                {
+                    var revision = new object();
+                    _pendingPersistence[netId.Value] = revision;
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryPersistenceObject(netId, ownerPlayerId, collidersDisabled, revision));
+                }
+            }
+        }
+
+        private static System.Collections.IEnumerator RetryPersistenceObject(NetworkInstanceId netId, string? ownerPlayerId, bool collidersDisabled, object revision)
+        {
+            var run = Run.instance;
+            var client = NetworkManager.singleton?.client;
+            float deadline = Time.realtimeSinceStartup + 5f;
+            try
+            {
+                while (Time.realtimeSinceStartup < deadline && Run.instance == run &&
+                    client != null && client.isConnected && NetworkManager.singleton?.client == client &&
+                    _pendingPersistence.TryGetValue(netId.Value, out var current) && ReferenceEquals(current, revision))
+                {
+                    yield return new WaitForSecondsRealtime(0.1f);
+                    if (Run.instance != run || client == null || !client.isConnected || NetworkManager.singleton?.client != client ||
+                        !_pendingPersistence.TryGetValue(netId.Value, out current) || !ReferenceEquals(current, revision)) yield break;
+                    var obj = FindObjectByNetId(netId);
+                    if (obj == null) continue;
+                    ApplyPersistenceObject(obj, ownerPlayerId, collidersDisabled);
+                    yield break;
+                }
+            }
+            finally
+            {
+                if (_pendingPersistence.TryGetValue(netId.Value, out var current) && ReferenceEquals(current, revision))
+                    _pendingPersistence.Remove(netId.Value);
+            }
+        }
+
+        private static void ApplyPersistenceObject(GameObject obj, string? ownerPlayerId, bool collidersDisabled)
+        {
+            if (obj.GetComponent<ThrownObjectProjectileController>() != null && !PluginConfig.IsBlacklisted(obj.name)) return;
+            if (PersistenceSceneHandler.IsRestoringFromSceneChange())
+            {
+                PersistenceSceneHandler.HandleSpecialObjectRestoration(obj, duringSceneRestoration: true);
+            }
+            else
+            {
+
+                var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
+                if (teleporterInteraction != null)
+                {
+                    Log.Debug($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
+                    MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
+                }
+            }
+
+            if (PersistenceSceneHandler.IsRestoringFromSceneChange())
+            {
+                VisualRefreshUtility.Refresh(obj);
+                if (PersistenceObjectsTracker.IsObjectCurrentlyBagged(obj))
+                {
+                    PersistenceObjectsTracker.SetBaggedObjectVisibility(obj, false);
+                }
+            }
+
+            PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
+
+            if (collidersDisabled && !NetworkServer.active && obj.GetComponent<CharacterBody>() == null)
+            {
+
+                DrifterBagController? controller = null;
+                foreach (var ctrl in Patches.BagPatches.GetAllControllers())
+                {
+                    var list = BagPatches.GetState(ctrl).BaggedObjects;
+                    if (list != null && list.Contains(obj))
                     {
-                        return;
+                        controller = ctrl;
+                        break;
                     }
                 }
 
-                if (obj == null)
+                if (controller != null)
                 {
-                    return;
-                }
-
-                if (PersistenceSceneHandler.IsRestoringFromSceneChange())
-                {
-                    PersistenceSceneHandler.HandleSpecialObjectRestoration(obj, duringSceneRestoration: true);
-                }
-                else
-                {
-
-                    var teleporterInteraction = obj.GetComponent<RoR2.TeleporterInteraction>();
-                    if (teleporterInteraction != null)
+                    var bagState = BagPatches.GetState(controller);
+                    if (bagState != null)
                     {
-                        Log.Debug($" Found TeleporterInteraction on {teleporterInteraction.gameObject.name} during cycling. Registering as secondary only.");
-                        MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
-                    }
-                }
-
-                if (PersistenceSceneHandler.IsRestoringFromSceneChange())
-                {
-                    VisualRefreshUtility.Refresh(obj);
-                    if (PersistenceObjectsTracker.IsObjectCurrentlyBagged(obj))
-                    {
-                        PersistenceObjectsTracker.SetBaggedObjectVisibility(obj, false);
-                    }
-                }
-
-                PersistenceObjectManager.AddPersistedObject(obj, ownerPlayerId);
-
-                if (collidersDisabled && !NetworkServer.active)
-                {
-
-                    DrifterBagController? controller = null;
-                    foreach (var ctrl in Patches.BagPatches.GetAllControllers())
-                    {
-                        var list = BagPatches.GetState(ctrl).BaggedObjects;
-                        if (list != null && list.Contains(obj))
+                        if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
                         {
-                            controller = ctrl;
-                            break;
+                            bagState.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
                         }
-                    }
+                        var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
 
-                    if (controller != null)
-                    {
-                        var bagState = BagPatches.GetState(controller);
-                        if (bagState != null)
-                        {
-                            if (!bagState.DisabledCollidersByObject.ContainsKey(obj))
-                            {
-                                bagState.DisabledCollidersByObject[obj] = new Dictionary<Collider, bool>();
-                            }
-                            var objectDisabledStates = bagState.DisabledCollidersByObject[obj];
-
-                            BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
-                        }
+                        BodyColliderCache.DisableMovementColliders(obj, objectDisabledStates);
                     }
                 }
             }
@@ -192,15 +245,17 @@ namespace DrifterBossGrabMod
 
         public static void HandleUpdateBagStateMessage(NetworkReader reader, NetworkConnection conn)
         {
+            if (NetworkServer.active) return;
             var msg = new UpdateBagStateMessage();
             msg.Deserialize(reader);
+            var revision = RegisterClientBagSnapshot(msg.controllerNetId.Value, msg.baggedIds ?? Array.Empty<uint>());
 
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
             {
                 if (DrifterBossGrabPlugin.Instance != null)
                 {
-                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindController(msg));
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryFindController(msg, revision));
                 }
                 return;
             }
@@ -238,22 +293,10 @@ namespace DrifterBossGrabMod
                 var currentObjects = bagState.BaggedObjects;
                 if (currentObjects != null)
                 {
-                    var receivedObjects = new List<GameObject>();
-                    if (msg.baggedIds != null)
-                    {
-                        foreach (var netId in msg.baggedIds)
-                        {
-                            var obj = FindObjectByNetId(new NetworkInstanceId(netId));
-                            if (obj != null)
-                            {
-                                receivedObjects.Add(obj);
-                            }
-                        }
-                    }
-
                     foreach (var obj in currentObjects.ToList())
                     {
-                        if (obj == null || !obj || !receivedObjects.Contains(obj))
+                        var identity = obj != null ? obj.GetComponent<NetworkIdentity>() : null;
+                        if (obj == null || identity == null || msg.baggedIds == null || Array.IndexOf(msg.baggedIds, identity.netId.Value) < 0)
                         {
                             if (obj != null)
                             {
@@ -276,7 +319,7 @@ namespace DrifterBossGrabMod
                     {
 
                         int objIndex = System.Array.IndexOf(msg.baggedIds, netId);
-                        if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active)
+                        if (objIndex >= 0 && objIndex < msg.collidersDisabled.Length && msg.collidersDisabled[objIndex] && !NetworkServer.active && obj.GetComponent<CharacterBody>() == null)
                         {
                             var bagStateColliders = BagPatches.GetState(netController.GetComponent<DrifterBagController>());
                             if (bagStateColliders != null)
@@ -296,7 +339,7 @@ namespace DrifterBossGrabMod
             var previousMain = BagPatches.GetMainSeatObject(controller);
 
             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds ?? Array.Empty<uint>(), msg.seatIds ?? Array.Empty<uint>(), msg.scrollDirection,
-                msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes);
+                msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes, msg.emptySlotIndex);
 
             if (!NetworkServer.active && (msg.selectedIndex < 0 || msg.baggedIds == null || msg.baggedIds.Length == 0))
             {
@@ -304,8 +347,10 @@ namespace DrifterBossGrabMod
             }
         }
 
-        private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg)
+        private static System.Collections.IEnumerator RetryFindController(UpdateBagStateMessage msg, object revision)
         {
+            var run = Run.instance;
+            var client = NetworkManager.singleton?.client;
             for (int attempt = 0; attempt < 10; attempt++)
             {
                 for (int frame = 0; frame < 10; frame++)
@@ -313,6 +358,8 @@ namespace DrifterBossGrabMod
                     yield return null;
                 }
 
+                if (Run.instance != run || client == null || !client.isConnected || NetworkManager.singleton?.client != client ||
+                    !IsCurrentClientBagSnapshot(msg.controllerNetId.Value, revision)) yield break;
                 var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
                 if (controllerObj != null)
                 {
@@ -326,99 +373,85 @@ namespace DrifterBossGrabMod
 
         private static GameObject? FindObjectByNetId(NetworkInstanceId netId)
         {
-            return FindObjectByNetIdWithRetry(netId, maxRetries: 1, retryDelay: 0f);
-        }
-
-        private static GameObject? FindObjectByNetIdWithRetry(NetworkInstanceId netId, int maxRetries, float retryDelay)
-        {
             if (netId == NetworkInstanceId.Invalid) return null;
-
             GameObject? foundObj = null;
-            int attempt = 0;
             GameObject[] persistedObjects = PersistenceObjectManager.GetPersistedObjects();
-
-            while (attempt < maxRetries && foundObj == null)
+            if (!NetworkServer.active)
             {
-                attempt++;
-
-                if (!NetworkServer.active)
+                var dontDestroyOnLoadScene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("DontDestroyOnLoad");
+                if (dontDestroyOnLoadScene.IsValid() && dontDestroyOnLoadScene.isLoaded)
                 {
-                    var dontDestroyOnLoadScene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("DontDestroyOnLoad");
-                    if (dontDestroyOnLoadScene.IsValid() && dontDestroyOnLoadScene.isLoaded)
+                    foreach (var rootObj in dontDestroyOnLoadScene.GetRootGameObjects())
                     {
-                        foreach (var rootObj in dontDestroyOnLoadScene.GetRootGameObjects())
+                        if (rootObj != null)
                         {
-                            if (rootObj != null)
-                            {
-                                var identity = rootObj.GetComponent<NetworkIdentity>();
-                                if (identity != null && identity.netId == netId)
-                                {
-                                    foundObj = rootObj;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (foundObj == null)
-                {
-                    foreach (var key in persistedObjects)
-                    {
-                        if (key != null)
-                        {
-                            var identity = key.GetComponent<NetworkIdentity>();
+                            var identity = rootObj.GetComponent<NetworkIdentity>();
                             if (identity != null && identity.netId == netId)
                             {
-                                foundObj = key;
+                                foundObj = rootObj;
                                 break;
                             }
                         }
                     }
                 }
+            }
 
-                if (foundObj == null)
+            if (foundObj == null)
+            {
+                foreach (var key in persistedObjects)
                 {
-                    foreach (var controller in BagPatches.GetAllControllers())
+                    if (key != null)
                     {
-                        var list = BagPatches.GetState(controller).BaggedObjects;
-                        if (list != null)
+                        var identity = key.GetComponent<NetworkIdentity>();
+                        if (identity != null && identity.netId == netId)
                         {
-                            foreach (var obj in list)
-                            {
-                                if (obj != null)
-                                {
-                                    var identity = obj.GetComponent<NetworkIdentity>();
-                                    if (identity != null && identity.netId == netId)
-                                    {
-                                        foundObj = obj;
-                                        break;
-                                    }
-                                }
-                            }
+                            foundObj = key;
+                            break;
                         }
-                        if (foundObj != null) break;
-                    }
-                }
-
-                if (foundObj == null)
-                {
-                    foundObj = ClientScene.FindLocalObject(netId);
-                }
-
-                if (foundObj == null && NetworkServer.active)
-                {
-                    try
-                    {
-                        foundObj = NetworkServer.FindLocalObject(netId);
-                    }
-                    catch
-                    {
-                        foundObj = null;
                     }
                 }
             }
 
+            if (foundObj == null)
+            {
+                foreach (var controller in BagPatches.GetAllControllers())
+                {
+                    var list = BagPatches.GetState(controller).BaggedObjects;
+                    if (list != null)
+                    {
+                        foreach (var obj in list)
+                        {
+                            if (obj != null)
+                            {
+                                var identity = obj.GetComponent<NetworkIdentity>();
+                                if (identity != null && identity.netId == netId)
+                                {
+                                    foundObj = obj;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (foundObj != null) break;
+                }
+            }
+
+            if (foundObj == null)
+            {
+                foundObj = ClientScene.FindLocalObject(netId);
+            }
+
+            if (foundObj == null && NetworkServer.active)
+            {
+                try
+                {
+                    foundObj = NetworkServer.FindLocalObject(netId);
+                }
+                catch
+                {
+                    foundObj = null;
+                }
+            }
             return foundObj;
         }
 

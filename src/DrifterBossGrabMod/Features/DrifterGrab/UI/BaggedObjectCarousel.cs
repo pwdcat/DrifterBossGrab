@@ -2,9 +2,11 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
+using RoR2.UI;
 using System;
 using System.Collections.Generic;
 using DrifterBossGrabMod.Patches;
+using DrifterBossGrabMod.Core;
 using UnityEngine.AddressableAssets;
 using TMPro;
 using System.Reflection;
@@ -25,6 +27,16 @@ namespace DrifterBossGrabMod.UI
         // ========================================================================================
         // RESOURCE LOADING
         // ========================================================================================
+        private static readonly FieldInfo? LowHealthItem = HarmonyLib.AccessTools.Field(typeof(HealthBar), "hasLowHealthItem");
+        private static readonly FieldInfo? LowHealthBuff = HarmonyLib.AccessTools.Field(typeof(HealthBar), "hasLowHealthBuff");
+
+        internal static void ResetHealthBarWithoutSource(HealthBar? healthBar)
+        {
+            if (healthBar == null || healthBar.source != null) return;
+            LowHealthItem?.SetValue(healthBar, false);
+            LowHealthBuff?.SetValue(healthBar, false);
+        }
+
         public GameObject? slotPrefab;
 
         public float sideScale = 0.8f;
@@ -32,11 +44,11 @@ namespace DrifterBossGrabMod.UI
         private static Texture2D? _weightIconTexture;
         private static Texture2D? WeightIconTexture => _weightIconTexture ??= LoadWeightIconTexture();
         private static Sprite? _newWeightIconSprite;
-        private static Sprite? NewWeightIconSprite => _newWeightIconSprite ??= (WeightIconTexture != null ? Sprite.Create(WeightIconTexture, new Rect(0, 0, WeightIconTexture.width, WeightIconTexture.height), new Vector2(0.5f, 0.5f)) : null);
+        public static Sprite? NewWeightIconSprite => _newWeightIconSprite ??= (WeightIconTexture != null ? Sprite.Create(WeightIconTexture, new Rect(0, 0, WeightIconTexture.width, WeightIconTexture.height), new Vector2(0.5f, 0.5f)) : null);
         private static Sprite? _oldWeightIconSprite;
-        private static Sprite OldWeightIconSprite => _oldWeightIconSprite ??= Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/texMovespeedBuffIcon.tif").WaitForCompletion();
+        public static Sprite OldWeightIconSprite => _oldWeightIconSprite ??= Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/texMovespeedBuffIcon.tif").WaitForCompletion();
         private static Sprite? _overencumbranceIconSprite;
-        private static Sprite? OverencumbranceIconSprite => _overencumbranceIconSprite ??= LoadOverencumbranceIconSprite();
+        public static Sprite? OverencumbranceIconSprite => _overencumbranceIconSprite ??= LoadOverencumbranceIconSprite();
         private static Sprite? LoadOverencumbranceIconSprite()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -76,6 +88,15 @@ namespace DrifterBossGrabMod.UI
         private float _timeSinceLastActivity = 0f;
         private int _lastPassengerStateHash;
         private bool _hasPassengerStateHash;
+        private readonly List<GameObject> _layoutPassengers = new();
+        private GameObject? _layoutMainPassenger;
+        private int _layoutCapacity;
+        private int _layoutCycleCount = 1;
+        private int _layoutEmptySlotIndex = -1;
+        private bool _hasLayout;
+        private GameObject? _pendingPromotionPassenger;
+        private float _promotionWaitUntil;
+        private readonly List<CarouselCardExit> _departureVisuals = new();
 
         public void ResetInactivityTimer()
         {
@@ -88,6 +109,7 @@ namespace DrifterBossGrabMod.UI
 
         private void OnEnable()
         {
+            _hasLayout = false;
             _rootCanvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
             ResetInactivityTimer();
             BagCarouselUpdater.ActiveCarousels.Add(this);
@@ -98,10 +120,18 @@ namespace DrifterBossGrabMod.UI
         {
             BagCarouselUpdater.ActiveCarousels.Remove(this);
             ConfigChangeNotifier.RemoveObserver(this);
+            foreach (var visual in _departureVisuals)
+                if (visual != null) Destroy(visual.gameObject);
+            _departureVisuals.Clear();
         }
 
         private void Update()
         {
+            if (_promotionWaitUntil > 0f && Time.unscaledTime >= _promotionWaitUntil)
+            {
+                _promotionWaitUntil = 0f;
+                PopulateCarousel();
+            }
             if (_rootCanvasGroup == null)
             {
                 _rootCanvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
@@ -136,6 +166,7 @@ namespace DrifterBossGrabMod.UI
 
         public void OnConfigChanged(string key, object value)
         {
+            _hasLayout = false;
             ResetInactivityTimer();
             UpdateToggles();
             UpdateParentPosition();
@@ -144,6 +175,7 @@ namespace DrifterBossGrabMod.UI
 
         public void UpdateScales()
         {
+            _hasLayout = false;
             PopulateCarousel();
         }
 
@@ -207,7 +239,10 @@ namespace DrifterBossGrabMod.UI
 
         private List<GameObject> _slots = new();
         private Dictionary<GameObject, GameObject?> _slotToPassenger = new();
+        private readonly Dictionary<GameObject, uint> _slotToPassengerNetId = new();
         private Dictionary<GameObject, int> _slotToIndex = new();
+        private Dictionary<GameObject, int> _slotToState = new();
+        private readonly HashSet<GameObject> _exitingSlots = new();
 
         // ========================================================================================
         // CONTROLLER ACCESS
@@ -302,8 +337,72 @@ namespace DrifterBossGrabMod.UI
         // ========================================================================================
         // POPULATION LOGIC
         // ========================================================================================
+        internal void AnimatePassengerExit(DrifterBagController controller, uint passengerNetId, bool wasDestroyed)
+        {
+            if (passengerNetId == 0) return;
+            foreach (var slot in _slots)
+            {
+                if (_slotToPassengerNetId.TryGetValue(slot, out uint id) && id == passengerNetId &&
+                    _slotToPassenger.TryGetValue(slot, out var passenger) && !ReferenceEquals(passenger, null))
+                {
+                    AnimatePassengerExit(controller, passenger!, wasDestroyed);
+                    return;
+                }
+            }
+        }
+
+        internal void AnimatePassengerExit(DrifterBagController controller, GameObject passenger, bool wasDestroyed)
+        {
+            if (!isActiveAndEnabled || HudEditorManager.IsEditorActive || GetOrRefreshBagController() != controller) return;
+            bool destroyed = wasDestroyed || IsDestroyedPassenger(passenger);
+            var matches = _slots.Where(slot => _slotToPassenger.TryGetValue(slot, out var value) &&
+                ReferenceEquals(value, passenger)).ToList();
+            var visible = matches.Where(slot => slot.activeInHierarchy)
+                .OrderByDescending(slot => slot.GetComponent<CanvasGroup>()?.alpha ?? 0f).FirstOrDefault();
+            if (visible != null && (visible.GetComponent<CanvasGroup>()?.alpha ?? 0f) > 0.01f &&
+                PluginConfig.Instance.CarouselAnimationDuration.Value > 0.001f &&
+                (destroyed ? PluginConfig.Instance.EnableCardDestructionAnimation.Value : PluginConfig.Instance.EnableCardReleaseAnimation.Value))
+            {
+                foreach (var warning in visible.GetComponentsInChildren<BreakoutWarningOverlay>(true))
+                    warning.enabled = false;
+                _departureVisuals.RemoveAll(visual => visual == null);
+                if (_departureVisuals.Count >= 8)
+                {
+                    Destroy(_departureVisuals[0].gameObject);
+                    _departureVisuals.RemoveAt(0);
+                }
+                _departureVisuals.Add(CarouselCardExit.Create(visible, destroyed));
+            }
+            foreach (var slot in matches)
+            {
+                if (_activeCoroutines.TryGetValue(slot, out var animation)) StopCoroutine(animation);
+                _activeCoroutines.Remove(slot);
+                _exitingSlots.Remove(slot);
+                _slotToPassenger.Remove(slot);
+                _slotToPassengerNetId.Remove(slot);
+                _slotToState.Remove(slot);
+                _slotToIndex.Remove(slot);
+                slot.SetActive(false);
+            }
+            if (matches.Count > 0) _hasLayout = false;
+        }
+
+        private static bool IsDestroyedPassenger(GameObject passenger)
+        {
+            if (passenger == null) return true;
+            var health = passenger.GetComponent<HealthComponent>();
+            if (health != null) return !health.alive;
+            var attributes = passenger.GetComponent<SpecialObjectAttributes>();
+            return attributes != null && attributes.durability <= 0f;
+        }
+
         public void PopulateCarousel(int direction = 0)
         {
+            if (_slots.Count == 0)
+            {
+                _hasLayout = false;
+                return;
+            }
             DrifterBagController? bagController = GetOrRefreshBagController();
 
             if (bagController == null)
@@ -312,7 +411,10 @@ namespace DrifterBossGrabMod.UI
                 {
                     foreach (var s in _slots) s.SetActive(false);
                     _slotToPassenger.Clear();
+                    _slotToPassengerNetId.Clear();
                     _slotToIndex.Clear();
+                    _slotToState.Clear();
+                    _hasLayout = false;
                     return;
                 }
             }
@@ -354,13 +456,27 @@ namespace DrifterBossGrabMod.UI
                 }
             }
 
+            foreach (var passenger in _slotToPassenger.Values.Distinct().ToList())
+            {
+                if (ReferenceEquals(passenger, null) || passenger == EmptySlotMarker) continue;
+                if (!passengerList.Contains(passenger!) && bagController != null && IsDestroyedPassenger(passenger!))
+                    AnimatePassengerExit(bagController, passenger!, true);
+            }
+
             if (passengerList.Count == 0 && mainPassenger == null)
             {
+                _hasLayout = false;
+                _layoutPassengers.Clear();
+                _layoutMainPassenger = null;
+                _pendingPromotionPassenger = null;
+                _promotionWaitUntil = 0f;
                 if (!HudEditorManager.IsEditorActive)
                 {
                     foreach (var s in _slots) s.SetActive(false);
                     _slotToPassenger.Clear();
+                    _slotToPassengerNetId.Clear();
                     _slotToIndex.Clear();
+                    _slotToState.Clear();
                     return;
                 }
 
@@ -369,6 +485,25 @@ namespace DrifterBossGrabMod.UI
             if (mainPassenger != null && !passengerList.Contains(mainPassenger))
             {
                 mainPassenger = null;
+            }
+
+            if (!_layoutPassengers.SequenceEqual(passengerList)) direction = 0;
+
+            if (mainPassenger == null && passengerList.Count > 0 && direction == 0 &&
+                bagController != null && Networking.AuthorityGuard.ShouldAutoPromote(bagController) &&
+                !ReferenceEquals(_layoutMainPassenger, null) && !passengerList.Contains(_layoutMainPassenger!))
+            {
+                if (!ReferenceEquals(_pendingPromotionPassenger, _layoutMainPassenger))
+                {
+                    _pendingPromotionPassenger = _layoutMainPassenger;
+                    _promotionWaitUntil = Time.unscaledTime + 0.12f;
+                }
+                if (Time.unscaledTime < _promotionWaitUntil) return;
+            }
+            else
+            {
+                _pendingPromotionPassenger = null;
+                _promotionWaitUntil = 0f;
             }
 
             unchecked
@@ -402,66 +537,58 @@ namespace DrifterBossGrabMod.UI
             bool isBagFull = passengerList.Count >= capacity;
 
             int animationCapacity = GetAnimationCapacity(bagController);
-
-            if (mainPassenger == null)
+            int cycleCount = Mathf.Max(1, passengerList.Count + (!isBagFull || mainPassenger == null ? 1 : 0));
+            _layoutCycleCount = cycleCount;
+            var window = GetVisibleWindow(cycleCount);
+            int requiredSlots = (window.max - window.min + 1) * 2 + 3;
+            if (_slots.Count > 0)
             {
-
-                targetPassengers[0] = EmptySlotMarker;
-
-                targetPassengers[1] = (passengerList.Count > 0) ? passengerList[0] : null;
-
-                targetPassengers[-1] = (passengerList.Count > 0) ? passengerList[passengerList.Count - 1] : null;
-
-                targetPassengers[2] = (passengerList.Count > 1) ? passengerList[1] : null;
-
-                targetPassengers[-2] = (passengerList.Count > 1) ? passengerList[passengerList.Count - 2] : null;
+                while (_slots.Count < requiredSlots)
+                {
+                    var extra = Instantiate(_slots[0], transform);
+                    extra.name = $"extraSlot_{_slots.Count}";
+                    extra.SetActive(false);
+                    if (!extra.GetComponent<CanvasGroup>()) extra.AddComponent<CanvasGroup>();
+                    ApplyWeightIconTransform(extra);
+                    CleanIncompatibleSlotComponents(extra);
+                    _slots.Add(extra);
+                }
             }
-            else
+            var selectionState = bagController != null ? BagPatches.GetState(bagController) : new BagState();
+            int emptySlotIndex = selectionState.GetEmptySlotIndex(passengerList.Count);
+            bool layoutUnchanged = _hasLayout && _layoutEmptySlotIndex == emptySlotIndex && _layoutMainPassenger == mainPassenger &&
+                _layoutCapacity == animationCapacity && _layoutPassengers.SequenceEqual(passengerList);
+            if (layoutUnchanged)
             {
-
-                targetPassengers[0] = mainPassenger;
-
-                int aboveIndex = currentIndex + 1;
-                if (aboveIndex < passengerList.Count)
+                foreach (var slot in _slots)
                 {
-                    targetPassengers[1] = passengerList[aboveIndex];
+                    if (!slot.activeSelf || _exitingSlots.Contains(slot) || !_slotToPassenger.TryGetValue(slot, out var passenger)) continue;
+                    var group = slot.GetComponent<CanvasGroup>();
+                    float alpha = group != null ? group.alpha : 1f;
+                    int index = passenger != null ? passengerList.IndexOf(passenger) : -1;
+                    SetSlotData(slot, passenger, bagController, slot == centerInstance, index, passengerList.Count);
+                    if (group != null) group.alpha = alpha;
                 }
-                else if (isBagFull && passengerList.Count > 0)
-                {
+                return;
+            }
+            _layoutPassengers.Clear();
+            _layoutPassengers.AddRange(passengerList);
+            _layoutMainPassenger = mainPassenger;
+            _layoutCapacity = animationCapacity;
+            _layoutEmptySlotIndex = emptySlotIndex;
+            _hasLayout = true;
 
-                    targetPassengers[1] = passengerList[0];
-                }
-                else
-                {
-                    targetPassengers[1] = EmptySlotMarker;
-                }
-
-                int belowIndex = currentIndex - 1;
-                if (belowIndex >= 0)
-                {
-                    targetPassengers[-1] = passengerList[belowIndex];
-                }
-                else if (isBagFull && passengerList.Count > 0)
-                {
-
-                    targetPassengers[-1] = passengerList[passengerList.Count - 1];
-                }
-                else
-                {
-                    targetPassengers[-1] = EmptySlotMarker;
-                }
-
-                int hiddenAbove = currentIndex + 2;
-                if (hiddenAbove < passengerList.Count) targetPassengers[2] = passengerList[hiddenAbove];
-                else if (hiddenAbove == passengerList.Count) targetPassengers[2] = EmptySlotMarker;
-                else if (passengerList.Count > 0) targetPassengers[2] = passengerList[0];
-                else targetPassengers[2] = EmptySlotMarker;
-
-                int hiddenBelow = currentIndex - 2;
-                if (hiddenBelow >= 0) targetPassengers[-2] = passengerList[hiddenBelow];
-                else if (hiddenBelow == -1) targetPassengers[-2] = EmptySlotMarker;
-                else if (passengerList.Count > 0) targetPassengers[-2] = passengerList[passengerList.Count - 1];
-                else targetPassengers[-2] = EmptySlotMarker;
+            bool includeEmpty = !isBagFull || mainPassenger == null;
+            int selectedPosition = mainPassenger == null ? selectionState.GetEmptySlotIndex(passengerList.Count)
+                : includeEmpty ? selectionState.ToSequenceIndex(currentIndex, passengerList.Count) : currentIndex;
+            var targetStates = GetTargetStates(cycleCount);
+            if (cycleCount == 2 && direction > 0 && window.min < 0 && window.max > 0)
+                targetStates = targetStates.OrderBy(state => state == 0 ? 0 : state == -1 ? 1 : state == 1 ? 2 : 3).ToList();
+            foreach (int state in targetStates)
+            {
+                int passengerIndex = ((selectedPosition + state) % cycleCount + cycleCount) % cycleCount;
+                int objectIndex = includeEmpty ? selectionState.ToObjectIndex(passengerIndex, passengerList.Count) : passengerIndex;
+                targetPassengers[state] = objectIndex >= 0 && objectIndex < passengerList.Count ? passengerList[objectIndex] : EmptySlotMarker;
             }
 
             Dictionary<GameObject?, int> passengerToIndex = new();
@@ -470,13 +597,35 @@ namespace DrifterBossGrabMod.UI
                 passengerToIndex[passengerList[pi]] = pi;
             }
 
-            float sideScaleVal = PluginConfig.Instance.SideSlotScale.Value;
-            float sideOpacityVal = PluginConfig.Instance.SideSlotOpacity.Value;
+            Vector2 animationOffset = Vector2.zero;
+            if (direction != 0)
+            {
+                foreach (var slot in _slots)
+                {
+                    if (_exitingSlots.Contains(slot) || !_slotToState.TryGetValue(slot, out int previousState) || !IsVisibleState(previousState, cycleCount) ||
+                        !_slotToPassenger.TryGetValue(slot, out var passenger) ||
+                        !targetPassengers.TryGetValue(previousState - Math.Sign(direction), out var target) || passenger != target) continue;
+
+                    var rect = slot.GetComponent<RectTransform>();
+                    if (rect) animationOffset = rect.anchoredPosition - GetStateParams(previousState, cycleCount).pos;
+                    break;
+                }
+            }
 
             HashSet<GameObject> usedSlots = new();
             HashSet<GameObject?> foundPassengers = new();
+            HashSet<GameObject?> wrappedPassengers = new();
 
-            var slotsToProcess = _slots.ToList();
+            var slotsToProcess = _slots.Where(slot => !_exitingSlots.Contains(slot)).OrderBy(slot =>
+            {
+                if (!_slotToPassenger.TryGetValue(slot, out var passenger) ||
+                    !_slotToState.TryGetValue(slot, out int previousState)) return int.MaxValue;
+                int distance = int.MaxValue;
+                foreach (var target in targetPassengers)
+                    if (IsVisibleState(target.Key, cycleCount) && target.Value == passenger)
+                        distance = Mathf.Min(distance, Mathf.Abs(target.Key - previousState));
+                return distance;
+            }).ToList();
             foreach (var slot in slotsToProcess)
             {
                 if (!_slotToPassenger.TryGetValue(slot, out var passenger)) continue;
@@ -484,10 +633,24 @@ namespace DrifterBossGrabMod.UI
                 int newState = -99;
                 foreach (var kvp in targetPassengers)
                 {
-                    if (kvp.Value == passenger) { newState = kvp.Key; break; }
+                    if (kvp.Value == passenger)
+                    {
+                        if (newState == -99 || (!IsVisibleState(newState, cycleCount) &&
+                            _slotToState.TryGetValue(slot, out int previousState) &&
+                            Mathf.Abs(kvp.Key - previousState) < Mathf.Abs(newState - previousState)))
+                        {
+                            newState = kvp.Key;
+                        }
+                        if (IsVisibleState(newState, cycleCount)) break;
+                    }
                 }
 
-                if (newState != -99 && !foundPassengers.Contains(passenger))
+                bool wraps = cycleCount > 1 && newState != -99 &&
+                    _slotToState.TryGetValue(slot, out int oldState) &&
+                    (direction != 0 ? newState != oldState - Math.Sign(direction)
+                        : (oldState < 0 && newState > 0) || (oldState > 0 && newState < 0));
+                if (wraps) wrappedPassengers.Add(passenger);
+                if (newState != -99 && !foundPassengers.Contains(passenger) && !wraps)
                 {
 
                     int slotIndex = (passenger != null && passenger != EmptySlotMarker && passengerToIndex.TryGetValue(passenger, out int idx)) ? idx : -1;
@@ -498,6 +661,7 @@ namespace DrifterBossGrabMod.UI
                     SetSlotData(slot, passenger, bagController, newState == 0, slotIndex, passengerList.Count);
 
                     if (cg != null) cg.alpha = savedAlpha;
+                    slot.SetActive(true);
 
                     AnimateToState(slot, newState, animationCapacity, bagController);
                     usedSlots.Add(slot);
@@ -506,10 +670,11 @@ namespace DrifterBossGrabMod.UI
                 else
                 {
 
-                    int exitState = (direction > 0) ? -2 : 2;
-                    if (direction == 0) exitState = -2;
+                    _slotToState.TryGetValue(slot, out int oldExitState);
+                    int exitState = GetCycleExitState(oldExitState, direction, cycleCount);
 
-                    AnimateToState(slot, exitState, animationCapacity, bagController, true);
+                    if (!_exitingSlots.Contains(slot))
+                        AnimateToState(slot, exitState, animationCapacity, bagController, true);
                 }
             }
 
@@ -533,9 +698,9 @@ namespace DrifterBossGrabMod.UI
                 if (freeSlot == null)
                 {
 
-                    foreach (var slot in _slots)
+                    foreach (var slot in _slots.OrderBy(slot => slot.GetComponent<CanvasGroup>()?.alpha ?? 0f))
                     {
-                        if (!usedSlots.Contains(slot))
+                        if (!usedSlots.Contains(slot) && !_exitingSlots.Contains(slot))
                         {
                             freeSlot = slot;
                             break;
@@ -543,18 +708,37 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
 
+                if (freeSlot == null && IsVisibleState(state, cycleCount))
+                {
+                    freeSlot = Instantiate(_slots[0], transform);
+                    freeSlot.name = $"extraSlot_{_slots.Count}";
+                    freeSlot.SetActive(false);
+                    if (!freeSlot.GetComponent<CanvasGroup>()) freeSlot.AddComponent<CanvasGroup>();
+                    ApplyWeightIconTransform(freeSlot);
+                    CleanIncompatibleSlotComponents(freeSlot);
+                    _slots.Add(freeSlot);
+                }
+
                 if (freeSlot)
                 {
+                    if (_activeCoroutines.TryGetValue(freeSlot!, out var animation))
+                    {
+                        StopCoroutine(animation);
+                        _activeCoroutines.Remove(freeSlot!);
+                    }
+                    _exitingSlots.Remove(freeSlot!);
                     _slotToPassenger[freeSlot!] = targetP;
+                    _slotToPassengerNetId[freeSlot!] = targetP != null ? (targetP.GetComponent<UnityEngine.Networking.NetworkIdentity>()?.netId.Value ?? 0u) : 0u;
                     int slotIndex = (targetP != null && targetP != EmptySlotMarker && passengerToIndex.TryGetValue(targetP!, out int idx)) ? idx : -1;
                     _slotToIndex[freeSlot!] = slotIndex;
                     SetSlotData(freeSlot!, targetP, bagController, state == 0, slotIndex, passengerList.Count);
 
                     int startState = (direction > 0) ? state + 1 : state - 1;
-                    if (direction == 0) startState = state;
+                    if (direction == 0) startState = wrappedPassengers.Contains(targetP) ? state + Math.Sign(state) : state;
 
-                    var startParams = GetStateParams(startState, animationCapacity);
-                    SetSlotInitialState(freeSlot!, startParams.pos.x, startParams.pos.y, startParams.scale, 0f);
+                    var startParams = GetStateParams(startState, cycleCount);
+                    _slotToState[freeSlot!] = startState;
+                    SetSlotInitialState(freeSlot!, startParams.pos.x + animationOffset.x, startParams.pos.y + animationOffset.y, startParams.scale, 0f);
                     freeSlot!.SetActive(true);
 
                     AnimateToState(freeSlot!, state, animationCapacity, bagController);
@@ -566,7 +750,8 @@ namespace DrifterBossGrabMod.UI
             centerInstance = null;
             foreach (var slot in _slots)
             {
-                if (_slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[0])
+                if (usedSlots.Contains(slot) && _slotToState.TryGetValue(slot, out int slotState) && slotState == 0 &&
+                    _slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[0])
                 {
                     centerInstance = slot;
                     break;
@@ -575,7 +760,8 @@ namespace DrifterBossGrabMod.UI
             aboveInstance = null;
             foreach (var slot in _slots)
             {
-                if (_slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[1])
+                if (usedSlots.Contains(slot) && _slotToState.TryGetValue(slot, out int slotState) && slotState == 1 &&
+                    _slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[1])
                 {
                     aboveInstance = slot;
                     break;
@@ -584,7 +770,8 @@ namespace DrifterBossGrabMod.UI
             belowInstance = null;
             foreach (var slot in _slots)
             {
-                if (_slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[-1])
+                if (usedSlots.Contains(slot) && _slotToState.TryGetValue(slot, out int slotState) && slotState == -1 &&
+                    _slotToPassenger.TryGetValue(slot, out var p) && p == targetPassengers[-1])
                 {
                     belowInstance = slot;
                     break;
@@ -595,7 +782,7 @@ namespace DrifterBossGrabMod.UI
 
             foreach (var slot in _slots)
             {
-                if (_slotToPassenger.TryGetValue(slot, out var slotPassenger) && slot.activeSelf)
+                if (!_exitingSlots.Contains(slot) && _slotToPassenger.TryGetValue(slot, out var slotPassenger) && slot.activeSelf)
                 {
                     bool isCenter = slot == centerInstance;
                     ToggleSlotElements(slot, isCenter);
@@ -623,6 +810,7 @@ namespace DrifterBossGrabMod.UI
 
             foreach (var slot in _slots)
             {
+                if (_exitingSlots.Contains(slot)) continue;
                 if (_slotToPassenger.TryGetValue(slot, out var passenger) && passenger != null && passenger != EmptySlotMarker)
                 {
                     int idx = passengerToIndex.TryGetValue(passenger!, out int i) ? i : -1;
@@ -642,9 +830,12 @@ namespace DrifterBossGrabMod.UI
         // ========================================================================================
         private void AnimateToState(GameObject slot, int state, int capacity, DrifterBagController? bagController, bool hideAfter = false)
         {
-            var p = GetStateParams(state, capacity);
+            if (hideAfter) _exitingSlots.Add(slot);
+            else _exitingSlots.Remove(slot);
+            var p = GetStateParams(state, _layoutCycleCount);
+            _slotToState[slot] = state;
 
-            float targetOpacity = p.opacity;
+            float targetOpacity = hideAfter ? 0f : p.opacity;
             if (_slotToPassenger.TryGetValue(slot, out var passenger) && (passenger == null || passenger == EmptySlotMarker))
             {
                 targetOpacity = 0f;
@@ -654,56 +845,120 @@ namespace DrifterBossGrabMod.UI
             AnimateSlot(slot, p.pos.x, p.pos.y, p.scale, targetOpacity, hideAfter, useFading);
         }
 
-        private (Vector2 pos, float scale, float opacity) GetStateParams(int state, int capacity)
+        internal static float EvaluateCycleEase(float t)
+            => t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
+
+        internal static (int min, int max) GetVisibleWindow(int availableCount)
         {
-            float sideX = PluginConfig.Instance.SideSlotX.Value;
-            float sideY = PluginConfig.Instance.SideSlotY.Value;
-            float spacing = PluginConfig.Instance.CarouselSpacing.Value;
-
-            float scale = (state == 0) ? PluginConfig.Instance.CenterSlotScale.Value : PluginConfig.Instance.SideSlotScale.Value;
-            float opacity = (state == 0) ? PluginConfig.Instance.CenterSlotOpacity.Value : PluginConfig.Instance.SideSlotOpacity.Value;
-
-            if (Mathf.Abs(state) > 1)
+            int visibleCount = Mathf.Clamp(PluginConfig.Instance.VisibleCardCount.Value, 1, 100);
+            int count = Mathf.Min(visibleCount, Mathf.Max(1, availableCount));
+            if (availableCount == 2 && visibleCount >= 3 && PluginConfig.Instance.SelectedCardPlacement.Value == SelectedCardPosition.Center)
+                count = 3;
+            return PluginConfig.Instance.SelectedCardPlacement.Value switch
             {
-                opacity = 0f;
-                scale *= 0.8f;
+                SelectedCardPosition.Start => (0, count - 1),
+                SelectedCardPosition.End => (-(count - 1), 0),
+                _ => (-((count - 1) / 2), count / 2)
+            };
+        }
+
+        internal static bool IsVisibleState(int state, int availableCount)
+        {
+            var window = GetVisibleWindow(availableCount);
+            return state >= window.min && state <= window.max;
+        }
+
+        internal static List<int> GetTargetStates(int availableCount)
+        {
+            var window = GetVisibleWindow(availableCount);
+            var states = new List<int> { 0 };
+            int distanceLimit = Mathf.Max(-window.min, window.max);
+            for (int distance = 1; distance <= distanceLimit; distance++)
+            {
+                if (distance <= window.max) states.Add(distance);
+                if (-distance >= window.min) states.Add(-distance);
             }
+            states.Add(window.min - 1);
+            states.Add(window.max + 1);
+            return states;
+        }
 
-            bool isHorizontal = PluginConfig.Instance.CarouselOrientation.Value == CarouselOrientation.Horizontal;
+        internal static int GetPassengerState(int index, int selected, int count)
+        {
+            int relative = ((index - selected) % count + count) % count;
+            return relative <= GetVisibleWindow(count).max ? relative : relative - count;
+        }
 
-            Vector2 pos;
-            if (isHorizontal)
+        internal static int GetCycleExitState(int previous, int direction, int availableCount)
+        {
+            var window = GetVisibleWindow(availableCount);
+            if (direction > 0) return window.min - 1;
+            if (direction < 0) return window.max + 1;
+            return previous <= (window.min + window.max) / 2f ? window.min - 1 : window.max + 1;
+        }
+
+        public static (Vector2 pos, float scale, float opacity) GetStateParams(int state, int capacity)
+        {
+            var cfg = PluginConfig.Instance;
+            int distance = Mathf.Abs(state);
+            float scale = state == 0 ? cfg.CenterSlotScale.Value : cfg.SideSlotScale.Value;
+            float opacity = state == 0 ? cfg.CenterSlotOpacity.Value : cfg.SideSlotOpacity.Value;
+            if (distance > 1)
             {
-                switch (state)
-                {
-                    case 0: pos = Vector2.zero; break;
-                    case 1: pos = new Vector2(sideX + spacing, sideY); break;
-                    case -1: pos = new Vector2(sideX - spacing, sideY); break;
-                    case 2: pos = new Vector2(sideX + 2 * spacing, sideY); break;
-                    case -2: pos = new Vector2(sideX - 2 * spacing, sideY); break;
-                    case 3: pos = new Vector2(sideX + 3 * spacing, sideY); break;
-                    case -3: pos = new Vector2(sideX - 3 * spacing, sideY); break;
-                    default: pos = Vector2.zero; break;
-                }
+                scale *= Mathf.Max(0.65f, Mathf.Pow(0.9f, distance - 1));
+                opacity *= Mathf.Max(0.35f, Mathf.Pow(0.75f, distance - 1));
             }
-            else
+            if (!IsVisibleState(state, capacity)) opacity = 0f;
+            Vector2 pos = Vector2.zero;
+            if (state != 0)
             {
-                switch (state)
-                {
-                    case 0: pos = Vector2.zero; break;
-                    case 1: pos = new Vector2(sideX, sideY - spacing); break;
-                    case -1: pos = new Vector2(sideX, sideY + spacing); break;
-                    case 2: pos = new Vector2(sideX, sideY - 2 * spacing); break;
-                    case -2: pos = new Vector2(sideX, sideY + 2 * spacing); break;
-                    case 3: pos = new Vector2(sideX, sideY - 3 * spacing); break;
-                    case -3: pos = new Vector2(sideX, sideY + 3 * spacing); break;
-                    default: pos = Vector2.zero; break;
-                }
+                float offset = state * cfg.CarouselSpacing.Value;
+                pos = cfg.CarouselOrientation.Value == CarouselOrientation.Horizontal
+                    ? new Vector2(cfg.SideSlotX.Value + offset, cfg.SideSlotY.Value)
+                    : new Vector2(cfg.SideSlotX.Value, cfg.SideSlotY.Value - offset);
             }
             return (pos, scale, opacity);
         }
 
         private Dictionary<GameObject, Coroutine> _activeCoroutines = new();
+
+        internal bool IsSlotAnimating(GameObject slot) => _activeCoroutines.ContainsKey(slot);
+
+        internal bool TryGetInspectionLayout(GameObject passenger, out GameObject? selected, out BaggedCardController? card, out Bounds bounds)
+        {
+            selected = null;
+            card = null;
+            bounds = default;
+            bool hasBounds = false;
+            foreach (var slot in _slots)
+            {
+                if (!slot.activeInHierarchy || !_slotToState.TryGetValue(slot, out int state) || !IsVisibleState(state, _layoutCycleCount) ||
+                    !_slotToPassenger.TryGetValue(slot, out var target) || target == null || target == EmptySlotMarker) continue;
+                var slotBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, slot.transform);
+                if (!hasBounds) { bounds = slotBounds; hasBounds = true; }
+                else bounds.Encapsulate(slotBounds);
+                if (target == passenger && state == 0)
+                {
+                    selected = slot;
+                    card = slot.GetComponentInChildren<BaggedCardController>();
+                }
+            }
+            return selected != null && card != null && hasBounds;
+        }
+
+
+        internal bool IsInspectionRowObstructed(GameObject selected, Rect row)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot == selected || !slot.activeInHierarchy || !_slotToState.TryGetValue(slot, out int state) ||
+                    !IsVisibleState(state, _layoutCycleCount) || !_slotToPassenger.TryGetValue(slot, out var target) ||
+                    target == null || target == EmptySlotMarker) continue;
+                var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(transform, slot.transform);
+                if (row.Overlaps(new Rect(bounds.min.x, bounds.min.y, bounds.size.x, bounds.size.y))) return true;
+            }
+            return false;
+        }
 
         private void AnimateSlot(GameObject slot, float x, float y, float scale, float opacity)
         {
@@ -718,13 +973,16 @@ namespace DrifterBossGrabMod.UI
 
             }
 
-            if (PluginConfig.Instance.CarouselAnimationDuration.Value <= 0.001f || !useFading)
+            if (HudEditorManager.IsEditorActive || PluginConfig.Instance.CarouselAnimationDuration.Value <= 0.001f || !useFading)
             {
                 ApplySlotStateImmediate(slot, x, y, scale, opacity);
                 if (hideAfter)
                 {
                     slot.SetActive(false);
                     _slotToPassenger.Remove(slot);
+                    _slotToPassengerNetId.Remove(slot);
+                    _slotToState.Remove(slot);
+                    _exitingSlots.Remove(slot);
                 }
                 if (_activeCoroutines.ContainsKey(slot)) _activeCoroutines.Remove(slot);
                 return;
@@ -751,7 +1009,7 @@ namespace DrifterBossGrabMod.UI
             group.alpha = opacity;
         }
 
-        private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter, bool useFading)
+        internal static System.Collections.IEnumerator AnimateCardVisuals(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool useFading, bool unscaled)
         {
             var rectTransform = slot.GetComponent<RectTransform>();
             var canvasGroup = slot.GetComponent<CanvasGroup>() ?? slot.AddComponent<CanvasGroup>();
@@ -766,10 +1024,11 @@ namespace DrifterBossGrabMod.UI
 
             while (elapsed < duration)
             {
-                elapsed += Time.deltaTime;
+                if (slot == null) yield break;
+                elapsed += unscaled ? Time.unscaledDeltaTime : Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                float easeT = t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
+                float easeT = EvaluateCycleEase(t);
 
                 if (rectTransform) rectTransform.anchoredPosition = Vector2.Lerp(startPosition, targetPosition, easeT);
                 slot.transform.localScale = Vector3.one * Mathf.Lerp(startScale, targetScale, easeT);
@@ -781,17 +1040,27 @@ namespace DrifterBossGrabMod.UI
                 yield return null;
             }
 
+            if (slot == null) yield break;
             if (rectTransform) rectTransform.anchoredPosition = targetPosition;
             slot.transform.localScale = Vector3.one * targetScale;
             canvasGroup.alpha = targetOpacity;
 
-            if (hideAfter)
+        }
+
+        private System.Collections.IEnumerator AnimateSlotPosition(GameObject slot, float targetXOffset, float targetYOffset, float targetScale, float targetOpacity, bool hideAfter, bool useFading)
+        {
+            yield return AnimateCardVisuals(slot, targetXOffset, targetYOffset, targetScale, targetOpacity, useFading, false);
+
+            if (hideAfter && slot != null)
             {
                 slot.SetActive(false);
                 _slotToPassenger.Remove(slot);
+                _slotToPassengerNetId.Remove(slot);
+                _slotToState.Remove(slot);
+                _exitingSlots.Remove(slot);
             }
 
-            _activeCoroutines.Remove(slot);
+            if (slot is not null) _activeCoroutines.Remove(slot);
         }
 
         // ========================================================================================
@@ -806,18 +1075,19 @@ namespace DrifterBossGrabMod.UI
 
                 if (passenger == EmptySlotMarker || passenger == null)
                 {
-
                     baggedCardController.sourceBody = null;
                     baggedCardController.sourceMaster = null;
                     baggedCardController.sourcePassengerAttributes = null;
                     baggedCardController.ForceUpdate();
+                    ResetHealthBarWithoutSource(baggedCardController.healthBar);
 
                     if (baggedCardController.nameLabel) baggedCardController.nameLabel.gameObject.SetActive(false);
                     if (baggedCardController.portraitIconImage) baggedCardController.portraitIconImage.gameObject.SetActive(false);
+                    if (baggedCardController.droneItemIndicatorObj) baggedCardController.droneItemIndicatorObj.SetActive(false);
                     if (baggedCardController.healthBar)
                     {
                         baggedCardController.healthBar.gameObject.SetActive(false);
-                        if (baggedCardController.healthBar.deadImage) baggedCardController.healthBar.deadImage.enabled = false;
+                        if (baggedCardController.healthBar.deadImage) baggedCardController.healthBar.deadImage.gameObject.SetActive(false);
                     }
 
                     if (canvasGroup) canvasGroup.alpha = HudEditorManager.IsEditorActive ? 0.3f : 0f;
@@ -857,6 +1127,7 @@ namespace DrifterBossGrabMod.UI
                     baggedCardController.sourceMaster = master;
                     baggedCardController.sourcePassengerAttributes = specialObjectAttributes;
                     baggedCardController.ForceUpdate();
+                    ResetHealthBarWithoutSource(baggedCardController.healthBar);
 
                     if (healthComponent != null && body != null)
                     {
@@ -899,7 +1170,7 @@ namespace DrifterBossGrabMod.UI
 
                     if (baggedCardController.healthBar && baggedCardController.healthBar!.deadImage)
                     {
-                        baggedCardController.healthBar!.deadImage!.enabled = false;
+                        baggedCardController.healthBar!.deadImage!.gameObject.SetActive(false);
                     }
 
                     float mass = 0f;
@@ -914,238 +1185,54 @@ namespace DrifterBossGrabMod.UI
 
                     if (isCenter && showTotal && isAllMode)
                     {
-
                         mass = bagController ? BagCapacityCalculator.GetBaggedObjectMass(bagController!) : 0f;
                     }
 
-                    var childLocator = slot.GetComponent<ChildLocator>();
-                    if (childLocator)
+                    float percentage = 0f;
+                    bool isOverencumbered = false;
+
+                    if (PluginConfig.Instance.EnableBalance.Value)
                     {
-                        var weightIconTransform = childLocator.FindChild("WeightIcon");
-                        if (weightIconTransform)
+                        float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
+                        if (maxCapacity >= 1000000f)
                         {
-                            var image = weightIconTransform.GetComponent<UnityEngine.UI.Image>();
-                            if (image)
+                            float maxMass = 700f;
+                            if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
                             {
-
-                                if (PluginConfig.Instance.UseNewWeightIcon.Value)
-                                {
-                                    if (NewWeightIconSprite)
-                                    {
-                                        image.sprite = NewWeightIconSprite;
-                                    }
-                                }
-                                else
-                                {
-                                    if (OldWeightIconSprite)
-                                    {
-                                        image.sprite = OldWeightIconSprite;
-                                    }
-                                }
-
-                                ApplyWeightIconTransform(slot);
-
-                                float percentage = 0f;
-                                bool isOverencumbered = false;
-
-                                if (PluginConfig.Instance.EnableBalance.Value)
-                                {
-                                    float maxCapacity = bagController ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
-                                    if (maxCapacity >= 1000000f)
-                                    {
-                                        float maxMass = 700f;
-                                        if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
-                                        {
-                                            maxMass = parsedMassCap;
-                                        }
-                                        percentage = maxMass > 0 ? (mass / maxMass) : 0f;
-                                        isOverencumbered = false;
-                                    }
-                                    else
-                                    {
-                                        percentage = (maxCapacity > 0) ? (mass / maxCapacity) : 0f;
-                                        isOverencumbered = (isCenter && showTotal) && percentage > 1.0f;
-                                    }
-                                }
-                                else
-                                {
-                                    bool isShowingTotal = isCenter && showTotal && isAllMode;
-                                    if (isShowingTotal)
-                                    {
-                                        int totalCapacitySlots = bagController ? CapacityScalingSystem.GetTotalCapacity(bagController) : 0;
-                                        int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                                        percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
-                                        isOverencumbered = currentSlots > totalCapacitySlots;
-                                    }
-                                    else
-                                    {
-                                        float maxMass = 700f;
-                                        if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
-                                        {
-                                            maxMass = parsedMassCap;
-                                        }
-                                        percentage = maxMass > 0 ? (mass / maxMass) : 0f;
-                                        isOverencumbered = false;
-                                    }
-                                }
-
-                                if (PluginConfig.Instance.ScaleWeightColor.Value)
-                                {
-
-                                    if (isOverencumbered)
-                                    {
-                                        float overencumbranceFraction = 0f;
-
-                                        if (PluginConfig.Instance.EnableBalance.Value)
-                                        {
-                                            float maxOverPercent = PluginConfig.Instance.OverencumbranceMax.Value / 100.0f;
-                                            if (maxOverPercent <= 0f) maxOverPercent = 0.01f;
-                                            overencumbranceFraction = Mathf.Clamp01((percentage - 1.0f) / maxOverPercent);
-                                        }
-                                        else
-                                        {
-                                            int totalCapacitySlots = bagController ? CapacityScalingSystem.GetTotalCapacity(bagController) : 0;
-                                            int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                                            float extraSlots = Mathf.Max(0, currentSlots - totalCapacitySlots);
-                                            overencumbranceFraction = Mathf.Clamp01(extraSlots / Mathf.Max(1f, totalCapacitySlots));
-                                        }
-
-                                        image.color = GetGradientColor(overencumbranceFraction,
-                                            PluginConfig.Instance.OverencumbranceGradientColorStart.Value,
-                                            PluginConfig.Instance.OverencumbranceGradientColorMid.Value,
-                                            PluginConfig.Instance.OverencumbranceGradientColorEnd.Value);
-                                    }
-                                    else
-                                    {
-
-                                        image.color = GetGradientColor(Mathf.Clamp01(percentage),
-                                            PluginConfig.Instance.CapacityGradientColorStart.Value,
-                                            PluginConfig.Instance.CapacityGradientColorMid.Value,
-                                            PluginConfig.Instance.CapacityGradientColorEnd.Value);
-                                    }
-                                }
-
-                                var weightDisplayMode = PluginConfig.Instance.WeightDisplayMode.Value;
-                                bool showOverencumbranceIcon = isOverencumbered && PluginConfig.Instance.UseNewWeightIcon.Value && PluginConfig.Instance.ShowOverencumberIcon.Value && PluginConfig.Instance.ShowTotalMassOnWeightIcon.Value;
-
-                                var overIconObj = weightIconTransform.Find("OverencumbranceIcon");
-
-                                if (showOverencumbranceIcon)
-                                {
-                                    if (!overIconObj)
-                                    {
-                                        var newObj = new GameObject("OverencumbranceIcon", typeof(RectTransform), typeof(UnityEngine.CanvasRenderer), typeof(UnityEngine.UI.Image));
-                                        newObj.transform.SetParent(weightIconTransform, false);
-                                        overIconObj = newObj.transform;
-
-                                        var img = newObj.GetComponent<UnityEngine.UI.Image>();
-                                        img.sprite = OverencumbranceIconSprite;
-                                        img.color = new Color(0.8f, 0.9f, 1f, 1f);
-                                    }
-
-                                    var overImg = overIconObj.GetComponent<UnityEngine.UI.Image>();
-                                    if (overImg && OverencumbranceIconSprite)
-                                    {
-                                        overImg.sprite = OverencumbranceIconSprite;
-                                        overImg.color = new Color(0.8f, 0.9f, 1f, 1f);
-                                    }
-
-                                    var rect = overIconObj.GetComponent<RectTransform>();
-                                    if (rect)
-                                    {
-
-                                        rect.anchorMin = new Vector2(0.5f, 0.5f);
-                                        rect.anchorMax = new Vector2(0.5f, 0.5f);
-                                        rect.pivot = new Vector2(0.5f, 0.5f);
-                                        rect.anchoredPosition = new Vector2(0f, -4f);
-                                        rect.sizeDelta = new Vector2(7.5f, 7.5f);
-                                    }
-                                    overIconObj.gameObject.SetActive(true);
-
-                                    var tmpTextObj = weightIconTransform.Find("WeightText");
-                                    if (tmpTextObj) tmpTextObj.gameObject.SetActive(false);
-
-                                    var unitLabelObj = weightIconTransform.Find("WeightUnitLabel");
-                                    if (unitLabelObj) unitLabelObj.gameObject.SetActive(false);
-                                }
-                                else
-                                {
-                                    if (overIconObj) overIconObj.gameObject.SetActive(false);
-
-                                    if (weightDisplayMode != DrifterBossGrabMod.WeightDisplayMode.None)
-                                    {
-                                        var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
-                                        var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
-
-                                        if (!tmp)
-                                        {
-                                            var textObj = new GameObject("WeightText");
-                                            textObj.transform.SetParent(weightIconTransform, false);
-                                            tmp = textObj.AddComponent<TextMeshProUGUI>();
-                                            tmp.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
-                                            tmp.fontSize = 12;
-                                            tmp.alignment = TextAlignmentOptions.Center;
-                                            tmp.color = Color.white;
-                                            tmp.richText = true;
-                                        }
-                                        var tmpRectTransform = tmp!.GetComponent<RectTransform>();
-                                        if (tmpRectTransform)
-                                        {
-                                            tmpRectTransform.sizeDelta = new Vector2(50, 20);
-                                            tmpRectTransform.localRotation = Quaternion.identity;
-                                            if (PluginConfig.Instance.UseNewWeightIcon.Value)
-                                            {
-                                                tmpRectTransform.anchoredPosition = new Vector2(0f, 2.4f);
-                                                tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
-                                                tmp.fontSize = 8.5f;
-                                                tmp.characterSpacing = 0f;
-                                                tmpRectTransform.localRotation = Quaternion.identity;
-                                            }
-                                            else
-                                            {
-                                                tmpRectTransform.anchoredPosition = new Vector2(0f, 0f);
-                                                tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
-                                                tmp.fontSize = 12f;
-                                                tmp.characterSpacing = 0f;
-                                                tmpRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
-                                            }
-                                        }
-
-                                        switch (weightDisplayMode)
-                                        {
-                                            case DrifterBossGrabMod.WeightDisplayMode.Multiplier:
-                                                int multiplier = Mathf.CeilToInt(mass / 100f);
-                                                tmp.text = multiplier + "x";
-                                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
-                                                break;
-
-                                            case DrifterBossGrabMod.WeightDisplayMode.Pounds:
-                                                int pounds = Mathf.FloorToInt(mass / 10f);
-                                                tmp.text = $"<alpha=#00><size=40%><voffset=-0.2em>lb</voffset></size><space=-0.2em><alpha=#FF>{pounds}<space=-0.2em><size=40%><voffset=-0.2em>lb</voffset></size>";
-                                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
-                                                break;
-
-                                            case DrifterBossGrabMod.WeightDisplayMode.KiloGrams:
-                                                int kiloGrams = Mathf.FloorToInt(mass / 10f);
-                                                tmp.text = $"<alpha=#00><size=40%><voffset=-0.2em>kg</voffset></size><space=-0.2em><alpha=#FF>{kiloGrams}<space=-0.2em><size=40%><voffset=-0.2em>kg</voffset></size>";
-                                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
-                                                break;
-                                        }
-
-                                        tmp.gameObject.SetActive(true);
-                                    }
-                                    else
-                                    {
-                                        var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
-                                        if (tmp) tmp!.gameObject.SetActive(false);
-
-                                        var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
-                                        if (unitLabel) unitLabel!.gameObject.SetActive(false);
-                                    }
-                                }
+                                maxMass = parsedMassCap;
                             }
+                            percentage = maxMass > 0 ? (mass / maxMass) : 0f;
+                            isOverencumbered = false;
+                        }
+                        else
+                        {
+                            percentage = (maxCapacity > 0) ? (mass / maxCapacity) : 0f;
+                            isOverencumbered = (isCenter && showTotal) && percentage > 1.0f;
                         }
                     }
+                    else
+                    {
+                        bool isShowingTotal = isCenter && showTotal && isAllMode;
+                        if (isShowingTotal)
+                        {
+                            int totalCapacitySlots = bagController ? CapacityScalingSystem.GetTotalCapacity(bagController) : 0;
+                            int currentSlots = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
+                            percentage = totalCapacitySlots > 0 ? ((float)currentSlots / totalCapacitySlots) : 0f;
+                            isOverencumbered = currentSlots > totalCapacitySlots;
+                        }
+                        else
+                        {
+                            float maxMass = 700f;
+                            if (!PluginConfig.Instance.IsMassCapInfinite && float.TryParse(PluginConfig.Instance.MassCap.Value, out float parsedMassCap))
+                            {
+                                maxMass = parsedMassCap;
+                            }
+                            percentage = maxMass > 0 ? (mass / maxMass) : 0f;
+                            isOverencumbered = false;
+                        }
+                    }
+
+                    UpdateWeightIconVisuals(slot, mass, isCenter, percentage, isOverencumbered);
                 }
 
                 bool showPreview = PluginConfig.Instance.EnableDamagePreview.Value &&
@@ -1161,9 +1248,17 @@ namespace DrifterBossGrabMod.UI
                     }
                     else if (overlay)
                     {
-
                         Destroy(overlay);
                     }
+                }
+
+                var warning = slot.GetComponent<BreakoutWarningOverlay>();
+                if (warning == null && passenger != null && passenger != EmptySlotMarker)
+                    warning = slot.AddComponent<BreakoutWarningOverlay>();
+                if (warning != null)
+                {
+                    warning.enabled = true;
+                    warning.SetTarget(passenger == EmptySlotMarker ? null : passenger, bagController, baggedCardController);
                 }
 
                 ToggleSlotElements(slot, isCenter);
@@ -1177,7 +1272,6 @@ namespace DrifterBossGrabMod.UI
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (baggedCardController)
             {
-
                 bool showIcon = isCenter ? PluginConfig.Instance.CenterSlotShowIcon.Value : PluginConfig.Instance.SideSlotShowIcon.Value;
                 bool showBackground = isCenter ? PluginConfig.Instance.CenterSlotShowBackground.Value : PluginConfig.Instance.SideSlotShowBackground.Value;
                 bool showWeight = isCenter ? PluginConfig.Instance.CenterSlotShowWeightIcon.Value : PluginConfig.Instance.SideSlotShowWeightIcon.Value;
@@ -1193,7 +1287,6 @@ namespace DrifterBossGrabMod.UI
 
                 if (baggedCardController.portraitIconImage)
                 {
-
                     baggedCardController.portraitIconImage.gameObject.SetActive(true);
                 }
 
@@ -1242,7 +1335,13 @@ namespace DrifterBossGrabMod.UI
 
         private void SetSlotNumberLabel(GameObject slot, int slotIndex, int totalCount)
         {
+            bool isCenter = slot == centerInstance;
+            bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
+            SetSlotNumberBadge(slot, slotIndex >= 0 ? slotIndex + 1 : -1, isCenter, showSlotNumber);
+        }
 
+        public static void SetSlotNumberBadge(GameObject slot, int displayNumber, bool isCenter, bool showSlotNumber)
+        {
             var baggedCardController = slot.GetComponentInChildren<RoR2.UI.BaggedCardController>();
             if (!baggedCardController || !baggedCardController.portraitIconImage) return;
 
@@ -1256,12 +1355,10 @@ namespace DrifterBossGrabMod.UI
             }
             else
             {
-
                 var badgeObj = new GameObject("SlotNumberBadge");
                 badgeObj.transform.SetParent(portraitTransform, false);
 
                 var badgeRect = badgeObj.AddComponent<RectTransform>();
-
                 badgeRect.anchorMin = new Vector2(1f, 1f);
                 badgeRect.anchorMax = new Vector2(1f, 1f);
                 badgeRect.pivot = new Vector2(1f, 1f);
@@ -1303,16 +1400,195 @@ namespace DrifterBossGrabMod.UI
 
             if (slotNumberTmp && badgeTransform)
             {
-                if (slotIndex >= 0 && slotIndex < totalCount)
+                if (displayNumber > 0)
                 {
-                    slotNumberTmp.text = $"{slotIndex + 1}";
-                    bool isCenter = slot == centerInstance;
-                    bool showSlotNumber = isCenter ? PluginConfig.Instance.CenterSlotShowSlotNumber.Value : PluginConfig.Instance.SideSlotShowSlotNumber.Value;
+                    slotNumberTmp.text = $"{displayNumber}";
+                    if (badgeTransform is RectTransform badgeRect)
+                        badgeRect.sizeDelta = new Vector2(Mathf.Max(16f, slotNumberTmp.text.Length * 7f + 4f), badgeRect.sizeDelta.y);
                     badgeTransform.gameObject.SetActive(showSlotNumber);
                 }
                 else
                 {
                     badgeTransform.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        public static void UpdateWeightIconVisuals(GameObject slot, float mass, bool isCenter, float percentage, bool isOverencumbered = false)
+        {
+            var childLocator = slot.GetComponent<ChildLocator>();
+            if (!childLocator) return;
+
+            var weightIconTransform = childLocator.FindChild("WeightIcon");
+            if (!weightIconTransform) return;
+
+            var image = weightIconTransform.GetComponent<UnityEngine.UI.Image>();
+            if (image)
+            {
+                if (PluginConfig.Instance.UseNewWeightIcon.Value)
+                {
+                    if (NewWeightIconSprite)
+                    {
+                        image.sprite = NewWeightIconSprite;
+                    }
+                }
+                else
+                {
+                    if (OldWeightIconSprite)
+                    {
+                        image.sprite = OldWeightIconSprite;
+                    }
+                }
+
+                ApplyWeightIconTransform(slot);
+
+                if (PluginConfig.Instance.ScaleWeightColor.Value)
+                {
+                    if (isOverencumbered)
+                    {
+                        float overencumbranceFraction = 0f;
+
+                        if (PluginConfig.Instance.EnableBalance.Value)
+                        {
+                            float maxOverPercent = PluginConfig.Instance.OverencumbranceMax.Value / 100.0f;
+                            if (maxOverPercent <= 0f) maxOverPercent = 0.01f;
+                            overencumbranceFraction = Mathf.Clamp01((percentage - 1.0f) / maxOverPercent);
+                        }
+                        else
+                        {
+                            overencumbranceFraction = Mathf.Clamp01(percentage - 1.0f);
+                        }
+
+                        image.color = GetGradientColor(overencumbranceFraction,
+                            PluginConfig.Instance.OverencumbranceGradientColorStart.Value,
+                            PluginConfig.Instance.OverencumbranceGradientColorMid.Value,
+                            PluginConfig.Instance.OverencumbranceGradientColorEnd.Value);
+                    }
+                    else
+                    {
+                        image.color = GetGradientColor(Mathf.Clamp01(percentage),
+                            PluginConfig.Instance.CapacityGradientColorStart.Value,
+                            PluginConfig.Instance.CapacityGradientColorMid.Value,
+                            PluginConfig.Instance.CapacityGradientColorEnd.Value);
+                    }
+                }
+
+                var weightDisplayMode = PluginConfig.Instance.WeightDisplayMode.Value;
+                bool showOverencumbranceIcon = isOverencumbered && PluginConfig.Instance.UseNewWeightIcon.Value && PluginConfig.Instance.ShowOverencumberIcon.Value && PluginConfig.Instance.ShowTotalMassOnWeightIcon.Value;
+
+                var overIconObj = weightIconTransform.Find("OverencumbranceIcon");
+
+                if (showOverencumbranceIcon)
+                {
+                    if (!overIconObj)
+                    {
+                        var newObj = new GameObject("OverencumbranceIcon", typeof(RectTransform), typeof(UnityEngine.CanvasRenderer), typeof(UnityEngine.UI.Image));
+                        newObj.transform.SetParent(weightIconTransform, false);
+                        overIconObj = newObj.transform;
+
+                        var img = newObj.GetComponent<UnityEngine.UI.Image>();
+                        img.sprite = OverencumbranceIconSprite;
+                        img.color = new Color(0.8f, 0.9f, 1f, 1f);
+                    }
+
+                    var overImg = overIconObj.GetComponent<UnityEngine.UI.Image>();
+                    if (overImg && OverencumbranceIconSprite)
+                    {
+                        overImg.sprite = OverencumbranceIconSprite;
+                        overImg.color = new Color(0.8f, 0.9f, 1f, 1f);
+                    }
+
+                    var rect = overIconObj.GetComponent<RectTransform>();
+                    if (rect)
+                    {
+                        rect.anchorMin = new Vector2(0.5f, 0.5f);
+                        rect.anchorMax = new Vector2(0.5f, 0.5f);
+                        rect.pivot = new Vector2(0.5f, 0.5f);
+                        rect.anchoredPosition = new Vector2(0f, -4f);
+                        rect.sizeDelta = new Vector2(7.5f, 7.5f);
+                    }
+                    overIconObj.gameObject.SetActive(true);
+
+                    var tmpTextObj = weightIconTransform.Find("WeightText");
+                    if (tmpTextObj) tmpTextObj.gameObject.SetActive(false);
+
+                    var unitLabelObj = weightIconTransform.Find("WeightUnitLabel");
+                    if (unitLabelObj) unitLabelObj.gameObject.SetActive(false);
+                }
+                else
+                {
+                    if (overIconObj) overIconObj.gameObject.SetActive(false);
+
+                    if (weightDisplayMode != DrifterBossGrabMod.WeightDisplayMode.None)
+                    {
+                        var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
+                        var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
+
+                        if (!tmp)
+                        {
+                            var textObj = new GameObject("WeightText");
+                            textObj.transform.SetParent(weightIconTransform, false);
+                            tmp = textObj.AddComponent<TextMeshProUGUI>();
+                            tmp.font = RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont;
+                            tmp.fontSize = 12;
+                            tmp.alignment = TextAlignmentOptions.Center;
+                            tmp.color = Color.white;
+                            tmp.richText = true;
+                        }
+                        var tmpRectTransform = tmp!.GetComponent<RectTransform>();
+                        if (tmpRectTransform)
+                        {
+                            tmpRectTransform.sizeDelta = new Vector2(50, 20);
+                            tmpRectTransform.localRotation = Quaternion.identity;
+                            if (PluginConfig.Instance.UseNewWeightIcon.Value)
+                            {
+                                tmpRectTransform.anchoredPosition = new Vector2(0f, 2.4f);
+                                tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
+                                tmp.fontSize = 8.5f;
+                                tmp.characterSpacing = 0f;
+                                tmpRectTransform.localRotation = Quaternion.identity;
+                            }
+                            else
+                            {
+                                tmpRectTransform.anchoredPosition = new Vector2(0f, 0f);
+                                tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
+                                tmp.fontSize = 12f;
+                                tmp.characterSpacing = 0f;
+                                tmpRectTransform.localRotation = Quaternion.Euler(0, 0, 90);
+                            }
+                        }
+
+                        switch (weightDisplayMode)
+                        {
+                            case DrifterBossGrabMod.WeightDisplayMode.Multiplier:
+                                int multiplier = Mathf.CeilToInt(mass / 100f);
+                                tmp.text = multiplier + "x";
+                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
+                                break;
+
+                            case DrifterBossGrabMod.WeightDisplayMode.Pounds:
+                                int pounds = Mathf.FloorToInt(mass / 10f);
+                                tmp.text = $"<alpha=#00><size=50%><voffset=-0.2em>lb</voffset></size><space=-0.2em><alpha=#FF>{pounds}<space=-0.2em><size=50%><voffset=-0.2em>lb</voffset></size>";
+                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
+                                break;
+
+                            case DrifterBossGrabMod.WeightDisplayMode.KiloGrams:
+                                int kiloGrams = Mathf.FloorToInt(mass / 10f);
+                                tmp.text = $"<alpha=#00><size=50%><voffset=-0.2em>kg</voffset></size><space=-0.2em><alpha=#FF>{kiloGrams}<space=-0.2em><size=50%><voffset=-0.2em>kg</voffset></size>";
+                                if (unitLabel) unitLabel!.gameObject.SetActive(false);
+                                break;
+                        }
+
+                        tmp.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        var tmp = weightIconTransform.Find("WeightText")?.GetComponent<TextMeshProUGUI>();
+                        if (tmp) tmp!.gameObject.SetActive(false);
+
+                        var unitLabel = weightIconTransform.Find("WeightUnitLabel")?.GetComponent<TextMeshProUGUI>();
+                        if (unitLabel) unitLabel!.gameObject.SetActive(false);
+                    }
                 }
             }
         }
@@ -1326,23 +1602,19 @@ namespace DrifterBossGrabMod.UI
             }
             else
             {
-
                 ApplyWeightIconTransformImmediate(slot);
             }
         }
 
         private static IEnumerator ApplyWeightIconTransformDelayed(GameObject slot)
         {
-
             yield return new WaitForEndOfFrame();
-
             ApplyWeightIconTransformImmediate(slot);
-
             yield return new WaitForSeconds(0.1f);
             ApplyWeightIconTransformImmediate(slot);
         }
 
-        private static void ApplyWeightIconTransformImmediate(GameObject slot)
+        public static void ApplyWeightIconTransformImmediate(GameObject slot)
         {
             var childLocator = slot.GetComponent<ChildLocator>();
             if (childLocator)
@@ -1369,7 +1641,8 @@ namespace DrifterBossGrabMod.UI
                 }
             }
         }
-        private static Color GetGradientColor(float percentage, Color start, Color mid, Color end)
+
+        public static Color GetGradientColor(float percentage, Color start, Color mid, Color end)
         {
             percentage = Mathf.Clamp01(percentage);
             if (percentage <= 0.5f)

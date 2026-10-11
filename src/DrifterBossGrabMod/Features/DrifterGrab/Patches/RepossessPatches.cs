@@ -18,6 +18,53 @@ namespace DrifterBossGrabMod.Patches
         // ========================================================================================
         // MASS CALCULATION
         // ========================================================================================
+        public static float GetBaseObjectMass(GameObject targetObject)
+        {
+            float mass = 0f;
+            if (targetObject.TryGetComponent<TrialGongInteraction>(out _))
+            {
+                mass = targetObject.TryGetComponent<SpecialObjectAttributes>(out var gongAttributes) && gongAttributes.massOverride > 0f
+                    ? gongAttributes.massOverride : Constants.Limits.RitualGongMass;
+            }
+            else if (targetObject.TryGetComponent<CharacterBody>(out var body))
+            {
+                GameObject? prefab = null;
+#if DEBUG
+                try
+                {
+                    prefab = BodyCatalog.FindBodyPrefab(body.baseNameToken);
+                }
+                catch (Exception)
+                {
+                    prefab = null;
+                }
+#else
+                prefab = BodyCatalog.FindBodyPrefab(body.baseNameToken);
+#endif
+                if (prefab == null)
+                {
+                    prefab = targetObject;
+                }
+                if (prefab.TryGetComponent<IPhysMotor>(out var prePM))
+                {
+                    mass = prePM.mass;
+                }
+            }
+
+            if (mass <= 0f && targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
+            {
+                mass = physMotor.mass;
+            }
+
+            if (mass <= 0f && targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
+            {
+                mass = specialObjectAttributes.massOverride;
+            }
+
+            if (mass <= 0f) mass = Constants.Multipliers.DefaultMassMultiplier;
+            return mass;
+        }
+
         [HarmonyPatch(typeof(DrifterBagController), "CalculateBaggedObjectMass")]
         public class DrifterBagController_CalculateBaggedObjectMass_Patch
         {
@@ -30,48 +77,7 @@ namespace DrifterBossGrabMod.Patches
                     return false;
                 }
 
-                float mass = 0f;
-                if (targetObject.TryGetComponent<TrialGongInteraction>(out _))
-                {
-                    mass = targetObject.TryGetComponent<SpecialObjectAttributes>(out var gongAttributes) && gongAttributes.massOverride > 0f
-                        ? gongAttributes.massOverride : Constants.Limits.RitualGongMass;
-                }
-                else if (targetObject.TryGetComponent<CharacterBody>(out var body))
-                {
-                    GameObject? prefab = null;
-#if DEBUG
-                    try
-                    {
-                        prefab = BodyCatalog.FindBodyPrefab(body.baseNameToken);
-                    }
-                    catch (Exception)
-                    {
-                        prefab = null;
-                    }
-#else
-                    prefab = BodyCatalog.FindBodyPrefab(body.baseNameToken);
-#endif
-                    if (prefab == null)
-                    {
-                        prefab = targetObject;
-                    }
-                    if (prefab.TryGetComponent<IPhysMotor>(out var prePM))
-                    {
-                        mass = prePM.mass;
-                    }
-                }
-
-                if (mass <= 0f && targetObject.TryGetComponent<IPhysMotor>(out var physMotor))
-                {
-                    mass = physMotor.mass;
-                }
-
-                if (mass <= 0f && targetObject.TryGetComponent<SpecialObjectAttributes>(out var specialObjectAttributes))
-                {
-                    mass = specialObjectAttributes.massOverride;
-                }
-
-                if (mass <= 0f) mass = Constants.Multipliers.DefaultMassMultiplier;
+                float mass = GetBaseObjectMass(targetObject);
 
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
@@ -206,8 +212,13 @@ namespace DrifterBossGrabMod.Patches
                 }
                 if (PluginConfig.Instance.EnableBalance.Value && ReflectionCache.BaggedObject.BreakoutTime != null)
                 {
+                    var controller = __instance.outer?.GetComponent<DrifterBagController>();
+                    var storedState = controller != null ? BaggedObjectPatches.LoadObjectState(controller, targetObject) : null;
                     var currentBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance);
-                    ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value);
+                    float interval = storedState != null && storedState.breakoutTime > 0f
+                        ? storedState.breakoutTime
+                        : currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value;
+                    ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, interval);
                 }
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
                 {
@@ -225,7 +236,7 @@ namespace DrifterBossGrabMod.Patches
 
                 }
 
-                var bagController = __instance.outer.GetComponent<DrifterBagController>();
+                var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                 if (bagController != null && targetObject != null)
                 {
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);

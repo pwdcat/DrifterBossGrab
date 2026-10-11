@@ -136,7 +136,6 @@ namespace DrifterBossGrabMod
         {
             private void OnDestroy()
             {
-                Log.Debug($" PersistenceCoroutineRunner destroyed - cleanup completed");
             }
         }
 
@@ -206,9 +205,8 @@ namespace DrifterBossGrabMod
                         continue;
                     }
 
-                    var healthComp = obj.GetComponent<RoR2.HealthComponent>();
-                    Log.Debug($"[DEBUG] [RestorePersistedObjects LOOP] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
 
+                    var healthComp = obj.GetComponent<RoR2.HealthComponent>();
                     bool isAlreadyInScene = obj.scene == SceneManager.GetActiveScene();
                     var networkIdentity = obj.GetComponent<NetworkIdentity>();
 
@@ -217,7 +215,7 @@ namespace DrifterBossGrabMod
                         Log.Debug($"[RestorePersistedObjects] Skipping object {obj.name} (NetID: {networkIdentity?.netId}) - already in active scene.");
                         if (PluginConfig.Instance.EnableDebugLogs.Value && healthComp != null && !healthComp.alive)
                         {
-                            Log.Warning($"[DEBUG] [RestorePersistedObjects] SKIPPED object {obj.name} is already in scene but is DEAD! alive={healthComp.alive}");
+                            Log.Warning($"[DEBUG] [RestorePersistedObjects] SKIPPED object {obj.name} is already in scene but is DEAD. alive={healthComp.alive}");
                         }
                         continue;
                     }
@@ -230,7 +228,6 @@ namespace DrifterBossGrabMod
                     if (colliderCache != null)
                     {
                         colliderCache.RefreshCache();
-                        Log.Debug($"[RestorePersistedObjects] Refreshed BodyColliderCache for {obj.name}");
                     }
 
                     var modelLocator = obj.GetComponent<ModelLocator>();
@@ -277,8 +274,16 @@ namespace DrifterBossGrabMod
                                     }
                                 }
 
-                                NetworkServer.UnSpawn(obj);
-                                NetworkServer.Spawn(obj);
+                                if (networkIdentity.isServer && networkIdentity.netId != NetworkInstanceId.Invalid &&
+                                    NetworkServer.FindLocalObject(networkIdentity.netId) == obj)
+                                {
+                                    networkIdentity.RebuildObservers(true);
+                                    Log.Debug($"[RestorePersistedObjects] Preserved network identity for {obj.name}: netId={networkIdentity.netId}, sceneId={networkIdentity.sceneId}");
+                                }
+                                else
+                                {
+                                    NetworkServer.Spawn(obj);
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -857,56 +862,12 @@ namespace DrifterBossGrabMod
 
                         try
                         {
-                            Log.Debug($" Manually assigning CharacterBody {obj.name} to additional seat");
-
-                            var seatObject = new GameObject($"AdditionalSeat_AutoGrab_{DateTime.Now.Ticks}");
-                            seatObject.transform.SetParent(bagController.transform);
-                            seatObject.transform.localPosition = Vector3.zero;
-                            seatObject.transform.localRotation = Quaternion.identity;
-                            var newSeat = seatObject.AddComponent<RoR2.VehicleSeat>();
-                            newSeat.seatPosition = bagController.vehicleSeat.seatPosition;
-                            newSeat.exitPosition = bagController.vehicleSeat.exitPosition;
-                            newSeat.ejectOnCollision = bagController.vehicleSeat.ejectOnCollision;
-                            newSeat.hidePassenger = bagController.vehicleSeat.hidePassenger;
-                            newSeat.exitVelocityFraction = bagController.vehicleSeat.exitVelocityFraction;
-                            newSeat.disablePassengerMotor = bagController.vehicleSeat.disablePassengerMotor;
-                            newSeat.isEquipmentActivationAllowed = bagController.vehicleSeat.isEquipmentActivationAllowed;
-                            newSeat.shouldProximityHighlight = bagController.vehicleSeat.shouldProximityHighlight;
-                            newSeat.disableInteraction = bagController.vehicleSeat.disableInteraction;
-                            newSeat.shouldSetIdle = bagController.vehicleSeat.shouldSetIdle;
-                            newSeat.additionalExitVelocity = bagController.vehicleSeat.additionalExitVelocity;
-                            newSeat.disableAllCollidersAndHurtboxes = bagController.vehicleSeat.disableAllCollidersAndHurtboxes;
-                            newSeat.disableColliders = bagController.vehicleSeat.disableColliders;
-                            newSeat.disableCharacterNetworkTransform = bagController.vehicleSeat.disableCharacterNetworkTransform;
-                            newSeat.ejectFromSeatOnMapEvent = bagController.vehicleSeat.ejectFromSeatOnMapEvent;
-                            newSeat.inheritRotation = bagController.vehicleSeat.inheritRotation;
-                            newSeat.holdPassengerAfterDeath = bagController.vehicleSeat.holdPassengerAfterDeath;
-                            newSeat.ejectPassengerToGround = bagController.vehicleSeat.ejectPassengerToGround;
-                            newSeat.ejectRayDistance = bagController.vehicleSeat.ejectRayDistance;
-                            newSeat.handleExitTeleport = bagController.vehicleSeat.handleExitTeleport;
-                            newSeat.setCharacterMotorPositionToCurrentPosition = bagController.vehicleSeat.setCharacterMotorPositionToCurrentPosition;
-                            newSeat.passengerState = bagController.vehicleSeat.passengerState;
-
-                            newSeat.AssignPassenger(obj);
-
-                            var list = Patches.BagPatches.GetState(bagController).BaggedObjects;
-                            if (list == null)
-                            {
-                                list = new List<GameObject>();
-                                Patches.BagPatches.GetState(bagController).BaggedObjects = list;
-                            }
-                            if (!list.Contains(obj))
-                            {
-                                list.Add(obj);
-                            }
-                            var seatDict = Patches.BagPatches.GetState(bagController).AdditionalSeats;
-                            seatDict[obj] = newSeat;
-
-                            Log.Debug($" Successfully auto-grabbed CharacterBody {obj.name} to additional seat");
+                            Log.Debug($" Assigning CharacterBody {obj.name} through normal auto-grab assignment");
+                            bagController.AssignPassenger(obj);
                         }
                         catch (Exception ex)
                         {
-                            Log.Error($"[ScheduleAutoGrab] Error assigning to additional seat: {ex.Message}");
+                            Log.Error($"[ScheduleAutoGrab] Error assigning CharacterBody: {ex.Message}");
                         }
                     }
                 }

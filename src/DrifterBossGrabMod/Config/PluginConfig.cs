@@ -61,6 +61,8 @@ namespace DrifterBossGrabMod
         Void
     }
 
+    public enum SelectedCardPosition { Center, Start, End }
+
     public enum CarouselOrientation
     {
         Vertical = 0,
@@ -75,7 +77,10 @@ namespace DrifterBossGrabMod
         WeightIcon,
         DamagePreview,
         CapacityUI,
-        StatsPanel
+        CardDetails,
+        Cards,
+        Animations,
+        Layout
     }
 
     public enum BalanceSubTabType
@@ -167,7 +172,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; } = null!;
         public ConfigEntry<float> SearchRadiusMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
-        public ConfigEntry<bool> EnableCombatDirectorPatches { get; private set; } = null!;
         public ConfigEntry<ComponentChooserSortMode> ComponentChooserSortModeEntry { get; private set; } = null!;
         public ConfigEntry<ComponentChooserDummy> ComponentChooserDummyEntry { get; private set; } = null!;
         public ConfigEntry<bool> EnableConfigSync { get; private set; } = null!;
@@ -200,9 +204,18 @@ namespace DrifterBossGrabMod
 
         public ConfigEntry<bool> EnableCarouselHUD { get; private set; } = null!;
         public ConfigEntry<CarouselOrientation> CarouselOrientation { get; private set; } = null!;
+        public ConfigEntry<SelectedCardPosition> SelectedCardPlacement { get; private set; } = null!;
+        public ConfigEntry<int> VisibleCardCount { get; private set; } = null!;
         public ConfigEntry<float> CarouselSpacing { get; private set; } = null!;
         public ConfigEntry<float> CarouselAnimationDuration { get; private set; } = null!;
         public ConfigEntry<bool> EnableCarouselInactivityFade { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCardReleaseAnimation { get; private set; } = null!;
+        public ConfigEntry<float> CardReleaseDuration { get; private set; } = null!;
+        public ConfigEntry<float> CardReleaseDistance { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCardDestructionAnimation { get; private set; } = null!;
+        public ConfigEntry<float> CardDestructionDuration { get; private set; } = null!;
+        public ConfigEntry<float> BreakoutWarningStrength { get; private set; } = null!;
+        public ConfigEntry<bool> EnableBreakoutWarning { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeDelay { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeDuration { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeOpacity { get; private set; } = null!;
@@ -230,8 +243,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> SideSlotShowSlotNumber { get; private set; } = null!;
 
         public ConfigEntry<bool> EnableBaggedObjectInfo { get; private set; } = null!;
-        public ConfigEntry<float> BaggedObjectInfoX { get; private set; } = null!;
-        public ConfigEntry<float> BaggedObjectInfoY { get; private set; } = null!;
         public ConfigEntry<float> BaggedObjectInfoScale { get; private set; } = null!;
         public ConfigEntry<Color> BaggedObjectInfoColor { get; private set; } = null!;
 
@@ -242,6 +253,11 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> ShowOverencumberIcon { get; private set; } = null!;
         public ConfigEntry<bool> EnableDamagePreview { get; private set; } = null!;
         public ConfigEntry<Color> DamagePreviewColor { get; private set; } = null!;
+        public ConfigEntry<bool> SmoothCapacityFill { get; private set; } = null!;
+        public ConfigEntry<float> CapacityFillSmoothTime { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCapacityFlashes { get; private set; } = null!;
+        public ConfigEntry<float> CapacityFlashStrength { get; private set; } = null!;
+        public ConfigEntry<float> CapacityFlashDuration { get; private set; } = null!;
         public ConfigEntry<bool> EnableMassCapacityUI { get; private set; } = null!;
         public ConfigEntry<float> MassCapacityUIPositionX { get; private set; } = null!;
         public ConfigEntry<float> MassCapacityUIPositionY { get; private set; } = null!;
@@ -285,54 +301,47 @@ namespace DrifterBossGrabMod
         public ConfigEntry<BalanceSubTabType> SelectedBalanceSubTab { get; private set; } = null!;
         public static readonly Dictionary<string, HudElementType[]> HudSettingToSubTab = new()
         {
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] {
-                HudElementType.All,
-                HudElementType.MainSlot,
-                HudElementType.SideSlots,
-                HudElementType.WeightIcon,
-                HudElementType.DamagePreview,
-                HudElementType.CapacityUI,
-                HudElementType.StatsPanel
-            },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_HUD_EDITOR.CHECKBOX"] = new[] {
-                HudElementType.All,
-                HudElementType.MainSlot,
-                HudElementType.SideSlots,
-                HudElementType.WeightIcon,
-                HudElementType.DamagePreview,
-                HudElementType.CapacityUI,
-                HudElementType.StatsPanel
-            },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSEL_ORIENTATION.CHOICE"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ITEM_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_INACTIVITY_FADE.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DELAY_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DURATION_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVE_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.HUD_FILTER.CHOICE"] = new[] { HudElementType.All, HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.WeightIcon, HudElementType.DamagePreview, HudElementType.CapacityUI, HudElementType.CardDetails, HudElementType.Cards, HudElementType.Animations, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_HUD_EDITOR.CHECKBOX"] = new[] { HudElementType.All, HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.WeightIcon, HudElementType.DamagePreview, HudElementType.CapacityUI, HudElementType.CardDetails, HudElementType.Cards, HudElementType.Animations, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAROUSEL_HUD.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Cards, HudElementType.Animations, HudElementType.Layout, HudElementType.CardDetails, HudElementType.WeightIcon },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAROUSEL_ORIENTATION.CHOICE"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SELECTED_CARD_POSITION.CHOICE"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Cards, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.VISIBLE_CARDS.INT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Cards, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ITEM_SPACING.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_RELEASE_ANIMATION.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_RELEASE_DURATION.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_RELEASE_DISTANCE.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DESTRUCTION_ANIMATION.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DESTRUCTION_DURATION.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.BREAKOUT_WARNING_STRENGTH.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.BREAKOUT_WARNING.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_INACTIVITY_FADE.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DELAY_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DURATION_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVE_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
 
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.MAIN_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(MAIN).CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.Cards },
 
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_X_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_Y_OFFSET.FLOAT_FIELD"] = new[] { HudElementType.SideSlots, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_SCALE.FLOAT_FIELD"] = new[] { HudElementType.SideSlots, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SIDE_SLOT_OPACITY.FLOAT_FIELD"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_BACKGROUND_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_WEIGHT_ICON_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_NAME_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_HEALTH_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_SLOT_#_(SIDE).CHECKBOX"] = new[] { HudElementType.SideSlots, HudElementType.Cards },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.USE_NEW_WEIGHT_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.WEIGHT_DISPLAY_MODE.CHOICE"] = new[] { HudElementType.WeightIcon },
@@ -343,10 +352,15 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_DAMAGE_PREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGE_PREVIEW_COLOR.COLOR"] = new[] { HudElementType.DamagePreview },
 
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_FILL_SMOOTHING.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_FILL_SMOOTH_TIME.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_FLASHES.CHECKBOX"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_FLASH_STRENGTH.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_FLASH_DURATION.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CAPACITY_UI.CHECKBOX"] = new[] { HudElementType.CapacityUI },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_X_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_SCALE.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_X_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CAPACITY_UI_SCALE.FLOAT_FIELD"] = new[] { HudElementType.CapacityUI, HudElementType.Layout },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_SEPARATORS.CHECKBOX"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_INTENSITY.STEP_SLIDER"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.GRADIENT_COLOR_START.COLOR"] = new[] { HudElementType.CapacityUI },
@@ -356,11 +370,9 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_MID.COLOR"] = new[] { HudElementType.CapacityUI },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.OVERENCUMBRANCE_END.COLOR"] = new[] { HudElementType.CapacityUI },
 
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_STATS_PANEL.CHECKBOX"] = new[] { HudElementType.StatsPanel },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_X_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_Y_POS.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_SCALE.FLOAT_FIELD"] = new[] { HudElementType.StatsPanel },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.STATS_PANEL_COLOR.COLOR"] = new[] { HudElementType.StatsPanel }
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_CARD_DETAILS.CHECKBOX"] = new[] { HudElementType.CardDetails },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DETAILS_SCALE.FLOAT_FIELD"] = new[] { HudElementType.CardDetails, HudElementType.Layout },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DETAILS_COLOR.COLOR"] = new[] { HudElementType.CardDetails }
         };
 
         public static readonly Dictionary<string, BalanceSubTabType[]> BalanceSettingToSubTab = new()

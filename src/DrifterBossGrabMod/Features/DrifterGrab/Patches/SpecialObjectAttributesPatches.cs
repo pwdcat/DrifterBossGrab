@@ -34,6 +34,26 @@ namespace DrifterBossGrabMod.Patches
             return false;
         }
 
+        internal static void PreparePassengerModelColliders(GameObject passenger)
+        {
+            var attributes = passenger.GetComponent<SpecialObjectAttributes>();
+            var body = passenger.GetComponent<CharacterBody>();
+            if (attributes == null || body == null) return;
+            var collidersToDisable = _collidersToDisableField?.GetValue(attributes) as List<Collider>;
+            if (collidersToDisable == null) return;
+            var colliders = new HashSet<Collider>(passenger.GetComponentsInChildren<Collider>(true));
+            var model = body.modelLocator != null ? body.modelLocator.modelTransform : null;
+            if (model != null) colliders.UnionWith(model.GetComponentsInChildren<Collider>(true));
+            foreach (var collider in colliders)
+            {
+                if (collider == null || collider.gameObject == passenger || collider.isTrigger ||
+                    collider.GetComponent<HurtBox>() != null || collider.GetComponent<CharacterMotor>() != null) continue;
+                var colliderBody = collider.GetComponentInParent<CharacterBody>();
+                if (colliderBody != null && colliderBody != body) continue;
+                if (!collidersToDisable.Contains(collider)) collidersToDisable.Add(collider);
+            }
+        }
+
         [HarmonyPatch(typeof(SpecialObjectAttributes), "OnEnable")]
         public class SpecialObjectAttributes_OnEnable_Patch
         {

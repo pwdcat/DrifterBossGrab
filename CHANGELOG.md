@@ -3,6 +3,47 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0]
+
+### Added
+- Settings for the new animations
+- Enemy portraits wiggle
+- Cards flying out on exit
+- Destroyed cards squishing
+
+### Fixed
+- Host and client using separate breakout timers
+- Boss breakout timer freezing after quick seat changes
+- Breakout intervals changing depending on which object was grabbed first
+- Cycling saving total bag age instead of the breakout timer
+    - Removed hard capped 10 second timer for additional seats
+- Mimics printing junk
+- Soul conduit stuff
+- Object names in the bag
+- Teleporter icon looking puny
+- Teleporter stacks not working after persisting
+- Client side SOA UI issues
+- Client side SOA updates on portals
+- Cards crossing over each other when cycling quickly
+- Thrown enemies and breakouts shoving you through the floor (gup approved)
+    - Only affected you if you had bottomless bag on
+
+### Changed
+- Animation settings included in presets and HUD filters
+- Roo and UI redesign
+    - don't feel like listing them
+- Stats Panel settings renamed to Card Details
+    - Now in the carousel
+- Capacity bar fill and cap
+- Less log spam
+- Darker slot and label text
+
+### Removed
+- Old stats panel position settings
+
+### Note
+- 1.9.x will just be focused on polish
+
 ## [1.8.3]
 
 ### Fixed

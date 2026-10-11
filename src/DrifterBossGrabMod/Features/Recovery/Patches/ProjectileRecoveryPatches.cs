@@ -166,6 +166,8 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
+                ExtendPassengerCollisionIgnores(__instance, passengerObject);
+
                 if (!NetworkUtils.ValidateObjectReadyWithRecovery(passengerObject))
                 {
                     Log.Warning($"[ThrownObjectProjectileController_OnSyncPassenger] {passengerObject.name} is not ready for network operations (recovery attempted)");
@@ -191,6 +193,33 @@ namespace DrifterBossGrabMod.Patches
                     ProcessThrownObject(__instance, passengerObject!);
                 }
             }
+        }
+
+        private static void ExtendPassengerCollisionIgnores(ThrownObjectProjectileController projectile, GameObject passenger)
+        {
+            if (projectile == null || passenger == null) return;
+            var collisionIgnores = projectile.disableCollisionsSelfPassenger;
+            if (collisionIgnores == null) return;
+            var body = passenger.GetComponent<CharacterBody>();
+            var candidates = new HashSet<Collider>(passenger.GetComponentsInChildren<Collider>(true));
+            var model = body != null && body.modelLocator != null
+                ? body.modelLocator.modelTransform : passenger.GetComponent<ModelLocator>()?.modelTransform;
+            if (model != null) candidates.UnionWith(model.GetComponentsInChildren<Collider>(true));
+            var colliders = new List<Collider>(collisionIgnores.collidersB);
+            int added = 0;
+            foreach (var collider in candidates)
+            {
+                if (collider == null || collider.isTrigger || collider.GetComponent<HurtBox>() != null) continue;
+                var colliderBody = collider.GetComponentInParent<CharacterBody>();
+                if (colliderBody != null && colliderBody != body) continue;
+                if (colliders.Contains(collider)) continue;
+                colliders.Add(collider);
+                added++;
+            }
+            collisionIgnores.collidersB = colliders.ToArray();
+            collisionIgnores.Apply();
+            if (PluginConfig.Instance.EnableDebugLogs.Value)
+                Log.Debug($"[ThrownPassengerCollisions] peer={(NetworkServer.active ? "server" : "client")}, passenger={passenger.name}, addedSolids={added}, passengerColliders={colliders.Count}, projectileColliders={collisionIgnores.collidersA.Length}");
         }
 
         private static void ProcessThrownObject(ThrownObjectProjectileController __instance, GameObject passenger)
@@ -246,6 +275,12 @@ namespace DrifterBossGrabMod.Patches
 
                     lastKnownOwners.Remove(passenger);
                     lastKnownOwners.Add(passenger, bagController);
+                    if (passenger.GetComponent<CharacterBody>() != null && bagController.characterBody != null)
+                    {
+                        var protection = passenger.GetComponent<Core.PassengerReleaseProtection>() ?? passenger.AddComponent<Core.PassengerReleaseProtection>();
+                        protection.Begin(bagController.characterBody, __instance.gameObject);
+                    }
+
 
                     if (NetworkServer.active)
                     {
@@ -508,6 +543,17 @@ namespace DrifterBossGrabMod.Patches
             return count;
         }
 
+        public static void CompletePassengerFlight(GameObject passenger, VehicleSeat exitingSeat)
+        {
+            if (passenger == null || passenger.GetComponent<CharacterBody>() == null ||
+                VehicleSeat.FindVehicleSeatWithPassenger(passenger, exitingSeat) != null) return;
+            lock (_throwTrackingLock) { _objectsUndergoingThrow.Remove(passenger); }
+            RemoveFromProjectileState(passenger);
+            if (lastKnownOwners.TryGetValue(passenger, out var owner) && owner != null)
+                BaggedObjectStatePatches.PerformPassengerRestoration(owner, passenger);
+            passenger.GetComponent<Core.PassengerReleaseProtection>()?.FinishFlight();
+        }
+
         public static void RemoveFromProjectileState(GameObject obj)
         {
             if (obj != null)
@@ -520,7 +566,12 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (_originalLayersByObject.TryGetValue(obj, out int originalLayer))
                     {
-                        obj.layer = originalLayer;
+                        if (!BodyColliderCache.ProtectDeadPassenger(obj))
+                        {
+                            obj.layer = originalLayer;
+                            var motor = obj.GetComponent<CharacterMotor>();
+                            if (motor != null) motor.Motor.RebuildCollidableLayers();
+                        }
                         _originalLayersByObject.Remove(obj);
                     }
                 }

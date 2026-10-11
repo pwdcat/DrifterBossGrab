@@ -73,6 +73,7 @@ namespace DrifterBossGrabMod.Networking
     {
         public NetworkInstanceId controllerNetId;
         public int selectedIndex;
+        public int emptySlotIndex = -1;
         public uint[] baggedIds = System.Array.Empty<uint>();
         public uint[] seatIds = System.Array.Empty<uint>();
         public int scrollDirection;
@@ -85,6 +86,7 @@ namespace DrifterBossGrabMod.Networking
         {
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
+            writer.Write(emptySlotIndex);
             writer.Write(scrollDirection);
 
             int baggedCount = Math.Min(baggedIds.Length, 500);
@@ -113,6 +115,7 @@ namespace DrifterBossGrabMod.Networking
         {
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
+            emptySlotIndex = reader.ReadInt32();
             scrollDirection = reader.ReadInt32();
 
             int count = Math.Min(reader.ReadInt32(), 500);
@@ -429,6 +432,7 @@ namespace DrifterBossGrabMod.Networking
     {
         public NetworkInstanceId controllerNetId;
         public int selectedIndex;
+        public int emptySlotIndex = -1;
         public NetworkInstanceId removedObjectNetId;
         public uint[] baggedIds = System.Array.Empty<uint>();
         public uint[] seatIds = System.Array.Empty<uint>();
@@ -442,6 +446,7 @@ namespace DrifterBossGrabMod.Networking
         {
             writer.Write(controllerNetId);
             writer.Write(selectedIndex);
+            writer.Write(emptySlotIndex);
             writer.Write(removedObjectNetId);
             writer.Write(scrollDirection);
             writer.Write(isThrowOperation);
@@ -468,6 +473,7 @@ namespace DrifterBossGrabMod.Networking
         {
             controllerNetId = reader.ReadNetworkId();
             selectedIndex = reader.ReadInt32();
+            emptySlotIndex = reader.ReadInt32();
             removedObjectNetId = reader.ReadNetworkId();
             scrollDirection = reader.ReadInt32();
             isThrowOperation = reader.ReadBoolean();
@@ -490,6 +496,90 @@ namespace DrifterBossGrabMod.Networking
                 breakoutAttempts[i] = reader.ReadSingle();
                 breakoutTimes[i] = reader.ReadSingle();
             }
+        }
+    }
+
+    public class BreakoutPresentationMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public uint[] passengerIds = Array.Empty<uint>();
+        public float[] progress = Array.Empty<float>();
+        public float[] attempts = Array.Empty<float>();
+        public float[] intervals = Array.Empty<float>();
+        public uint[] durabilityPassengerIds = Array.Empty<uint>();
+        public int[] durability = Array.Empty<int>();
+        public int[] maxDurability = Array.Empty<int>();
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            int count = Math.Min(passengerIds.Length, 500);
+            writer.Write(count);
+            for (int i = 0; i < count; i++)
+            {
+                writer.Write(passengerIds[i]);
+                writer.Write(progress[i]);
+                writer.Write(attempts[i]);
+                writer.Write(intervals[i]);
+            }
+            int durabilityCount = Math.Min(Math.Min(durabilityPassengerIds.Length, durability.Length), Math.Min(maxDurability.Length, 500));
+            writer.Write(durabilityCount);
+            for (int i = 0; i < durabilityCount; i++)
+            {
+                writer.Write(durabilityPassengerIds[i]);
+                writer.Write(durability[i]);
+                writer.Write(maxDurability[i]);
+            }
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            int count = reader.ReadInt32();
+            if (count < 0 || count > 500) throw new InvalidOperationException("Invalid breakout presentation count.");
+            passengerIds = new uint[count];
+            progress = new float[count];
+            attempts = new float[count];
+            intervals = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                passengerIds[i] = reader.ReadUInt32();
+                progress[i] = reader.ReadSingle();
+                attempts[i] = reader.ReadSingle();
+                intervals[i] = reader.ReadSingle();
+            }
+            int durabilityCount = reader.ReadInt32();
+            if (durabilityCount < 0 || durabilityCount > 500) throw new InvalidOperationException("Invalid durability presentation count.");
+            durabilityPassengerIds = new uint[durabilityCount];
+            durability = new int[durabilityCount];
+            maxDurability = new int[durabilityCount];
+            for (int i = 0; i < durabilityCount; i++)
+            {
+                durabilityPassengerIds[i] = reader.ReadUInt32();
+                durability[i] = reader.ReadInt32();
+                maxDurability[i] = reader.ReadInt32();
+            }
+        }
+    }
+
+    public class CardDepartureMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public NetworkInstanceId passengerNetId;
+        public bool wasDestroyed;
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            writer.Write(passengerNetId);
+            writer.Write(wasDestroyed);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            passengerNetId = reader.ReadNetworkId();
+            wasDestroyed = reader.ReadBoolean();
         }
     }
 }

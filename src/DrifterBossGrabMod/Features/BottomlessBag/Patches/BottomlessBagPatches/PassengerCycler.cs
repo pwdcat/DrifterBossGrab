@@ -51,7 +51,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (bagController.vehicleSeat == null)
             {
-                Log.Debug($" [BottomlessBag] ERROR: vehicleSeat is null!");
+                Log.Debug($" [BottomlessBag] ERROR: vehicleSeat is null.");
                 return;
             }
 
@@ -328,11 +328,13 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
+            var selectionState = BagPatches.GetState(bagController);
+            int emptyIndex = selectionState.GetEmptySlotIndex(validObjects.Count);
             int currentIndex = -1;
             bool currentIsNull = false;
             if (isInNullState)
             {
-                currentIndex = validObjects.Count;
+                currentIndex = emptyIndex;
                 currentIsNull = true;
             }
             else
@@ -348,19 +350,21 @@ namespace DrifterBossGrabMod.Patches
             }
             if (currentIndex < 0 && !currentIsNull)
             {
-                currentIndex = validObjects.Count;
+                currentIndex = emptyIndex;
                 currentIsNull = true;
             }
+            if (!currentIsNull) currentIndex = selectionState.ToSequenceIndex(currentIndex, validObjects.Count);
             int nextIndex = (currentIndex + amount) % totalPositions;
             if (nextIndex < 0) nextIndex += totalPositions;
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                var target = (nextIndex >= 0 && nextIndex < validObjects.Count) ? validObjects[nextIndex] : null;
+                int targetIndex = selectionState.ToObjectIndex(nextIndex, validObjects.Count);
+                var target = targetIndex >= 0 && targetIndex < validObjects.Count ? validObjects[targetIndex] : null;
                 Log.Debug($"[PassengerCycler] User scrolled to index {nextIndex}. Target={(target != null ? target.name : "null")}");
             }
 
-            bool nextIsNull = (nextIndex == validObjects.Count);
+            bool nextIsNull = nextIndex == emptyIndex;
 
             int effectiveCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
             bool isBagFull = validObjects.Count >= effectiveCapacity;
@@ -373,9 +377,12 @@ namespace DrifterBossGrabMod.Patches
             {
                 Log.Debug($"[CycleToNextObject] Bag is full, skipping null state and wrapping around");
 
-                nextIndex = (direction > 0) ? 0 : validObjects.Count - 1;
+                nextIndex = (nextIndex + direction + totalPositions) % totalPositions;
                 nextIsNull = false;
             }
+
+            if (nextIndex == currentIndex) return;
+            if (!nextIsNull) nextIndex = selectionState.ToObjectIndex(nextIndex, validObjects.Count);
 
             bool hasValidSeatConfiguration = SeatValidator.ValidateSeatConfiguration(bagController, validObjects, actualMainPassenger, isInNullState, localSeatDict);
             if (!hasValidSeatConfiguration)
@@ -405,7 +412,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 else
                 {
-                    var currentObject = validObjects[currentIndex];
+                    var currentObject = actualMainPassenger!;
                     var targetObject = validObjects[nextIndex];
                     SeatTransitionHandler.HandleObjectSwap(bagController, vehicleSeat, currentObject, targetObject, localSeatDict, direction);
                 }

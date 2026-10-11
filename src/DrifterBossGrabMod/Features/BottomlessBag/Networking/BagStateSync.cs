@@ -22,12 +22,12 @@ namespace DrifterBossGrabMod.Networking
             RoR2.Networking.NetworkManagerSystem.onStartServerGlobal += OnServerStart;
             Run.onRunStartGlobal += OnRunStart;
 
+            CreateSeatPrefab();
+
             BodyCatalog.availability.CallWhenAvailable(() =>
             {
                 AddControllerToDrifterPrefab();
             });
-
-            CreateSeatPrefab();
         }
 
         private static void AddControllerToDrifterPrefab()
@@ -35,16 +35,21 @@ namespace DrifterBossGrabMod.Networking
             var drifterBody = BodyCatalog.FindBodyPrefab("DrifterBody");
             if (drifterBody)
             {
+                var sourceSeat = drifterBody.GetComponent<DrifterBagController>()?.vehicleSeat;
+                var additionalSeat = AdditionalSeatPrefab != null ? AdditionalSeatPrefab.GetComponent<VehicleSeat>() : null;
+                if (sourceSeat != null && additionalSeat != null)
+                    AdditionalSeatManager.CopySeatProperties(sourceSeat, additionalSeat, false);
+
                 if (!drifterBody.GetComponent<BottomlessBagNetworkController>())
                 {
                     Log.Debug("[BagStateSync] Adding BottomlessBagNetworkController to DrifterBody prefab");
                     drifterBody.AddComponent<BottomlessBagNetworkController>();
-                    Log.Debug("[BagStateSync] Successfully added BottomlessBagNetworkController to DrifterBody prefab!");
+                    Log.Debug("[BagStateSync] Successfully added BottomlessBagNetworkController to DrifterBody prefab.");
                 }
             }
             else if (PluginConfig.Instance.EnableDebugLogs.Value)
             {
-                Log.Warning("[BagStateSync] Could not find DrifterBody prefab to add BottomlessBagNetworkController!");
+                Log.Warning("[BagStateSync] Could not find DrifterBody prefab to add BottomlessBagNetworkController.");
             }
         }
 
@@ -68,15 +73,6 @@ namespace DrifterBossGrabMod.Networking
             exitPosObj.transform.SetParent(AdditionalSeatPrefab.transform);
             exitPosObj.transform.localPosition = Vector3.zero;
             seat.exitPosition = exitPosObj.transform;
-
-            seat.passengerState = new EntityStates.SerializableEntityStateType(typeof(EntityStates.Idle));
-
-            seat.hidePassenger = true;
-            seat.disablePassengerMotor = true;
-            seat.disableAllCollidersAndHurtboxes = true;
-            seat.isEquipmentActivationAllowed = true;
-
-            seat.shouldSetIdle = true;
 
             var assetId = new Guid("d62f2e5a-7b3c-4e8a-9d1f-8c5e2a3b4d5e");
             ReflectionCache.NetworkIdentity.AssetId?.SetValue(ni, NetworkHash128.Parse(assetId.ToString()));

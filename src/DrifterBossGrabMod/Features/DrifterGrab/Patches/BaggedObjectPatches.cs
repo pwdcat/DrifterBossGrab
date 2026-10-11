@@ -49,7 +49,6 @@ namespace DrifterBossGrabMod.Patches
         {
             if (bagController == null) return;
 
-            Log.Debug($"[SynchronizeBaggedObjectState] Called with targetObject={(!targetObject ? "null" : targetObject!.name)}, EnableBalance={PluginConfig.Instance.EnableBalance.Value}, NetworkServer.active={NetworkServer.active}, hasAuthority={bagController.hasAuthority}");
             BaggedObject? baggedObject = null;
             if (targetObject != null)
             {
@@ -79,7 +78,6 @@ namespace DrifterBossGrabMod.Patches
                     var currentBaggedObj = bagController.baggedObject;
                     if (currentBaggedObj != targetObject)
                     {
-                        Log.Debug($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {(!targetObject ? "null" : targetObject!.name)}");
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
                 }
@@ -96,7 +94,6 @@ namespace DrifterBossGrabMod.Patches
                     var currentBaggedObj = bagController.baggedObject;
                     if (currentBaggedObj != targetObject)
                     {
-                        Log.Debug($"[SynchronizeBaggedObjectState] Calling OnSyncBaggedObject for {(!targetObject ? "null" : targetObject!.name)}");
 
                         _onSyncBaggedObjectMethod?.Invoke(bagController, new object[] { targetObject! });
                     }
@@ -163,25 +160,21 @@ namespace DrifterBossGrabMod.Patches
         {
             if (instance == null || instance.targetObject == null) return;
 
-            Log.Debug($"[UpdateTargetFields] ENTRY: instance.targetObject={instance.targetObject.name}");
 
             bool isBody = instance.targetObject.TryGetComponent<CharacterBody>(out var body);
             if (ReflectionCache.BaggedObject.IsBody != null)
             {
                 ReflectionCache.BaggedObject.IsBody.SetValue(instance, isBody);
-                Log.Debug($"[UpdateTargetFields] Set isBody={isBody}");
             }
 
             if (isBody && ReflectionCache.BaggedObject.TargetBody != null)
             {
                 ReflectionCache.BaggedObject.TargetBody.SetValue(instance, body);
-                Log.Debug($"[UpdateTargetFields] Set targetBody={(!body ? "null" : body!.name)}");
             }
             if (ReflectionCache.BaggedObject.VehiclePassengerAttributes != null)
             {
                 instance.targetObject.TryGetComponent<SpecialObjectAttributes>(out var attributes);
                 ReflectionCache.BaggedObject.VehiclePassengerAttributes.SetValue(instance, attributes);
-                Log.Debug($"[UpdateTargetFields] Set vehiclePassengerAttributes={(attributes != null ? "not null" : "null")}");
             }
         }
 
@@ -349,27 +342,19 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-                Log.Debug($"[BaggedObject_TryOverrideUtility.Prefix] targetObject={(!targetObject ? "null" : targetObject!.name)}, " +
-                        $"isMainSeatOccupant={isMainSeatOccupant}, " +
-                        $"isBeingCycledToMain={isBeingCycledToMain}, " +
-                        $"trackedMain={(!trackedMain ? "null" : trackedMain!.name)}, " +
-                        $"shouldAllowOverride={shouldAllowOverride}.");
 
                 if (shouldAllowOverride)
                 {
-                    Log.Debug($"[BaggedObject_TryOverrideUtility.Prefix] ALLOWING override for {(!targetObject ? "null" : targetObject!.name)}");
                     return true;
                 }
                 else
                 {
-                    Log.Debug($"[BaggedObject_TryOverrideUtility.Prefix] SKIPPING override for {(!targetObject ? "null" : targetObject!.name)} (not in main seat, not being cycled)");
 
                     if (trackedMain != null && skill != null && !skill.HasSkillOverrideOfPriority(GenericSkill.SkillOverridePriority.Contextual))
                     {
                         var utilityOverride = (SkillDef?)ReflectionCache.BaggedObject.UtilityOverride?.GetValue(__instance);
                         if (utilityOverride != null)
                         {
-                            Log.Debug($"[BaggedObject_TryOverrideUtility.Prefix] RE-APPLYING utility override for main seat object {trackedMain.name} (override was cleaned up by vanilla OnExit)");
                             ReflectionCache.BaggedObject.OverriddenUtility?.SetValue(__instance, skill);
                             skill.SetSkillOverride(__instance, utilityOverride, GenericSkill.SkillOverridePriority.Contextual);
                             var skillLocator = __instance.outer.GetComponent<SkillLocator>();
@@ -384,34 +369,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            [HarmonyPostfix]
-            public static void Postfix(BaggedObject __instance, GenericSkill skill)
-            {
-                if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
-                if (__instance == null) return;
-                try
-                {
-                    var targetObj = __instance?.targetObject;
-                    var isBodyVal = ReflectionCache.BaggedObject.IsBody?.GetValue(__instance);
-                    bool isBody = isBodyVal is bool b && b;
-                    var overriddenUtility = ReflectionCache.BaggedObject.OverriddenUtility?.GetValue(__instance);
-                    var utilityOverride = ReflectionCache.BaggedObject.UtilityOverride?.GetValue(__instance);
-                    var vehiclePassengerAttributes = ReflectionCache.BaggedObject.VehiclePassengerAttributes?.GetValue(__instance);
-                    var dbc = ReflectionCache.BaggedObject.DrifterBagController?.GetValue(__instance);
-
-                    Log.Debug($"[BaggedObject_TryOverrideUtility.Postfix] targetObject={(!targetObj ? "null" : targetObj!.name)}, " +
-                            $"isBody={isBody}, " +
-                            $"vehiclePassengerAttributes={(vehiclePassengerAttributes != null ? "SET" : "NULL")}, " +
-                            $"drifterBagController={(dbc != null ? "SET" : "NULL")}, " +
-                            $"overriddenUtility={(overriddenUtility != null ? "SET" : "NULL")}, " +
-                            $"utilityOverride={(utilityOverride != null ? ((UnityEngine.ScriptableObject)utilityOverride).name : "NULL")}, " +
-                            $"skill={(skill != null ? skill.skillName : "null")}");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"[BaggedObject_TryOverrideUtility.Postfix] Diagnostic error: {ex.Message}");
-                }
-            }
         }
 
         [HarmonyPatch(typeof(BaggedObject), "TryOverridePrimary")]
@@ -435,27 +392,19 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-                Log.Debug($"[BaggedObject_TryOverridePrimary.Prefix] targetObject={(!targetObject ? "null" : targetObject!.name)}, " +
-                        $"isMainSeatOccupant={isMainSeatOccupant}, " +
-                        $"isBeingCycledToMain={isBeingCycledToMain}, " +
-                        $"trackedMain={(!trackedMain ? "null" : trackedMain!.name)}, " +
-                        $"shouldAllowOverride={shouldAllowOverride}.");
 
                 if (shouldAllowOverride)
                 {
-                    Log.Debug($"[BaggedObject_TryOverridePrimary.Prefix] ALLOWING override for {(!targetObject ? "null" : targetObject!.name)}");
                     return true;
                 }
                 else
                 {
-                    Log.Debug($"[BaggedObject_TryOverridePrimary.Prefix] SKIPPING override for {(!targetObject ? "null" : targetObject!.name)} (not in main seat, not being cycled)");
 
                     if (trackedMain != null && skill != null && !skill.HasSkillOverrideOfPriority(GenericSkill.SkillOverridePriority.Contextual))
                     {
                         var primaryOverride = (SkillDef?)ReflectionCache.BaggedObject.PrimaryOverride?.GetValue(__instance);
                         if (primaryOverride != null)
                         {
-                            Log.Debug($"[BaggedObject_TryOverridePrimary.Prefix] RE-APPLYING primary override for main seat object {trackedMain.name} (override was cleaned up by vanilla OnExit)");
                             ReflectionCache.BaggedObject.OverriddenPrimary?.SetValue(__instance, skill);
                             skill.SetSkillOverride(__instance, primaryOverride, GenericSkill.SkillOverridePriority.Contextual);
                             var skillLocator = __instance.outer.GetComponent<SkillLocator>();
@@ -470,32 +419,6 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            [HarmonyPostfix]
-            public static void Postfix(BaggedObject __instance, GenericSkill skill)
-            {
-                if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
-                if (__instance == null) return;
-                try
-                {
-                    var targetObj = __instance?.targetObject;
-                    var isBodyVal = ReflectionCache.BaggedObject.IsBody?.GetValue(__instance);
-                    bool isBody = isBodyVal is bool b && b;
-                    var overriddenPrimary = ReflectionCache.BaggedObject.OverriddenPrimary?.GetValue(__instance);
-                    var primaryOverride = ReflectionCache.BaggedObject.PrimaryOverride?.GetValue(__instance);
-                    var vehiclePassengerAttributes = ReflectionCache.BaggedObject.VehiclePassengerAttributes?.GetValue(__instance);
-
-                    Log.Debug($"[BaggedObject_TryOverridePrimary.Postfix] targetObject={(!targetObj ? "null" : targetObj!.name)}, " +
-                            $"isBody={isBody}, " +
-                            $"vehiclePassengerAttributes={(vehiclePassengerAttributes != null ? "SET" : "NULL")}, " +
-                            $"overriddenPrimary={(overriddenPrimary != null ? "SET" : "NULL")}, " +
-                            $"primaryOverride={(primaryOverride != null ? ((UnityEngine.ScriptableObject)primaryOverride).name : "NULL")}, " +
-                            $"skill={(skill != null ? skill.skillName : "null")}");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"[BaggedObject_TryOverridePrimary.Postfix] Diagnostic error: {ex.Message}");
-                }
-            }
         }
 
         public static GameObject? GetMainSeatOccupant(DrifterBagController controller)
@@ -509,13 +432,20 @@ namespace DrifterBossGrabMod.Patches
         {
             if (bagController == null || targetObject == null) return null;
 
-            Log.Debug($"[FindOrCreateBaggedObjectState] Called with targetObject={(!targetObject ? "null" : targetObject!.name)}, NetworkServer.active={NetworkServer.active}");
 
             var bagStateMachine = EntityStateMachine.FindByCustomName(bagController.gameObject, "Bag");
             if (bagStateMachine != null && bagStateMachine.state is BaggedObject bo && bo.targetObject == targetObject)
             {
-                Log.Debug($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {(targetObject ? targetObject.name : "null")}");
-                return bo;
+                bool needsInitialization = NetworkServer.active && PluginConfig.Instance.BottomlessBagEnabled.Value &&
+                    bagController.vehicleSeat != null && bagController.vehicleSeat.NetworkpassengerBodyObject == targetObject &&
+                    !BaggedObjectStatePatches.HasInitializedState(bo);
+                if (!needsInitialization)
+                {
+                    Log.Debug($"[FindOrCreateBaggedObjectState] Found existing BaggedObject state for {(targetObject ? targetObject.name : "null")}");
+                    return bo;
+                }
+                Log.Debug($"[FindOrCreateBaggedObjectState] Replacing uninitialized main state for {targetObject.name}");
+                BaggedObjectStatePatches.UnsetAllOverrides(bo);
             }
 
             try

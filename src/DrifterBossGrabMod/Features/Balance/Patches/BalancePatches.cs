@@ -199,7 +199,10 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(ref FireProjectileInfo fireProjectileInfo)
             {
-                if (!PluginConfig.Instance.EnableBalance.Value) return;
+                if (!PluginConfig.Instance.EnableBalance.Value || fireProjectileInfo.owner == null ||
+                    fireProjectileInfo.owner.GetComponent<DrifterBagController>() == null ||
+                    fireProjectileInfo.projectilePrefab == null ||
+                    fireProjectileInfo.projectilePrefab.GetComponent<ThrownObjectProjectileController>() == null) return;
 
                 float incomingSpeed = fireProjectileInfo.speedOverride;
                 if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)

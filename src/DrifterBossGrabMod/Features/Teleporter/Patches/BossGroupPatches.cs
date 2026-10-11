@@ -2,7 +2,6 @@ using RoR2;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityEngine.AddressableAssets;
 using DrifterBossGrabMod;
 
 namespace DrifterBossGrabMod.Patches
@@ -15,7 +14,7 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(nameof(BossGroup.DropRewards))]
         public static void DropRewardsPrefix(BossGroup __instance)
         {
-            if (!NetworkServer.active) return;
+            if (!NetworkServer.active || !TeleporterSafetyPatches.IsRestored(__instance)) return;
             var modelLocator = __instance.GetComponent<ModelLocator>() ?? __instance.GetComponentInParent<ModelLocator>();
             if (modelLocator != null && modelLocator.modelTransform != null)
             {
@@ -28,25 +27,13 @@ namespace DrifterBossGrabMod.Patches
                 }
             }
 
-            int players = Run.instance ? Run.instance.participatingPlayerCount : -1;
-
-            var rng = Traverse.Create(__instance).Field("rng").GetValue();
-            var bossDrops = Traverse.Create(__instance).Field("bossDrops").GetValue() as System.Collections.IList;
-            var bossDropTables = Traverse.Create(__instance).Field("bossDropTables").GetValue() as System.Collections.IList;
-            if (rng == null)
-            {
-                Log.Warning($"[BossGroupDiagnostics] ALERT: RNG is null! Rewards will abort in vanilla code.");
-            }
-            if (__instance.dropPosition == null)
-            {
-                Log.Warning($"[BossGroupDiagnostics] ALERT: dropPosition is null! No item will be spawned.");
-            }
-
-            if (__instance.dropTable == null && NetworkServer.active)
-            {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Warning($"[BossGroup] BossGroup {__instance.name} has no dropTable! Injecting dtTier2Item fallback.");
+            if (__instance.dropTable == null)
                 __instance.dropTable = LegacyResourcesAPI.Load<PickupDropTable>("DropTables/dtTier2Item");
+            var rng = ReflectionCache.BossGroup.rng;
+            if (rng != null && rng.GetValue(__instance) == null)
+            {
+                ulong seed = Run.instance?.bossRewardRng != null ? Run.instance.bossRewardRng.nextUlong : (ulong)System.DateTime.Now.Ticks;
+                rng.SetValue(__instance, new Xoroshiro128Plus(seed));
             }
         }
 

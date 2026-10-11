@@ -16,8 +16,6 @@ namespace DrifterBossGrabMod.Networking
     public static class CycleNetworkHandler
     {
 
-        public static volatile bool SuppressBroadcasts = false;
-
         // ========================================================================================
         // OUTBOUND MESSAGES (CLIENT -> SERVER)
         // ========================================================================================
@@ -123,6 +121,7 @@ namespace DrifterBossGrabMod.Networking
             {
                 controllerNetId = ni.netId,
                 selectedIndex = netController.selectedIndex,
+                emptySlotIndex = BagPatches.GetState(bagController).EmptySlotIndex,
                 removedObjectNetId = removedObjectNetId,
                 baggedIds = baggedIds,
                 seatIds = seatIds,
@@ -145,6 +144,8 @@ namespace DrifterBossGrabMod.Networking
             NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.ClientUpdateBagStateSubMessageType, HandleClientBagStateMessage);
             NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.GrabObjectSubMessageType, HandleGrabObjectMessage);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType, HandleBagStateUpdatedMessage);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BreakoutPresentationSubMessageType, HandleBreakoutPresentation);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.CardDepartureSubMessageType, HandleCardDeparture);
         }
 
         public static void UnregisterMessages()
@@ -154,6 +155,8 @@ namespace DrifterBossGrabMod.Networking
             NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.ClientUpdateBagStateSubMessageType);
             NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.GrabObjectSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BreakoutPresentationSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.CardDepartureSubMessageType);
         }
 
         // ========================================================================================
@@ -201,33 +204,8 @@ namespace DrifterBossGrabMod.Networking
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController == null) return;
 
-            SuppressBroadcasts = true;
-            try
-            {
-                foreach (var idValue in msg.baggedIds)
-                {
-                    var obj = NetworkServer.FindLocalObject(new NetworkInstanceId(idValue));
-                    if (obj != null)
-                    {
-                        bool isInAnySeat = IsObjectInAnySeat(bagController, obj);
-
-                        if (!isInAnySeat)
-                        {
-                            bagController.AssignPassenger(obj);
-                        }
-                    }
-                }
-
-                var netController = bagController.GetComponent<BottomlessBagNetworkController>();
-                if (netController != null)
-                {
-                    netController.ServerUpdateFromClient(msg.selectedIndex, msg.baggedIds, msg.seatIds);
-                }
-            }
-            finally
-            {
-                SuppressBroadcasts = false;
-            }
+            var netController = bagController.GetComponent<BottomlessBagNetworkController>();
+            if (netController != null) netController.SendAuthoritativeBagState();
         }
 
         public static void HandleGrabObjectMessage(NetworkReader reader, NetworkConnection conn)
@@ -279,15 +257,56 @@ namespace DrifterBossGrabMod.Networking
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS (CLIENT)
         // ========================================================================================
+        private static void HandleBreakoutPresentation(NetworkReader reader, NetworkConnection conn)
+        {
+            if (NetworkServer.active) return;
+            var msg = new BreakoutPresentationMessage();
+            msg.Deserialize(reader);
+            var obj = ClientScene.FindLocalObject(msg.controllerNetId);
+            if (obj != null) obj.GetComponent<BottomlessBagNetworkController>()?.ApplyBreakoutPresentation(msg);
+        }
+
+        private static void HandleCardDeparture(NetworkReader reader, NetworkConnection conn)
+        {
+            if (NetworkServer.active) return;
+            var msg = new CardDepartureMessage();
+            msg.Deserialize(reader);
+            var obj = ClientScene.FindLocalObject(msg.controllerNetId);
+            var controller = obj != null ? obj.GetComponent<DrifterBagController>() : null;
+            if (controller != null) BagCarouselUpdater.AnimatePassengerExit(controller, msg.passengerNetId.Value, msg.wasDestroyed);
+        }
+
+        internal static void SendCardDeparture(DrifterBagController controller, GameObject passenger, bool wasDestroyed)
+        {
+            if (!NetworkServer.active || passenger == null) return;
+            var controllerIdentity = controller.GetComponent<NetworkIdentity>();
+            var passengerIdentity = passenger.GetComponent<NetworkIdentity>();
+            if (controllerIdentity == null || passengerIdentity == null) return;
+            NetworkMessageRegistry.SendToAll(Constants.Network.CardDepartureSubMessageType, new CardDepartureMessage
+            {
+                controllerNetId = controllerIdentity.netId,
+                passengerNetId = passengerIdentity.netId,
+                wasDestroyed = wasDestroyed
+            });
+        }
+
         public static void HandleBagStateUpdatedMessage(NetworkReader reader, NetworkConnection conn)
         {
+            if (NetworkServer.active) return;
             var msg = new BagStateUpdatedMessage();
             msg.Deserialize(reader);
+            var revision = PersistenceNetworkHandler.RegisterClientBagSnapshot(msg.controllerNetId.Value, msg.baggedIds ?? Array.Empty<uint>());
+            ApplyBagStateUpdatedMessage(msg, revision);
+        }
 
+        private static void ApplyBagStateUpdatedMessage(BagStateUpdatedMessage msg, object revision, bool retry = true)
+        {
             var controllerObj = ClientScene.FindLocalObject(msg.controllerNetId);
             if (controllerObj == null)
             {
-                Log.Debug($"[HandleBagStateUpdatedMessage] Controller (netId={msg.controllerNetId.Value}) not found - likely destroyed");
+                if (retry && DrifterBossGrabPlugin.Instance != null)
+                    DrifterBossGrabPlugin.Instance.StartCoroutine(RetryBagStateUpdatedMessage(msg, revision));
+                Log.Debug($"[HandleBagStateUpdatedMessage] Waiting for controller netId={msg.controllerNetId.Value}");
                 return;
             }
 
@@ -316,10 +335,11 @@ namespace DrifterBossGrabMod.Networking
             var previousMainPassenger = BagPatches.GetMainSeatObject(bagController);
 
             netController.ApplyStateFromMessage(msg.selectedIndex, msg.baggedIds, msg.seatIds, msg.scrollDirection,
-                msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes);
+                msg.elapsedBreakoutTimes, msg.breakoutAttempts, msg.breakoutTimes, msg.emptySlotIndex);
 
             if (msg.removedObjectNetId != NetworkInstanceId.Invalid)
             {
+                PersistenceNetworkHandler.CancelPendingPersistence(msg.removedObjectNetId.Value);
                 var removedObj = ClientScene.FindLocalObject(msg.removedObjectNetId);
                 if (removedObj != null)
                 {
@@ -331,7 +351,7 @@ namespace DrifterBossGrabMod.Networking
                     if (!msg.isThrowOperation || !NetworkServer.active)
                     {
                         BaggedObjectStatePatches.PerformPassengerRestoration(bagController, removedObj);
-                        BagPassengerManager.RemoveBaggedObject(bagController, removedObj, isDestroying: false);
+                        BagPassengerManager.RemoveBaggedObject(bagController, removedObj, isDestroying: false, preserveStateDuringThrow: msg.isThrowOperation);
                     }
 
                     if (previousMainPassenger == removedObj || msg.selectedIndex < 0)
@@ -354,21 +374,16 @@ namespace DrifterBossGrabMod.Networking
                 BaggedObjectStatePatches.ForceCleanupOverrides(bagController, previousMainPassenger);
             }
 
-            BagCarouselUpdater.UpdateCarousel(bagController);
-
             Log.Debug($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={(msg.baggedIds?.Length ?? 0)}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
 
             var bagState = BagPatches.GetState(bagController);
             if (bagState != null && msg.baggedIds != null)
             {
-                bagState.BaggedObjects.Clear();
                 foreach (var idValue in msg.baggedIds)
                 {
                     var obj = ClientScene.FindLocalObject(new NetworkInstanceId(idValue));
                     if (obj != null)
                     {
-                        bagState.BaggedObjects.Add(obj);
-
                         var existingState = BaggedObjectPatches.LoadObjectState(bagController, obj);
                         if (existingState == null && msg.isThrowOperation)
                         {
@@ -377,14 +392,28 @@ namespace DrifterBossGrabMod.Networking
                     }
                     else
                     {
-                        Log.Warning($"[HandleBagStateUpdatedMessage] Could not find object for netId={idValue}, skipping");
+                        Log.Debug($"[HandleBagStateUpdatedMessage] Waiting for object netId={idValue}");
                     }
                 }
-
-                BaggedObjectPatches.ClearAllTemporaryPreservation(bagController);
             }
 
             Log.Debug($"[HandleBagStateUpdatedMessage] Bag state updated for {bagController.name} - new selectedIndex={netController.selectedIndex}");
+        }
+
+        private static System.Collections.IEnumerator RetryBagStateUpdatedMessage(BagStateUpdatedMessage msg, object revision)
+        {
+            var run = Run.instance;
+            var client = NetworkManager.singleton?.client;
+            float deadline = UnityEngine.Time.realtimeSinceStartup + 5f;
+            while (UnityEngine.Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+                if (Run.instance != run || client == null || !client.isConnected || NetworkManager.singleton?.client != client ||
+                    !PersistenceNetworkHandler.IsCurrentClientBagSnapshot(msg.controllerNetId.Value, revision)) yield break;
+                if (ClientScene.FindLocalObject(msg.controllerNetId) == null) continue;
+                ApplyBagStateUpdatedMessage(msg, revision, false);
+                yield break;
+            }
         }
 
         private static bool IsObjectInAnySeat(DrifterBagController controller, GameObject obj)

@@ -78,7 +78,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
                     if (masterSpawnCard.prefab == null)
                     {
-                        Log.Error($"[ObjectSpawn] Spawn card '{masterSpawnCard.name}' has no prefab!");
+                        Log.Error($"[ObjectSpawn] Spawn card '{masterSpawnCard.name}' has no prefab.");
                         spawnedMasters?.Add(objData.ObjectInstanceId);
                         return null;
                     }
@@ -173,7 +173,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
 
             if (spawnCard.prefab == null)
             {
-                Log.Error($"[ObjectSpawn] Spawn card '{spawnCard.name}' has no prefab!");
+                Log.Error($"[ObjectSpawn] Spawn card '{spawnCard.name}' has no prefab.");
                 return null;
             }
 

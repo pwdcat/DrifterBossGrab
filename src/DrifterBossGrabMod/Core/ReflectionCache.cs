@@ -33,6 +33,8 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo OverriddenPrimary = AccessTools.Field(BaggedObjectType, "overriddenPrimary");
             public static readonly FieldInfo UtilityOverride = AccessTools.Field(BaggedObjectType, "utilityOverride");
             public static readonly FieldInfo PrimaryOverride = AccessTools.Field(BaggedObjectType, "primaryOverride");
+            public static readonly FieldInfo BreakoutTimer = AccessTools.Field(BaggedObjectType, "breakoutTimer");
+            public static readonly MethodInfo HoldsBreakoutBody = AccessTools.Method(BaggedObjectType, "HoldsBreakoutBody");
             public static readonly FieldInfo BreakoutTime = AccessTools.Field(BaggedObjectType, "breakoutTime");
             public static readonly FieldInfo BreakoutAttempts = AccessTools.Field(BaggedObjectType, "breakoutAttempts");
             public static readonly MethodInfo TryOverrideUtility = AccessTools.Method(BaggedObjectType, "TryOverrideUtility");
@@ -168,6 +170,7 @@ namespace DrifterBossGrabMod
             public static readonly FieldInfo BossDirector = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "bossDirector");
             public static readonly FieldInfo MonstersCleared = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "monstersCleared");
             public static readonly FieldInfo PositionIndicator = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "teleporterPositionIndicator");
+            public static readonly FieldInfo ChargeIndicatorController = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "teleporterChargeIndicatorController");
             public static readonly FieldInfo BossShrineCounter = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "_bossShrineCounter");
             public static readonly FieldInfo CachedLocalUser = AccessTools.Field(typeof(RoR2.TeleporterInteraction), "cachedLocalUser");
         }

@@ -35,6 +35,12 @@ namespace DrifterBossGrabMod.UI
     {
         private static GameObject? _menuInstance;
 
+        public static void Close()
+        {
+            if (_menuInstance != null) Destroy(_menuInstance);
+            _menuInstance = null;
+        }
+
         public static void Show(HudDraggable draggable)
         {
             if (_menuInstance != null)
@@ -53,6 +59,8 @@ namespace DrifterBossGrabMod.UI
             _menuInstance = new GameObject("HudContextMenu");
             _menuInstance.AddComponent<HudContextMenu>();
             _menuInstance.transform.SetParent(canvas.transform, false);
+            var provider = _menuInstance.AddComponent<MPEventSystemProvider>();
+            provider.eventSystem = EventSystem.current as MPEventSystem ?? RoR2.MPEventSystemManager.primaryEventSystem;
 
             var rect = _menuInstance.AddComponent<RectTransform>();
 
@@ -76,13 +84,15 @@ namespace DrifterBossGrabMod.UI
                 canvas.worldCamera,
                 out Vector2 localPoint);
 
-            float menuWidth = 516f;
-            float menuHeight = 348f;
+            float menuWidth = 640f;
+            float menuHeight = 540f;
             var canvasRect = canvas.transform as RectTransform;
             if (canvasRect != null)
             {
                 float canvasWidth = canvasRect.rect.width;
                 float canvasHeight = canvasRect.rect.height;
+                menuWidth = Mathf.Min(menuWidth, Mathf.Max(100f, canvasWidth - 24f));
+                menuHeight = Mathf.Min(menuHeight, Mathf.Max(100f, canvasHeight - 24f));
 
                 float minX, maxX;
                 if (pivotX == 0f)
@@ -126,9 +136,9 @@ namespace DrifterBossGrabMod.UI
             }
 
             rect.anchoredPosition = localPoint;
+            rect.sizeDelta = new Vector2(menuWidth, menuHeight);
 
-            var bg = _menuInstance.AddComponent<Image>();
-            bg.color = new Color(0.1f, 0.1f, 0.1f, 0.98f);
+            GameUiControls.Panel(_menuInstance.GetComponent<RectTransform>());
             var mainLayout = _menuInstance.AddComponent<VerticalLayoutGroup>();
             mainLayout.padding = new RectOffset(8, 8, 8, 8);
             mainLayout.spacing = 2;
@@ -138,10 +148,10 @@ namespace DrifterBossGrabMod.UI
             mainLayout.childForceExpandHeight = false;
 
             var fitter = _menuInstance.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            string title = draggable.ElementType.ToString();
+            string title = draggable.ElementType == HudElementType.CapacityUI ? "Capacity" : draggable.ElementType.ToString();
             if (draggable.ElementType == HudElementType.MainSlot || draggable.ElementType == HudElementType.SideSlots)
             {
                 title = "Carousel";
@@ -152,8 +162,8 @@ namespace DrifterBossGrabMod.UI
             scrollViewObj.transform.SetParent(_menuInstance.transform, false);
             var scrollViewRect = scrollViewObj.AddComponent<RectTransform>();
             var scrollLayoutElement = scrollViewObj.AddComponent<LayoutElement>();
-            scrollLayoutElement.preferredHeight = 300;
-            scrollLayoutElement.preferredWidth = 500;
+            scrollLayoutElement.preferredHeight = menuHeight - 52f;
+            scrollLayoutElement.preferredWidth = menuWidth - 16f;
 
             var scrollRect = scrollViewObj.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
@@ -220,9 +230,9 @@ namespace DrifterBossGrabMod.UI
             var textObj = new GameObject("Title");
             textObj.transform.SetParent(headerObj.transform, false);
             var text = textObj.AddComponent<HGTextMeshProUGUI>();
-            text.text = $"<b>{titleText} Config</b>";
+            text.text = $"<b>{titleText}</b>";
             text.fontSize = 20;
-            text.color = new Color(0.9f, 0.8f, 0.5f);
+            text.color = Color.white;
         }
 
         private static void PopulateOptions(HudElementType elementType, Transform contentParent)
@@ -304,8 +314,8 @@ namespace DrifterBossGrabMod.UI
 
                                         var layout = optionObj.GetComponent<LayoutElement>();
                                         if (layout == null) layout = optionObj.AddComponent<LayoutElement>();
-                                        layout.minHeight = 45;
-                                        layout.preferredHeight = 45;
+                                        layout.minHeight = 64;
+                                        layout.preferredHeight = 64;
                                         layout.flexibleHeight = 0;
 
                                         var modSetting = optionObj.GetComponentInChildren<RiskOfOptions.Components.Options.ModSetting>(true);
@@ -391,6 +401,7 @@ namespace DrifterBossGrabMod.UI
         {
             if (identifier.EndsWith(".CHECKBOX")) return RiskOfOptions.Resources.Prefabs.boolButton;
             if (identifier.EndsWith(".COLOR")) return RiskOfOptions.Resources.Prefabs.colorPickerButton;
+            if (identifier.EndsWith(".INT_FIELD")) return RiskOfOptions.Resources.Prefabs.intFieldButton;
             if (identifier.EndsWith(".FLOAT_FIELD")) return RiskOfOptions.Resources.Prefabs.floatFieldButton;
             if (identifier.EndsWith(".STEP_SLIDER")) return RiskOfOptions.Resources.Prefabs.stepSliderButton;
             if (identifier.EndsWith(".INT_SLIDER")) return RiskOfOptions.Resources.Prefabs.intSliderButton;

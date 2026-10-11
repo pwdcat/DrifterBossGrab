@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using UnityEngine;
-using UnityEngine.UI;
 using RoR2;
 using RoR2.UI;
 using DrifterBossGrabMod.Core;
@@ -18,6 +17,14 @@ namespace DrifterBossGrabMod.UI
     {
         private GameObject _uiPanel = null!;
         private HGTextMeshProUGUI _statsText = null!;
+        private HGTextMeshProUGUI _bagText = null!;
+        private HGTextMeshProUGUI _timerText = null!;
+        private CanvasGroup _detailsGroup = null!;
+        private CanvasGroup _timerGroup = null!;
+        private CanvasGroup _summaryGroup = null!;
+        private BaggedObjectCarousel? _carousel;
+        private GameObject? _lastSelected;
+        private readonly Vector3[] _hudCorners = new Vector3[4];
         private CharacterBody _body = null!;
         private DrifterBagController _bagController = null!;
         private HUD? _hud;
@@ -39,7 +46,7 @@ namespace DrifterBossGrabMod.UI
             _cachedEnableBaggedObjectInfo = PluginConfig.Instance.EnableBaggedObjectInfo.Value;
         }
 
-        private void Update()
+        private void LateUpdate()
         {
             if (_body == null || _bagController == null) return;
 
@@ -59,7 +66,14 @@ namespace DrifterBossGrabMod.UI
 
             if (_hud != null && _hud.targetBodyObject != _body.gameObject)
             {
-                SetUIVisible(false);
+                if (_uiPanel != null) Destroy(_uiPanel);
+                _uiPanel = null!;
+                _carousel = null;
+                _lastSelected = null;
+                _reflectionCacheInitialized = false;
+                _cachedInputPlayerProperty = null;
+                _cachedInputPlayerField = null;
+                _cachedGetButtonMethod = null;
                 _hud = null;
             }
 
@@ -75,6 +89,11 @@ namespace DrifterBossGrabMod.UI
                         break;
                     }
                 }
+            }
+
+            if (_hud != null)
+            {
+                if (_uiPanel == null) InitializeUI(_hud.mainContainer);
             }
 
             if (_hud != null && _uiPanel != null)
@@ -107,16 +126,8 @@ namespace DrifterBossGrabMod.UI
 
                 if (HudEditorManager.IsEditorActive) showInfo = true;
 
-                if (showInfo)
-                {
+                UpdateStatsDisplay(showInfo);
 
-                    UpdateStatsDisplay(showFullStats: true);
-                    SetUIVisible(true);
-                }
-                else
-                {
-                    SetUIVisible(false);
-                }
             }
         }
 
@@ -127,51 +138,71 @@ namespace DrifterBossGrabMod.UI
         {
             if (_uiPanel != null) return;
 
-            _uiPanel = new GameObject("BaggedObjectInfoPanel");
+            _uiPanel = new GameObject("BaggedObjectInfoPanel", typeof(RectTransform));
             _uiPanel.transform.SetParent(parentContainer.transform, false);
-
-            var rectTransform = _uiPanel.AddComponent<RectTransform>();
-            rectTransform.anchorMin = new Vector2(0, 0.5f);
-            rectTransform.anchorMax = new Vector2(0, 0.5f);
-            rectTransform.pivot = new Vector2(0, 0.5f);
-            var layoutGroup = _uiPanel.AddComponent<VerticalLayoutGroup>();
-            layoutGroup.padding = new RectOffset(10, 10, 10, 10);
-            layoutGroup.childForceExpandWidth = true;
-            layoutGroup.childForceExpandHeight = false;
-            layoutGroup.childControlWidth = true;
-            layoutGroup.childControlHeight = true;
-
-            var fitter = _uiPanel.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ApplyConfigValues(rectTransform);
-
-            var textObj = new GameObject("StatsText");
-            textObj.transform.SetParent(_uiPanel.transform, false);
-
-            var textRect = textObj.AddComponent<RectTransform>();
-
-            _statsText = textObj.AddComponent<HGTextMeshProUGUI>();
-            _statsText.fontSize = 20;
-            _statsText.alignment = TMPro.TextAlignmentOptions.TopLeft;
-            _statsText.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
-            _statsText.enableWordWrapping = true;
-            _statsText.richText = true;
-
-            var draggable = _uiPanel.AddComponent<HudDraggable>();
-            draggable.ElementType = HudElementType.StatsPanel;
-            draggable.XConfig = PluginConfig.Instance.BaggedObjectInfoX;
-            draggable.YConfig = PluginConfig.Instance.BaggedObjectInfoY;
-            draggable.ScaleConfig = PluginConfig.Instance.BaggedObjectInfoScale;
-
+            _bagText = CreateStatsText("BagSummary");
+            _statsText = CreateStatsText("ObjectDetails");
+            _timerText = CreateStatsText("BreakoutTimer");
+            _summaryGroup = _bagText.gameObject.AddComponent<CanvasGroup>();
+            _summaryGroup.alpha = 0f;
+            _detailsGroup = _statsText.gameObject.AddComponent<CanvasGroup>();
+            _timerGroup = _timerText.gameObject.AddComponent<CanvasGroup>();
+            _detailsGroup.alpha = 0f;
+            _timerGroup.alpha = 0f;
             SetUIVisible(false);
         }
 
-        private void ApplyConfigValues(RectTransform rectTransform)
+        private HGTextMeshProUGUI CreateStatsText(string name)
         {
-            rectTransform.anchoredPosition = new Vector2(PluginConfig.Instance.BaggedObjectInfoX.Value, PluginConfig.Instance.BaggedObjectInfoY.Value);
-            rectTransform.localScale = Vector3.one * PluginConfig.Instance.BaggedObjectInfoScale.Value;
+            var obj = new GameObject(name, typeof(RectTransform));
+            obj.transform.SetParent(_uiPanel.transform, false);
+            var text = obj.AddComponent<HGTextMeshProUGUI>();
+            text.fontSize = 17f;
+            text.alignment = TMPro.TextAlignmentOptions.TopLeft;
+            text.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
+            text.enableWordWrapping = false;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 14f;
+            text.fontSizeMax = 17f;
+            text.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+            text.richText = true;
+            text.raycastTarget = false;
+            text.outlineWidth = 0.15f;
+            text.outlineColor = new Color32(12, 18, 22, 255);
+            var rect = (RectTransform)obj.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.sizeDelta = new Vector2(420f, 44f);
+            return text;
+        }
+
+        private static void Place(HGTextMeshProUGUI text, Vector2 position, float scale)
+        {
+            var rect = (RectTransform)text.transform;
+            rect.anchoredPosition = position;
+            rect.localScale = Vector3.one * scale;
+        }
+
+        private void FitRow(HGTextMeshProUGUI text, float scale)
+        {
+            if (_hud == null || _carousel == null || !(_hud.mainContainer.transform is RectTransform hudRect)) return;
+            hudRect.GetWorldCorners(_hudCorners);
+            float minX = float.PositiveInfinity;
+            float maxX = float.NegativeInfinity;
+            foreach (var corner in _hudCorners)
+            {
+                float x = _carousel.transform.InverseTransformPoint(corner).x;
+                minX = Mathf.Min(minX, x);
+                maxX = Mathf.Max(maxX, x);
+            }
+            minX += 8f;
+            maxX -= 8f;
+            var rect = (RectTransform)text.transform;
+            float desired = Mathf.Clamp(text.GetPreferredValues(text.text).x + 4f, text == _timerText ? 40f : 160f, 420f);
+            float width = Mathf.Min(desired, Mathf.Max(1f, (maxX - minX) / scale));
+            float xPosition = Mathf.Clamp(rect.anchoredPosition.x, minX, Mathf.Max(minX, maxX - width * scale));
+            rect.anchoredPosition = new Vector2(xPosition, rect.anchoredPosition.y);
+            rect.sizeDelta = new Vector2(width, 44f);
         }
 
         // ========================================================================================
@@ -181,49 +212,93 @@ namespace DrifterBossGrabMod.UI
         {
             if (_statsText == null || _uiPanel == null) return;
 
-            if (DrifterBossGrabPlugin._isSwappingPassengers) return;
-
-            if (_uiPanel.transform is RectTransform rect)
+            if (_carousel == null && _hud != null)
+                _carousel = _hud.mainContainer.GetComponentInChildren<BaggedObjectCarousel>(true);
+            var selectedObject = BagPatches.GetMainSeatObject(_bagController);
+            if (_carousel == null || !_carousel.isActiveAndEnabled || !PluginConfig.Instance.EnableCarouselHUD.Value ||
+                selectedObject == null || !_carousel.TryGetInspectionLayout(selectedObject, out var slot, out var card, out var bounds) ||
+                slot == null || card == null)
             {
-                ApplyConfigValues(rect);
-                _statsText.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
+                SetUIVisible(false);
+                return;
+            }
+            if (_uiPanel.transform.parent != _carousel.transform)
+            {
+                _uiPanel.transform.SetParent(_carousel.transform, false);
+                var root = (RectTransform)_uiPanel.transform;
+                root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
+                root.pivot = new Vector2(0.5f, 0.5f);
+                root.sizeDelta = Vector2.zero;
+                root.localPosition = Vector3.zero;
+            }
+            SetUIVisible(true);
+            bool changing = DrifterBossGrabPlugin._isSwappingPassengers || _carousel.IsSlotAnimating(slot);
+            if (_lastSelected != selectedObject || changing)
+            {
+                _detailsGroup.alpha = 0f;
+                _timerGroup.alpha = 0f;
+                _summaryGroup.alpha = 0f;
+                _lastSelected = selectedObject;
+            }
+            float scale = Mathf.Max(0.1f, PluginConfig.Instance.BaggedObjectInfoScale.Value) * slot.transform.localScale.x;
+            var bar = card.healthBar != null ? (RectTransform)card.healthBar.transform : (RectTransform)slot.transform;
+            var barBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(_carousel.transform, bar);
+            bool horizontal = PluginConfig.Instance.CarouselOrientation.Value == CarouselOrientation.Horizontal;
+            float detailY = barBounds.min.y - 7f * scale;
+            bool detailsAbove = horizontal || _carousel.IsInspectionRowObstructed(slot,
+                new Rect(barBounds.min.x, detailY - 22f * scale, 420f * scale, 22f * scale));
+            if (detailsAbove) detailY = bounds.max.y + 26f * scale;
+            float summaryY = bounds.max.y + (detailsAbove ? 50f : 26f) * scale;
+            Place(_statsText, new Vector2(barBounds.min.x, detailY), scale);
+            Place(_bagText, new Vector2(barBounds.min.x, summaryY), scale);
+            Place(_timerText, new Vector2(barBounds.max.x + 7f * scale, barBounds.max.y + 3f * scale), scale);
+            _detailsGroup.alpha = Mathf.MoveTowards(_detailsGroup.alpha, showFullStats && !changing ? 1f : 0f, Time.unscaledDeltaTime * 10f);
+            _summaryGroup.alpha = Mathf.MoveTowards(_summaryGroup.alpha, showFullStats && !changing ? 1f : 0f, Time.unscaledDeltaTime * 10f);
+            bool hasTimer = BreakoutWarningOverlay.TryGetProgress(selectedObject, _bagController, out float progress, out _, out float interval) &&
+                !DrifterBagController.bagDisableBreakout;
+            _timerGroup.alpha = showFullStats
+                ? Mathf.MoveTowards(_timerGroup.alpha, hasTimer && !changing && bar.gameObject.activeInHierarchy ? 1f : 0f, Time.unscaledDeltaTime * 10f)
+                : 0f;
+            if (hasTimer)
+            {
+                string timerColor = "#" + ColorCatalog.GetColorHexString(progress >= 0.75f ? ColorCatalog.ColorIndex.Equipment : ColorCatalog.ColorIndex.Tier1Item);
+                string timerText = $"<color={timerColor}><b>{Mathf.Max(0f, interval * (1f - progress)):F1}s</b></color>";
+                if (_timerText.text != timerText) _timerText.text = timerText;
+            }
+            FitRow(_timerText, scale);
+            _statsText.color = _bagText.color = _timerText.color = PluginConfig.Instance.BaggedObjectInfoColor.Value;
+
+            if (!showFullStats || changing)
+            {
+                FitRow(_statsText, scale);
+                FitRow(_bagText, scale);
+                return;
             }
 
             var aggregateState = StateCalculator.GetAggregateState(_bagController);
-            float totalMass = aggregateState.baggedMass;
             float penalty = aggregateState.movespeedPenalty * 100f;
 
-            float massCapacity = CapacityScalingSystem.CalculateMassCapacity(_bagController);
-
-            bool useSlotBasedDisplay = CapacityScalingSystem.IsMassCapacityUnlimited(_bagController);
-
-            bool isBottomlessBag = PluginConfig.Instance.BottomlessBagEnabled.Value &&
-                PluginConfig.Instance.IsAddedCapacityInfinite;
-
+            int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(_bagController);
+            int slotCapacity = Math.Max(1, BagCapacityCalculator.GetUtilityMaxStock(_bagController));
+            bool finiteSlots = slotCapacity < int.MaxValue;
+            float massCapacity = PluginConfig.Instance.EnableBalance.Value
+                ? CapacityScalingSystem.CalculateMassCapacity(_bagController)
+                : float.PositiveInfinity;
+            bool finiteMass = !float.IsNaN(massCapacity) && !float.IsInfinity(massCapacity) && massCapacity < float.MaxValue;
             string capacityStr;
-            if (useSlotBasedDisplay)
+            if (finiteMass)
             {
-                int currentCount = BagCapacityCalculator.GetCurrentBaggedCount(_bagController);
-                int slotCapacity = BagCapacityCalculator.GetUtilityMaxStock(_bagController);
-
-                if (isBottomlessBag)
-                {
-                    capacityStr = $"{currentCount}/∞";
-                }
-                else
-                {
-                    int displayCapacity = Math.Max(1, slotCapacity);
-                    capacityStr = $"{currentCount}/{displayCapacity}";
-                }
+                float mass = BagCapacityCalculator.GetBaggedObjectMass(_bagController);
+                capacityStr = $"{mass:0.#}/{massCapacity:0.#} kg";
+                if (finiteSlots) capacityStr += $"<space=0.8em>{currentCount}/{slotCapacity}";
             }
             else
             {
-                capacityStr = massCapacity.ToString("F0");
+                capacityStr = finiteSlots ? $"{currentCount}/{slotCapacity}" : $"{currentCount} bagged";
             }
 
-            var mainSeatObject = BagPatches.GetMainSeatObject(_bagController);
+            var mainSeatObject = selectedObject;
 
-            float massFraction = massCapacity > 0 ? (totalMass / massCapacity) : 0f;
             float damageCoef = SlamDamageCalculator.GetEffectiveCoefficient(_bagController);
 
             float baseDamage = _body.damage * damageCoef;
@@ -273,89 +348,27 @@ namespace DrifterBossGrabMod.UI
                 }
             }
 
-            string totalsSection = $"<size=20><b>Bag Totals</b></size>\n";
-
-            if (useSlotBasedDisplay)
+            string labelColor = "#" + ColorCatalog.GetColorHexString(ColorCatalog.ColorIndex.Tier1ItemDark);
+            string penaltyColor = "#" + ColorCatalog.GetColorHexString(ColorCatalog.ColorIndex.Equipment);
+            string totalsSection = $"<color={labelColor}><size=85%>Load</size></color> <b>{capacityStr}</b><space=0.8em><color={labelColor}><size=85%>Slam</size></color> <size=110%><b>{actualDamage:F0}</b></size>";
+            if (penalty > 0f) totalsSection += $"<space=0.8em><color={penaltyColor}><size=85%>Drag</size> <b>{penalty:F1}%</b></color>";
+            if (_bagText.text != totalsSection) _bagText.text = totalsSection;
+            if (mainSeatObject is null || mainSeatObject == null)
             {
-
-                totalsSection += $"<color=#D1D1D1>Capacity:</color> {capacityStr}\n";
-            }
-            else
-            {
-
-                totalsSection += $"<color=#D1D1D1>Total Mass:</color> {totalMass:F0} / {capacityStr}\n";
-            }
-
-            totalsSection += $"<color=#FF4D4D>Speed Penalty:</color> {penalty:F1}%\n" +
-                              $"<color=#EFD27F>Damage Coef:</color> {damageCoef:F2} ({actualDamage:F0})\n" +
-                              $"<color=#FF4D4D>To Bagged Obj:</color> {baggedObjectDamage:F0}\n";
-
-            if (!showFullStats)
-            {
-
-                _statsText.text = totalsSection;
+                _statsText.text = "";
                 return;
             }
-
-            if (mainSeatObject == null)
-            {
-                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Empty</color>\n\n" + totalsSection;
-                return;
-            }
-
             var state = StateCalculator.GetIndividualObjectState(_bagController, mainSeatObject);
             if (state == null || state.targetObject == null)
             {
-                _statsText.text = "<size=24><b>Bagged Object</b></size>\n<color=#888888>Loading stats...</color>\n\n" + totalsSection;
+                _statsText.text = "";
                 return;
             }
-
-            string name = mainSeatObject.name.Replace("(Clone)", "");
-            if (state.targetBody != null && !string.IsNullOrEmpty(state.targetBody.GetDisplayName()))
-            {
-                name = state.targetBody.GetDisplayName();
-            }
-
-            float mass = state.baggedMass;
-            int junkCount = state.junkSpawnCount;
-
-            string breakoutStr = "N/A";
-            float breakoutTime = state.breakoutTime;
-            float elapsedBreakoutTime = state.elapsedBreakoutTime;
-            float breakoutAttempts = state.breakoutAttempts;
-
-            if (!AdditionalSeatBreakoutTimer.CanBreakout(mainSeatObject))
-            {
-                breakoutTime = 0f;
-            }
-
-            if (breakoutTime > 0)
-            {
-
-                if (elapsedBreakoutTime >= breakoutTime)
-                {
-                    elapsedBreakoutTime = elapsedBreakoutTime % breakoutTime;
-                }
-
-                float remaining = breakoutTime - elapsedBreakoutTime;
-                breakoutStr = $"{remaining:F1} / {breakoutTime:F1}s";
-                if (breakoutAttempts > 0)
-                {
-                    breakoutStr += $" ({breakoutAttempts:F0})";
-                }
-            }
-
-            _statsText.text = $"<size=24><b>{name}</b></size>\n" +
-                              $"<color=#D1D1D1>Mass:</color> {mass:F1}\n" +
-                              $"<color=#B87BFF>Junk on Drop:</color> {junkCount} cubes\n" +
-                              $"<color=#FF8C00>Breakout:</color> {breakoutStr}\n" +
-                              $"<color=#EFD27F>AtkSpd:</color> {state.attackSpeedStat:F2}\n" +
-                              $"<color=#EFD27F>Dmg:</color> {state.damageStat:F2}\n" +
-                              $"<color=#EFD27F>Crit:</color> {state.critStat:F2}%\n" +
-                              $"<color=#4DBFFF>MvSpd:</color> {state.moveSpeedStat:F2}\n" +
-                              $"<color=#FFFF00>Armor:</color> {state.armorStat:F2}\n" +
-                              $"<color=#7BFC3A>Regen:</color> {state.regenStat:F2}\n\n" +
-                              totalsSection;
+            int junkCount = ImpactJunkPolicy.AllowsReward(mainSeatObject) ? state.junkSpawnCount * 4 : 0;
+            string objectSection = $"<b>{junkCount}</b> <color={labelColor}><size=85%>junk</size><space=0.8em><size=85%>Takes</size></color> <b>{baggedObjectDamage:F0}</b> <color={labelColor}><size=85%>/ slam</size></color>";
+            if (_statsText.text != objectSection) _statsText.text = objectSection;
+            FitRow(_statsText, scale);
+            FitRow(_bagText, scale);
         }
 
         private void SetUIVisible(bool visible)
@@ -363,6 +376,12 @@ namespace DrifterBossGrabMod.UI
             if (_uiPanel != null && _uiPanel.activeSelf != visible)
             {
                 _uiPanel.SetActive(visible);
+                if (!visible)
+                {
+                    _detailsGroup.alpha = 0f;
+                    _timerGroup.alpha = 0f;
+                    _summaryGroup.alpha = 0f;
+                }
             }
         }
 

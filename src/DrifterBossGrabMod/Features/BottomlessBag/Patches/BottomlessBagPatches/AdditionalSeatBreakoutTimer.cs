@@ -47,6 +47,17 @@ namespace DrifterBossGrabMod.Patches
             _cachedSfxLocator = gameObject.GetComponent<SfxLocator>();
         }
 
+        internal static float CalculateInitialBreakoutTime(DrifterBagController controller, GameObject passenger)
+        {
+            var settings = new EntityStates.Drifter.Bag.BaggedObject();
+            float mass = controller.CalculateBaggedObjectMass(passenger);
+            float interval = Mathf.Max(settings.baseBreakoutTime - 0.005f * mass, 1f);
+            var body = passenger.GetComponent<CharacterBody>();
+            if (body != null && body.isElite) interval *= settings.eliteBreakoutTimeCoefficient;
+            if (PluginConfig.Instance.EnableBalance.Value) interval *= PluginConfig.Instance.BreakoutTimeMultiplier.Value;
+            return interval;
+        }
+
         public float GetElapsedBreakoutTime()
         {
             return _breakoutTimer;
@@ -141,8 +152,7 @@ namespace DrifterBossGrabMod.Patches
 
             if (breakoutTime <= 0f)
             {
-                float mass = currentController.CalculateBaggedObjectMass(gameObject);
-                breakoutTime = Mathf.Max(10f - 0.005f * mass, 1f) * PluginConfig.Instance.BreakoutTimeMultiplier.Value;
+                breakoutTime = CalculateInitialBreakoutTime(currentController, gameObject);
 
                 Log.Debug($"[AdditionalSeatBreakoutTimer] Initialized breakoutTime for {gameObject.name} to {breakoutTime:F2}s");
             }
@@ -168,7 +178,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!DrifterBagController.bagDisableBreakout && UnityEngine.Random.Range(0, _baseBreakoutChance1inX) == 0)
                 {
-                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} successfully broke out from the additional seat!");
+                    Log.Debug($"[DEBUG] [AdditionalSeatBreakoutTimer] {gameObject.name} successfully broke out from the additional seat.");
                     Breakout();
                     Patches.BagPassengerManager.RemoveBaggedObject(currentController, gameObject, false);
                     return;

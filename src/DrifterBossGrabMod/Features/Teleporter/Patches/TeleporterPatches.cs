@@ -21,6 +21,7 @@ namespace DrifterBossGrabMod.Patches
         public static void PatchStaleReferences(TeleporterInteraction teleporter)
         {
             if (teleporter == null || teleporter.gameObject == null) return;
+            TeleporterSafetyPatches.MarkRestored(teleporter);
 
             if (PluginConfig.Instance.EnableDebugLogs.Value)
                 Log.Debug($"[TeleporterPatches] Patching stale references for teleporter: {teleporter.name}");
@@ -40,7 +41,7 @@ namespace DrifterBossGrabMod.Patches
             }
 
             var exitController = teleporter.GetComponent<RoR2.SceneExitController>();
-            if (exitController != null)
+            if (NetworkServer.active && exitController != null)
             {
                 var exitStateField = typeof(RoR2.SceneExitController).GetField("exitState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (exitStateField != null)
@@ -86,14 +87,29 @@ namespace DrifterBossGrabMod.Patches
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                             Log.Debug("[TeleporterPatches] Reused OutsideInteractableLocker and refreshed its enabled state.");
                     }
-                    catch (System.Exception ex) { Log.Error($"[TeleporterPatches] Locker nuclear reset error: {ex.Message}"); }
+                    catch (System.Exception ex) { Log.Error($"[TeleporterPatches] Failed to refresh locker: {ex.Message}"); }
                 }
+
+                RestorePositionIndicator(teleporter);
+
+                var mpeventSystem = (RoR2.UI.MPEventSystem)UnityEngine.EventSystems.EventSystem.current;
+                var localUser = (mpeventSystem != null) ? mpeventSystem.localUser : null;
+                ReflectionCache.TeleporterInteraction.CachedLocalUser?.SetValue(teleporter, localUser);
+
+                var bossGroup = teleporter.GetComponent<RoR2.BossGroup>();
+                if (bossGroup != null)
+                {
+                    ReflectionCache.BossGroup.BossMemoryCount?.SetValue(bossGroup, 0);
+                    bossGroup.ResetBossBar();
+                }
+
+                if (!NetworkServer.active) return;
 
                 var director = ReflectionCache.TeleporterInteraction.BossDirector?.GetValue(teleporter) as CombatDirector;
                 if (director != null && director.gameObject != null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Debug($"[TeleporterPatches.Director] CombatDirector found - INITIAL credits={director.monsterCredit}, enabled={director.enabled}");
+                        Log.Debug($"[TeleporterPatches.Director] CombatDirector found - credits before restoration={director.monsterCredit}, enabled={director.enabled}");
 
                     var squad = ReflectionCache.CombatDirector.CombatSquad?.GetValue(director) as CombatSquad;
                     if (squad != null && squad.gameObject != null)
@@ -146,7 +162,6 @@ namespace DrifterBossGrabMod.Patches
 
                     ReflectionCache.CombatDirector.MinSpawnRange?.SetValue(director, baseRadius * 1.5f);
                     ReflectionCache.CombatDirector.MaxSpawnDistance?.SetValue(director, baseRadius * 2f);
-                    ReflectionCache.CombatDirector.BossOverrideSpawnSingleBoss?.SetValue(director, true);
 
                     var bossGroupComp = teleporter.GetComponent<RoR2.BossGroup>();
                     bool squadLinked = false;
@@ -164,12 +179,12 @@ namespace DrifterBossGrabMod.Patches
                         }
                         else
                         {
-                            Log.Error($"[TeleporterPatches.Director] CRITICAL: Cannot link squad - CombatSquad field not found for {teleporter.name}");
+                            Log.Error($"[TeleporterPatches.Director] Cannot link squad - CombatSquad field not found for {teleporter.name}");
                         }
                     }
                     else
                     {
-                        Log.Error($"[TeleporterPatches.Director] CRITICAL: Cannot link squad - BossGroup {(bossGroupComp == null ? "is null" : "combatSquad is null")} for {teleporter.name}");
+                        Log.Error($"[TeleporterPatches.Director] Cannot link squad - BossGroup {(bossGroupComp == null ? "is null" : "combatSquad is null")} for {teleporter.name}");
                     }
 
                     if (!squadLinked && bossGroupComp != null && bossGroupComp.combatSquad != null)
@@ -195,7 +210,7 @@ namespace DrifterBossGrabMod.Patches
 
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Debug($"[TeleporterPatches.Director] Hardened Results: " +
+                        Log.Debug($"[TeleporterPatches.Director] Restored director state: " +
                                  $"minSpawnRange={ReflectionCache.CombatDirector.MinSpawnRange?.GetValue(director) ?? "FAIL"}, " +
                                  $"credits={ReflectionCache.CombatDirector.MonsterCredit?.GetValue(director) ?? "FAIL"}, " +
                                  $"squadLinked={squadLinked}, " +
@@ -206,34 +221,31 @@ namespace DrifterBossGrabMod.Patches
                     {
                         director.enabled = true;
                         float diffCoeff = Run.instance != null ? Run.instance.compensatedDifficultyCoefficient : 1f;
-                        float spawnCredits = (float)System.Math.Max(director.overrideCost, (int)(600f * Mathf.Pow(diffCoeff, 0.5f))) * (float)(1 + teleporter.shrineBonusStacks);
+                        float spawnCredits = (float)System.Math.Max(director.overrideCost, (int)(600f * Mathf.Pow(diffCoeff, 0.5f))) * (float)(1 + teleporter.shrineBonusStacks + teleporter.hexBonusStacks);
 
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
-                            Log.Debug($"[TeleporterPatches.Director] BEFORE adding credits - monsterCredit={director.monsterCredit}, shrineBonusStacks={teleporter.shrineBonusStacks}, spawnCredits={spawnCredits}");
+                            Log.Debug($"[TeleporterPatches.Director] Before adding credits - monsterCredit={director.monsterCredit}, shrineBonusStacks={teleporter.shrineBonusStacks}, spawnCredits={spawnCredits}");
 
                         CombatDirectorPatches.MarkTeleporterDirectorAsRestoring(director);
 
                         director.currentSpawnTarget = teleporter.gameObject;
-                        director.monsterCredit += spawnCredits;
+                        director.monsterCredit = spawnCredits;
                         director.SetNextSpawnAsBoss();
 
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Debug($"[TeleporterPatches.Director] AFTER adding credits - monsterCredit={director.monsterCredit}, expected={director.monsterCredit - spawnCredits + spawnCredits:F0}");
+                            Log.Debug($"[TeleporterPatches.Director] Restored boss budget - monsterCredit={director.monsterCredit}, shrineBonusStacks={teleporter.shrineBonusStacks}, hexBonusStacks={teleporter.hexBonusStacks}");
                             Log.Debug($"[TeleporterPatches.Director] Director state: enabled={director.enabled}, spawnTarget={director.currentSpawnTarget?.name ?? "null"}");
                         }
 
-                        director.StartCoroutine(VerifyCreditsPersist(director, spawnCredits));
+                        director.StartCoroutine(FinishDirectorRestoration(director));
                     }
                 }
 
-                var bossGroup = teleporter.GetComponent<RoR2.BossGroup>();
                 if (bossGroup != null && bossGroup.gameObject != null)
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                         Log.Debug($"[TeleporterPatches.BossGroup] BossGroup found - bonusRewardCount={bossGroup.bonusRewardCount}, dropTable={bossGroup.dropTable?.name ?? "null"}");
-
-                    ReflectionCache.BossGroup.BossMemoryCount?.SetValue(bossGroup, 0);
 
                     bossGroup.bonusRewardCount = teleporter.shrineBonusStacks;
 
@@ -257,7 +269,7 @@ namespace DrifterBossGrabMod.Patches
 
                         if (PluginConfig.Instance.EnableDebugLogs.Value)
                         {
-                            Log.Debug($"[TeleporterPatches.BossGroup] PRE-PATCH: " +
+                            Log.Debug($"[TeleporterPatches.BossGroup] Before restoration: " +
                                      $"dropTable={(bossGroup.dropTable != null ? bossGroup.dropTable.name : "NULL")}, " +
                                      $"bonusCount={bossGroup.bonusRewardCount}, " +
                                      $"currentTablesCount={currentTables.Count}, " +
@@ -279,7 +291,7 @@ namespace DrifterBossGrabMod.Patches
                                 if (defaultTable != null)
                                 {
                                     if (PluginConfig.Instance.EnableDebugLogs.Value)
-                                        Log.Debug("[TeleporterPatches] Using FAIL-SAFE dtTier2Item drop table.");
+                                        Log.Debug("[TeleporterPatches] Using dtTier2Item as the fallback drop table.");
                                     currentTables.Add(defaultTable);
                                 }
                             }
@@ -290,49 +302,53 @@ namespace DrifterBossGrabMod.Patches
                     }
 
                     bossGroup.dropPosition = teleporter.transform;
-
-                    try { ReflectionCache.BossGroup.ResetBossBar?.Invoke(bossGroup, null); }
-                    catch { }
                 }
-
-                var positionIndicator = ReflectionCache.TeleporterInteraction.PositionIndicator?.GetValue(teleporter) as Component;
-
-                if (positionIndicator == null)
-                {
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        Log.Debug($"[TeleporterPatches] Recreating destroyed teleporterPositionIndicator for {teleporter.name}");
-                    var prefab = RoR2.LegacyResourcesAPI.Load<GameObject>("Prefabs/PositionIndicators/TeleporterChargingPositionIndicator");
-                    if (prefab != null)
-                    {
-                        var newIndicatorObj = UnityEngine.Object.Instantiate(prefab, teleporter.transform.position, Quaternion.identity);
-                        var newIndicator = newIndicatorObj.GetComponent<RoR2.PositionIndicator>();
-                        if (newIndicator != null)
-                        {
-                            newIndicator.targetTransform = teleporter.transform;
-                            ReflectionCache.TeleporterInteraction.PositionIndicator?.SetValue(teleporter, newIndicator);
-
-                            var chargeIndicator = newIndicatorObj.GetComponent<RoR2.UI.ChargeIndicatorController>();
-                            if (chargeIndicator != null)
-                            {
-                                holdout = teleporter.GetComponent<RoR2.HoldoutZoneController>();
-                                chargeIndicator.holdoutZoneController = holdout;
-                                chargeIndicator.isActivated = teleporter.isActivated;
-                                chargeIndicator.isCharged = teleporter.isCharged;
-                                chargeIndicator.isDiscovered = teleporter.isDiscovered;
-                            }
-                            newIndicatorObj.SetActive(false);
-                        }
-                    }
-                }
-
-                var mpeventSystem = (RoR2.UI.MPEventSystem)UnityEngine.EventSystems.EventSystem.current;
-                var localUser = (mpeventSystem != null) ? mpeventSystem.localUser : null;
-                ReflectionCache.TeleporterInteraction.CachedLocalUser?.SetValue(teleporter, localUser);
-
             }
             catch (System.Exception ex)
             {
                 Log.Error($"[TeleporterPatches] Error during stale reference patching: {ex.Message}");
+            }
+        }
+
+        private static void RestorePositionIndicator(TeleporterInteraction teleporter)
+        {
+            var indicator = ReflectionCache.TeleporterInteraction.PositionIndicator?.GetValue(teleporter) as PositionIndicator;
+            if (indicator != null) return;
+
+            var prefab = LegacyResourcesAPI.Load<GameObject>("Prefabs/PositionIndicators/TeleporterChargingPositionIndicator");
+            if (prefab == null) return;
+
+            var indicatorObject = UnityEngine.Object.Instantiate(prefab, teleporter.transform.position, Quaternion.identity);
+            indicator = indicatorObject.GetComponent<PositionIndicator>();
+            if (indicator == null)
+            {
+                UnityEngine.Object.Destroy(indicatorObject);
+                return;
+            }
+
+            indicator.targetTransform = teleporter.transform;
+            ReflectionCache.TeleporterInteraction.PositionIndicator?.SetValue(teleporter, indicator);
+
+            var chargeIndicator = indicatorObject.GetComponent<RoR2.UI.ChargeIndicatorController>();
+            ReflectionCache.TeleporterInteraction.ChargeIndicatorController?.SetValue(teleporter, chargeIndicator);
+            if (chargeIndicator != null)
+            {
+                chargeIndicator.holdoutZoneController = teleporter.holdoutZoneController;
+                chargeIndicator.isActivated = teleporter.isActivated;
+                chargeIndicator.isCharged = teleporter.isCharged;
+                chargeIndicator.isDiscovered = teleporter.isDiscovered;
+            }
+            indicatorObject.SetActive(false);
+        }
+
+        [HarmonyPatch(typeof(TeleporterInteraction), "FixedUpdate")]
+        internal static class PositionIndicatorPatches
+        {
+            [HarmonyPrefix]
+            private static void FixedUpdatePrefix(TeleporterInteraction __instance, PositionIndicator ___teleporterPositionIndicator)
+            {
+                if (___teleporterPositionIndicator == null)
+                    RestorePositionIndicator(__instance);
             }
         }
 
@@ -441,7 +457,7 @@ namespace DrifterBossGrabMod.Patches
             if (bossGroup != null && PluginConfig.Instance.EnableDebugLogs.Value)
             {
                 var tables = (System.Collections.Generic.List<PickupDropTable>?)ReflectionCache.BossGroup.BossDropTables?.GetValue(bossGroup);
-                Log.Debug($"[TeleporterPatches] Teleporter Activated! BossGroup: tables={tables?.Count ?? -1}, dropTable={bossGroup.dropTable?.name ?? "null"}, bonusRewards={bossGroup.bonusRewardCount}, shrineBonusStacks={__instance.shrineBonusStacks}, squadExists={bossGroup.combatSquad != null}");
+                Log.Debug($"[TeleporterPatches] Teleporter Activated. BossGroup: tables={tables?.Count ?? -1}, dropTable={bossGroup.dropTable?.name ?? "null"}, bonusRewards={bossGroup.bonusRewardCount}, shrineBonusStacks={__instance.shrineBonusStacks}, squadExists={bossGroup.combatSquad != null}");
             }
         }
 
@@ -458,7 +474,7 @@ namespace DrifterBossGrabMod.Patches
         private static void OnBossDefeatedServerPrefix(BossGroup __instance)
         {
             if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Debug($"[TeleporterPatches] BossGroup {__instance.name} defeated! bonusRewardCount={__instance.bonusRewardCount}, dropTable={__instance.dropTable?.name ?? "null"}. Logic handled by safety patches.");
+                Log.Debug($"[TeleporterPatches] BossGroup {__instance.name} defeated. bonusRewardCount={__instance.bonusRewardCount}, dropTable={__instance.dropTable?.name ?? "null"}. Logic handled by safety patches.");
         }
 
         [HarmonyPatch(typeof(TeleporterInteraction.ChargedState), "OnEnter")]
@@ -480,7 +496,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
-                        Log.Debug($"[TeleporterPatches] Secondary teleporter {teleporter.gameObject.name} charged — allowing rewards, blocking portal.");
+                        Log.Debug($"[TeleporterPatches] Secondary teleporter {teleporter.gameObject.name} charged; allowing rewards, blocking portal.");
                     }
                 }
             }
@@ -512,67 +528,30 @@ namespace DrifterBossGrabMod.Patches
 
             if (bossGroup.combatSquad == null)
             {
-                Log.Error($"[TeleporterPatches] BossGroup {bossGroup.name} has null combatSquad!");
+                Log.Error($"[TeleporterPatches] BossGroup {bossGroup.name} has null combatSquad.");
                 return false;
             }
 
             if (bossGroup.combatSquad.gameObject == null)
             {
-                Log.Error($"[TeleporterPatches] BossGroup {bossGroup.name} has destroyed combatSquad!");
+                Log.Error($"[TeleporterPatches] BossGroup {bossGroup.name} has destroyed combatSquad.");
                 return false;
             }
 
             if (!bossGroup.combatSquad.isActiveAndEnabled)
             {
-                Log.Warning($"[TeleporterPatches] BossGroup {bossGroup.name} combatSquad is not active!");
+                Log.Warning($"[TeleporterPatches] BossGroup {bossGroup.name} combatSquad is not active.");
                 return false;
             }
 
             return true;
         }
 
-        private static System.Collections.IEnumerator VerifyCreditsPersist(CombatDirector director, float expectedCredits)
+        private static System.Collections.IEnumerator FinishDirectorRestoration(CombatDirector director)
         {
-
-            float creditsImmediately = director.monsterCredit;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Debug($"[TeleporterPatches.Director] Credit check IMMEDIATELY after add - credits={creditsImmediately}, expected≥{expectedCredits:F0}");
-
-            if (creditsImmediately < expectedCredits * 0.9f)
-            {
-                Log.Error($"[TeleporterPatches.Director] CRITICAL: Credits already lost IMMEDIATELY after adding! Expected ≥{expectedCredits * 0.9f:F0}, got {creditsImmediately:F0}");
-            }
-
             yield return new WaitForEndOfFrame();
-
-            float creditsNextFrame = director.monsterCredit;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Debug($"[TeleporterPatches.Director] Credit check next frame - credits={creditsNextFrame}");
-
-            if (creditsNextFrame != creditsImmediately)
-            {
-                Log.Error($"[TeleporterPatches.Director] CRITICAL: Credits changed between frames! {creditsImmediately:F0} → {creditsNextFrame:F0}");
-            }
-
             yield return new WaitForSeconds(0.5f);
-
-            float creditsAfterDelay = director.monsterCredit;
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-                Log.Debug($"[TeleporterPatches.Director] Credit check after 0.5s - credits={creditsAfterDelay}");
-
-            if (creditsAfterDelay < expectedCredits * 0.9f)
-            {
-                Log.Error($"[TeleporterPatches.Director] CRITICAL: Credits were lost! Expected ≥{expectedCredits * 0.9f:F0}, got {creditsAfterDelay:F0}");
-
-                CombatDirectorPatches.ClearTeleporterDirectorRestoring(director);
-            }
-            else
-            {
-
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[TeleporterPatches.Director] Credits verified and persisting ({creditsAfterDelay:F0}), clearing restoration flag");
-                CombatDirectorPatches.ClearTeleporterDirectorRestoring(director);
-            }
+            CombatDirectorPatches.ClearTeleporterDirectorRestoring(director);
         }
 
         [HarmonyPatch(typeof(CharacterMaster), "OnSyncCombatSquadInstanceId")]
@@ -584,7 +563,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (__instance.isBoss)
                 {
-                    Log.Warning($"[TeleporterDiagnostics] Boss {__instance.name} is being assigned Invalid squad ID! This will prevent tracking.");
+                    Log.Warning($"[TeleporterDiagnostics] Boss {__instance.name} is being assigned Invalid squad ID. This will prevent tracking.");
                 }
             }
             else if (PluginConfig.Instance.EnableDebugLogs.Value)
@@ -619,7 +598,7 @@ namespace DrifterBossGrabMod.Patches
                 {
                     if (directorSquad == null)
                     {
-                        Log.Error($"[TeleporterDiagnostics] Spawn by {__instance.name} but director.combatSquad is NULL! Spawned monster will not be tracked!");
+                        Log.Error($"[TeleporterDiagnostics] Spawn by {__instance.name} but director.combatSquad is NULL. Spawned monster will not be tracked.");
                     }
                     else if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
@@ -645,7 +624,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!bossGroup.isActiveAndEnabled)
                 {
-                    Log.Warning($"[TeleporterDiagnostics] BossGroup {bossGroup.name} is not active when CombatSquad awakened!");
+                    Log.Warning($"[TeleporterDiagnostics] BossGroup {bossGroup.name} is not active when CombatSquad awakened.");
                 }
             }
         }

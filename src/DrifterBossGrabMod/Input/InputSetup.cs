@@ -62,7 +62,7 @@ namespace DrifterBossGrabMod.Input
             }
             else
             {
-                Log.Warning("[InputSetup] Could not find UserData initialization method!");
+                Log.Warning("[InputSetup] Could not find UserData initialization method.");
                 Log.Warning("[InputSetup] Dumping all non-public void instance methods on UserData:");
                 foreach (var m in typeof(UserData).GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
                 {
@@ -202,7 +202,6 @@ namespace DrifterBossGrabMod.Input
 
         private static void AddCustomActions(UserDataInitDelegate orig, UserData self)
         {
-            Log.Debug("[InputSetup] AddCustomActions hook fired!");
 
             if (self.actions != null)
             {
@@ -249,7 +248,7 @@ namespace DrifterBossGrabMod.Input
             }
             else
             {
-                Log.Warning("[InputSetup] UserData.actions is null!");
+                Log.Warning("[InputSetup] UserData.actions is null.");
             }
 
             orig(self);

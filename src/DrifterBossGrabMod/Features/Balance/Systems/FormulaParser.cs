@@ -142,6 +142,85 @@ namespace DrifterBossGrabMod.Balance
             return (int)Math.Floor(result);
         }
 
+        public static bool TryPreview(string formula, Dictionary<string, float> variables, out float result, out string? error)
+        {
+            result = 0f;
+            error = null;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(formula)) throw new FormatException("Enter a formula.");
+                var tokens = Tokenize(formula);
+                ValidatePreviewTokens(tokens);
+                double value = EvaluateRPN(ShuntingYard(tokens), variables);
+                if (double.IsNaN(value)) throw new FormatException("No numeric result with these sample values.");
+                result = value >= float.MaxValue ? float.MaxValue : value <= float.MinValue ? float.MinValue : (float)value;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
+        private static void ValidatePreviewTokens(List<Token> tokens)
+        {
+            bool needsValue = true;
+            string? function = null;
+            var groups = new Stack<(string? Function, int Commas)>();
+            foreach (var token in tokens)
+            {
+                switch (token.Type)
+                {
+                    case TokenType.Number:
+                    case TokenType.Variable:
+                        if (!needsValue) throw new FormatException("Missing an operator between values.");
+                        needsValue = false;
+                        break;
+                    case TokenType.Function:
+                        if (!needsValue) throw new FormatException("Add an operator before the function.");
+                        function = token.Value;
+                        break;
+                    case TokenType.LeftParen:
+                        if (!needsValue) throw new FormatException("Add an operator before '('.");
+                        groups.Push((function, 0));
+                        function = null;
+                        needsValue = true;
+                        break;
+                    case TokenType.RightParen:
+                        if (groups.Count == 0) throw new FormatException("Missing opening bracket '('.");
+                        if (needsValue) throw new FormatException("Missing a value before ')'.");
+                        var group = groups.Pop();
+                        if (group.Function != null)
+                        {
+                            int expected = group.Function == "clamp" ? 3 :
+                                group.Function == "min" || group.Function == "max" || group.Function == "pow" ? 2 : 1;
+                            if (group.Commas + 1 != expected)
+                                throw new FormatException($"{group.Function} needs {expected} argument(s).");
+                        }
+                        needsValue = false;
+                        break;
+                    case TokenType.Comma:
+                        if (groups.Count == 0 || groups.Peek().Function == null)
+                            throw new FormatException("Commas belong inside a function call.");
+                        if (needsValue) throw new FormatException("Missing a value before ','.");
+                        var current = groups.Pop();
+                        groups.Push((current.Function, current.Commas + 1));
+                        needsValue = true;
+                        break;
+                    case TokenType.UnaryMinus:
+                        if (!needsValue) throw new FormatException("Missing an operator before '-'.");
+                        break;
+                    case TokenType.Operator:
+                        if (needsValue) throw new FormatException($"Missing a value before '{token.Value}'.");
+                        needsValue = true;
+                        break;
+                }
+            }
+            if (groups.Count > 0) throw new FormatException("Missing closing bracket ')'.");
+            if (needsValue) throw new FormatException("Finish the formula with a value.");
+        }
+
         public static string? Validate(string formula)
         {
             if (string.IsNullOrWhiteSpace(formula))

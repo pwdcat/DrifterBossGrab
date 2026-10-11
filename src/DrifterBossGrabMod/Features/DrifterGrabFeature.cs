@@ -45,10 +45,14 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.CharacterSpawnPatches.CharacterMaster_OnBodyStart)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.DirectorCore_TrySpawnObject_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.NetworkIdentity_OnStartClient_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.TrialGongInteraction_OnIncomingDamageServer_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_OnSyncPassenger_Gong_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CalculatePassengerFinalPosition_Gong_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.VehicleSeat_OnPassengerEnter_Gong_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_ImpactBehavior_Gong_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.VehicleSeat_OnPassengerEnter_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_ImpactBehavior_JunkReward_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.WakeDonationController_GetInteractability_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.VehicleSeat_RpcEjectPassenger_Gong_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.GrabbableObjectPatches.BaseCaptainSupplyDropState_OnEnter_Patch)).Patch();
@@ -59,6 +63,11 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.ProjectilePatches.ProjectileController_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.UIPatches.BaggedCardCompatibilityPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerEnter_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_FindVehicleSeatWithPassenger_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerExit_Diagnostics)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_SetPassengerCollisions_Diagnostics)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.CharacterMotor_IsColliderValidForCollisions_Patch)).Patch();
         }
     }
 }

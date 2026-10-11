@@ -64,13 +64,7 @@ namespace DrifterBossGrabMod.Patches
                     var timer = actualMainPassenger.AddComponent<AdditionalSeatBreakoutTimer>();
                     timer.controller = bagController;
 
-                    float mass = bagController.CalculateBaggedObjectMass(actualMainPassenger);
-                    float baseBreakoutTime = 10f;
-                    float breakoutMultiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value;
-                    float finalTime = Mathf.Max(baseBreakoutTime - 0.005f * mass, 1f);
-                    var hc = actualMainPassenger.GetComponent<CharacterBody>();
-                    if (hc && hc.isElite) finalTime *= 0.8f;
-                    timer.breakoutTime = finalTime * breakoutMultiplier;
+                    timer.breakoutTime = AdditionalSeatBreakoutTimer.CalculateInitialBreakoutTime(bagController, actualMainPassenger);
 
                     var storedState = BaggedObjectPatches.LoadObjectState(bagController, actualMainPassenger);
                     if (storedState != null)
@@ -217,13 +211,7 @@ namespace DrifterBossGrabMod.Patches
                     {
                         var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
                         swapTimer.controller = bagController;
-                        float mass = bagController.CalculateBaggedObjectMass(currentObject);
-                        float baseTime = 10f;
-                        float multiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value;
-                        float ft = Mathf.Max(baseTime - 0.005f * mass, 1f);
-                        var cb = currentObject.GetComponent<CharacterBody>();
-                        if (cb && cb.isElite) ft *= 0.8f;
-                        swapTimer.breakoutTime = ft * multiplier;
+                        swapTimer.breakoutTime = AdditionalSeatBreakoutTimer.CalculateInitialBreakoutTime(bagController, currentObject);
                         var ss = BaggedObjectPatches.LoadObjectState(bagController, currentObject);
                         if (ss != null)
                         {
@@ -298,13 +286,7 @@ namespace DrifterBossGrabMod.Patches
                         {
                             var swapTimer = currentObject.AddComponent<AdditionalSeatBreakoutTimer>();
                             swapTimer.controller = bagController;
-                            float mass = bagController.CalculateBaggedObjectMass(currentObject);
-                            float baseTime = 10f;
-                            float multiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value;
-                            float ft = Mathf.Max(baseTime - 0.005f * mass, 1f);
-                            var cb = currentObject.GetComponent<CharacterBody>();
-                            if (cb && cb.isElite) ft *= 0.8f;
-                            swapTimer.breakoutTime = ft * multiplier;
+                            swapTimer.breakoutTime = AdditionalSeatBreakoutTimer.CalculateInitialBreakoutTime(bagController, currentObject);
                             var ss = BaggedObjectPatches.LoadObjectState(bagController, currentObject);
                             if (ss != null)
                             {

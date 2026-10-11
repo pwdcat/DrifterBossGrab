@@ -9,6 +9,12 @@ namespace DrifterBossGrabMod
         public override string FeatureName => "Balance";
         public override bool IsEnabled => PluginConfig.Instance.EnableBalance.Value;
 
+        public override void Cleanup()
+        {
+            Balance.OverencumbranceSystem.Cleanup();
+            base.Cleanup();
+        }
+
         protected override void ApplyPatches(Harmony harmony)
         {
             Log.Debug($"[{FeatureName}] Applying balance patches...");

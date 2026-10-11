@@ -66,11 +66,10 @@ namespace DrifterBossGrabMod.Patches
                     int instanceId = obj.GetInstanceID();
                     if (objectStates.TryGetValue(instanceId, out var state))
                     {
-                        Log.Debug($"[LoadObjectState] Loaded state for {obj.name}: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}");
 
                         if (state.targetObject == null && state.baggedMass == 0f && state.baseMaxHealth == 0f)
                         {
-                            Log.Error($"[LoadObjectState] CRITICAL: Loaded STUB STATE for {obj.name}! This will cause instant death!");
+                            Log.Error($"[LoadObjectState] Loaded incomplete state for {obj.name}. Health must be positive before restoration.");
                             Log.Error($"[LoadObjectState] Stub state details: baseMaxHealth={state.baseMaxHealth}, mass={state.baggedMass}, targetObject={(!state.targetObject ? "null" : state.targetObject!.name)}");
                         }
 

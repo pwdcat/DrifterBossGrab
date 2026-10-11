@@ -51,6 +51,15 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
+            if (BagPatches.GetState(controller).BaggedObjects?.Contains(obj) == true)
+            {
+                bool wasDestroyed = isDestroying || BaggedObjectPatches.IsPassengerDeadOrDestroyed(obj);
+                CycleNetworkHandler.SendCardDeparture(controller, obj, wasDestroyed);
+                BagCarouselUpdater.AnimatePassengerExit(controller, obj, wasDestroyed);
+            }
+
+            BodyColliderCache.ProtectDeadPassenger(obj);
+
             GameObject? mainPassengerBefore = BagPatches.GetMainSeatObject(controller);
             bool wasMainPassenger = (mainPassengerBefore != null && (mainPassengerBefore == obj || mainPassengerBefore.GetInstanceID() == obj.GetInstanceID()))
                                  || (controller.vehicleSeat != null && controller.vehicleSeat.hasPassenger && controller.vehicleSeat.NetworkpassengerBodyObject == obj);
@@ -113,6 +122,20 @@ namespace DrifterBossGrabMod.Patches
 
                 PersistenceObjectsTracker.UntrackBaggedObject(obj, isDestroying);
 
+                if (NetworkServer.active)
+                {
+                    var selectionState = BagPatches.GetState(controller);
+                    int removedIndex = list.FindIndex(passenger => ReferenceEquals(passenger, obj));
+                    int boundary = wasMainPassenger && removedIndex >= 0 ? removedIndex : selectionState.GetEmptySlotIndex(list.Count);
+                    int survivingBefore = 0;
+                    for (int i = 0; i < boundary; i++)
+                    {
+                        var passenger = list[i];
+                        if (passenger != null && (targetInstanceId == -1 || passenger.GetInstanceID() != targetInstanceId)) survivingBefore++;
+                    }
+                    if (wasMainPassenger || selectionState.EmptySlotIndex >= 0) selectionState.EmptySlotIndex = survivingBefore;
+                }
+
                 list.RemoveAll(x => ReferenceEquals(x, null) || (x is UnityEngine.Object uo && !uo) || (targetInstanceId != -1 && x.GetInstanceID() == targetInstanceId));
                 if (targetInstanceId != -1) BagPatches.GetState(controller).RemoveInstanceId(targetInstanceId);
 
@@ -142,9 +165,10 @@ namespace DrifterBossGrabMod.Patches
 
                     BagPatches.SetMainSeatObject(controller, null);
 
-                    if (AuthorityGuard.ShouldAutoPromote(controller) && list.Count > 0)
+                    if (NetworkServer.active && AuthorityGuard.ShouldAutoPromote(controller) && list.Count > 0)
                     {
-                        var newMain = list[0];
+                        int promotionIndex = Mathf.Clamp(BagPatches.GetState(controller).GetEmptySlotIndex(list.Count), 0, list.Count - 1);
+                        var newMain = list[promotionIndex];
                         if (newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(newMain))
                         {
                             Log.Debug($"[RemoveBaggedObject] Triggering autopromote for: {newMain.name}");
