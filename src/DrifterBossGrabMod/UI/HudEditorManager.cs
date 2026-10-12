@@ -13,6 +13,9 @@ namespace DrifterBossGrabMod.UI
         private HudEditorScreen? _screen;
         private MPEventSystem? _eventSystem;
 
+        internal static Canvas? EditorCanvas => _instance != null && _instance._screen != null
+            ? _instance._screen.GetComponent<Canvas>() : null;
+
         private void Awake()
         {
             if (_instance != null) { Destroy(this); return; }

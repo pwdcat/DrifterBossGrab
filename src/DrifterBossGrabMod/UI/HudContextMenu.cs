@@ -48,7 +48,8 @@ namespace DrifterBossGrabMod.UI
                 Destroy(_menuInstance);
             }
 
-            var canvas = draggable.GetComponentInParent<Canvas>();
+            var canvas = HudEditorManager.EditorCanvas;
+            if (canvas == null) canvas = draggable.GetComponentInParent<Canvas>()?.rootCanvas;
             if (canvas == null) return;
 
             if (PluginConfig.Instance.SelectedHudElement != null)
@@ -78,62 +79,27 @@ namespace DrifterBossGrabMod.UI
 
             rect.pivot = new Vector2(pivotX, pivotY);
 
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                canvas.transform as RectTransform,
-                UnityEngine.Input.mousePosition,
-                canvas.worldCamera,
-                out Vector2 localPoint);
-
-            float menuWidth = 640f;
-            float menuHeight = 540f;
             var canvasRect = canvas.transform as RectTransform;
-            if (canvasRect != null)
+            if (canvasRect == null) { Close(); return; }
+            var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect, UnityEngine.Input.mousePosition, camera, out Vector2 localPoint))
             {
-                float canvasWidth = canvasRect.rect.width;
-                float canvasHeight = canvasRect.rect.height;
-                menuWidth = Mathf.Min(menuWidth, Mathf.Max(100f, canvasWidth - 24f));
-                menuHeight = Mathf.Min(menuHeight, Mathf.Max(100f, canvasHeight - 24f));
-
-                float minX, maxX;
-                if (pivotX == 0f)
-                {
-                    minX = -canvasWidth * 0.5f;
-                    maxX = canvasWidth * 0.5f - menuWidth;
-                }
-                else
-                {
-                    minX = -canvasWidth * 0.5f + menuWidth;
-                    maxX = canvasWidth * 0.5f;
-                }
-
-                float minY, maxY;
-                if (pivotY == 0f)
-                {
-                    minY = -canvasHeight * 0.5f;
-                    maxY = canvasHeight * 0.5f - menuHeight;
-                }
-                else
-                {
-                    minY = -canvasHeight * 0.5f + menuHeight;
-                    maxY = canvasHeight * 0.5f;
-                }
-
-                if (minX > maxX)
-                {
-                    float temp = minX;
-                    minX = maxX;
-                    maxX = temp;
-                }
-                if (minY > maxY)
-                {
-                    float temp = minY;
-                    minY = maxY;
-                    maxY = temp;
-                }
-
-                localPoint.x = Mathf.Clamp(localPoint.x, minX, maxX);
-                localPoint.y = Mathf.Clamp(localPoint.y, minY, maxY);
+                Close();
+                return;
             }
+
+            const float margin = 12f;
+            var bounds = canvasRect.rect;
+            float menuWidth = Mathf.Min(640f, Mathf.Max(1f, bounds.width - margin * 2f));
+            float menuHeight = Mathf.Min(540f, Mathf.Max(1f, bounds.height - margin * 2f));
+            rect.anchorMin = rect.anchorMax = canvasRect.pivot;
+            localPoint.x = Mathf.Clamp(localPoint.x,
+                bounds.xMin + margin + menuWidth * pivotX,
+                bounds.xMax - margin - menuWidth * (1f - pivotX));
+            localPoint.y = Mathf.Clamp(localPoint.y,
+                bounds.yMin + margin + menuHeight * pivotY,
+                bounds.yMax - margin - menuHeight * (1f - pivotY));
 
             rect.anchoredPosition = localPoint;
             rect.sizeDelta = new Vector2(menuWidth, menuHeight);
