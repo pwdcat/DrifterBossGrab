@@ -145,6 +145,7 @@ namespace DrifterBossGrabMod.Networking
             NetworkMessageRegistry.RegisterServerSubHandler(Constants.Network.GrabObjectSubMessageType, HandleGrabObjectMessage);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType, HandleBagStateUpdatedMessage);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BreakoutPresentationSubMessageType, HandleBreakoutPresentation);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.SlamFeedbackSubMessageType, HandleSlamFeedback);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.CardDepartureSubMessageType, HandleCardDeparture);
         }
 
@@ -156,6 +157,7 @@ namespace DrifterBossGrabMod.Networking
             NetworkMessageRegistry.UnregisterServerSubHandler(Constants.Network.GrabObjectSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BagStateUpdatedSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BreakoutPresentationSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.SlamFeedbackSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.CardDepartureSubMessageType);
         }
 
@@ -257,6 +259,18 @@ namespace DrifterBossGrabMod.Networking
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS (CLIENT)
         // ========================================================================================
+        private static void HandleSlamFeedback(NetworkReader reader, NetworkConnection conn)
+        {
+            if (NetworkServer.active) return;
+            var message = new SlamFeedbackMessage();
+            message.Deserialize(reader);
+            var obj = ClientScene.FindLocalObject(message.controllerNetId);
+            var controller = obj != null ? obj.GetComponent<DrifterBagController>() : null;
+            var passenger = ClientScene.FindLocalObject(message.passengerNetId);
+            if (controller != null && passenger != null)
+                UI.BreakoutWarningOverlay.ApplySlamFeedback(controller, passenger, message.amplitude);
+        }
+
         private static void HandleBreakoutPresentation(NetworkReader reader, NetworkConnection conn)
         {
             if (NetworkServer.active) return;

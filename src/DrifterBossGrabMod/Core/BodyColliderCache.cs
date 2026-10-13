@@ -1,6 +1,9 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using HarmonyLib;
+using RoR2.SolusWeb;
 using RoR2;
 using UnityEngine;
 
@@ -12,6 +15,62 @@ namespace DrifterBossGrabMod
         private Collider[]? _colliders;
         private bool _isInitialized = false;
         private readonly Dictionary<Renderer, bool> _renderingStates = new Dictionary<Renderer, bool>();
+
+        private static readonly ConditionalWeakTable<ChipAnimator, BodyColliderCache> _heartOwners = new();
+        private Transform? _heartCore;
+        private CharacterBody? _heartBody;
+        private int _heartCoreIndex = -1;
+
+        private Transform? GetHeartCore()
+        {
+            if (_heartCore != null) return _heartCore;
+            var processor = GetComponent<SolusHeartDamageProcessor>();
+            var animator = processor != null ? processor.ChipAnimator : null;
+            var body = GetComponent<CharacterBody>();
+            var model = body != null && body.modelLocator != null ? body.modelLocator.modelTransform : null;
+            var group = model != null ? model.GetComponent<HurtBoxGroup>() : null;
+            var hurtBox = group != null ? group.mainHurtBox : null;
+            if (animator == null || animator.chips == null || hurtBox == null || body == null) return null;
+            for (int i = 0; i < animator.chips.Length; i++)
+            {
+                var chip = animator.chips[i];
+                if (chip == null || (hurtBox.transform != chip && !hurtBox.transform.IsChildOf(chip))) continue;
+                _heartCore = chip;
+                _heartCoreIndex = i;
+                _heartBody = body;
+                _heartOwners.Remove(animator);
+                _heartOwners.Add(animator, this);
+                return chip;
+            }
+            return null;
+        }
+
+        [HarmonyPatch(typeof(ChipAnimator), "LateUpdate")]
+        public static class ChipAnimator_LateUpdate_CarryCore
+        {
+            [HarmonyPostfix]
+            public static void Postfix(ChipAnimator __instance)
+            {
+                if (!_heartOwners.TryGetValue(__instance, out var cache) || cache == null) return;
+                var body = cache._heartBody;
+                var core = cache._heartCore;
+                var model = body != null && body.modelLocator != null ? body.modelLocator.modelTransform : null;
+                if (body == null || core == null || model == null) return;
+                var seat = body.currentVehicle;
+                bool carried = body.healthComponent != null && body.healthComponent.alive &&
+                    ((seat != null && (seat.GetComponentInParent<DrifterBagController>() != null ||
+                        seat.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>() != null)) ||
+                    Patches.ProjectileRecoveryPatches.IsInProjectileState(body.gameObject));
+                if (!carried) return;
+                core.SetPositionAndRotation(model.position, model.rotation);
+                core.localScale = model.lossyScale;
+                int index = cache._heartCoreIndex;
+                if (__instance.velocities != null && index < __instance.velocities.Length)
+                    __instance.velocities[index] = Vector4.zero;
+                if (__instance.chipTransforms != null && index < __instance.chipTransforms.Length)
+                    __instance.chipTransforms[index] = core.localToWorldMatrix;
+            }
+        }
 
         public void SetModelVisibility(bool isVisible)
         {
@@ -27,6 +86,8 @@ namespace DrifterBossGrabMod
             var model = GetComponent<ModelLocator>()?.modelTransform;
             if (model != null)
                 renderers.UnionWith(model.GetComponentsInChildren<Renderer>(true));
+            var core = GetHeartCore();
+            if (core != null) renderers.UnionWith(core.GetComponentsInChildren<Renderer>(true));
             foreach (var renderer in renderers)
             {
                 if (renderer == null) continue;
@@ -66,6 +127,15 @@ namespace DrifterBossGrabMod
             {
 
                 _colliders = GetComponentsInChildren<Collider>(true);
+            }
+
+            var core = GetHeartCore();
+            if (core != null)
+            {
+                var colliders = new HashSet<Collider>(_colliders ?? Array.Empty<Collider>());
+                colliders.UnionWith(core.GetComponentsInChildren<Collider>(true));
+                _colliders = new Collider[colliders.Count];
+                colliders.CopyTo(_colliders);
             }
 
             Log.Debug($"[BodyColliderCache] Found {_colliders?.Length ?? 0} colliders for {gameObject.name}");

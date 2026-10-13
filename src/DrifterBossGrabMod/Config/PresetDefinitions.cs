@@ -59,6 +59,8 @@ namespace DrifterBossGrabMod.Config
 
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -180,6 +182,8 @@ namespace DrifterBossGrabMod.Config
 
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -247,6 +251,8 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.EnableSuccessiveGrabStockRefresh"] = true,
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -318,6 +324,8 @@ namespace DrifterBossGrabMod.Config
 
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -401,6 +409,8 @@ namespace DrifterBossGrabMod.Config
                 ["BottomlessBag.SlotScalingFormula"] = "C + 2",
                 ["Hud.EnableCarouselHUD"] = false,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -465,6 +475,8 @@ namespace DrifterBossGrabMod.Config
 
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,
@@ -543,6 +555,8 @@ namespace DrifterBossGrabMod.Config
 
                 ["Hud.EnableCarouselHUD"] = true,
                 ["Hud.EnableBreakoutWarning"] = true,
+                ["Hud.EnableCardDamageWiggle"] = true,
+                ["Hud.CardDamageWiggleStrength"] = 1f,
                 ["Hud.EnableCardReleaseAnimation"] = true,
                 ["Hud.CardReleaseDuration"] = 0.28f,
                 ["Hud.CardReleaseDistance"] = 90f,

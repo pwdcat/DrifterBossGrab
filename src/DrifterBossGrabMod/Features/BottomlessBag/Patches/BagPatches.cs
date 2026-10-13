@@ -381,6 +381,7 @@ namespace DrifterBossGrabMod.Patches
                                            (GetState(__instance).AdditionalSeats.Values.Contains(body.currentVehicle));
                         if (!isOurOwnSeat)
                         {
+                            Core.PassengerReleaseProtection.CaptureEncounterMotor(passengerObject);
                             body.currentVehicle.EjectPassenger(passengerObject);
                         }
                     }

@@ -155,6 +155,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.EnableCardReleaseAnimation.SettingChanged += (sender, args) => UpdateHudVisibility();
             PluginConfig.Instance.EnableCardDestructionAnimation.SettingChanged += (sender, args) => UpdateHudVisibility();
             PluginConfig.Instance.EnableBreakoutWarning.SettingChanged += (sender, args) => UpdateHudVisibility();
+            PluginConfig.Instance.EnableCardDamageWiggle.SettingChanged += (sender, args) => UpdateHudVisibility();
             PluginConfig.Instance.SmoothCapacityFill.SettingChanged += (sender, args) => UpdateHudVisibility();
             PluginConfig.Instance.EnableCapacityFlashes.SettingChanged += (sender, args) => UpdateHudVisibility();
 

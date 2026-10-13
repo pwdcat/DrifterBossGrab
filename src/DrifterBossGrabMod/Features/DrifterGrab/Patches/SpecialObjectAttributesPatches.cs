@@ -44,6 +44,11 @@ namespace DrifterBossGrabMod.Patches
             var colliders = new HashSet<Collider>(passenger.GetComponentsInChildren<Collider>(true));
             var model = body.modelLocator != null ? body.modelLocator.modelTransform : null;
             if (model != null) colliders.UnionWith(model.GetComponentsInChildren<Collider>(true));
+            if (passenger.GetComponent<SolusHeartDamageProcessor>() != null)
+            {
+                var cache = passenger.GetComponent<BodyColliderCache>() ?? passenger.AddComponent<BodyColliderCache>();
+                colliders.UnionWith(cache.GetColliders());
+            }
             foreach (var collider in colliders)
             {
                 if (collider == null || collider.gameObject == passenger || collider.isTrigger ||

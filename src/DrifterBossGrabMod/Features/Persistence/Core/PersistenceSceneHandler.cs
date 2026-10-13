@@ -235,7 +235,7 @@ namespace DrifterBossGrabMod
                     {
                         var modelObj = modelLocator.modelTransform.gameObject;
 
-                        if (modelObj.transform.parent != obj.transform)
+                        if (!modelObj.transform.IsChildOf(obj.transform))
                         {
                             Log.Debug($"[RestorePersistedObjects] Re-parenting model {modelObj.name} to body {obj.name}");
 

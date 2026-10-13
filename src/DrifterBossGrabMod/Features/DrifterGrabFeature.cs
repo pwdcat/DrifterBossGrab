@@ -15,6 +15,10 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.DrifterBagController_AssignPassenger)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_ScanForTarget_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ReaperSecondPhaseSpawnTransition_ToggleShriekParameters_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.MissionPreFight_DetectDamage_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(UI.BreakoutWarningOverlay.DrifterBagController_CmdDamageBaggedObject_Feedback)).Patch();
+            harmony.CreateClassProcessor(typeof(UI.BreakoutWarningOverlay.AoE_ApplyDamageToObject_Feedback)).Patch();
+            harmony.CreateClassProcessor(typeof(BodyColliderCache.ChipAnimator_LateUpdate_CarryCore)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
@@ -65,8 +69,7 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.UIPatches.BaggedCardCompatibilityPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_FindVehicleSeatWithPassenger_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerExit_Diagnostics)).Patch();
-            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_SetPassengerCollisions_Diagnostics)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerExit_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.CharacterMotor_IsColliderValidForCollisions_Patch)).Patch();
         }
     }

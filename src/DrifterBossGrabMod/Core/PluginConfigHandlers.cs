@@ -305,6 +305,8 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.SelectedCardPlacement,
                 PluginConfig.Instance.CarouselAnimationDuration,
                 PluginConfig.Instance.EnableBreakoutWarning,
+                PluginConfig.Instance.EnableCardDamageWiggle,
+                PluginConfig.Instance.CardDamageWiggleStrength,
                 PluginConfig.Instance.EnableCardReleaseAnimation,
                 PluginConfig.Instance.CardReleaseDuration,
                 PluginConfig.Instance.CardReleaseDistance,

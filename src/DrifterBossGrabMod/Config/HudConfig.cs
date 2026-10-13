@@ -14,8 +14,10 @@ namespace DrifterBossGrabMod
             Instance.CardReleaseDistance = cfg.Bind("Hud", "CardReleaseDistance", 90f, new ConfigDescription("Release travel distance in HUD units.", new AcceptableValueRange<float>(0.0f, 180.0f)));
             Instance.EnableCardDestructionAnimation = cfg.Bind("Hud", "EnableCardDestructionAnimation", true, "Shrink and fade cards when their passenger is destroyed.");
             Instance.CardDestructionDuration = cfg.Bind("Hud", "CardDestructionDuration", 0.18f, new ConfigDescription("Destruction animation duration in seconds.", new AcceptableValueRange<float>(0.05f, 0.8f)));
-            Instance.BreakoutWarningStrength = cfg.Bind("Hud", "BreakoutWarningStrength", 5f, new ConfigDescription("Portrait wobble strength. Zero disables movement.", new AcceptableValueRange<float>(0.0f, 10.0f)));
-            Instance.EnableBreakoutWarning = cfg.Bind("Hud", "EnableBreakoutWarning", true, "Gently wobble the passenger portrait before an escape attempt.");
+            Instance.BreakoutWarningStrength = cfg.Bind("Hud", "BreakoutWarningStrength", 5f, new ConfigDescription("Portrait wobble strength before escape attempts. Zero disables movement.", new AcceptableValueRange<float>(0.0f, 10.0f)));
+            Instance.EnableBreakoutWarning = cfg.Bind("Hud", "EnableBreakoutWarning", true, "Shake passenger portraits before escape attempts.");
+            Instance.EnableCardDamageWiggle = cfg.Bind("Hud", "EnableCardDamageWiggle", true, "Wiggle passenger portraits when bag slams deal damage or reduce durability.");
+            Instance.CardDamageWiggleStrength = cfg.Bind("Hud", "CardDamageWiggleStrength", 1f, new ConfigDescription("Damage wiggle strength. Zero disables movement.", new AcceptableValueRange<float>(0f, 10f)));
             Instance.CarouselOrientation = cfg.Bind("Hud", "CarouselOrientation", DrifterBossGrabMod.CarouselOrientation.Vertical, "Layout orientation for carousel items (Vertical or Horizontal).");
             Instance.SelectedCardPlacement = cfg.Bind("Hud", "SelectedCardPlacement", SelectedCardPosition.Center, "Selected card position: Center, Start (top/left), or End (bottom/right).");
             Instance.VisibleCardCount = cfg.Bind("Hud", "VisibleCardCount", 3, new ConfigDescription("Maximum number of visible carousel cards.", new AcceptableValueRange<int>(1, 100)));

@@ -393,6 +393,8 @@ namespace DrifterBossGrabMod.Config
                 "CapacityFlashStrength" => instance.CapacityFlashStrength,
                 "CapacityFlashDuration" => instance.CapacityFlashDuration,
                 "EnableBreakoutWarning" => instance.EnableBreakoutWarning,
+                "EnableCardDamageWiggle" => instance.EnableCardDamageWiggle,
+                "CardDamageWiggleStrength" => instance.CardDamageWiggleStrength,
                 "CarouselAnimationDuration" => instance.CarouselAnimationDuration,
                 "EnableCarouselInactivityFade" => instance.EnableCarouselInactivityFade,
                 "CarouselInactivityFadeDelay" => instance.CarouselInactivityFadeDelay,

@@ -29,6 +29,16 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
+        [HarmonyPatch(typeof(EntityStates.SolusHeart.PhasePreFight.MissionPreFight), "DetectDamage")]
+        public static class MissionPreFight_DetectDamage_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(DamageInfo info)
+            {
+                return info != null && info.inflictedHurtbox != null;
+            }
+        }
+
         [HarmonyPatch(typeof(HackingMainState), "ScanForTarget")]
         public class HackingMainState_ScanForTarget_Patch
         {
@@ -154,10 +164,13 @@ namespace DrifterBossGrabMod.Patches
         public static class VehicleSeat_RpcEjectPassenger_Gong_Patch
         {
             [HarmonyPrefix]
-            public static void Prefix(VehicleSeat __instance, out GongLandingPlacement? __state)
+            public static bool Prefix(VehicleSeat __instance, out GongLandingPlacement? __state)
             {
-                __state = __instance.GetComponent<ThrownObjectProjectileController>() != null
-                    ? __instance.currentPassengerTransform?.GetComponent<GongLandingPlacement>() : null;
+                __state = null;
+                if (__instance == null) return false;
+                if (__instance.GetComponent<ThrownObjectProjectileController>() != null)
+                    __state = __instance.currentPassengerTransform?.GetComponent<GongLandingPlacement>();
+                return true;
             }
 
             [HarmonyPostfix]

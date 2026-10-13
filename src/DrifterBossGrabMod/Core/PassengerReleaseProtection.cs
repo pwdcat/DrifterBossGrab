@@ -1,6 +1,5 @@
 #nullable enable
 using System.Collections.Generic;
-using System.Reflection;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
@@ -19,6 +18,37 @@ namespace DrifterBossGrabMod.Core
         private VehicleSeat? _lastSeat;
 
         private bool _protecting;
+        private bool _hasWingMotorSnapshot;
+        private bool _wingWasCarried;
+        private bool _wingMotorEnabled;
+        private bool _wingInnerMotorEnabled;
+
+        internal static void CaptureEncounterMotor(GameObject passenger)
+        {
+            var body = passenger.GetComponent<CharacterBody>();
+            if (body == null || body.bodyIndex != BodyCatalog.FindBodyIndex("SolusWingBody")) return;
+            var protection = passenger.GetComponent<PassengerReleaseProtection>() ?? passenger.AddComponent<PassengerReleaseProtection>();
+            if (protection._hasWingMotorSnapshot) return;
+            var motor = body.characterMotor;
+            if (motor == null || motor.Motor == null) return;
+            protection._wingMotorEnabled = motor.enabled;
+            protection._wingInnerMotorEnabled = motor.Motor.enabled;
+            protection._hasWingMotorSnapshot = true;
+        }
+
+        private void RestoreEncounterMotor()
+        {
+            if (!_hasWingMotorSnapshot || !_wingWasCarried || _projectile != null ||
+                Patches.ProjectileRecoveryPatches.IsInProjectileState(gameObject) ||
+                VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null) return;
+            var body = GetComponent<CharacterBody>();
+            var motor = body != null ? body.characterMotor : null;
+            _hasWingMotorSnapshot = false;
+            _wingWasCarried = false;
+            if (body == null || body.healthComponent == null || !body.healthComponent.alive || motor == null || motor.Motor == null) return;
+            motor.enabled = _wingMotorEnabled;
+            motor.Motor.enabled = _wingInnerMotorEnabled && motor.hasEffectiveAuthority;
+        }
 
         public static void CapturePassenger(VehicleSeat seat, GameObject? passenger)
         {
@@ -26,6 +56,8 @@ namespace DrifterBossGrabMod.Core
             var bag = seat.GetComponentInParent<DrifterBagController>();
             if (bag == null || bag.characterBody == null) return;
             var protection = passenger.GetComponent<PassengerReleaseProtection>() ?? passenger.AddComponent<PassengerReleaseProtection>();
+            CaptureEncounterMotor(passenger);
+            protection._wingWasCarried = protection._hasWingMotorSnapshot;
             protection.Capture(bag.characterBody);
         }
 
@@ -42,7 +74,6 @@ namespace DrifterBossGrabMod.Core
             foreach (var passenger in _passengerColliders)
                 foreach (var carrier in _ownerColliders)
                     _pairs.Add((passenger, carrier, Physics.GetIgnoreCollision(passenger, carrier)));
-            LogCollisionState("capture");
         }
 
         public void Begin(CharacterBody owner, GameObject? projectile = null)
@@ -53,27 +84,6 @@ namespace DrifterBossGrabMod.Core
             if (!_protecting) _active.Add(this);
             _protecting = true;
             Apply();
-            LogHeldCollisionState();
-        }
-
-        private void LogHeldCollisionState()
-        {
-            if (!PluginConfig.Instance.EnableDebugLogs.Value || _owner == null) return;
-            var ownerMotor = _owner.GetComponent<CharacterMotor>();
-            var attached = ownerMotor != null && ownerMotor.Motor != null ? ownerMotor.Motor.AttachedRigidbody : null;
-            int enabledSolids = 0;
-            int acceptedSolids = 0;
-            bool attachedToPassenger = false;
-            foreach (var collider in _passengerColliders)
-            {
-                if (collider == null) continue;
-                if (attached != null && collider.attachedRigidbody == attached) attachedToPassenger = true;
-                if (!collider.enabled || !collider.gameObject.activeInHierarchy) continue;
-                enabledSolids++;
-                if (ownerMotor != null && ownerMotor.IsColliderValidForCollisions(collider)) acceptedSolids++;
-            }
-            LogCollisionState("held");
-            Log.Debug($"[HeldCollisionState] peer={(UnityEngine.Networking.NetworkServer.active ? "server" : "client")}, object={name}, solids={_passengerColliders.Length}, enabledSolids={enabledSolids}, acceptedByOwnerMotor={acceptedSolids}, ownerAttachedBody={attached?.name}, attachedToPassenger={attachedToPassenger}");
         }
 
         private static Collider[] GetSolidColliders(GameObject obj)
@@ -82,6 +92,11 @@ namespace DrifterBossGrabMod.Core
             var model = obj.GetComponent<ModelLocator>()?.modelTransform;
             if (model != null) colliders.UnionWith(model.GetComponentsInChildren<Collider>(true));
             var body = obj.GetComponent<CharacterBody>();
+            if (obj.GetComponent<SolusHeartDamageProcessor>() != null)
+            {
+                var cache = obj.GetComponent<BodyColliderCache>() ?? obj.AddComponent<BodyColliderCache>();
+                colliders.UnionWith(cache.GetColliders());
+            }
             colliders.RemoveWhere(collider => collider == null || collider.isTrigger || collider.GetComponent<HurtBox>() != null ||
                 (collider.GetComponentInParent<CharacterBody>() != null && collider.GetComponentInParent<CharacterBody>() != body));
             var result = new Collider[colliders.Count];
@@ -102,11 +117,12 @@ namespace DrifterBossGrabMod.Core
         {
             _projectile = null;
             Apply();
-            LogCollisionState("seat-exit");
+            RestoreEncounterMotor();
         }
 
         private void FixedUpdate()
         {
+            RestoreEncounterMotor();
             if (!_protecting) return;
             if (_owner == null) { Clear(); return; }
             Apply();
@@ -130,61 +146,13 @@ namespace DrifterBossGrabMod.Core
 
         private void Clear()
         {
-            bool wasProtecting = _protecting;
-            var owner = _owner;
             _active.Remove(this);
             _owner = null;
             _projectile = null;
             _protecting = false;
-            if (wasProtecting && this != null)
-                Log.Debug($"[PassengerReleaseProtection] Clearing protection for {name}: pairs={_pairs.Count}, owner={(owner != null ? owner.name : "destroyed")}");
             foreach (var pair in _pairs)
                 if (pair.passenger != null && pair.owner != null)
                     Physics.IgnoreCollision(pair.passenger, pair.owner, pair.ignored);
-            if (wasProtecting && this != null && _snapshotOwner != null) LogCollisionState("separated");
-        }
-
-        private void LogCollisionState(string phase)
-        {
-            if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
-            var body = GetComponent<CharacterBody>();
-            var motor = GetComponent<CharacterMotor>();
-            var rb = GetComponent<Rigidbody>();
-            var model = body != null && body.modelLocator != null ? body.modelLocator.modelTransform : null;
-            var hurtBoxes = model != null ? model.GetComponent<HurtBoxGroup>() : null;
-            var seat = VehicleSeat.FindVehicleSeatWithPassenger(gameObject);
-            var currentVehicle = body != null ? body.currentVehicle : null;
-            int ignoredPairs = 0;
-            int originallyIgnoredPairs = 0;
-            foreach (var pair in _pairs)
-            {
-                if (pair.ignored) originallyIgnoredPairs++;
-                if (pair.passenger != null && pair.owner != null && Physics.GetIgnoreCollision(pair.passenger, pair.owner)) ignoredPairs++;
-            }
-            Log.Debug($"[ReleaseCollisionState] phase={phase}, peer={(UnityEngine.Networking.NetworkServer.active ? "server" : "client")}, object={name}, netId={GetComponent<UnityEngine.Networking.NetworkIdentity>()?.netId}, layer={gameObject.layer}, seat={seat?.name}, seatDisableAll={seat?.disableAllCollidersAndHurtboxes}, seatDisableColliders={seat?.disableColliders}, currentVehicle={(currentVehicle != null ? currentVehicle.name : null)}, motorEnabled={motor?.enabled}, innerMotorEnabled={motor?.Motor?.enabled}, motorLayers={motor?.Motor?.CollidableLayers.value}, isKinematic={rb?.isKinematic}, detectCollisions={rb?.detectCollisions}, hurtBoxCounter={hurtBoxes?.hurtBoxesDeactivatorCounter}, ignoredPairs={ignoredPairs}, originallyIgnoredPairs={originallyIgnoredPairs}");
-        }
-
-        private static readonly FieldInfo? _seatPassengerInfo = AccessTools.Field(typeof(VehicleSeat), "passengerInfo");
-        private static readonly FieldInfo? _seatPassengerBody = _seatPassengerInfo != null ? AccessTools.Field(_seatPassengerInfo.FieldType, "body") : null;
-        private static readonly FieldInfo? _seatColliders = _seatPassengerInfo != null ? AccessTools.Field(_seatPassengerInfo.FieldType, "allColliders") : null;
-        private static readonly FieldInfo? _seatColliderStates = _seatPassengerInfo != null ? AccessTools.Field(_seatPassengerInfo.FieldType, "originalCollidersState") : null;
-        private static readonly FieldInfo? _seatColliderOverride = _seatPassengerInfo != null ? AccessTools.Field(_seatPassengerInfo.FieldType, "collidersOverride") : null;
-
-        private static void LogSeatTransition(VehicleSeat seat, GameObject? passenger, string phase)
-        {
-            if (!PluginConfig.Instance.EnableDebugLogs.Value || seat == null) return;
-            var info = _seatPassengerInfo?.GetValue(seat);
-            var infoBody = info != null ? _seatPassengerBody?.GetValue(info) as CharacterBody : null;
-            if (passenger == null && infoBody != null) passenger = infoBody.gameObject;
-            if (passenger == null || passenger.GetComponent<PassengerReleaseProtection>() == null) return;
-            var body = passenger.GetComponent<CharacterBody>();
-            var otherSeat = VehicleSeat.FindVehicleSeatWithPassenger(passenger, seat);
-            var colliders = info != null ? _seatColliders?.GetValue(info) as Collider[] : null;
-            var states = info != null ? _seatColliderStates?.GetValue(info) as bool[] : null;
-            var colliderOverride = info != null ? _seatColliderOverride?.GetValue(info) : null;
-            var rb = passenger.GetComponent<Rigidbody>();
-            var rigidbodyMotor = passenger.GetComponent<RigidbodyMotor>();
-            Log.Debug($"[SeatCollisionTransition] frame={Time.frameCount}, phase={phase}, peer={(UnityEngine.Networking.NetworkServer.active ? "server" : "client")}, object={passenger.name}, netId={passenger.GetComponent<UnityEngine.Networking.NetworkIdentity>()?.netId}, alive={body?.healthComponent?.alive}, seat={seat.name}#{seat.GetInstanceID()}, otherSeat={otherSeat?.name}, infoBody={infoBody?.name}, disableAll={seat.disableAllCollidersAndHurtboxes}, disableColliders={seat.disableColliders}, disableMotor={seat.disablePassengerMotor}, collidersOverride={colliderOverride}, colliderCount={colliders?.Length}, savedCount={states?.Length}, parent={passenger.transform.parent?.name}, isKinematic={rb?.isKinematic}, rigidbodyMotorEnabled={rigidbodyMotor?.enabled}, rigidbodyMotorAuthority={rigidbodyMotor?.hasEffectiveAuthority}");
         }
 
         [HarmonyPatch(typeof(VehicleSeat), "OnPassengerEnter")]
@@ -206,7 +174,6 @@ namespace DrifterBossGrabMod.Core
                     if (previousSeat != null && previousSeat.disableAllCollidersAndHurtboxes && hurtBoxes != null &&
                         hurtBoxes.hurtBoxesDeactivatorCounter > 0) __state = hurtBoxes;
                 }
-                LogSeatTransition(__instance, passenger, "enter-before");
             }
 
             [HarmonyPostfix]
@@ -216,7 +183,6 @@ namespace DrifterBossGrabMod.Core
                 if (__state != null && passenger != null && body != null && body.currentVehicle == __instance)
                 {
                     __state.hurtBoxesDeactivatorCounter--;
-                    Log.Debug($"[SeatCollisionTransition] Balanced inherited hurtbox disable for {passenger.name}: counter={__state.hurtBoxesDeactivatorCounter}");
                 }
                 var protection = passenger != null ? passenger.GetComponent<PassengerReleaseProtection>() : null;
                 if (protection != null)
@@ -225,7 +191,6 @@ namespace DrifterBossGrabMod.Core
                     var bag = __instance.GetComponentInParent<DrifterBagController>();
                     if (bag != null && bag.characterBody != null) protection.Begin(bag.characterBody);
                 }
-                LogSeatTransition(__instance, passenger, "enter-after");
             }
         }
 
@@ -242,39 +207,18 @@ namespace DrifterBossGrabMod.Core
                 if (previousSeat == null || previousSeat == callingSeat || previousSeat.NetworkpassengerBodyObject != gameObject ||
                     previousSeat.GetComponentInParent<DrifterBagController>() == null) return;
                 __result = previousSeat;
-                Log.Debug($"[SeatCollisionTransition] Recovering client handoff from {previousSeat.name} (active={previousSeat.isActiveAndEnabled}) to {callingSeat.name} for {gameObject.name}");
             }
         }
 
         [HarmonyPatch(typeof(VehicleSeat), "OnPassengerExit")]
-        public static class VehicleSeat_OnPassengerExit_Diagnostics
+        public static class VehicleSeat_OnPassengerExit_Patch
         {
             [HarmonyPrefix]
             public static void Prefix(VehicleSeat __instance, GameObject passenger)
             {
-                LogSeatTransition(__instance, passenger, "exit-before");
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(VehicleSeat __instance, GameObject passenger)
-            {
-                LogSeatTransition(__instance, passenger, "exit-after");
-            }
-        }
-
-        [HarmonyPatch(typeof(VehicleSeat), "SetPassengerCollisions")]
-        public static class VehicleSeat_SetPassengerCollisions_Diagnostics
-        {
-            [HarmonyPrefix]
-            public static void Prefix(VehicleSeat __instance, bool enabled)
-            {
-                LogSeatTransition(__instance, null, enabled ? "restore-before" : "disable-before");
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(VehicleSeat __instance, bool enabled)
-            {
-                LogSeatTransition(__instance, null, enabled ? "restore-after" : "disable-after");
+                if (passenger != null && __instance.GetComponentInParent<DrifterBagController>() == null &&
+                    __instance.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>() == null)
+                    CaptureEncounterMotor(passenger);
             }
         }
 

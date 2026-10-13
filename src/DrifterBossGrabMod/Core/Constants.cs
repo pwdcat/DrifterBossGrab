@@ -68,6 +68,7 @@ namespace DrifterBossGrabMod
             public const byte RequestConfigSubMessageType = 9;
             public const byte BreakoutPresentationSubMessageType = 10;
             public const byte CardDepartureSubMessageType = 11;
+            public const byte SlamFeedbackSubMessageType = 12;
         }
 
     }

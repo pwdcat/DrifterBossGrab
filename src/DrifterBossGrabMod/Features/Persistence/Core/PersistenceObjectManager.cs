@@ -96,7 +96,7 @@ namespace DrifterBossGrabMod
                     if (modelLocator != null && modelLocator.modelTransform != null)
                     {
                         modelLocator.dontDetatchFromParent = true;
-                        if (modelLocator.modelTransform.parent != obj.transform)
+                        if (!modelLocator.modelTransform.IsChildOf(obj.transform))
                         {
                             modelLocator.modelTransform.SetParent(obj.transform, true);
                         }

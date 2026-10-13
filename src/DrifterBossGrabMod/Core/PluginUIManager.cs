@@ -133,6 +133,8 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CardDestructionDuration, new StepSliderConfig { name = "Card Destruction Duration", min = 0.05f, max = 0.8f, increment = 0.01f }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBreakoutWarning, new CheckBoxConfig { name = "Breakout Warning" }));
             ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutWarningStrength, new StepSliderConfig { name = "Breakout Warning Strength", min = 0.0f, max = 10.0f, increment = 0.05f }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableCardDamageWiggle, new CheckBoxConfig { name = "Card Damage Wiggle" }));
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.CardDamageWiggleStrength, new StepSliderConfig { name = "Card Damage Wiggle Strength", min = 0f, max = 10f, increment = 0.05f }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.CarouselOrientation, new ChoiceConfig { name = "Carousel Orientation" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedCardPlacement, new ChoiceConfig { name = "Selected Card Position" }));
             ModSettingsManager.AddOption(new IntFieldOption(PluginConfig.Instance.VisibleCardCount, new IntFieldConfig { name = "Visible Cards", Min = 1, Max = 100 }));
@@ -362,7 +364,7 @@ namespace DrifterBossGrabMod
             if (!RooInstalled) return;
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableCarouselHUD.Value, "Enable Carousel HUD",
-                token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("ANIMATION_DURATION") || token.Contains("FADE_DURATION") || token.Contains("CARD_RELEASE") || token.Contains("CARD_DESTRUCTION") || token.Contains("BREAKOUT_WARNING") ||
+                token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("ANIMATION_DURATION") || token.Contains("FADE_DURATION") || token.Contains("CARD_RELEASE") || token.Contains("CARD_DESTRUCTION") || token.Contains("BREAKOUT_WARNING") || token.Contains("CARD_DAMAGE_WIGGLE") ||
                          token.Contains("ORIENTATION") || token.Contains("INACTIVITY") || token.Contains("INACTIVE") ||
                          token.Contains("SHOW_ICON") || token.Contains("SHOW_BACKGROUND") || token.Contains("SHOW_WEIGHT") ||
                          token.Contains("SHOW_NAME") || token.Contains("SHOW_HEALTH") || token.Contains("SHOW_SLOT") ||
@@ -376,6 +378,8 @@ namespace DrifterBossGrabMod
                 token => token.Contains("CARD_DESTRUCTION_DURATION"));
             UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableBreakoutWarning.Value, "Breakout Warning",
                 token => token.Contains("BREAKOUT_WARNING_STRENGTH"));
+            UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableCardDamageWiggle.Value, "Card Damage Wiggle",
+                token => token.Contains("CARD_DAMAGE_WIGGLE_STRENGTH"));
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableDamagePreview.Value, "Enable Damage Preview",
                 token => token.Contains("DAMAGE_PREVIEW_COLOR"));

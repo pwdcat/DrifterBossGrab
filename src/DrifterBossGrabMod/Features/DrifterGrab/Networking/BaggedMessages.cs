@@ -499,6 +499,27 @@ namespace DrifterBossGrabMod.Networking
         }
     }
 
+    public class SlamFeedbackMessage : MessageBase
+    {
+        public NetworkInstanceId controllerNetId;
+        public NetworkInstanceId passengerNetId;
+        public float amplitude;
+
+        public override void Serialize(NetworkWriter writer)
+        {
+            writer.Write(controllerNetId);
+            writer.Write(passengerNetId);
+            writer.Write(amplitude);
+        }
+
+        public override void Deserialize(NetworkReader reader)
+        {
+            controllerNetId = reader.ReadNetworkId();
+            passengerNetId = reader.ReadNetworkId();
+            amplitude = reader.ReadSingle();
+        }
+    }
+
     public class BreakoutPresentationMessage : MessageBase
     {
         public NetworkInstanceId controllerNetId;

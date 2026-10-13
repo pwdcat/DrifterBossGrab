@@ -216,6 +216,8 @@ namespace DrifterBossGrabMod
         public ConfigEntry<float> CardDestructionDuration { get; private set; } = null!;
         public ConfigEntry<float> BreakoutWarningStrength { get; private set; } = null!;
         public ConfigEntry<bool> EnableBreakoutWarning { get; private set; } = null!;
+        public ConfigEntry<bool> EnableCardDamageWiggle { get; private set; } = null!;
+        public ConfigEntry<float> CardDamageWiggleStrength { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeDelay { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeDuration { get; private set; } = null!;
         public ConfigEntry<float> CarouselInactivityFadeOpacity { get; private set; } = null!;
@@ -315,6 +317,8 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DESTRUCTION_DURATION.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.BREAKOUT_WARNING_STRENGTH.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.BREAKOUT_WARNING.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DAMAGE_WIGGLE.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.CARD_DAMAGE_WIGGLE_STRENGTH.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ANIMATION_DURATION.FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_INACTIVITY_FADE.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.INACTIVITY_FADE_DELAY_(S).FLOAT_FIELD"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Animations },
