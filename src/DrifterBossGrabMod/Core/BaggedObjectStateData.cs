@@ -211,7 +211,6 @@ namespace DrifterBossGrabMod.Core
                 _bagScale01Field?.SetValue(state, bagScale01);
                 _movespeedPenaltyField?.SetValue(state, movespeedPenalty);
 
-
                 if (ReflectionCache.BaggedObject.BreakoutTime != null && breakoutTime > 0f)
                 {
                     ReflectionCache.BaggedObject.BreakoutTime.SetValue(state, breakoutTime);

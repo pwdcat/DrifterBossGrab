@@ -629,6 +629,7 @@ namespace DrifterBossGrabMod.UI
             HashSet<GameObject> usedSlots = new();
             HashSet<GameObject?> foundPassengers = new();
             HashSet<GameObject?> wrappedPassengers = new();
+            bool singleObjectCycle = passengerList.Count == 1 && cycleCount == 2;
 
             var slotsToProcess = _slots.Where(slot => addingPassengers || !_exitingSlots.Contains(slot)).OrderBy(slot =>
             {
@@ -660,7 +661,7 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
 
-                bool wraps = !addingPassengers && cycleCount > 1 && newState != -99 &&
+                bool wraps = !addingPassengers && !singleObjectCycle && cycleCount > 1 && newState != -99 &&
                     _slotToState.TryGetValue(slot, out int oldState) &&
                     (direction != 0 ? newState != oldState - Math.Sign(direction)
                         : (oldState < 0 && newState > 0) || (oldState > 0 && newState < 0));
