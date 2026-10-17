@@ -432,7 +432,8 @@ namespace DrifterBossGrabMod
                          token.Contains("SHOW_ICON") || token.Contains("SHOW_BACKGROUND") || token.Contains("SHOW_WEIGHT") ||
                          token.Contains("SHOW_NAME") || token.Contains("SHOW_HEALTH") || token.Contains("SHOW_SLOT") ||
                          token.Contains("WEIGHT_DISPLAY") || token.Contains("NEW_WEIGHT_ICON") || token.Contains("SCALE_WEIGHT") ||
-                         token.Contains("TOTAL_MASS") || token.Contains("OVERENCUMBERED_ICON"));
+                         token.Contains("TOTAL_MASS") || token.Contains("OVERENCUMBERED_ICON") ||
+                         token.Contains("SELECTED_CARD_POSITION") || token.Contains("VISIBLE_CARDS") || token.Contains("ELITE_HEALTH_BAR_COLOR_INTENSITY"));
 
             bool carouselEnabled = PluginConfig.Instance.EnableCarouselHUD.Value;
             UpdateCategoryToggledVisibility("Hud", carouselEnabled && PluginConfig.Instance.EnableCardReleaseAnimation.Value, "Card Release Animation",
