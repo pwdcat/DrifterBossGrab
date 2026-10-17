@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using BepInEx.Configuration;
 using BepInEx.Bootstrap;
@@ -173,6 +173,19 @@ namespace DrifterBossGrabMod
 
         private void RemoveConfigurationEventHandlers()
         {
+            API.EliteThrowEffectsAPI.EntryBound -= OnEliteThrowEntryBound;
+            if (RooInstalled)
+            {
+                API.EliteThrowEffectsAPI.EntryBound -= RefreshEliteThrowEffectOptions;
+            }
+            foreach (var entry in API.EliteThrowEffectsAPI.Entries)
+            {
+                if (entry.Enabled != null) entry.Enabled.SettingChanged -= OnPresetOnlySettingChanged;
+                if (entry.GrabEnabled != null) entry.GrabEnabled.SettingChanged -= OnPresetOnlySettingChanged;
+            }
+            _rooRefreshGeneration++;
+            _rooSettings = Array.Empty<UnityEngine.Component>();
+            _rooLayouts.Clear();
             Config.SettingChanged -= OnConfigSettingChangedEvent;
             PluginConfig.RemoveEventHandlers(
                 debugLogsHandler ?? ((sender, args) => { }),
@@ -217,13 +230,13 @@ namespace DrifterBossGrabMod
 
         private void OnAutoSwitchSettingChanged(object sender, EventArgs args)
         {
-            PresetManager.OnSettingModified();
+            PresetManager.OnSettingModified(sender as BepInEx.Configuration.ConfigEntryBase);
             PresetManager.RefreshPresetDropdownUI();
         }
 
         private void OnPresetOnlySettingChanged(object sender, EventArgs args)
         {
-            PresetManager.OnSettingModified();
+            PresetManager.OnSettingModified(sender as BepInEx.Configuration.ConfigEntryBase);
         }
 
         private void RegisterAutoSwitchHandlers(params object[] configEntries)

@@ -153,7 +153,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                 UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(spawnedObject, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
             }
 
-            Log.Debug($"[PrefabSpawner] Successfully spawned prefab: {spawnedObject.name}");
+            Log.Debug($"[PrefabSpawner] Spawned prefab: {spawnedObject.name}");
             return spawnedObject;
         }
 

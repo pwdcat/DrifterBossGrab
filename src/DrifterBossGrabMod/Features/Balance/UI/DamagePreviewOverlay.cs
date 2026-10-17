@@ -39,9 +39,6 @@ namespace DrifterBossGrabMod.UI
         private bool _initialized;
         private bool _eventHandlersRegistered;
 
-        private float _logTimer;
-        private const float LogInterval = 1.0f;
-
         private float _cachedDamageFraction = 0f;
         private int _cachedTargetInstanceId = 0;
         private bool _cacheValid = false;
@@ -79,16 +76,6 @@ namespace DrifterBossGrabMod.UI
                 _previewRect!.gameObject.SetActive(true);
 
             UpdatePreviewBar();
-
-            if (PluginConfig.Instance.EnableDebugLogs.Value)
-            {
-                _logTimer += Time.deltaTime;
-                if (_logTimer >= LogInterval)
-                {
-                    _logTimer = 0f;
-                    SlamDamageCalculator.LogDetails(bagController!, targetObject!);
-                }
-            }
         }
 
         private void CreatePreviewBar()
@@ -108,7 +95,6 @@ namespace DrifterBossGrabMod.UI
             }
             GameObject barInstance = Instantiate(barPrefab, barContainer);
             barInstance.name = "DamagePreview";
-            Log.Debug("[DamagePreviewOverlay] Created damage preview inside barContainer");
 
             _previewRect = barInstance.GetComponent<RectTransform>();
             if (!_previewRect)
@@ -159,7 +145,7 @@ namespace DrifterBossGrabMod.UI
 
         private void DrawPreviewBar(float damageFraction, float healthFraction)
         {
-            if (damageFraction <= 0f)
+            if (damageFraction <= 0f || healthFraction <= 0f)
             {
                 if (_previewImage != null) _previewImage.enabled = false;
                 return;
@@ -168,7 +154,7 @@ namespace DrifterBossGrabMod.UI
             if (_previewImage != null)
             {
                 _previewImage.enabled = true;
-                _previewImage.color = PluginConfig.Instance.DamagePreviewColor.Value;
+                UpdateColor();
             }
 
             float previewStart = Mathf.Max(0f, healthFraction - damageFraction);
@@ -212,9 +198,18 @@ namespace DrifterBossGrabMod.UI
 
         public void UpdateColor()
         {
+            var previewColor = PluginConfig.Instance.DamagePreviewColor.Value;
+            var source = _healthBar ? _healthBar!.source : null;
+            if (source && !source!.GetHealthBarValues().isVoid &&
+                PassengerHealthBarColorResolver.TryGetEliteColor(source.body, out var eliteColor))
+            {
+                previewColor = PassengerHealthBarColorResolver.BlendEliteColor(previewColor,
+                    PassengerHealthBarColorResolver.Shade(eliteColor, 0.45f));
+            }
+
             if (_previewImage)
             {
-                _previewImage!.color = PluginConfig.Instance.DamagePreviewColor.Value;
+                _previewImage!.color = previewColor;
             }
         }
 

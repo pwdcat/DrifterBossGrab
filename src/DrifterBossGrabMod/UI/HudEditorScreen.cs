@@ -153,6 +153,7 @@ namespace DrifterBossGrabMod.UI
             if (root == null) root = menu.AddComponent<CanvasGroup>();
             foreach (var group in menu.GetComponentsInChildren<CanvasGroup>(true))
             {
+                if (group != root && !group.ignoreParentGroups) continue;
                 if (_hiddenMenus.Any(item => item.Group == group)) continue;
                 _hiddenMenus.Add((group, group.alpha, group.interactable, group.blocksRaycasts, added && group == root));
                 group.alpha = 0f;
@@ -172,6 +173,7 @@ namespace DrifterBossGrabMod.UI
                 if (item.Added) Destroy(item.Group);
             }
             _hiddenMenus.Clear();
+            DrifterBossGrabPlugin.Instance?.UpdateHudSubTabVisibility();
             if (_createdPauseScreen != null) Destroy(_createdPauseScreen);
             _createdPauseScreen = null;
         }

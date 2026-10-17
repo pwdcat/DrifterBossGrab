@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using BepInEx.Configuration;
 using HarmonyLib;
 using RiskOfOptions;
@@ -13,15 +15,9 @@ using DrifterBossGrabMod.Config;
 namespace DrifterBossGrabMod
 {
 
-    // ========================================================================================
-    // PLUGIN UI MANAGER
-    // ========================================================================================
     public partial class DrifterBossGrabPlugin
     {
 
-        // ========================================================================================
-        // RISK OF OPTIONS SETUP
-        // ========================================================================================
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void SetupRiskOfOptions()
         {
@@ -30,19 +26,19 @@ namespace DrifterBossGrabMod
             try
             {
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                string assemblyDirectory = System.IO.Path.GetDirectoryName(assembly.Location);
-                string iconPath = System.IO.Path.Combine(assemblyDirectory, "icon.png");
-
-                if (File.Exists(iconPath))
+                using var iconStream = assembly.GetManifestResourceStream("DrifterBossGrabMod.Resources.ModIcon.png");
+                if (iconStream != null)
                 {
-                    byte[] array = File.ReadAllBytes(iconPath);
+                    using var imageData = new MemoryStream();
+                    iconStream.CopyTo(imageData);
                     Texture2D val = new Texture2D(UI.IconTextureSize, UI.IconTextureSize);
-                    UnityEngine.ImageConversion.LoadImage(val, array);
-                    ModSettingsManager.SetModIcon(UnityEngine.Sprite.Create(val, new UnityEngine.Rect(UI.IconRectX, UI.IconRectY, UI.IconTextureSize, UI.IconTextureSize), new UnityEngine.Vector2(UI.IconPivotX, UI.IconPivotY)));
+                    if (!UnityEngine.ImageConversion.LoadImage(val, imageData.ToArray()))
+                        throw new InvalidDataException("Could not decode the embedded mod icon.");
+                    ModSettingsManager.SetModIcon(UnityEngine.Sprite.Create(val, new UnityEngine.Rect(UI.IconRectX, UI.IconRectY, val.width, val.height), new UnityEngine.Vector2(UI.IconPivotX, UI.IconPivotY)));
                 }
                 else
                 {
-                    Log.Warning($"[UI] Mod icon not found at: {iconPath}");
+                    Log.Warning("[UI] Embedded mod icon not found.");
                 }
             }
             catch (Exception ex)
@@ -65,6 +61,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedPreset, new ChoiceConfig { name = "Selected Preset", category = "General" }));
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBossGrabbing, new CheckBoxConfig { name = "Enable Boss Grabbing" }));
+            ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableSelfGrabbing, new CheckBoxConfig { name = "Enable Self Grabbing" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableNPCGrabbing, new CheckBoxConfig { name = "Enable NPC Grabbing" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableEnvironmentGrabbing, new CheckBoxConfig { name = "Enable Environment Grabbing" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableLockedObjectGrabbing, new CheckBoxConfig { name = "Enable Locked Object Grabbing" }));
@@ -105,6 +102,11 @@ namespace DrifterBossGrabMod
 
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableBalance, new CheckBoxConfig { name = "Enable Balance", category = "Balance" }));
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedBalanceSubTab, new ChoiceConfig { name = "Balance Filter", category = "Balance" }));
+            ModSettingsManager.AddOption(new Config.UI.StringListOption(PluginConfig.Instance.EliteThrowEffectSelection, "Elite Effects", "Balance",
+                choices: () => API.EliteThrowEffectsAPI.Entries.Select(entry => new KeyValuePair<string, string>(entry.Id,
+                    entry.NativeEquipmentName != null ? entry.Id : entry.DisplayName)),
+                emptyMessage: () => "No matching elites", eliteEffectColumns: true));
+            API.EliteThrowEffectsAPI.EntryBound += RefreshEliteThrowEffectOptions;
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.MassCapacityFormula, "Mass Capacity Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Capacity));
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.SlamDamageFormula, "Slam Damage Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Slam));
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.MovespeedPenaltyFormula, "Speed Penalty Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Penalty));
@@ -115,9 +117,9 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new ChoiceOption(PluginConfig.Instance.SelectedFlag, new ChoiceConfig { name = "Flag", category = "Balance" }));
             ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.SelectedFlagMultiplier, "Multiplier", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Flag));
 
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.SearchRadiusMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Grab Range Multiplier", category = "Balance", min = 1f, max = 100f, increment = 0.1f }));
-            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.BreakoutTimeMultiplier, new RiskOfOptions.OptionConfigs.StepSliderConfig { name = "Breakout Time Multiplier", category = "Balance" }));
-            ModSettingsManager.AddOption(new IntSliderOption(PluginConfig.Instance.MaxSmacks, new IntSliderConfig { name = "Max Hits Before Breakout", category = "Balance" }));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.GrabRangeFormula, "Grab Range Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.GrabRange));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.BreakoutTimeFormula, "Breakout Time Formula", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.Breakout));
+            ModSettingsManager.AddOption(new DrifterBossGrabMod.Config.UI.FormulaEditorOption(PluginConfig.Instance.MaxSmacksFormula, "Breakout Hit Limit", "Balance", DrifterBossGrabMod.Config.UI.FormulaEditorKind.MaxSmacks));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MaxLaunchSpeed, new InputFieldConfig { name = "Max Launch Speed", category = "Balance" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.BagScaleCap, new InputFieldConfig { name = "Bag Visual Size Cap", category = "Balance" }));
             ModSettingsManager.AddOption(new StringInputFieldOption(PluginConfig.Instance.MassCap, new InputFieldConfig { name = "Bagged Entity Mass Cap", category = "Balance" }));
@@ -172,6 +174,7 @@ namespace DrifterBossGrabMod
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowTotalMassOnWeightIcon, new CheckBoxConfig { name = "Show Total Mass" }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.ShowOverencumberIcon, new CheckBoxConfig { name = "Show Overencumbered Icon" }));
 
+            ModSettingsManager.AddOption(new StepSliderOption(PluginConfig.Instance.EliteHealthBarColorIntensity, new StepSliderConfig { name = "Elite Health Bar Color Intensity", min = 0f, max = 2f, increment = 0.05f }));
             ModSettingsManager.AddOption(new CheckBoxOption(PluginConfig.Instance.EnableDamagePreview, new CheckBoxConfig { name = "Enable Damage Preview" }));
             ModSettingsManager.AddOption(new ColorOption(PluginConfig.Instance.DamagePreviewColor, new ColorOptionConfig { name = "Damage Preview Color" }));
 
@@ -224,27 +227,73 @@ namespace DrifterBossGrabMod
             }
         }
 
-        private static void OnRooCategoryLoaded(string modGuid)
+        private Component[] _rooSettings = Array.Empty<Component>();
+        private readonly Dictionary<Component, RooRowLayout> _rooLayouts = new();
+        private int _rooRefreshGeneration;
+
+        private sealed class RooRowLayout
         {
-            if (modGuid == Constants.PluginGuid && Instance != null)
+            internal readonly CanvasGroup Canvas;
+            internal readonly UnityEngine.UI.LayoutElement Layout;
+            internal RooRowLayout(Component setting)
             {
-                Instance.StartCoroutine(DelayedUpdateRooVisibility());
+                Canvas = setting.GetComponent<CanvasGroup>() ?? setting.gameObject.AddComponent<CanvasGroup>();
+                Layout = setting.GetComponent<UnityEngine.UI.LayoutElement>() ?? setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             }
         }
 
-        private static System.Collections.IEnumerator DelayedUpdateRooVisibility()
+        private static void OnRooCategoryLoaded(string modGuid,
+            RiskOfOptions.Components.Panel.ModOptionPanelController __instance)
+        {
+            if (Instance == null) return;
+            int generation = ++Instance._rooRefreshGeneration;
+            Instance._rooLayouts.Clear();
+            Instance._rooSettings = Array.Empty<Component>();
+            if (modGuid != Constants.PluginGuid) return;
+            var settings = AccessTools.Field(__instance.GetType(), "_modSettings")?.GetValue(__instance)
+                as RiskOfOptions.Components.Options.ModSetting[];
+            if (settings == null) return;
+            Instance._rooSettings = settings.Where(setting => setting != null).Cast<Component>().ToArray();
+            string prefix = Constants.PluginGuid + ".";
+            string? token = settings.Where(setting => setting != null).Select(setting => setting.settingToken)
+                .FirstOrDefault(value => value != null && value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            string category = token == null ? "" : token.Substring(prefix.Length).Split('.')[0];
+            Instance.StartCoroutine(DelayedUpdateRooVisibility(category, generation));
+        }
+
+        private static System.Collections.IEnumerator DelayedUpdateRooVisibility(string category, int generation)
         {
             yield return new UnityEngine.WaitForEndOfFrame();
-            if (Instance != null)
+            if (Instance == null || generation != Instance._rooRefreshGeneration) yield break;
+            switch (category.Replace(" ", "").Replace("_", "").ToUpperInvariant())
             {
-                Instance.UpdateHudSubTabVisibility();
-                Instance.UpdateBalanceSubTabVisibility();
-                Instance.UpdateBottomlessBagVisibility();
-                Instance.UpdateBalanceVisibility();
-                Instance.UpdateHudVisibility();
-                Instance.UpdateRecoveryVisibility();
-                Instance.UpdatePersistenceVisibility();
+                case "BALANCE": Instance.UpdateBalanceSubTabVisibility(); break;
+                case "HUD": Instance.UpdateHudSubTabVisibility(); break;
+                case "BOTTOMLESSBAG": Instance.UpdateBottomlessBagVisibility(); break;
+                case "RECOVERY": Instance.UpdateRecoveryVisibility(); break;
+                case "PERSISTENCE": Instance.UpdatePersistenceVisibility(); break;
             }
+        }
+
+        private IEnumerable<RiskOfOptions.Components.Options.ModSetting> CurrentRooSettings()
+        {
+            foreach (var component in _rooSettings)
+                if (component is RiskOfOptions.Components.Options.ModSetting setting && setting &&
+                    !string.IsNullOrEmpty(setting.settingToken) &&
+                    setting.settingToken.StartsWith(Constants.PluginGuid + ".", StringComparison.OrdinalIgnoreCase))
+                    yield return setting;
+        }
+
+        private void SetRooVisibility(Component setting, bool visible, bool enabled)
+        {
+            if (!_rooLayouts.TryGetValue(setting, out var row))
+                _rooLayouts.Add(setting, row = new RooRowLayout(setting));
+            float alpha = visible ? (enabled ? 1f : 0.3f) : 0f;
+            bool raycasts = visible && enabled;
+            if (row.Canvas.alpha != alpha) row.Canvas.alpha = alpha;
+            if (row.Canvas.blocksRaycasts != raycasts) row.Canvas.blocksRaycasts = raycasts;
+            if (row.Canvas.interactable != raycasts) row.Canvas.interactable = raycasts;
+            if (row.Layout.ignoreLayout == visible) row.Layout.ignoreLayout = !visible;
         }
 
         private static System.Collections.IEnumerator DelayedUpdateBottomlessBagVisibility()
@@ -256,9 +305,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // ========================================================================================
-        // UI REFRESH UTILITIES
-        // ========================================================================================
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
         private void RefreshStringInputFieldUI(ConfigEntry<string> configEntry)
         {
@@ -271,7 +317,7 @@ namespace DrifterBossGrabMod
                 expectedToken = $"{Constants.PluginGuid}.BALANCE.MULTIPLIER.STRING_INPUT_FIELD".Replace(" ", "_").ToUpper();
             }
 
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            var allSettings = CurrentRooSettings();
 
             foreach (var setting in allSettings)
             {
@@ -287,6 +333,19 @@ namespace DrifterBossGrabMod
                     break;
                 }
             }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void RefreshEliteThrowEffectOptions(API.EliteThrowEffectsAPI.Entry entry)
+        {
+            RefreshEliteEffectChecklist();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void RefreshEliteEffectChecklist()
+        {
+            foreach (var controller in CurrentRooSettings().OfType<Config.UI.StringListController>())
+                if (controller.Entry == PluginConfig.Instance.EliteThrowEffectSelection) controller.ReloadChoices();
         }
 
         private bool ShouldHudSettingBeVisible(string token)
@@ -314,12 +373,6 @@ namespace DrifterBossGrabMod
         {
             if (!RooInstalled) return;
 
-            var selectedSubTab = PluginConfig.Instance.SelectedHudElement.Value;
-            UpdateSubTabVisibility(
-                selectedSubTab,
-                PluginConfig.HudSettingToSubTab,
-                (settingToken, subTabs) => selectedSubTab == HudElementType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
-            );
             UpdateHudVisibility();
         }
 
@@ -334,13 +387,6 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.SelectedFlagMultiplier.Value = flagConfig.Value;
             }
 
-            var selectedSubTab = PluginConfig.Instance.SelectedBalanceSubTab.Value;
-
-            UpdateSubTabVisibility(
-                selectedSubTab,
-                PluginConfig.BalanceSettingToSubTab,
-                (settingToken, subTabs) => selectedSubTab == BalanceSubTabType.All || System.Array.IndexOf(subTabs, selectedSubTab) >= 0
-            );
             UpdateBalanceVisibility();
         }
 
@@ -362,6 +408,8 @@ namespace DrifterBossGrabMod
         public void UpdateHudVisibility()
         {
             if (!RooInstalled) return;
+
+            UpdateCategoryToggledVisibility("Hud", true, "Hud Filter");
 
             UpdateCategoryToggledVisibility("Hud", PluginConfig.Instance.EnableCarouselHUD.Value, "Enable Carousel HUD",
                 token => token.Contains("_SLOT_") || token.Contains("SPACING") || token.Contains("ANIMATION_DURATION") || token.Contains("FADE_DURATION") || token.Contains("CARD_RELEASE") || token.Contains("CARD_DESTRUCTION") || token.Contains("BREAKOUT_WARNING") || token.Contains("CARD_DAMAGE_WIGGLE") ||
@@ -415,7 +463,7 @@ namespace DrifterBossGrabMod
 
         private void UpdateCategoryToggledVisibility(string categoryName, bool isEnabled, string masterToggleName, System.Func<string, bool>? filterPredicate = null)
         {
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
+            var allSettings = CurrentRooSettings();
             string sanitizedCategory = categoryName.Replace(" ", "_").ToUpper();
             string sanitizedMasterKey = masterToggleName.Replace(" ", "_").ToUpper();
 
@@ -434,12 +482,6 @@ namespace DrifterBossGrabMod
 
                     if (filterPredicate != null && !filterPredicate(setting.settingToken)) continue;
 
-                    var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
-                    if (canvasGroup == null) canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
-
-                    var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
-                    if (layoutElement == null) layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-
                     bool shouldBeVisible = true;
                     if (categoryName.Equals("Hud", StringComparison.OrdinalIgnoreCase))
                     {
@@ -450,61 +492,7 @@ namespace DrifterBossGrabMod
                         shouldBeVisible &= ShouldBalanceSettingBeVisible(setting.settingToken);
                     }
 
-                    if (!shouldBeVisible)
-                    {
-                        canvasGroup.alpha = 0f;
-                        canvasGroup.blocksRaycasts = false;
-                        layoutElement.ignoreLayout = true;
-                    }
-                    else
-                    {
-                        canvasGroup.alpha = isEnabled ? 1f : 0.3f;
-                        canvasGroup.blocksRaycasts = isEnabled;
-                        layoutElement.ignoreLayout = false;
-                    }
-                }
-            }
-        }
-
-        private void UpdateSubTabVisibility<T>(T selectedSubTab, System.Collections.Generic.Dictionary<string, T[]> settingToSubTabMap, System.Func<string, T[], bool> shouldShowPredicate)
-        {
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-
-            foreach (var setting in allSettings)
-            {
-                if (!string.IsNullOrEmpty(setting.settingToken))
-                {
-                    bool foundInDict = settingToSubTabMap.TryGetValue(setting.settingToken, out var subTabs);
-
-                    if (foundInDict)
-                    {
-                        bool shouldShow = shouldShowPredicate(setting.settingToken, subTabs);
-
-                        var canvasGroup = setting.GetComponent<UnityEngine.CanvasGroup>();
-                        if (canvasGroup == null)
-                        {
-                            canvasGroup = setting.gameObject.AddComponent<UnityEngine.CanvasGroup>();
-                        }
-
-                        var layoutElement = setting.GetComponent<UnityEngine.UI.LayoutElement>();
-                        if (layoutElement == null)
-                        {
-                            layoutElement = setting.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-                        }
-
-                        if (shouldShow)
-                        {
-                            canvasGroup.alpha = 1f;
-                            canvasGroup.blocksRaycasts = true;
-                            layoutElement.ignoreLayout = false;
-                        }
-                        else
-                        {
-                            canvasGroup.alpha = 0f;
-                            canvasGroup.blocksRaycasts = false;
-                            layoutElement.ignoreLayout = true;
-                        }
-                    }
+                    SetRooVisibility(setting, shouldBeVisible, isEnabled);
                 }
             }
         }

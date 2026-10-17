@@ -12,16 +12,22 @@ namespace DrifterBossGrabMod
         public override void Cleanup()
         {
             Balance.OverencumbranceSystem.Cleanup();
+            RoR2.GlobalEventManager.onServerDamageDealt -= BalancePatches.EliteGrabEffectPatches.OnServerDamageDealt;
+            API.EliteThrowEffectsAPI.ResetGrabHitCooldowns();
             base.Cleanup();
         }
 
         protected override void ApplyPatches(Harmony harmony)
         {
-            Log.Debug($"[{FeatureName}] Applying balance patches...");
+            RoR2.GlobalEventManager.onServerDamageDealt -= BalancePatches.EliteGrabEffectPatches.OnServerDamageDealt;
+            RoR2.GlobalEventManager.onServerDamageDealt += BalancePatches.EliteGrabEffectPatches.OnServerDamageDealt;
 
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_RecalculateStats_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.CharacterBody_OnDestroy_Patch)).Patch();
 
+            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EliteThrowEffectPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EliteGrabEffectPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.BalancePatches.BaggedBlazingTrailPatch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_ModifyProjectile_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_OnEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BalancePatches.EmptyBag_FireProjectile_Patch)).Patch();
@@ -35,8 +41,6 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.StateCalculationPatches.BluntForceHit3_OnEnter_UseFormula)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.BaggedObject_UpdateBaggedObjectMass)).Patch();
-
-            Log.Debug($"[{FeatureName}] Balance patches applied successfully.");
         }
     }
 }

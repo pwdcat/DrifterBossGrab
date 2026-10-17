@@ -7,7 +7,7 @@ namespace DrifterBossGrabMod
         public const string CloneSuffix = "(Clone)";
         public const string PluginGuid = "com.pwdcat.DrifterBossGrab";
         public const string PluginName = "DrifterBossGrab";
-        public const string PluginVersion = "1.9.0";
+        public const string PluginVersion = BuildVersion.Value;
 
         public static class Timeouts
         {
@@ -56,7 +56,6 @@ namespace DrifterBossGrabMod
             public const short MultiplexerMessageType = 16259;
             public const uint MSG_SIGNATURE = 0x444247; // DBG
 
-            // Sub-message types
             public const byte BaggedObjectsPersistenceSubMessageType = 1;
             public const byte UpdateBagStateSubMessageType = 2;
             public const byte CycleRequestSubMessageType = 3;
@@ -69,6 +68,7 @@ namespace DrifterBossGrabMod
             public const byte BreakoutPresentationSubMessageType = 10;
             public const byte CardDepartureSubMessageType = 11;
             public const byte SlamFeedbackSubMessageType = 12;
+            public const byte RestoreCollisionProtectionSubMessageType = 13;
         }
 
     }

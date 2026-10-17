@@ -44,7 +44,7 @@ namespace DrifterBossGrabMod.Networking
                 {
                     Log.Debug("[BagStateSync] Adding BottomlessBagNetworkController to DrifterBody prefab");
                     drifterBody.AddComponent<BottomlessBagNetworkController>();
-                    Log.Debug("[BagStateSync] Successfully added BottomlessBagNetworkController to DrifterBody prefab.");
+                    Log.Debug("[BagStateSync] Added BottomlessBagNetworkController to DrifterBody prefab.");
                 }
             }
             else if (PluginConfig.Instance.EnableDebugLogs.Value)

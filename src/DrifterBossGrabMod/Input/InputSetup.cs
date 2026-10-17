@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -53,7 +54,7 @@ namespace DrifterBossGrabMod.Input
                         userDataInit,
                         typeof(InputSetup).GetMethod(nameof(AddCustomActions), BindingFlags.NonPublic | BindingFlags.Static)!
                     );
-                    Log.Debug($"[InputSetup] Successfully hooked UserData init method via MonoMod.RuntimeDetour.Hook");
+                    Log.Debug($"[InputSetup] Hooked UserData init via MonoMod.RuntimeDetour.Hook");
                 }
                 catch (Exception e)
                 {
@@ -99,11 +100,16 @@ namespace DrifterBossGrabMod.Input
             if (settingsAwake != null)
                 harmony.Patch(settingsAwake, postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnSettingsPanelAwake)));
 
+            harmony.Patch(AccessTools.Method(typeof(InputBindingControl), "OnEnable"),
+                postfix: new HarmonyMethod(typeof(InputSetup), nameof(OnControllerBindingEnabled)));
+            harmony.Patch(AccessTools.Method(typeof(InputBindingDisplayController), "Refresh"),
+                transpiler: new HarmonyMethod(typeof(InputSetup), nameof(ControllerBindingDisplayTranspiler)));
+
             var getStringMethod = AccessTools.Method(typeof(Language), nameof(Language.GetString), new[] { typeof(string) });
             if (getStringMethod != null)
                 harmony.Patch(getStringMethod, prefix: new HarmonyMethod(typeof(InputSetup), nameof(OnLanguageGetString)));
 
-            Log.Debug("[InputSetup] Rewired input actions registered successfully.");
+            Log.Debug("[InputSetup] Rewired input actions registered.");
         }
 
         private static bool OnLanguageGetString(string token, ref string __result)
@@ -302,6 +308,63 @@ namespace DrifterBossGrabMod.Input
                 AddActionBindingToSettings(RewiredActions.ScrollBagUp.Name, jumpBinding.transform);
                 AddActionBindingToSettings(RewiredActions.ScrollBagDown.Name, jumpBinding.transform);
             }
+        }
+
+        private static bool IsControllerSettingsBinding(InputBindingControl? control)
+        {
+            return control != null && control.inputSource == MPEventSystem.InputSource.Gamepad
+                && control.GetComponentInParent<SettingsPanelController>(true) != null;
+        }
+
+        private static void OnControllerBindingEnabled(InputBindingControl __instance)
+        {
+            if (IsControllerSettingsBinding(__instance))
+                __instance.StartCoroutine(RefreshControllerBindingAfterEnable(__instance));
+        }
+
+        private static IEnumerator RefreshControllerBindingAfterEnable(InputBindingControl control)
+        {
+            yield return null;
+            if (control == null || !control.gameObject.activeInHierarchy || control.bindingDisplay == null) yield break;
+            var locator = control.bindingDisplay.GetComponent<MPEventSystemLocator>();
+            if (locator != null && locator.eventSystem != null)
+                control.bindingDisplay.Refresh();
+        }
+
+        private static IEnumerable<CodeInstruction> ControllerBindingDisplayTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var getGlyph = AccessTools.Method(typeof(Glyphs), nameof(Glyphs.GetGlyphString),
+                new[] { typeof(MPEventSystem), typeof(string), typeof(AxisRange), typeof(MPEventSystem.InputSource), typeof(bool) });
+            var replacement = AccessTools.Method(typeof(InputSetup), nameof(GetControllerSettingsBindingGlyph));
+            int replacements = 0;
+            var result = new List<CodeInstruction>();
+            foreach (var instruction in instructions)
+            {
+                if (instruction.Calls(getGlyph))
+                {
+                    var loadDisplay = new CodeInstruction(OpCodes.Ldarg_0);
+                    loadDisplay.MoveLabelsFrom(instruction);
+                    loadDisplay.MoveBlocksFrom(instruction);
+                    result.Add(loadDisplay);
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = replacement;
+                    replacements++;
+                }
+                result.Add(instruction);
+            }
+            if (replacements != 1) throw new InvalidOperationException("Could not identify the explicit binding glyph lookup.");
+            return result;
+        }
+
+        private static string GetControllerSettingsBindingGlyph(MPEventSystem eventSystem, string actionName,
+            AxisRange axisRange, MPEventSystem.InputSource inputSource, bool useLastActiveControllerOnly,
+            InputBindingDisplayController display)
+        {
+            var control = display.GetComponentInParent<InputBindingControl>();
+            if (inputSource == MPEventSystem.InputSource.Gamepad && control != null
+                && control.bindingDisplay == display && IsControllerSettingsBinding(control))
+                useLastActiveControllerOnly = false;
+            return Glyphs.GetGlyphString(eventSystem, actionName, axisRange, inputSource, useLastActiveControllerOnly);
         }
 
         private static void AddActionBindingToSettings(string actionName, Transform buttonToCopy)

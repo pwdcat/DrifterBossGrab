@@ -15,10 +15,6 @@ namespace DrifterBossGrabMod.Networking
     // ========================================================================================
     public static class CycleNetworkHandler
     {
-
-        // ========================================================================================
-        // OUTBOUND MESSAGES (CLIENT -> SERVER)
-        // ========================================================================================
         public static void SendClientPreferences(NetworkIdentity controllerIdentity, bool autoPromote, bool prioritize)
         {
             var msg = new ClientPreferencesMessage
@@ -78,9 +74,6 @@ namespace DrifterBossGrabMod.Networking
             NetworkMessageRegistry.SendToServer(Constants.Network.GrabObjectSubMessageType, msg);
         }
 
-        // ========================================================================================
-        // STATE BROADCASTS (SERVER -> CLIENT)
-        // ========================================================================================
         public static void SendBagStateUpdate(DrifterBagController bagController, NetworkInstanceId removedObjectNetId, bool isThrowOperation = false)
         {
             if (!NetworkServer.active) return;
@@ -93,12 +86,21 @@ namespace DrifterBossGrabMod.Networking
 
             var baggedObjects = netController.GetBaggedObjects();
             var baggedIds = new uint[baggedObjects.Count];
-            var seatIds = new uint[baggedObjects.Count];
             for (int i = 0; i < baggedObjects.Count; i++)
             {
                 var netId = baggedObjects[i].GetComponent<NetworkIdentity>();
                 baggedIds[i] = netId != null ? netId.netId.Value : 0;
-                seatIds[i] = netId != null ? netId.netId.Value : 0;
+            }
+
+            var bagState = BagPatches.GetState(bagController);
+            var seatIds = new List<uint>();
+            var seenSeatIds = new HashSet<uint>();
+            foreach (var seat in bagState.AdditionalSeats.Values)
+            {
+                if (seat == null || !seat.hasPassenger || !baggedObjects.Contains(seat.NetworkpassengerBodyObject)) continue;
+                var identity = seat.GetComponent<NetworkIdentity>();
+                if (identity != null && identity.netId != NetworkInstanceId.Invalid && seenSeatIds.Add(identity.netId.Value))
+                    seatIds.Add(identity.netId.Value);
             }
 
             var elapsedTimes = new float[baggedObjects.Count];
@@ -121,10 +123,10 @@ namespace DrifterBossGrabMod.Networking
             {
                 controllerNetId = ni.netId,
                 selectedIndex = netController.selectedIndex,
-                emptySlotIndex = BagPatches.GetState(bagController).EmptySlotIndex,
+                emptySlotIndex = bagState.EmptySlotIndex,
                 removedObjectNetId = removedObjectNetId,
                 baggedIds = baggedIds,
-                seatIds = seatIds,
+                seatIds = seatIds.ToArray(),
                 scrollDirection = 0,
                 isThrowOperation = isThrowOperation,
                 elapsedBreakoutTimes = elapsedTimes,
@@ -164,6 +166,16 @@ namespace DrifterBossGrabMod.Networking
         // ========================================================================================
         // INBOUND MESSAGE HANDLERS (SERVER)
         // ========================================================================================
+        internal static bool IsRequestOwner(GameObject controllerObject, NetworkConnection connection)
+        {
+            if (!NetworkServer.active || controllerObject == null || connection == null) return false;
+            var identity = controllerObject.GetComponent<NetworkIdentity>();
+            if (identity == null) return false;
+            var owner = identity.clientAuthorityOwner ?? identity.connectionToClient ??
+                controllerObject.GetComponent<CharacterBody>()?.master?.playerCharacterMasterController?.networkUser?.connectionToClient;
+            return owner != null && ReferenceEquals(owner, connection);
+        }
+
         public static void HandleClientPreferencesMessage(NetworkReader reader, NetworkConnection conn)
         {
             var msg = new ClientPreferencesMessage();
@@ -171,6 +183,7 @@ namespace DrifterBossGrabMod.Networking
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
+            if (!IsRequestOwner(controllerObj, conn)) return;
 
             var netController = controllerObj.GetComponent<BottomlessBagNetworkController>();
             if (netController == null) return;
@@ -186,6 +199,7 @@ namespace DrifterBossGrabMod.Networking
 
             var controllerObj = NetworkServer.FindLocalObject(msg.bagControllerNetId);
             if (!controllerObj) return;
+            if (!IsRequestOwner(controllerObj, conn)) return;
 
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController != null)
@@ -202,6 +216,7 @@ namespace DrifterBossGrabMod.Networking
 
             var controllerObj = NetworkServer.FindLocalObject(msg.controllerNetId);
             if (!controllerObj) return;
+            if (!IsRequestOwner(controllerObj, conn)) return;
 
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController == null) return;
@@ -217,6 +232,7 @@ namespace DrifterBossGrabMod.Networking
 
             var controllerObj = NetworkUtils.FindLocalObjectWithLogging(msg.bagControllerNetId, "HandleGrabObjectMessage", isServer: true);
             if (controllerObj == null) return;
+            if (!IsRequestOwner(controllerObj, conn)) return;
 
             var bagController = controllerObj.GetComponent<DrifterBagController>();
             if (bagController == null)
@@ -227,6 +243,9 @@ namespace DrifterBossGrabMod.Networking
 
             var targetObject = NetworkUtils.FindLocalObjectWithLogging(msg.targetObjectNetId, "HandleGrabObjectMessage", isServer: true);
             if (targetObject == null) return;
+
+            if (targetObject == controllerObj && (!controllerObj.TryGetComponent<CharacterBody>(out var selfBody)
+                || !SelfGrabPatches.CanSelfGrab(selfBody))) return;
 
             if (!NetworkUtils.ValidateObjectReady(targetObject))
             {
@@ -249,7 +268,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(targetObject))
             {
-                Log.Warning($"[HandleGrabObjectMessage] Blocking grab request for {targetObject.name} - object is currently undergoing throw operation");
+                Log.Warning($"[HandleGrabObjectMessage] Blocking grab request for {targetObject.name} - object is being thrown");
                 return;
             }
 
@@ -388,7 +407,7 @@ namespace DrifterBossGrabMod.Networking
                 BaggedObjectStatePatches.ForceCleanupOverrides(bagController, previousMainPassenger);
             }
 
-            Log.Debug($"[HandleBagStateUpdatedMessage] About to sync bag state for {bagController.name} - baggedCount={(msg.baggedIds?.Length ?? 0)}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
+            Log.Debug($"[HandleBagStateUpdatedMessage] Syncing bag state for {bagController.name} - baggedCount={(msg.baggedIds?.Length ?? 0)}, selectedIndex={msg.selectedIndex}, isThrow={msg.isThrowOperation}");
 
             var bagState = BagPatches.GetState(bagController);
             if (bagState != null && msg.baggedIds != null)

@@ -25,7 +25,9 @@ namespace DrifterBossGrabMod.Patches
                     if (bagController != null)
                     {
                         int baggedCount = BagCapacityCalculator.GetCurrentBaggedCount(bagController);
-                        int clampedMax = Mathf.Max(1, __instance.maxStock - baggedCount);
+                        int slotCapacity = BagCapacityCalculator.GetUtilityMaxStock(bagController);
+                        int clampedMax = (int)Math.Max(1L,
+                            Math.Min((long)__instance.maxStock, (long)slotCapacity - baggedCount));
 
                         if (__instance.stock >= clampedMax)
                         {

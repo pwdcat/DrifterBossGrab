@@ -52,7 +52,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     if (spawnedMaster != null)
                     {
                         spawnedMasters?.Add(objData.ObjectInstanceId);
-                        Log.Debug($"[ObjectSpawn] Successfully spawned master {spawnedMaster.name} via DirectorCore");
+                        Log.Debug($"[ObjectSpawn] Spawned master {spawnedMaster.name} via DirectorCore");
                         return spawnedMaster;
                     }
                 }
@@ -121,7 +121,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                             : null;
                         if (spawnedBody != null)
                         {
-                            Log.Debug($"[ObjectSpawn] Successfully spawned body {spawnedBody.name} via master {masterName}");
+                            Log.Debug($"[ObjectSpawn] Spawned body {spawnedBody.name} via master {masterName}");
                             return spawnedBody.gameObject;
                         }
                     }
@@ -246,7 +246,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
                     else Log.Debug($"  - CharacterBody: FOUND");
                 }
 
-                Log.Debug($"[ObjectSpawn] Successfully spawned {spawnedObject.name}");
+                Log.Debug($"[ObjectSpawn] Spawned {spawnedObject.name}");
             }
             else
             {
@@ -313,7 +313,7 @@ namespace DrifterBossGrabMod.ProperSave.Spawning
         // ========================================================================================
         // UTILITY METHODS
         // ========================================================================================
-        private static CharacterBody? FindOwnerBody(string? ownerId)
+        internal static CharacterBody? FindOwnerBody(string? ownerId)
         {
             if (string.IsNullOrEmpty(ownerId))
             {

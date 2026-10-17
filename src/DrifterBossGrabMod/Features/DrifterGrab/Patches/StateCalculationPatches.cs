@@ -12,6 +12,9 @@ using DrifterBossGrabMod.Core;
 namespace DrifterBossGrabMod.Patches
 {
 
+    // ========================================================================================
+    // STATE CALCULATION PATCHES
+    // ========================================================================================
     public static class StateCalculationPatches
     {
 
@@ -26,9 +29,8 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
+                bagController.maxSmacks = Core.StateCalculator.CalculateMaxSmacks(bagController);
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
-
-                Log.Debug($"[BluntForceHit3_OnEnter] Applied formula-based bludgeon damage coefficient: {__instance.damageCoefficient:F2}");
             }
         }
 
@@ -43,6 +45,7 @@ namespace DrifterBossGrabMod.Patches
                 var bagController = __instance.GetComponent<DrifterBagController>();
                 if (bagController == null) return;
 
+                bagController.maxSmacks = Core.StateCalculator.CalculateMaxSmacks(bagController);
                 __instance.damageCoefficient = SlamDamageCalculator.GetEffectiveCoefficient(bagController);
 
                 float damageCapacity = CapacityScalingSystem.CalculateMassCapacity(bagController);
@@ -55,13 +58,6 @@ namespace DrifterBossGrabMod.Patches
 
                 float num2 = __instance.baseDurationBeforeInterruptable / __instance.baseDuration;
                 __instance.durationBeforeInterruptable = __instance.baseDuration * num2;
-
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                {
-                    Log.Debug($"[SuffocateSlam_OnEnter] Applied formula-based damage:");
-                    Log.Debug($"  Damage Coef: {__instance.damageCoefficient:F2} (mass={bagController.baggedMass:F1}, capacity={damageCapacity:F1})");
-                    Log.Debug($"  Base Duration: {__instance.baseDuration:F2}s");
-                }
             }
         }
 
@@ -84,14 +80,19 @@ namespace DrifterBossGrabMod.Patches
                 {
 
                     overlapAttack.damage = drifterBody.damage * effectiveCoef;
-
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Debug($"[SuffocateSlam_AuthorityModifyOverlapAttack] Applied custom damage:");
-                        Log.Debug($"  OverlapAttack Damage: {overlapAttack.damage:F2} (coef={effectiveCoef:F2}, baseDamage={drifterBody.damage:F2})");
-                    }
                 }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(DrifterBagController), "IncreaseSmacks")]
+    public static class UnlimitedHitsPatches
+    {
+        [HarmonyPrefix]
+        public static bool Prefix(DrifterBagController __instance)
+        {
+            if (!PluginConfig.Instance.EnableBalance.Value) return true;
+            return Core.StateCalculator.CalculateMaxSmacks(__instance) != int.MaxValue;
         }
     }
 }

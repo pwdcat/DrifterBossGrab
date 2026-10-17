@@ -616,7 +616,8 @@ namespace DrifterBossGrabMod.UI
             HashSet<GameObject?> foundPassengers = new();
             HashSet<GameObject?> wrappedPassengers = new();
 
-            var slotsToProcess = _slots.Where(slot => !_exitingSlots.Contains(slot)).OrderBy(slot =>
+            bool reuseClientCards = !NetworkServer.active && cycleCount == 2;
+            var slotsToProcess = _slots.Where(slot => reuseClientCards || !_exitingSlots.Contains(slot)).OrderBy(slot =>
             {
                 if (!_slotToPassenger.TryGetValue(slot, out var passenger) ||
                     !_slotToState.TryGetValue(slot, out int previousState)) return int.MaxValue;
@@ -631,8 +632,16 @@ namespace DrifterBossGrabMod.UI
                 if (!_slotToPassenger.TryGetValue(slot, out var passenger)) continue;
 
                 int newState = -99;
+                if (reuseClientCards && direction != 0 && _slotToState.TryGetValue(slot, out int previousPosition))
+                {
+                    int expectedPosition = previousPosition - Math.Sign(direction);
+                    if (IsVisibleState(expectedPosition, cycleCount) &&
+                        targetPassengers.TryGetValue(expectedPosition, out var expectedPassenger) && expectedPassenger == passenger)
+                        newState = expectedPosition;
+                }
                 foreach (var kvp in targetPassengers)
                 {
+                    if (newState != -99 && IsVisibleState(newState, cycleCount)) break;
                     if (kvp.Value == passenger)
                     {
                         if (newState == -99 || (!IsVisibleState(newState, cycleCount) &&
@@ -645,7 +654,7 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
 
-                bool wraps = cycleCount > 1 && newState != -99 &&
+                bool wraps = !reuseClientCards && cycleCount > 1 && newState != -99 &&
                     _slotToState.TryGetValue(slot, out int oldState) &&
                     (direction != 0 ? newState != oldState - Math.Sign(direction)
                         : (oldState < 0 && newState > 0) || (oldState > 0 && newState < 0));
@@ -669,6 +678,17 @@ namespace DrifterBossGrabMod.UI
                 }
                 else
                 {
+                    if (reuseClientCards)
+                    {
+                        if (_activeCoroutines.TryGetValue(slot, out var animation)) StopCoroutine(animation);
+                        _activeCoroutines.Remove(slot);
+                        slot.SetActive(false);
+                        _slotToPassenger.Remove(slot);
+                        _slotToPassengerNetId.Remove(slot);
+                        _slotToState.Remove(slot);
+                        _exitingSlots.Remove(slot);
+                        continue;
+                    }
 
                     _slotToState.TryGetValue(slot, out int oldExitState);
                     int exitState = GetCycleExitState(oldExitState, direction, cycleCount);
@@ -946,7 +966,6 @@ namespace DrifterBossGrabMod.UI
             return selected != null && card != null && hasBounds;
         }
 
-
         internal bool IsInspectionRowObstructed(GameObject selected, Rect row)
         {
             foreach (var slot in _slots)
@@ -1121,52 +1140,12 @@ namespace DrifterBossGrabMod.UI
                     var specialObjectAttributes = passenger!.GetComponent<SpecialObjectAttributes>();
                     var body = passenger.GetComponent<CharacterBody>();
                     var master = passenger.GetComponent<CharacterMaster>();
-                    var healthComponent = passenger.GetComponent<HealthComponent>();
 
                     baggedCardController.sourceBody = body;
                     baggedCardController.sourceMaster = master;
                     baggedCardController.sourcePassengerAttributes = specialObjectAttributes;
                     baggedCardController.ForceUpdate();
                     ResetHealthBarWithoutSource(baggedCardController.healthBar);
-
-                    if (healthComponent != null && body != null)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Debug($"[BaggedObjectCarousel] Health info for {passenger.name}: health={healthComponent.health}, fullHealth={healthComponent.fullHealth}, fullCombinedHealth={healthComponent.fullCombinedHealth}, baseMaxHealth={body.baseMaxHealth}");
-                        }
-
-                        if (baggedCardController.healthBar != null && baggedCardController.healthBar.source == healthComponent)
-                        {
-                            try
-                            {
-                                baggedCardController.healthBar.Update();
-                            }
-                            catch (NullReferenceException)
-                            {
-                                Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
-                            }
-                        }
-                    }
-                    else if (specialObjectAttributes != null)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value)
-                        {
-                            Log.Debug($"[BaggedObjectCarousel] SpecialObjectAttributes for {passenger!.name}: durability={specialObjectAttributes.durability}, maxDurability={specialObjectAttributes.maxDurability}");
-                        }
-
-                        if (baggedCardController.healthBar != null && baggedCardController.healthBar.altSource == specialObjectAttributes)
-                        {
-                            try
-                            {
-                                baggedCardController.healthBar.Update();
-                            }
-                            catch (NullReferenceException)
-                            {
-                                Log.Warning($"[BaggedObjectCarousel] Failed to update health bar for passenger {passenger?.name} (health bar in invalid state)");
-                            }
-                        }
-                    }
 
                     if (baggedCardController.healthBar && baggedCardController.healthBar!.deadImage)
                     {

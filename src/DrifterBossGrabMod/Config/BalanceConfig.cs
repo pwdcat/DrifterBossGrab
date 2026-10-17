@@ -12,22 +12,23 @@ namespace DrifterBossGrabMod
     {
         private static void InitBalanceConfig(ConfigFile cfg)
         {
-            Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable mass and penalty systems.");
-            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC", "Formula for mass capacity limit. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap config), S (Stage).");
-            Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0", "Formula for movement speed penalty. Supported: T (Total Mass), M (Mass Cap limit), C (Total Cap), H (Max HP), L (Level), MC (Mass Cap config), S (Stage).");
+            Instance.EnableBalance = cfg.Bind("Balance", "EnableBalance", false, "Enable bag mass limits and penalties.");
+            Instance.MassCapacityFormula = cfg.Bind("Balance", "MassCapacityFormula", "C * MC", "Set the bag's mass limit. Variables: H (Max HP), L (Level), C (Stocks), MC (Mass Cap config), S (Stage).");
+            Instance.MovespeedPenaltyFormula = cfg.Bind("Balance", "MovespeedPenaltyFormula", "0", "Set the movement speed penalty. Variables: T (Total Mass), M (Mass Cap limit), C (Total Cap), H (Max HP), L (Level), MC (Mass Cap config), S (Stage).");
 
             Instance.SlamDamageFormula = cfg.Bind("Balance", "SlamDamageFormula",
                 "BASE_COEF + (MASS_SCALING * BM / MC)",
-                "Formula for slam damage coefficient. Supported: BASE_COEF, MASS_SCALING, BM (Bagged Mass), MC (Mass Cap).");
-            Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "State calculation mode for stats.");
-            Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Mode for AoE damage distribution.");
-            Instance.OverencumbranceMax = cfg.Bind("Balance", "OverencumbranceMax", 100.0f, "Maximum overencumbrance percentage.");
+                "Set the slam damage multiplier. Variables: BASE_COEF, MASS_SCALING, BM (Bagged Mass), MC (Mass Cap), N (Passenger Count).");
+            Instance.StateCalculationMode = cfg.Bind("Balance", "StateCalculationMode", DrifterBossGrabMod.StateCalculationMode.Current, "Use stats from the selected passenger (Current) or the whole bag (All).");
+            Instance.AoEDamageDistribution = cfg.Bind("Balance", "AoEDamageDistribution", AoEDamageMode.Full, "Choose how slams damage other passengers. Requires All stats mode. None: selected passenger only. Full: full damage to each. Split: divide damage between passengers.");
+            Instance.OverencumbranceMax = cfg.Bind("Balance", "OverencumbranceMax", 100.0f, "Maximum percentage over the bag's mass limit.");
 
-            Instance.BreakoutTimeMultiplier = cfg.Bind("Balance", "BreakoutTimeMultiplier", 1.0f, "Multiplier for breakout time.");
-            Instance.MaxSmacks = cfg.Bind("Balance", "MaxSmacks", 3, new ConfigDescription("Hits before breakout.", new AcceptableValueRange<int>(1, 100)));
-            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum launch speed for breakout.");
-            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Bag visual size cap.");
-            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Mass cap for caught entities.");
+            Instance.BreakoutTimeFormula = cfg.Bind("Balance", "BreakoutTimeFormula", "", "Set the time between breakout attempts as a multiplier. H/L/C refer to Drifter; S=stage, N=passenger count, T=total mass, PM=passenger mass, PH/PL=passenger max health/level, BT=base interval in seconds. Flags such as ELITE/BOSS refer to the passenger (0 or 1). Passenger health, level and flags are 0 for objects without a character body.");
+            Instance.GrabRangeFormula = cfg.Bind("Balance", "GrabRangeFormula", "", "Set the grab range multiplier. H/L/C refer to Drifter; S=stage, N=passenger count, T=total mass. Flag variables are not supported.");
+            Instance.MaxSmacksFormula = cfg.Bind("Balance", "MaxSmacksFormula", "", "Set how many hits it takes for the selected passenger to break out. H/L/C refer to Drifter; S=stage, N=passenger count, T=total mass, PM=passenger mass, PH/PL=passenger max health/level. Flags such as ELITE/BOSS refer to the passenger (0 or 1). Passenger health, level and flags are 0 for objects without a character body. Rounded down to a whole number. INF disables hit-based breakout.");
+            Instance.MaxLaunchSpeed = cfg.Bind("Balance", "MaxLaunchSpeed", "30", "Maximum speed of passengers when they break out.");
+            Instance.BagScaleCap = cfg.Bind("Balance", "BagScaleCap", "1", "Maximum visual size of the bag.");
+            Instance.MassCap = cfg.Bind("Balance", "MassCap", "700", "Maximum mass counted for each passenger.");
 
             WireBalanceEventHandlers();
         }
@@ -96,6 +97,30 @@ namespace DrifterBossGrabMod
                     overlay.InvalidateCache();
                 }
             };
+        }
+        internal ConfigEntry<string> EliteThrowEffectSelection { get; private set; } = null!;
+        private static bool updatingEliteSelection;
+
+        private static void InitEliteThrowEffectsConfig(ConfigFile cfg)
+        {
+            BalanceSettingToSubTab["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.ELITE_EFFECTS.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas };
+            Instance.EliteThrowEffectSelection = cfg.Bind("Hidden", "EliteThrowEffectSelection", "", "Elite effects on throw / grab");
+            Instance.EliteThrowEffectSelection.SettingChanged += (_, __) =>
+            {
+                if (updatingEliteSelection) return;
+                updatingEliteSelection = true;
+                try { API.EliteThrowEffectsAPI.ApplySelectionIds(Instance.EliteThrowEffectSelection.Value); }
+                finally { updatingEliteSelection = false; }
+            };
+            API.EliteThrowEffectsAPI.Initialize(cfg);
+        }
+
+        internal static void RefreshEliteThrowSelection()
+        {
+            if (updatingEliteSelection || Instance.EliteThrowEffectSelection == null) return;
+            updatingEliteSelection = true;
+            try { Instance.EliteThrowEffectSelection.Value = API.EliteThrowEffectsAPI.SelectionIds; }
+            finally { updatingEliteSelection = false; }
         }
     }
 }

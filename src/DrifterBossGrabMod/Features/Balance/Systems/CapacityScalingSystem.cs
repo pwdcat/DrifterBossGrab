@@ -75,19 +75,12 @@ namespace DrifterBossGrabMod.Balance
         {
             if (bagController == null) return;
 
-            int totalCapacity = GetTotalCapacity(bagController);
-            float massCapacity = CalculateMassCapacity(bagController);
-
-            Log.Debug($"[CapacityScaling] Recalculating capacity: Total={totalCapacity}, MassCapacity={massCapacity}");
-
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
 
         public static void RecalculateState(DrifterBagController? bagController)
         {
             if (bagController == null) return;
-
-            Log.Debug($"[CapacityScaling] Recalculating state for bag controller");
 
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
@@ -96,16 +89,12 @@ namespace DrifterBossGrabMod.Balance
         {
             if (bagController == null) return;
 
-            Log.Debug($"[CapacityScaling] Recalculating mass for bag controller");
-
             BagPassengerManager.ForceRecalculateMass(bagController);
         }
 
         public static void RecalculatePenalty(DrifterBagController? bagController)
         {
             if (bagController == null) return;
-
-            Log.Debug($"[CapacityScaling] Recalculating penalty for bag controller");
 
             BagPassengerManager.ForceRecalculateMass(bagController);
         }

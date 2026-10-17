@@ -280,7 +280,6 @@ namespace DrifterBossGrabMod
             RemoveClientPreferenceHandlers();
             CleanupFeatures();
             StopCoroutines();
-            Patches.UIPatches.CleanupMassCapacityUI();
             Networking.BagStateSync.Cleanup();
             Networking.NetworkMessageRegistry.Cleanup();
             ProperSave.ProperSaveIntegration.Cleanup();

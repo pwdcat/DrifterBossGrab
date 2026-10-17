@@ -12,9 +12,6 @@ using EntityStates.Drifter.Bag;
 namespace DrifterBossGrabMod.Core
 {
 
-    // ========================================================================================
-    // STATE CALCULATOR
-    // ========================================================================================
     public static class StateCalculator
     {
         public static BaggedObjectStateData CalculateState(
@@ -30,20 +27,14 @@ namespace DrifterBossGrabMod.Core
             return GetAggregateState(controller);
         }
 
-        // ========================================================================================
-        // STATE RETRIEVAL
-        // ========================================================================================
         public static BaggedObjectStateData GetIndividualObjectState(
             DrifterBagController controller,
             GameObject targetObject)
         {
             if (targetObject == null)
             {
-                Log.Debug($"[STATE CREATION] GetIndividualObjectState returning empty state for null targetObject");
                 return new BaggedObjectStateData();
             }
-
-            Log.Debug($"[GetIndividualObjectState] Checking for existing state for {targetObject.name}");
 
             float preservedBreakoutTime = 0f;
             float preservedBreakoutAttempts = 0f;
@@ -84,12 +75,10 @@ namespace DrifterBossGrabMod.Core
             var storedState = BaggedObjectPatches.LoadObjectState(controller, targetObject);
             if (storedState != null)
             {
-                Log.Debug($"[STATE REUSE] GetIndividualObjectState reusing stored state for {targetObject.name}: baseMaxHealth={storedState.baseMaxHealth}");
                 state = storedState;
             }
             else
             {
-                Log.Debug($"[STATE CREATION] GetIndividualObjectState creating new state for {targetObject.name}");
                 state = new BaggedObjectStateData();
                 state.CalculateFromObject(targetObject, controller);
             }
@@ -114,7 +103,6 @@ namespace DrifterBossGrabMod.Core
             var baggedObjects = BagPatches.GetState(controller).BaggedObjects;
             if (baggedObjects == null)
             {
-                Log.Debug($"[STATE CREATION] GetAggregateState returning empty state - baggedObjects is null");
                 return new BaggedObjectStateData();
             }
 
@@ -136,7 +124,6 @@ namespace DrifterBossGrabMod.Core
                 {
                     preservedElapsedBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTimer.GetValue(currentBaggedObject);
                 }
-
             }
 
             var aggregateState = new BaggedObjectStateData();
@@ -152,7 +139,6 @@ namespace DrifterBossGrabMod.Core
                 var storedMainState = BaggedObjectPatches.LoadObjectState(controller, mainPassenger);
                 if (storedMainState != null)
                 {
-                    Log.Debug($"[GetAggregateState] Using stored state for main passenger {mainPassenger.name}: level={storedMainState.level}");
 
                     aggregateState.targetObject = storedMainState.targetObject ?? mainPassenger;
                     aggregateState.targetBody = storedMainState.targetBody;
@@ -177,7 +163,6 @@ namespace DrifterBossGrabMod.Core
                 }
                 else
                 {
-                    Log.Debug($"[GetAggregateState] No stored state for {mainPassenger.name}, calculating from object");
                     aggregateState.CalculateFromObject(mainPassenger, controller);
                 }
             }
@@ -295,24 +280,55 @@ namespace DrifterBossGrabMod.Core
             return penalty;
         }
 
-        // ========================================================================================
-        // VISUAL SCALING
-        // ========================================================================================
+        public static float CalculateBreakoutTimeMultiplier(DrifterBagController? controller = null, GameObject? passenger = null, float baseTime = 0f)
+        {
+            var cfg = PluginConfig.Instance;
+            return Balance.BagFormulaContext.EvaluatePositive(cfg.BreakoutTimeFormula.Value, 1.0f,
+                controller != null ? controller.GetComponent<CharacterBody>() : null, controller, passenger, baseTime);
+        }
+
+        public static float CalculateGrabRangeMultiplier(CharacterBody body)
+        {
+            return Balance.BagFormulaContext.EvaluatePositive(PluginConfig.Instance.GrabRangeFormula.Value,
+                1.0f, body, body.GetComponent<DrifterBagController>(), includeFlags: false);
+        }
+
+        public static int CalculateMaxSmacks(DrifterBagController controller)
+        {
+            var formula = PluginConfig.Instance.MaxSmacksFormula.Value;
+            if (string.IsNullOrWhiteSpace(formula)) return 3;
+            var carrier = controller.GetComponent<CharacterBody>();
+            var variables = Balance.FormulaRegistry.GetVariables(carrier,
+                Balance.BagFormulaContext.Create(carrier, controller, BagPatches.GetMainSeatObject(controller)));
+            if (!Balance.FormulaParser.TryPreview(formula, variables, out float value, out _))
+                return 3;
+            if (value >= int.MaxValue) return int.MaxValue;
+            if (value <= int.MinValue) return int.MinValue;
+            return (int)Mathf.Floor(value);
+        }
+
         public static float CalculateBagScale01(DrifterBagController controller, float mass)
         {
             float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
-            float value = mass;
-            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
-            {
-                value = Mathf.Clamp(mass, 1f, maxCapacity);
-            }
-            else
-            {
-                value = Mathf.Max(mass, 1f);
-            }
+            if (float.IsNaN(mass)) return 0.5f;
+            float reference = GetBagScaleReferenceMass(maxCapacity);
+            float ratio = (mass - 1f) / Math.Max(reference - 1f, 0.0001f);
+            return 0.5f + 0.5f * Math.Max(0f, Math.Min(1f, ratio));
+        }
 
-            float t = GetMassScaleRatio(value, maxCapacity);
-            return 0.5f + 0.5f * t;
+        internal static float CalculateBagExtraScale(float mass, float capacity, float cap)
+        {
+            float reference = GetBagScaleReferenceMass(capacity);
+            if (float.IsNaN(mass) || float.IsInfinity(mass) || mass <= reference) return 1f;
+            float scale = 1f + (mass - reference) / Math.Max(reference - 1f, 1f);
+            if (float.IsNaN(cap)) return 1f;
+            return Math.Max(1f, Math.Min(scale, cap));
+        }
+
+        private static float GetBagScaleReferenceMass(float capacity)
+        {
+            return float.IsNaN(capacity) || float.IsInfinity(capacity) || capacity >= float.MaxValue || capacity <= 0f
+                ? Constants.Limits.MaxMass : capacity;
         }
 
         public static float GetMassScaleRatio(float value, float maxCapacity)

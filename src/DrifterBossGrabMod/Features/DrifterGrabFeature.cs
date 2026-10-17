@@ -11,6 +11,11 @@ namespace DrifterBossGrabMod
 
         protected override void ApplyPatches(Harmony harmony)
         {
+            harmony.CreateClassProcessor(typeof(Patches.UnlimitedHitsPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.CharacterBody_FixedUpdate)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.BaggedObject_OnEnter)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.BaggedObject_OnExit)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.VehicleSeat_OnPassengerExit)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.Run_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.BagPatches.DrifterBagController_AssignPassenger)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.HackingMainState_ScanForTarget_Patch)).Patch();
@@ -20,8 +25,8 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(UI.BreakoutWarningOverlay.AoE_ApplyDamageToObject_Feedback)).Patch();
             harmony.CreateClassProcessor(typeof(BodyColliderCache.ChipAnimator_LateUpdate_CarryCore)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_EjectPassengerToFinalPosition_Patch)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnSyncPassenger_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnDestroy_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_OnEnable_Patch)).Patch();
@@ -63,14 +68,14 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.BaggedObjectStatePatches.EntityStateMachine_SetState)).Patch();
 
-            harmony.CreateClassProcessor(typeof(Patches.MiscPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
-
             harmony.CreateClassProcessor(typeof(Patches.ProjectilePatches.ProjectileController_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.UIPatches.BaggedCardCompatibilityPatches)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.UIPatches.PassengerHealthBarPatches)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerEnter_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_FindVehicleSeatWithPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_OnPassengerExit_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.CharacterMotor_IsColliderValidForCollisions_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Core.PassengerReleaseProtection.VehicleSeat_SetPassengerCollisions_Patch)).Patch();
         }
     }
 }

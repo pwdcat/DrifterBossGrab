@@ -123,7 +123,7 @@ namespace DrifterBossGrabMod.API
                 action.Restore(component, state);
             }
 
-            Log.Debug($"[ComponentAPISerializer<{typeof(TComponent).Name}>] Successfully restored {obj.name}");
+            Log.Debug($"[ComponentAPISerializer<{typeof(TComponent).Name}>] Restored {obj.name}");
         }
 
         public ComponentAPISerializer<TComponent> AddAction<TValue>(

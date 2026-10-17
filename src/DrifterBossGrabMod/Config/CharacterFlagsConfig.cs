@@ -11,32 +11,32 @@ namespace DrifterBossGrabMod
     {
         private static void InitCharacterFlagsConfig(ConfigFile cfg)
         {
-            Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1", "Mass multiplier for Elite entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.EliteFlagMultiplier = cfg.Bind("Character Flags", "EliteFlagMultiplier", "1", "Mass multiplier for elites. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1", "Mass multiplier for Boss entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.BossFlagMultiplier = cfg.Bind("Character Flags", "BossFlagMultiplier", "1", "Mass multiplier for bosses. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1", "Mass multiplier for Champion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.ChampionFlagMultiplier = cfg.Bind("Character Flags", "ChampionFlagMultiplier", "1", "Mass multiplier for champions. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1", "Mass multiplier for Player entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.PlayerFlagMultiplier = cfg.Bind("Character Flags", "PlayerFlagMultiplier", "1", "Mass multiplier for players. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1", "Mass multiplier for Minion entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.MinionFlagMultiplier = cfg.Bind("Character Flags", "MinionFlagMultiplier", "1", "Mass multiplier for minions. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1", "Mass multiplier for Drone entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.DroneFlagMultiplier = cfg.Bind("Character Flags", "DroneFlagMultiplier", "1", "Mass multiplier for drones. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1", "Mass multiplier for Mechanical entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.MechanicalFlagMultiplier = cfg.Bind("Character Flags", "MechanicalFlagMultiplier", "1", "Mass multiplier for mechanical enemies. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
-            Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1", "Mass multiplier for Void entities. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+            Instance.VoidFlagMultiplier = cfg.Bind("Character Flags", "VoidFlagMultiplier", "1", "Mass multiplier for void enemies. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
             Instance.AllFlagMultiplier = cfg.Bind(
                 new ConfigDefinition("Character Flags", "all Flag Multiplier"),
                 "1",
-                new ConfigDescription("Universal multiplier for all enemies. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).")
+                new ConfigDescription("Mass multiplier applied to all enemies. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).")
             );
 
             Instance.SelectedFlag = cfg.Bind("Hidden", "SelectedFlag", CharacterFlagType.All,
                 "Select which flag to modify.");
             Instance.SelectedFlagMultiplier = cfg.Bind("Hidden", "FlagMultiplier", "1",
-                "Mass multiplier for selected flag. Supported: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
+                "Mass multiplier for the selected flag. Variables: B (Base Mass), H (Max HP), BH (Base Max HP), L (Level), C (Utility Stock Count), S (Stage Number), MC (Mass Capacity).");
 
             Instance.SelectedBalanceSubTab = cfg.Bind("Hidden", "SelectedBalanceSubTab", BalanceSubTabType.All,
                 "Select which Balance settings group to view.");

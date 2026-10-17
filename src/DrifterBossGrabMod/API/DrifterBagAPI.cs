@@ -1,8 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using BepInEx.Configuration;
 using RoR2;
+using RoR2.Projectile;
 using UnityEngine;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Core;
@@ -499,6 +503,301 @@ namespace DrifterBossGrabMod.API
         public static List<ProperSave.Serializers.IObjectSerializerPlugin> GetSerializerPlugins()
         {
             return ProperSave.ProperSaveIntegration.GetSerializerPlugins();
+        }
+    }
+
+    public static class EliteThrowEffectsAPI
+    {
+        public sealed class Entry
+        {
+            public string Id { get; }
+            public string DisplayName { get; }
+            public ConfigEntry<bool>? Enabled { get; internal set; }
+            public ConfigEntry<bool>? GrabEnabled { get; internal set; }
+            public bool SupportsGrab => GrabEffect != null || GrabHitEffect != null || NativeEquipmentName == "EliteFireEquipment";
+            internal readonly Action<CharacterBody, CharacterBody>? GrabEffect;
+            internal readonly Action<CharacterBody, CharacterBody>? GrabHitEffect;
+            internal readonly float GrabHitCooldown;
+            internal readonly string? NativeEquipmentName;
+            internal readonly Func<EliteDef, bool>? Matches;
+            internal readonly DamageTypeCombo Flags;
+            internal readonly bool DefaultEnabled;
+
+            internal Entry(string id, string name, string? equipment, Func<EliteDef, bool>? matches,
+                DamageTypeCombo flags, bool enabled, Action<CharacterBody, CharacterBody>? grabEffect = null,
+                Action<CharacterBody, CharacterBody>? grabHitEffect = null, float grabHitCooldown = 0f)
+            {
+                Id = id; DisplayName = name; NativeEquipmentName = equipment;
+                Matches = matches; Flags = flags; DefaultEnabled = enabled; GrabEffect = grabEffect;
+                GrabHitEffect = grabHitEffect; GrabHitCooldown = grabHitCooldown;
+            }
+        }
+
+        private static readonly List<Entry> entries = new()
+        {
+            new Entry("Blazing", "Blazing - Burn", "EliteFireEquipment", null, default, false),
+            new Entry("Glacial", "Glacial - Freeze", "EliteIceEquipment", null, default, false, (passenger, grabber) => grabber.AddTimedBuff(RoR2Content.Buffs.Slow80, 1.5f)),
+            new Entry("Overloading", "Overloading - Electrical Shock", "EliteLightningEquipment", null, default, false, SpawnLightningStake),
+            new Entry("Perfected", "Perfected - Cripple", "EliteLunarEquipment", null, default, false, null,
+                (passenger, grabber) => grabber.AddTimedBuff(RoR2Content.Buffs.Cripple, 3f), 6f)
+        };
+        private static ConfigFile? config;
+        private static ConditionalWeakTable<CharacterBody, Dictionary<string, float>> grabHitCooldowns = new();
+        internal static event Action<Entry>? EntryBound;
+        public static IReadOnlyList<Entry> Entries => entries.AsReadOnly();
+
+        public static Entry Register(string id, string displayName, Func<EliteDef, bool> matches,
+            DamageTypeCombo flags, bool defaultEnabled = false)
+            => Register(id, displayName, matches, flags, defaultEnabled, null);
+
+        public static Entry Register(string id, string displayName, Func<EliteDef, bool> matches,
+            DamageTypeCombo flags, bool defaultEnabled, Action<CharacterBody, CharacterBody>? grabEffect)
+            => Register(id, displayName, matches, flags, defaultEnabled, grabEffect, null, 0f);
+
+        public static Entry Register(string id, string displayName, Func<EliteDef, bool> matches,
+            DamageTypeCombo flags, bool defaultEnabled, Action<CharacterBody, CharacterBody>? grabEffect,
+            Action<CharacterBody, CharacterBody>? grabHitEffect, float grabHitCooldown)
+        {
+            if (float.IsNaN(grabHitCooldown) || float.IsInfinity(grabHitCooldown) || grabHitCooldown < 0f)
+                throw new ArgumentOutOfRangeException(nameof(grabHitCooldown));
+            if (string.IsNullOrWhiteSpace(id) || id.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '-'))
+                throw new ArgumentException("Use a stable ID containing letters, digits, underscores or hyphens", nameof(id));
+            if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("A display name is required", nameof(displayName));
+            if (matches == null) throw new ArgumentNullException(nameof(matches));
+            if (entries.Any(e => e.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("An elite throw mapping with this ID already exists", nameof(id));
+            var entry = new Entry(id, displayName, null, matches, flags, defaultEnabled, grabEffect, grabHitEffect, grabHitCooldown);
+            entries.Add(entry);
+            if (config != null) Bind(entry);
+            return entry;
+        }
+
+        internal static void Initialize(ConfigFile cfg)
+        {
+            config = cfg;
+            foreach (var entry in entries) Bind(entry);
+        }
+
+        private static void Bind(Entry entry)
+        {
+            entry.Enabled = config!.Bind("Balance", "EliteThrowEffect_" + entry.Id, entry.DefaultEnabled,
+                "Apply " + entry.DisplayName + " when throwing this elite.");
+            entry.Enabled.SettingChanged += (_, __) => PluginConfig.RefreshEliteThrowSelection();
+            if (entry.SupportsGrab)
+            {
+                entry.GrabEnabled = config.Bind("Balance", "EliteGrabEffect_" + entry.Id, entry.Id == "Blazing",
+                    entry.Id switch
+                    {
+                        "Blazing" => "Keep Blazing fire trails active while bagged.",
+                        "Glacial" => "Grabbing a Glacial enemy slows you for 1.5 seconds.",
+                        "Overloading" => "Grabbing an Overloading enemy spawns a lightning stake with half the enemy's current damage.",
+                        "Perfected" => "Taking a direct damaging hit while carrying a Perfected enemy cripples you for 3 seconds. Cooldown: 6 seconds.",
+                        _ => "Apply " + entry.Id + "'s effect to you while bagged."
+                    });
+                entry.GrabEnabled.SettingChanged += (_, __) => PluginConfig.RefreshEliteThrowSelection();
+            }
+            PluginConfig.RefreshEliteThrowSelection();
+            EntryBound?.Invoke(entry);
+        }
+
+        internal static string EnabledIds => string.Join(",", entries.Where(e => e.Enabled?.Value == true).Select(e => e.Id));
+        internal static void ApplyEnabledIds(string ids)
+        {
+            var enabled = new HashSet<string>(ids.Split(','), StringComparer.Ordinal);
+            foreach (var entry in entries)
+                if (entry.Enabled != null) entry.Enabled.Value = enabled.Contains(entry.Id);
+        }
+
+        internal static string EnabledGrabIds => string.Join(",", entries.Where(e => e.GrabEnabled?.Value == true).Select(e => e.Id));
+        internal static bool IsGrabEffectEnabled(string id) => entries.Any(entry => entry.Id == id && entry.GrabEnabled?.Value == true);
+        internal static string SelectionIds => string.Join(",", entries.SelectMany(e =>
+            (e.Enabled?.Value == true ? new[] { e.Id } : Array.Empty<string>()).Concat(
+                e.GrabEnabled?.Value == true ? new[] { "Grab:" + e.Id } : Array.Empty<string>())));
+
+        internal static void ApplyGrabEnabledIds(string ids)
+        {
+            var enabled = new HashSet<string>(ids.Split(','), StringComparer.Ordinal);
+            foreach (var entry in entries)
+                if (entry.GrabEnabled != null) entry.GrabEnabled.Value = enabled.Contains(entry.Id);
+        }
+
+        internal static void ApplySelectionIds(string ids)
+        {
+            var selected = ids.Split(',');
+            ApplyEnabledIds(string.Join(",", selected.Where(id => !id.StartsWith("Grab:", StringComparison.Ordinal))));
+            ApplyGrabEnabledIds(string.Join(",", selected.Where(id => id.StartsWith("Grab:", StringComparison.Ordinal)).Select(id => id.Substring(5))));
+        }
+
+        internal static void ApplyGrabEffects(CharacterBody passenger, CharacterBody grabber)
+        {
+            var elites = EliteIdentity.Enumerate(passenger).ToArray();
+            foreach (var entry in entries)
+            {
+                if (entry.GrabEnabled?.Value != true || entry.GrabEffect == null) continue;
+                try
+                {
+                    if (elites.Any(elite => entry.NativeEquipmentName != null
+                        ? elite.eliteEquipmentDef && elite.eliteEquipmentDef.name == entry.NativeEquipmentName
+                        : entry.Matches!(elite)))
+                        entry.GrabEffect(passenger, grabber);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[EliteGrabEffects] Mapping {entry.Id} failed: {ex.Message}");
+                }
+            }
+        }
+
+        internal static void ResetGrabHitCooldowns() => grabHitCooldowns = new();
+
+        internal static void ApplyGrabHitEffects(DrifterBagController bag, CharacterBody grabber)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.GrabEnabled?.Value != true || entry.GrabHitEffect == null) continue;
+                var cooldowns = grabHitCooldowns.GetOrCreateValue(grabber);
+                if (cooldowns.TryGetValue(entry.Id, out var nextTime) && Time.fixedTime < nextTime) continue;
+                CharacterBody? passenger = null;
+                var main = bag.vehicleSeat ? bag.vehicleSeat.NetworkpassengerBodyObject : null;
+                try
+                {
+                    if (main) passenger = FindMatchingPassenger(main, bag, grabber, entry);
+                    if (!passenger)
+                        foreach (var obj in DrifterBagAPI.GetBaggedObjectsReadOnly(bag))
+                        {
+                            passenger = FindMatchingPassenger(obj, bag, grabber, entry);
+                            if (passenger) break;
+                        }
+                    if (!passenger) continue;
+                    cooldowns[entry.Id] = Time.fixedTime + entry.GrabHitCooldown;
+                    entry.GrabHitEffect(passenger!, grabber);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[EliteGrabEffects] Hit mapping {entry.Id} failed: {ex.Message}");
+                }
+            }
+        }
+
+        private static CharacterBody? FindMatchingPassenger(GameObject? obj, DrifterBagController bag, CharacterBody grabber, Entry entry)
+        {
+            var body = obj ? obj!.GetComponent<CharacterBody>() : null;
+            if (body is null || !body || body.isPlayerControlled || !body.healthComponent || !body.healthComponent.alive ||
+                !body.teamComponent || !grabber.teamComponent || body.teamComponent.teamIndex == grabber.teamComponent.teamIndex) return null;
+            var seat = body.currentVehicle;
+            if (!seat || seat.NetworkpassengerBodyObject != obj ||
+                (seat != bag.vehicleSeat && seat.GetComponentInParent<DrifterBagController>() != bag)) return null;
+            return EliteIdentity.Enumerate(body).Any(elite => entry.NativeEquipmentName != null
+                ? elite.eliteEquipmentDef && elite.eliteEquipmentDef.name == entry.NativeEquipmentName
+                : entry.Matches!(elite)) ? body : null;
+        }
+
+        private static void SpawnLightningStake(CharacterBody passenger, CharacterBody grabber)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active) return;
+            var prefab = LegacyResourcesAPI.Load<GameObject>("Prefabs/Projectiles/LightningStake");
+            if (!prefab || !ProjectileManager.instance) return;
+            var position = grabber.footPosition;
+            if (Physics.Raycast(position + Vector3.up, Vector3.down, out var groundHit, 16f,
+                LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+                position = groundHit.point + groundHit.normal * 0.1f;
+            var stake = ProjectileManager.instance.FireProjectileImmediateServer(new FireProjectileInfo
+            {
+                projectilePrefab = prefab,
+                position = position,
+                rotation = Quaternion.identity,
+                owner = passenger.gameObject,
+                damage = passenger.damage * 0.5f,
+                force = 0f,
+                crit = false,
+                damageColorIndex = DamageColorIndex.Item
+            });
+            if (!stake) return;
+            var explosion = stake.GetComponent<ProjectileImpactExplosion>();
+            if (explosion) explosion.blastRadius = 16f;
+            var sticking = stake.GetComponent<ProjectileStickOnImpact>();
+            if (sticking)
+            {
+                sticking.ignoreCharacters = true;
+                sticking.ignoreImpact = true;
+                sticking.enabled = false;
+            }
+            var rigidbody = stake.GetComponent<Rigidbody>();
+            if (rigidbody)
+            {
+                rigidbody.detectCollisions = false;
+                rigidbody.isKinematic = true;
+                rigidbody.useGravity = false;
+            }
+        }
+
+        internal static DamageTypeCombo Resolve(CharacterBody body, ThrownObjectProjectileController prefab)
+        {
+            var result = DamageTypeCombo.Generic;
+            foreach (var elite in EliteIdentity.Enumerate(body))
+                foreach (var entry in entries)
+                {
+                    if (entry.Enabled?.Value != true) continue;
+                    if (entry.NativeEquipmentName != null)
+                    {
+                        if (prefab.eliteOverrides == null) continue;
+                        foreach (var mapping in prefab.eliteOverrides)
+                            if (mapping.equipmentDef && mapping.equipmentDef == elite.eliteEquipmentDef &&
+                                mapping.equipmentDef.name == entry.NativeEquipmentName)
+                                result = MergeFlags(result, mapping.damageTypeCombo);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            if (entry.Matches!(elite)) result = MergeFlags(result, entry.Flags);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warning($"[EliteThrowEffects] Mapping {entry.Id} failed: {ex.Message}");
+                        }
+                    }
+                }
+            return result;
+        }
+
+        internal static DamageTypeCombo MergeFlags(DamageTypeCombo original, DamageTypeCombo additions)
+        {
+            original.damageType |= additions.damageType;
+            original.damageTypeExtended |= additions.damageTypeExtended;
+            return original;
+        }
+
+        internal static DamageTypeCombo AddedFlags(DamageTypeCombo original, DamageTypeCombo additions)
+        {
+            var result = DamageTypeCombo.Generic;
+            result.damageType = additions.damageType & ~original.damageType;
+            result.damageTypeExtended = additions.damageTypeExtended & ~original.damageTypeExtended;
+            return result;
+        }
+
+        internal static DamageTypeCombo RemoveFlags(DamageTypeCombo original, DamageTypeCombo removed)
+        {
+            original.damageType &= ~removed.damageType;
+            original.damageTypeExtended &= ~removed.damageTypeExtended;
+            return original;
+        }
+    }
+}
+
+namespace DrifterBossGrabMod
+{
+    internal static class EliteIdentity
+    {
+        internal static IEnumerable<EliteDef> Enumerate(CharacterBody? body)
+        {
+            if (!body || BuffCatalog.eliteBuffIndices == null) yield break;
+            foreach (var index in BuffCatalog.eliteBuffIndices)
+            {
+                if (!body!.HasBuff(index)) continue;
+                var elite = BuffCatalog.GetBuffDef(index)?.eliteDef;
+                if (elite) yield return elite!;
+            }
         }
     }
 }

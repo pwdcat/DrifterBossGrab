@@ -1,13 +1,18 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using HarmonyLib;
 using RoR2;
 using RoR2.Projectile;
 using UnityEngine;
+using UnityEngine.Networking;
+using DrifterBossGrabMod.API;
 
 namespace DrifterBossGrabMod.Patches
 {
 
+    // ========================================================================================
+    // BALANCE PATCHES
+    // ========================================================================================
     public static class BalancePatches
     {
         [HarmonyPatch(typeof(GenericSkill), nameof(GenericSkill.maxStock), MethodType.Setter)]
@@ -71,13 +76,10 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (!PluginConfig.Instance.EnableBalance.Value) return;
 
-                float incomingSpeed = fireProjectileInfo.speedOverride;
                 if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed))
                 {
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }
-
-                Log.Debug($"[EmptyBag_ModifyProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
             }
         }
 
@@ -115,11 +117,11 @@ namespace DrifterBossGrabMod.Patches
                         }
                         if (originalSpeed == 0f)
                         {
-                            originalSpeed = 60f; // Default fallback
+                            originalSpeed = 60f;
                         }
                     }
 
-                    float originalMaxDistance = 60f; // Default for EmptyBag in RoR2
+                    float originalMaxDistance = 60f;
                     if (Mathf.Abs(num) > 0.0001f)
                     {
                         originalMaxDistance = __instance.maxDistance / num;
@@ -130,13 +132,6 @@ namespace DrifterBossGrabMod.Patches
 
                     ReflectionCache.EmptyBag.ProjectileBaseSpeed.SetValue(__instance, finalSpeed);
                     __instance.maxDistance = finalMaxDistance;
-
-                    if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    {
-                        Log.Debug($"[EmptyBag_OnEnter_Patch] Mass={bagObjectMass:F1}, num={num:F4}, clampedNum={clampedNum:F4}");
-                        Log.Debug($"[EmptyBag_OnEnter_Patch] Speed: Original={originalSpeed:F1} -> Target={finalSpeed:F1}");
-                        Log.Debug($"[EmptyBag_OnEnter_Patch] Distance: Original={originalMaxDistance:F1} -> Target={finalMaxDistance:F1}");
-                    }
                 }
             }
         }
@@ -159,19 +154,14 @@ namespace DrifterBossGrabMod.Patches
                     float bagObjectMass = bagController.baggedMass;
                     float maxMass = RoR2.DrifterBagController.maxMass;
 
-                    float drifterMass = 100f; // Default player mass fallback
+                    float drifterMass = 100f;
                     if (__instance.characterBody != null && __instance.characterBody.characterMotor != null)
                     {
                         drifterMass = __instance.characterBody.characterMotor.mass;
                     }
                     if (drifterMass <= 0f) drifterMass = 100f;
 
-                    // Note: Recoil Velocity = (airKnockbackForce * bagObjectMass) / (maxMass * drifterMass) due to motor division by body mass
                     float normalRecoilSpeed = Mathf.Abs(_originalAirKnockbackForce * bagObjectMass / (maxMass * drifterMass));
-
-                    bool isGrounded = __instance.characterBody != null && __instance.characterBody.characterMotor != null && __instance.characterBody.characterMotor.isGrounded;
-
-                    Log.Debug($"[EmptyBag_FireProjectile_Patch] Prefix: Grounded={isGrounded}, Original airKnockbackForce={_originalAirKnockbackForce:F1}, Target Mass={bagObjectMass:F1}, Drifter Mass={drifterMass:F1}, Predicted Recoil Speed={normalRecoilSpeed:F2} m/s");
 
                     if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed))
                     {
@@ -179,8 +169,6 @@ namespace DrifterBossGrabMod.Patches
                         {
                             float sign = Mathf.Sign(_originalAirKnockbackForce);
                             __instance.airKnockbackForce = sign * maxLaunchSpeed * maxMass * drifterMass / bagObjectMass;
-
-                            Log.Debug($"[EmptyBag_FireProjectile_Patch] CLAMPED airKnockbackForce to {__instance.airKnockbackForce:F1} (Recoil speed capped to MaxLaunchSpeed={maxLaunchSpeed:F1} m/s)");
                         }
                     }
                 }
@@ -204,13 +192,125 @@ namespace DrifterBossGrabMod.Patches
                     fireProjectileInfo.projectilePrefab == null ||
                     fireProjectileInfo.projectilePrefab.GetComponent<ThrownObjectProjectileController>() == null) return;
 
-                float incomingSpeed = fireProjectileInfo.speedOverride;
                 if (!PluginConfig.Instance.IsMaxLaunchSpeedInfinite && float.TryParse(PluginConfig.Instance.MaxLaunchSpeed.Value, out float maxLaunchSpeed) && fireProjectileInfo.speedOverride > 0f)
                 {
                     fireProjectileInfo.speedOverride = Mathf.Min(fireProjectileInfo.speedOverride, maxLaunchSpeed);
                 }
+            }
+        }
 
-                Log.Debug($"[ProjectileManager_FireProjectile_Patch] Incoming speedOverride={incomingSpeed:F1} -> Capped={fireProjectileInfo.speedOverride:F1}");
+        [HarmonyPatch(typeof(CharacterBody), "UpdateFireTrail")]
+        public class BaggedBlazingTrailPatch
+        {
+            [HarmonyPrefix]
+            private static bool Prefix(CharacterBody __instance, ref DamageTrail? ___fireTrail)
+            {
+                if (!PluginConfig.Instance.EnableBalance.Value || EliteThrowEffectsAPI.IsGrabEffectEnabled("Blazing") ||
+                    !__instance.HasBuff(RoR2Content.Buffs.AffixRed)) return true;
+                var seat = __instance.currentVehicle;
+                if (!seat || seat.NetworkpassengerBodyObject != __instance.gameObject ||
+                    !seat.GetComponentInParent<DrifterBagController>()) return true;
+                if (___fireTrail)
+                {
+                    ___fireTrail!.damagePerSecond = 0f;
+                    ___fireTrail.enabled = false;
+                    UnityEngine.Object.Destroy(___fireTrail.gameObject);
+                    ___fireTrail = null;
+                }
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(DrifterBagController), nameof(DrifterBagController.AssignPassenger))]
+        public class EliteGrabEffectPatches
+        {
+            internal static void OnServerDamageDealt(DamageReport report)
+            {
+                if (!NetworkServer.active || !PluginConfig.Instance.EnableBalance.Value || report.damageDealt <= 0f ||
+                    report.damageInfo.rejected || report.damageInfo.dotIndex != DotController.DotIndex.None ||
+                    report.damageInfo.delayedDamageSecondHalf || !report.attacker || !report.victimBody ||
+                    report.attacker == report.victimBody.gameObject || !report.victim || !report.victim.alive) return;
+                var bag = report.victimBody.GetComponent<DrifterBagController>();
+                if (bag) EliteThrowEffectsAPI.ApplyGrabHitEffects(bag, report.victimBody);
+            }
+
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.First)]
+            private static void Prefix(DrifterBagController __instance, GameObject passengerObject, out bool __state)
+            {
+                __state = false;
+                if (!NetworkServer.active || !PluginConfig.Instance.EnableBalance.Value || !passengerObject ||
+                    DrifterBossGrabPlugin.IsSwappingPassengers || PersistenceSceneHandler.IsRestoringFromSceneChange() ||
+                    ProjectileRecoveryPatches.IsInProjectileState(passengerObject)) return;
+                var body = passengerObject.GetComponent<CharacterBody>();
+                __state = body && !body.currentVehicle && !DrifterBagAPI.IsObjectInBag(__instance, passengerObject);
+            }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            private static void Postfix(DrifterBagController __instance, GameObject passengerObject, bool __state)
+            {
+                if (!__state || !NetworkServer.active || !PluginConfig.Instance.EnableBalance.Value || !passengerObject) return;
+                var passenger = passengerObject.GetComponent<CharacterBody>();
+                var grabber = __instance.GetComponent<CharacterBody>();
+                if (!passenger || !grabber || passenger.isPlayerControlled || !passenger.healthComponent ||
+                    !passenger.healthComponent.alive || !grabber.healthComponent || !grabber.healthComponent.alive ||
+                    !passenger.teamComponent || !grabber.teamComponent ||
+                    passenger.teamComponent.teamIndex == grabber.teamComponent.teamIndex) return;
+                var seat = passenger.currentVehicle;
+                if (!seat || seat.NetworkpassengerBodyObject != passengerObject) return;
+                if (seat != __instance.vehicleSeat && seat.GetComponentInParent<DrifterBagController>() != __instance &&
+                    (!BagPatches.GetState(__instance).AdditionalSeats.TryGetValue(passengerObject, out var additionalSeat) || seat != additionalSeat)) return;
+                EliteThrowEffectsAPI.ApplyGrabEffects(passenger, grabber);
+            }
+        }
+
+        [HarmonyPatch(typeof(ProjectileManager), "InitializeProjectile")]
+        public class EliteThrowEffectPatches
+        {
+            [HarmonyPrefix]
+            private static void Prefix(ProjectileController projectileController, ref FireProjectileInfo fireProjectileInfo)
+            {
+                if (!NetworkServer.active || !PluginConfig.Instance.EnableBalance.Value) return;
+                var info = fireProjectileInfo;
+                if (!info.owner || !info.projectilePrefab || info.damage <= 0f ||
+                    info.projectilePrefab.name != "ThrownObjectProjectile" ||
+                    !info.damageTypeOverride.HasValue || info.damageTypeOverride.Value.damageSource != DamageSource.Utility)
+                    return;
+                var bag = info.owner.GetComponent<DrifterBagController>();
+                var prefab = info.projectilePrefab.GetComponent<ThrownObjectProjectileController>();
+                if (!bag || !prefab) return;
+                var passenger = info.passenger ? info.passenger : bag.baggedObject;
+                var body = passenger ? passenger.GetComponent<CharacterBody>() : null;
+                var ownerBody = info.owner.GetComponent<CharacterBody>();
+                if (!body || body!.isPlayerControlled || !body.teamComponent || !ownerBody ||
+                    !ownerBody.teamComponent || body.teamComponent.teamIndex == ownerBody.teamComponent.teamIndex)
+                    return;
+
+                var additions = EliteThrowEffectsAPI.Resolve(body, prefab);
+                if (additions.damageType == DamageType.Generic && additions.damageTypeExtended == DamageTypeExtended.Generic)
+                    return;
+                var original = info.damageTypeOverride.Value;
+                if (original.damageType == DamageType.Generic && original.damageTypeExtended == DamageTypeExtended.Generic)
+                {
+                    var damage = info.projectilePrefab.GetComponent<ProjectileDamage>();
+                    if (damage) original = EliteThrowEffectsAPI.MergeFlags(original, damage.damageType);
+                }
+                fireProjectileInfo.damageTypeOverride = EliteThrowEffectsAPI.MergeFlags(original, additions);
+                var passengerHealth = body.healthComponent;
+                var explosion = projectileController.GetComponent<ProjectileExplosion>();
+                if (passengerHealth && explosion)
+                {
+                    var addedOnly = EliteThrowEffectsAPI.AddedFlags(original, additions);
+                    explosion.OnModifyBlastAttack += blast =>
+                    {
+                        blast.modifyOutgoingBlastInfoCallback += (ref BlastAttack.BlastAttackDamageInfo hit, BlastAttack.HitPoint point) =>
+                        {
+                            if (hit.hitHealthComponent == passengerHealth)
+                                hit.damageType = EliteThrowEffectsAPI.RemoveFlags(hit.damageType, addedOnly);
+                        };
+                    };
+                }
             }
         }
     }

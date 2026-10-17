@@ -4,10 +4,13 @@ using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using DrifterBossGrabMod.UI;
+using RoR2.UI;
 
 namespace DrifterBossGrabMod.Patches
 {
-
+    // ========================================================================================
+    // UI PATCHES
+    // ========================================================================================
     public static class UIPatches
     {
         private static GameObject? _massCapacityUIControllerObject;
@@ -19,12 +22,9 @@ namespace DrifterBossGrabMod.Patches
                 return;
             }
 
-            Log.Debug($"[UIPatches] InitializeMassCapacityUI() called for {drifterBody.name}");
-
             if (drifterBody.GetComponent<BaggedObjectInfoUIController>() == null)
             {
                 drifterBody.gameObject.AddComponent<BaggedObjectInfoUIController>();
-                Log.Debug($"[UIPatches] Added BaggedObjectInfoUIController to {drifterBody.name}");
             }
 
             if (!drifterBody.hasAuthority)
@@ -36,20 +36,8 @@ namespace DrifterBossGrabMod.Patches
             if (existingController == null)
             {
                 drifterBody.gameObject.AddComponent<MassCapacityUIController>();
-                _massCapacityUIControllerObject = drifterBody.gameObject;
-                Log.Debug($"[UIPatches] Added MassCapacityUIController to {drifterBody.name}");
             }
-            else
-            {
-                _massCapacityUIControllerObject = drifterBody.gameObject;
-                Log.Debug($"[UIPatches] MassCapacityUIController already exists on {drifterBody.name}");
-            }
-        }
-
-        public static void CleanupMassCapacityUI()
-        {
-
-            Log.Debug("[UIPatches] MassCapacityUIController cleanup not needed (component on DrifterBody)");
+            _massCapacityUIControllerObject = drifterBody.gameObject;
         }
 
         public static void UpdateMassCapacityUIOnCapacityChange(DrifterBagController controller)
@@ -60,6 +48,38 @@ namespace DrifterBossGrabMod.Patches
             if (massCapacityUIController != null)
             {
                 massCapacityUIController.UpdateCapacityUI();
+            }
+        }
+
+        [HarmonyPatch]
+        public static class PassengerHealthBarPatches
+        {
+            [HarmonyPatch(typeof(RoR2.UI.HealthBar), "UpdateBarInfos")]
+            [HarmonyPostfix]
+            public static void ApplyEliteColor(RoR2.UI.HealthBar __instance)
+            {
+                try
+                {
+                    var card = __instance.GetComponentInParent<RoR2.UI.BaggedCardController>();
+                    if (!card) return;
+                    if (!__instance.source) return;
+
+                    var values = __instance.source.GetHealthBarValues();
+                    if (values.isVoid || (__instance.healthCritical && __instance.style.flashOnHealthCritical)) return;
+                    if (!PassengerHealthBarColorResolver.TryGetEliteColor(__instance.source.body, out var color)) return;
+
+                    __instance.barInfoCollection.instantHealthbarInfo.color = PassengerHealthBarColorResolver.BlendEliteColor(
+                        __instance.barInfoCollection.instantHealthbarInfo.color, PassengerHealthBarColorResolver.Shade(color, 0.72f));
+                    __instance.barInfoCollection.trailingOverHealthbarInfo.color = PassengerHealthBarColorResolver.BlendEliteColor(
+                        __instance.barInfoCollection.trailingOverHealthbarInfo.color, color);
+                    __instance.barInfoCollection.regainableHealthBarInfo.color =
+                        PassengerHealthBarColorResolver.BlendEliteColor(__instance.barInfoCollection.regainableHealthBarInfo.color,
+                            __instance.style.regainableHealthStyle.baseColor * color);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[PassengerHealthBarColor] Could not update passenger color: {ex.Message}");
+                }
             }
         }
 
@@ -129,6 +149,49 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
             }
+        }
+    }
+}
+
+namespace DrifterBossGrabMod.UI
+{
+    internal static class PassengerHealthBarColorResolver
+    {
+        internal static bool TryGetEliteColor(CharacterBody? body, out Color color)
+        {
+            color = default;
+            if (PluginConfig.Instance.EliteHealthBarColorIntensity.Value <= 0f) return false;
+            if (!body || BuffCatalog.eliteBuffIndices == null) return false;
+
+            foreach (var elite in EliteIdentity.Enumerate(body))
+            {
+
+                var locator = body!.GetComponent<ModelLocator>();
+                var model = locator && locator.modelTransform
+                    ? locator.modelTransform.GetComponent<CharacterModel>() : null;
+                if (model && model!.myEliteIndex == elite!.eliteIndex && model.lightColorOverride.HasValue)
+                {
+                    color = model.lightColorOverride.Value;
+                    color.a = 1f;
+                    return true;
+                }
+                color = elite!.color;
+                return true;
+            }
+            return false;
+        }
+
+        internal static Color Shade(Color color, float brightness)
+        {
+            return new Color(color.r * brightness, color.g * brightness, color.b * brightness, 1f);
+        }
+
+        internal static Color BlendEliteColor(Color normalColor, Color eliteColor)
+        {
+            float intensity = PluginConfig.Instance.EliteHealthBarColorIntensity.Value;
+            if (float.IsNaN(intensity) || float.IsInfinity(intensity)) intensity = 1f;
+            var color = Color.LerpUnclamped(normalColor, eliteColor, Mathf.Clamp(intensity, 0f, 2f));
+            return new Color(Mathf.Clamp01(color.r), Mathf.Clamp01(color.g), Mathf.Clamp01(color.b), normalColor.a);
         }
     }
 }

@@ -589,7 +589,7 @@ namespace DrifterBossGrabMod.Patches
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
-                    Log.Debug($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat. Main seat object={currentMain?.name ?? "null"}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Assigned {passengerObject.name} to additional seat. Main seat object={currentMain?.name ?? "null"}");
 
                     return true;
                 }
@@ -619,7 +619,7 @@ namespace DrifterBossGrabMod.Patches
                     BagPassengerManager.ForceRecalculateMass(__instance);
 
                     var currentMain = GetMainSeatObject(__instance);
-                    Log.Debug($"[TryAssignToAdditionalSeat] Successfully assigned {passengerObject.name} to additional seat (client). Main seat object={currentMain?.name ?? "null"}");
+                    Log.Debug($"[TryAssignToAdditionalSeat] Assigned {passengerObject.name} to additional seat (client). Main seat object={currentMain?.name ?? "null"}");
 
                     return true;
                 }
@@ -633,7 +633,7 @@ namespace DrifterBossGrabMod.Patches
             var oldObj = GetState(controller).MainSeatObject;
             GetState(controller).MainSeatObject = obj;
 
-            Log.Debug($"[SetMainSeatObject] {controller.name}: {oldObj?.name ?? "null"} -> {obj?.name ?? "null"}");
+            Log.Debug($"[SetMainSeatObject] {controller.name}: {(oldObj ? oldObj!.name : "null")} -> {(obj ? obj!.name : "null")}");
         }
 
         public static GameObject? GetMainSeatObject(DrifterBagController? controller)

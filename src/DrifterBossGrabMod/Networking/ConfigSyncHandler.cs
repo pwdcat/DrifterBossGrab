@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using UnityEngine;
 using UnityEngine.Networking;
 using RoR2;
@@ -26,15 +26,16 @@ namespace DrifterBossGrabMod.Networking
             {
 
                 EnableBossGrabbing = PluginConfig.Instance.EnableBossGrabbing.Value,
+                EnableSelfGrabbing = PluginConfig.Instance.EnableSelfGrabbing.Value,
                 EnableNPCGrabbing = PluginConfig.Instance.EnableNPCGrabbing.Value,
                 EnableEnvironmentGrabbing = PluginConfig.Instance.EnableEnvironmentGrabbing.Value,
                 EnableLockedObjectGrabbing = PluginConfig.Instance.EnableLockedObjectGrabbing.Value,
                 ProjectileGrabbingMode = PluginConfig.Instance.ProjectileGrabbingMode.Value,
-                SearchRadiusMultiplier = PluginConfig.Instance.SearchRadiusMultiplier.Value,
                 ComponentChooserSortMode = PluginConfig.Instance.ComponentChooserSortModeEntry.Value,
 
-                BreakoutTimeMultiplier = PluginConfig.Instance.BreakoutTimeMultiplier.Value,
-                MaxSmacks = PluginConfig.Instance.MaxSmacks.Value,
+                BreakoutTimeFormula = PluginConfig.Instance.BreakoutTimeFormula.Value,
+                GrabRangeFormula = PluginConfig.Instance.GrabRangeFormula.Value,
+                MaxSmacksFormula = PluginConfig.Instance.MaxSmacksFormula.Value,
                 MaxLaunchSpeed = PluginConfig.Instance.MaxLaunchSpeed.Value,
 
                 BodyBlacklist = PluginConfig.Instance.BodyBlacklist.Value,
@@ -62,6 +63,8 @@ namespace DrifterBossGrabMod.Networking
                 CycleCooldown = PluginConfig.Instance.CycleCooldown.Value,
 
                 EnableBalance = PluginConfig.Instance.EnableBalance.Value,
+                EnabledEliteThrowEffects = API.EliteThrowEffectsAPI.EnabledIds,
+                EnabledEliteGrabEffects = API.EliteThrowEffectsAPI.EnabledGrabIds,
                 AoEDamageDistribution = PluginConfig.Instance.AoEDamageDistribution.Value,
                 BagScaleCap = PluginConfig.Instance.BagScaleCap.Value,
                 MassCap = PluginConfig.Instance.MassCap.Value,
@@ -233,15 +236,16 @@ namespace DrifterBossGrabMod.Networking
         {
 
             PluginConfig.Instance.EnableBossGrabbing.Value = msg.EnableBossGrabbing;
+            PluginConfig.Instance.EnableSelfGrabbing.Value = msg.EnableSelfGrabbing;
             PluginConfig.Instance.EnableNPCGrabbing.Value = msg.EnableNPCGrabbing;
             PluginConfig.Instance.EnableEnvironmentGrabbing.Value = msg.EnableEnvironmentGrabbing;
             PluginConfig.Instance.EnableLockedObjectGrabbing.Value = msg.EnableLockedObjectGrabbing;
             PluginConfig.Instance.ProjectileGrabbingMode.Value = msg.ProjectileGrabbingMode;
-            PluginConfig.Instance.SearchRadiusMultiplier.Value = msg.SearchRadiusMultiplier;
             PluginConfig.Instance.ComponentChooserSortModeEntry.Value = msg.ComponentChooserSortMode;
 
-            PluginConfig.Instance.BreakoutTimeMultiplier.Value = msg.BreakoutTimeMultiplier;
-            PluginConfig.Instance.MaxSmacks.Value = msg.MaxSmacks;
+            PluginConfig.Instance.BreakoutTimeFormula.Value = msg.BreakoutTimeFormula;
+            PluginConfig.Instance.GrabRangeFormula.Value = msg.GrabRangeFormula;
+            PluginConfig.Instance.MaxSmacksFormula.Value = msg.MaxSmacksFormula;
             PluginConfig.Instance.MaxLaunchSpeed.Value = msg.MaxLaunchSpeed;
 
             PluginConfig.Instance.BodyBlacklist.Value = msg.BodyBlacklist;
@@ -269,6 +273,8 @@ namespace DrifterBossGrabMod.Networking
             PluginConfig.Instance.CycleCooldown.Value = msg.CycleCooldown;
 
             PluginConfig.Instance.EnableBalance.Value = msg.EnableBalance;
+            API.EliteThrowEffectsAPI.ApplyEnabledIds(msg.EnabledEliteThrowEffects);
+            API.EliteThrowEffectsAPI.ApplyGrabEnabledIds(msg.EnabledEliteGrabEffects);
             PluginConfig.Instance.AoEDamageDistribution.Value = msg.AoEDamageDistribution;
             PluginConfig.Instance.BagScaleCap.Value = msg.BagScaleCap;
             PluginConfig.Instance.MassCap.Value = msg.MassCap;

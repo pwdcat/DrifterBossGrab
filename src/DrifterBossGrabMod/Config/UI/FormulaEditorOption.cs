@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace DrifterBossGrabMod.Config.UI
 {
-    public enum FormulaEditorKind { Slots, Capacity, Penalty, Slam, Flag }
+    public enum FormulaEditorKind { Slots, Capacity, Penalty, Slam, Flag, Breakout, GrabRange, MaxSmacks }
 
     public class FormulaEditorOption : StringInputFieldOption
     {

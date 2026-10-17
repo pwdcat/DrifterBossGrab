@@ -198,7 +198,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(targetObject!))
                 {
-                    Log.Warning($"[BaggedObject_OnEnter.Prefix] Blocking grab of {targetObject!.name} - object is currently undergoing throw operation");
+                    Log.Warning($"[BaggedObject_OnEnter.Prefix] Blocking grab of {targetObject!.name} - object is being thrown");
                     return false;
                 }
 

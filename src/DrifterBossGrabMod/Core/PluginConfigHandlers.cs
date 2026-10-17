@@ -8,15 +8,9 @@ using DrifterBossGrabMod.Config;
 namespace DrifterBossGrabMod
 {
 
-    // ========================================================================================
-    // PLUGIN CONFIG HANDLERS
-    // ========================================================================================
     public partial class DrifterBossGrabPlugin
     {
 
-        // ========================================================================================
-        // FEATURE STATE TRACKING
-        // ========================================================================================
         private void SyncFeatureTrackingState()
         {
             _wasBottomlessBagEnabled = PluginConfig.Instance.BottomlessBagEnabled.Value;
@@ -27,9 +21,6 @@ namespace DrifterBossGrabMod
             _wasDrifterGrabEnabled = PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla;
         }
 
-        // ========================================================================================
-        // FORMULA INITIALIZATION
-        // ========================================================================================
         private void InitializeFormulaVariables()
         {
             Balance.FormulaRegistry.RegisterVariable("H",
@@ -61,12 +52,9 @@ namespace DrifterBossGrabMod
                 (body) => 0f,
                 "Base mass (for flag multipliers)");
 
-            Log.Debug("[FormulaInit] Default variables initialized");
+            Balance.FlagFormulaVariables.Register();
         }
 
-        // ========================================================================================
-        // EVENT HANDLER SETUP
-        // ========================================================================================
         private void SetupConfigurationEventHandlers()
         {
             SetupDebugLogsHandler();
@@ -79,12 +67,17 @@ namespace DrifterBossGrabMod
             SetupBalanceSubTabHandlers();
             SetupPresetHandlers();
             SetupAutoSwitchToCustomHandlers();
+            foreach (var entry in API.EliteThrowEffectsAPI.Entries) OnEliteThrowEntryBound(entry);
+            API.EliteThrowEffectsAPI.EntryBound += OnEliteThrowEntryBound;
             PersistenceManager.UpdateCachedConfig();
         }
 
-        // ========================================================================================
-        // SPECIFIC CONFIG HANDLERS
-        // ========================================================================================
+        private void OnEliteThrowEntryBound(API.EliteThrowEffectsAPI.Entry entry)
+        {
+            RegisterPresetOnlyHandlers(entry.Enabled!);
+            if (entry.GrabEnabled != null) RegisterPresetOnlyHandlers(entry.GrabEnabled);
+        }
+
         private void SetupDebugLogsHandler()
         {
             debugLogsHandler = (sender, args) =>
@@ -272,6 +265,7 @@ namespace DrifterBossGrabMod
         {
             RegisterAutoSwitchHandlers(
                 PluginConfig.Instance.EnableBossGrabbing,
+                PluginConfig.Instance.EnableSelfGrabbing,
                 PluginConfig.Instance.EnableNPCGrabbing,
                 PluginConfig.Instance.EnableEnvironmentGrabbing,
                 PluginConfig.Instance.EnableLockedObjectGrabbing,
@@ -281,8 +275,9 @@ namespace DrifterBossGrabMod
             );
 
             RegisterPresetOnlyHandlers(
-                PluginConfig.Instance.BreakoutTimeMultiplier,
-                PluginConfig.Instance.MaxSmacks,
+                PluginConfig.Instance.BreakoutTimeFormula,
+                PluginConfig.Instance.GrabRangeFormula,
+                PluginConfig.Instance.MaxSmacksFormula,
                 PluginConfig.Instance.EnableObjectPersistence,
                 PluginConfig.Instance.EnableAutoGrab,
                 PluginConfig.Instance.PersistBaggedBosses,
@@ -344,6 +339,7 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.SideSlotShowHealthBar,
                 PluginConfig.Instance.SideSlotShowSlotNumber,
                 PluginConfig.Instance.EnableDamagePreview,
+                PluginConfig.Instance.EliteHealthBarColorIntensity,
                 PluginConfig.Instance.DamagePreviewColor,
                 PluginConfig.Instance.UseNewWeightIcon,
                 PluginConfig.Instance.WeightDisplayMode,
@@ -386,15 +382,11 @@ namespace DrifterBossGrabMod
                 PluginConfig.Instance.StateCalculationMode,
                 PluginConfig.Instance.MovespeedPenaltyFormula,
                 PluginConfig.Instance.BagScaleCap,
-                PluginConfig.Instance.SearchRadiusMultiplier,
                 PluginConfig.Instance.MaxLaunchSpeed,
                 PluginConfig.Instance.MassCap
             );
         }
 
-        // ========================================================================================
-        // MASS RECALCULATION
-        // ========================================================================================
         private void RecalculateAllBaggedMasses()
         {
             foreach (var bagController in UnityEngine.Object.FindObjectsByType<DrifterBagController>(UnityEngine.FindObjectsSortMode.None))

@@ -643,6 +643,7 @@ namespace DrifterBossGrabMod.ProperSave
 
                     if (obj != null)
                     {
+                        PersistenceNetworkHandler.ProtectRestoredObject(obj, objData.OwnerPlayerId);
                         objectsToRestore.Add((obj, objData));
                     }
                     else

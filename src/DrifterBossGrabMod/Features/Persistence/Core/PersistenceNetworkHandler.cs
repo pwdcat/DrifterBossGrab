@@ -52,10 +52,75 @@ namespace DrifterBossGrabMod
             _clientBagSnapshots.Clear();
         }
 
-
         // ========================================================================================
         // OUTBOUND MESSAGES
         // ========================================================================================
+        internal static void ProtectRestoredObject(GameObject obj, string? ownerPlayerId)
+        {
+            if (!NetworkServer.active || obj == null || DrifterBossGrabPlugin.Instance == null) return;
+            float delay = PluginConfig.Instance.AutoGrabDelay.Value;
+            float duration = 60f + (float.IsNaN(delay) || float.IsInfinity(delay) ? 0f : Mathf.Max(0f, delay));
+            var identity = obj.GetComponent<NetworkIdentity>();
+            if (identity != null && identity.netId != NetworkInstanceId.Invalid)
+                NetworkMessageRegistry.SendToAll(Constants.Network.RestoreCollisionProtectionSubMessageType,
+                    new RestoreCollisionProtectionMessage { objectId = identity.netId, ownerPlayerId = ownerPlayerId ?? string.Empty, duration = duration });
+            DrifterBossGrabPlugin.Instance.StartCoroutine(ProtectRestoredObjectWhenReady(obj, NetworkInstanceId.Invalid, ownerPlayerId, duration));
+        }
+
+        private sealed class RestoreCollisionProtectionMessage : MessageBase
+        {
+            internal NetworkInstanceId objectId;
+            internal string ownerPlayerId = string.Empty;
+            internal float duration;
+
+            public override void Serialize(NetworkWriter writer)
+            {
+                writer.Write(objectId);
+                writer.Write(ownerPlayerId);
+                writer.Write(duration);
+            }
+
+            public override void Deserialize(NetworkReader reader)
+            {
+                objectId = reader.ReadNetworkId();
+                ownerPlayerId = reader.ReadString();
+                duration = reader.ReadSingle();
+            }
+        }
+
+        private static void HandleRestoreCollisionProtection(NetworkReader reader, NetworkConnection conn)
+        {
+            if (NetworkServer.active || DrifterBossGrabPlugin.Instance == null) return;
+            var message = new RestoreCollisionProtectionMessage();
+            message.Deserialize(reader);
+            if (message.objectId == NetworkInstanceId.Invalid || float.IsNaN(message.duration) ||
+                float.IsInfinity(message.duration) || message.duration <= 0f) return;
+            DrifterBossGrabPlugin.Instance.StartCoroutine(ProtectRestoredObjectWhenReady(null, message.objectId, message.ownerPlayerId, message.duration));
+        }
+
+        private static System.Collections.IEnumerator ProtectRestoredObjectWhenReady(GameObject? obj, NetworkInstanceId objectId, string? ownerPlayerId, float duration)
+        {
+            var run = Run.instance;
+            var client = NetworkManager.singleton?.client;
+            bool server = NetworkServer.active;
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (Run.instance == run && Time.realtimeSinceStartup < deadline &&
+                (server ? NetworkServer.active : client != null && client.isConnected && NetworkManager.singleton?.client == client))
+            {
+                if (obj == null && objectId != NetworkInstanceId.Invalid) obj = FindObjectByNetId(objectId);
+                var master = obj != null ? obj.GetComponent<CharacterMaster>() : null;
+                var passenger = master != null ? master.GetBody()?.gameObject : obj;
+                var owner = ProperSave.Spawning.ObjectSpawner.FindOwnerBody(ownerPlayerId);
+                if (passenger != null && owner != null && passenger != owner.gameObject)
+                {
+                    var protection = passenger.GetComponent<PassengerReleaseProtection>() ?? passenger.AddComponent<PassengerReleaseProtection>();
+                    protection.BeginRestoration(owner, duration);
+                    yield break;
+                }
+                yield return null;
+            }
+        }
+
         public static void SendBaggedObjectsPersistenceMessage(List<GameObject> baggedObjects, DrifterBagController? owner = null)
         {
             if (baggedObjects == null || baggedObjects.Count == 0) return;
@@ -117,6 +182,7 @@ namespace DrifterBossGrabMod
             Run.onRunDestroyGlobal += ClearClientPendingState;
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType, HandleBaggedObjectsPersistenceMessage);
             NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType, HandleUpdateBagStateMessage);
+            NetworkMessageRegistry.RegisterClientSubHandler(Constants.Network.RestoreCollisionProtectionSubMessageType, HandleRestoreCollisionProtection);
         }
 
         public static void UnregisterMessages()
@@ -126,6 +192,7 @@ namespace DrifterBossGrabMod
             _clientBagSnapshots.Clear();
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.BaggedObjectsPersistenceSubMessageType);
             NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.UpdateBagStateSubMessageType);
+            NetworkMessageRegistry.UnregisterClientSubHandler(Constants.Network.RestoreCollisionProtectionSubMessageType);
         }
 
         // ========================================================================================

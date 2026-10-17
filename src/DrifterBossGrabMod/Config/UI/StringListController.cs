@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +13,20 @@ namespace DrifterBossGrabMod.Config.UI
     public class StringListController : OptionEditorController
     {
         public bool DiscoverComponents;
+        public Func<IEnumerable<KeyValuePair<string, string>>>? Choices;
+        public Func<string>? EmptyMessage;
+        public Func<string>? CurrentTitle;
+        public bool EliteEffectColumns;
+        private bool IsChecklist => DiscoverComponents || Choices != null;
+        private readonly Dictionary<string, string> _choiceLabels = new(StringComparer.Ordinal);
+        private TMP_Text _title = null!;
         private string _originalValue = "";
         private TMP_InputField _add = null!;
         private Button _addButton = null!;
         private TMP_Text _addLabel = null!;
         private readonly Dictionary<string, GameObject> _rows = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Toggle> _toggles = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Toggle> _grabToggles = new(StringComparer.Ordinal);
         private LayoutElement _layout = null!;
         private RectTransform _body = null!;
         private RectTransform _content = null!;
@@ -66,14 +75,18 @@ namespace DrifterBossGrabMod.Config.UI
             _layout = gameObject.AddComponent<LayoutElement>();
             _layout.minHeight = _layout.preferredHeight = 64f;
             var header = EditorHeader();
-            var title = Text(header, Title, 24f);
-            Place(title.rectTransform, 0.02f, 0.53f, 0f, 64f);
+            _title = Text(header, CurrentTitle?.Invoke() ?? Title, 24f);
+            Place(_title.rectTransform, 0.02f, 0.53f, 0f, 64f);
             _count = Text(header, "", 18f);
             _count.color = new Color(0.8f, 0.85f, 0.9f);
             Place(_count.rectTransform, 0.54f, 0.79f, 0f, 64f);
             var edit = MakeButton(header, "Edit", ToggleExpanded);
             Place(edit, 0.81f, 0.98f, 14f, 36f);
             _editLabel = edit.GetComponentInChildren<TMP_Text>();
+        }
+
+        private void BuildBody()
+        {
             _body = Rect("List Editor", transform);
             Place(_body, 0f, 1f, 64f, 390f);
             Surface(_body, PanelColor);
@@ -81,14 +94,17 @@ namespace DrifterBossGrabMod.Config.UI
             _search = Input(_body, DiscoverComponents ? "Search or add components" : "Search entries");
             Place((RectTransform)_search.transform, 0.02f, 0.98f, 8f, 36f);
             _search.onValueChanged.AddListener(_ => FilterRows(true));
-            if (DiscoverComponents)
+            if (IsChecklist)
             {
                 _selectedOnly = CheckBox(_body, "Selected only", _ => FilterRows(true));
                 Place((RectTransform)_selectedOnly.transform, 0.02f, 0.56f, 50f, 34f);
-                var add = MakeButton(_body, "Add", AddEntry);
-                Place(add, 0.58f, 0.76f, 50f, 34f);
-                _addButton = add.GetComponent<Button>();
-                Place(MakeButton(_body, "Refresh", LoadComponents), 0.78f, 0.98f, 50f, 34f);
+                if (DiscoverComponents)
+                {
+                    var add = MakeButton(_body, "Add", AddEntry);
+                    Place(add, 0.58f, 0.76f, 50f, 34f);
+                    _addButton = add.GetComponent<Button>();
+                }
+                Place(MakeButton(_body, "Refresh", () => { if (Choices != null) ReloadChoices(); else LoadComponents(); }), 0.78f, 0.98f, 50f, 34f);
             }
             else
             {
@@ -101,9 +117,20 @@ namespace DrifterBossGrabMod.Config.UI
                 _add.onSubmit.AddListener(_ => AddEntry());
             }
 
-            _addLabel = _addButton.GetComponentInChildren<TMP_Text>();
+            if (_addButton != null) _addLabel = _addButton.GetComponentInChildren<TMP_Text>();
+            if (EliteEffectColumns)
+            {
+                var throwLabel = Text(_body, "Throw", 18f);
+                Place(throwLabel.rectTransform, 0.65f, 0.80f, 88f, 28f);
+                throwLabel.alignment = TextAlignmentOptions.Center;
+                var baggedLabel = Text(_body, "Bagged", 18f);
+                Place(baggedLabel.rectTransform, 0.81f, 0.95f, 88f, 28f);
+                baggedLabel.alignment = TextAlignmentOptions.Center;
+            }
+            float listTop = EliteEffectColumns ? 120f : 92f;
+            float listHeight = EliteEffectColumns ? 264f : 288f;
             var viewport = Rect("Viewport", _body);
-            Place(viewport, 0.02f, 0.96f, 92f, 288f);
+            Place(viewport, 0.02f, 0.96f, listTop, listHeight);
             viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.1f);
             viewport.gameObject.AddComponent<RectMask2D>();
             _scroll = viewport.gameObject.AddComponent<ScrollRect>();
@@ -124,7 +151,7 @@ namespace DrifterBossGrabMod.Config.UI
             _content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             _scroll.content = _content;
             var track = Rect("Scrollbar", _body);
-            Place(track, 0.966f, 0.98f, 92f, 288f);
+            Place(track, 0.966f, 0.98f, listTop, listHeight);
             Surface(track, PanelColor);
             var handle = Rect("Handle", track);
             Stretch(handle);
@@ -143,15 +170,37 @@ namespace DrifterBossGrabMod.Config.UI
 
         private void ToggleExpanded()
         {
+            if (!_body) BuildBody();
             _expanded = !_expanded;
             _body.gameObject.SetActive(_expanded);
             _layout.minHeight = _layout.preferredHeight = _expanded ? 462f : 64f;
             _editLabel.text = _expanded ? "Done" : "Edit";
             if (_expanded && !_loaded)
             {
-                if (DiscoverComponents) LoadComponents();
+                if (Choices != null) ReloadChoices();
+                else if (DiscoverComponents) LoadComponents();
                 else { _loaded = true; RefreshSelection(); }
             }
+        }
+
+        public void ReloadChoices()
+        {
+            if (!_built || Choices == null) return;
+            if (!_body) { RefreshSelection(); return; }
+            foreach (var row in _rows.Values) { row.SetActive(false); Destroy(row); }
+            _rows.Clear();
+            _toggles.Clear();
+            _grabToggles.Clear();
+            _choiceLabels.Clear();
+            foreach (var choice in Choices())
+            {
+                if (_choiceLabels.ContainsKey(choice.Key)) continue;
+                _choiceLabels.Add(choice.Key, choice.Value);
+                AddRow(choice.Key);
+            }
+            _loaded = true;
+            _title.text = CurrentTitle?.Invoke() ?? Title;
+            RefreshSelection();
         }
 
         private void LoadComponents()
@@ -181,6 +230,8 @@ namespace DrifterBossGrabMod.Config.UI
                     Destroy(row);
                 }
                 _rows.Clear();
+                _toggles.Clear();
+                _grabToggles.Clear();
                 foreach (string name in names.Concat(Selected()).Distinct(StringComparer.Ordinal)) AddRow(name);
                 _loaded = true;
                 RefreshSelection();
@@ -201,9 +252,27 @@ namespace DrifterBossGrabMod.Config.UI
         private void AddRow(string name)
         {
             GameObject row;
-            if (DiscoverComponents)
+            if (EliteEffectColumns)
             {
-                row = CheckBox(_content, name, enabled => SetSelected(name, enabled)).gameObject;
+                var rect = Rect(name, _content);
+                Surface(rect, RowColor);
+                var label = Text(rect, _choiceLabels.TryGetValue(name, out var displayName) ? displayName : name, 20f);
+                Place(label.rectTransform, 0.02f, 0.64f, 0f, 34f);
+                var throwToggle = CheckBox(rect, "", enabled => SetSelected(name, enabled));
+                Place((RectTransform)throwToggle.transform, 0.67f, 0.83f, 0f, 34f);
+                CenterCheckBox(throwToggle);
+                var baggedToggle = CheckBox(rect, "", enabled => SetSelected("Grab:" + name, enabled));
+                Place((RectTransform)baggedToggle.transform, 0.84f, 0.99f, 0f, 34f);
+                CenterCheckBox(baggedToggle);
+                baggedToggle.interactable = API.EliteThrowEffectsAPI.Entries.Any(entry => entry.Id == name && entry.SupportsGrab);
+                _grabToggles.Add(name, baggedToggle);
+                _toggles.Add(name, throwToggle);
+                row = rect.gameObject;
+            }
+            else if (IsChecklist)
+            {
+                row = CheckBox(_content, _choiceLabels.TryGetValue(name, out var label) ? label : name, enabled => SetSelected(name, enabled)).gameObject;
+                _toggles.Add(name, row.GetComponent<Toggle>());
             }
             else
             {
@@ -235,6 +304,13 @@ namespace DrifterBossGrabMod.Config.UI
             optionController?.OptionChanged();
         }
 
+        private static void CenterCheckBox(Toggle toggle)
+        {
+            var square = (RectTransform)toggle.transform.Find("Box");
+            square.anchorMin = square.anchorMax = new Vector2(0.5f, 0.5f);
+            square.anchoredPosition = Vector2.zero;
+        }
+
         private void SetSelected(string name, bool enabled)
         {
             var selected = Selected();
@@ -253,10 +329,11 @@ namespace DrifterBossGrabMod.Config.UI
         private void RefreshSelection()
         {
             var selected = new HashSet<string>(Selected(), EntryComparer);
-            _count.text = DiscoverComponents ? $"{selected.Count} selected" : $"{selected.Count} entries";
+            _count.text = Choices != null ? $"{Choices().Count(choice => selected.Contains(choice.Key) || (EliteEffectColumns && selected.Contains("Grab:" + choice.Key)))} selected" :
+                IsChecklist ? $"{selected.Count} selected" : $"{selected.Count} entries";
             UpdateAddButton();
             if (!_loaded) return;
-            if (!DiscoverComponents)
+            if (!IsChecklist)
             {
                 foreach (string name in _rows.Keys.Where(name => !selected.Contains(name)).ToArray())
                 {
@@ -265,15 +342,18 @@ namespace DrifterBossGrabMod.Config.UI
                     _rows.Remove(name);
                 }
             }
-            foreach (string name in selected.OrderBy(name => name, StringComparer.Ordinal))
-                if (!_rows.ContainsKey(name)) AddRow(name);
-            if (DiscoverComponents)
-                foreach (var row in _rows) row.Value.GetComponent<Toggle>().SetIsOnWithoutNotify(selected.Contains(row.Key));
+            if (Choices == null)
+                foreach (string name in selected.OrderBy(name => name, StringComparer.Ordinal))
+                    if (!_rows.ContainsKey(name)) AddRow(name);
+            if (IsChecklist)
+                foreach (var row in _toggles) row.Value.SetIsOnWithoutNotify(selected.Contains(row.Key));
+            foreach (var row in _grabToggles) row.Value.SetIsOnWithoutNotify(selected.Contains("Grab:" + row.Key));
             FilterRows(false);
         }
 
         private void UpdateAddButton()
         {
+            if (_addButton == null) return;
             var names = (DiscoverComponents ? _search.text : _add.text).Split(',')
                 .Select(name => name.Trim()).Where(name => name.Length > 0).ToArray();
             var selected = new HashSet<string>(Selected(), EntryComparer);
@@ -288,11 +368,14 @@ namespace DrifterBossGrabMod.Config.UI
             int visible = 0;
             foreach (var row in _rows)
             {
-                bool show = (!DiscoverComponents || !_selectedOnly.isOn || row.Value.GetComponent<Toggle>().isOn) && row.Key.IndexOf(_search.text, StringComparison.OrdinalIgnoreCase) >= 0;
+                string label = _choiceLabels.TryGetValue(row.Key, out var text) ? text : row.Key;
+                bool show = (!IsChecklist || !_selectedOnly.isOn || _toggles[row.Key].isOn || (_grabToggles.TryGetValue(row.Key, out var grabToggle) && grabToggle.isOn)) &&
+                    (label.IndexOf(_search.text, StringComparison.OrdinalIgnoreCase) >= 0 || row.Key.IndexOf(_search.text, StringComparison.OrdinalIgnoreCase) >= 0);
                 row.Value.SetActive(show);
                 if (show) visible++;
             }
-            _empty.text = "No matching entries";
+            _empty.text = EmptyMessage?.Invoke() ?? "No matching entries";
+            _empty.enableWordWrapping = true;
             _empty.gameObject.SetActive(visible == 0);
             if (resetScroll) _scroll.verticalNormalizedPosition = 1f;
         }

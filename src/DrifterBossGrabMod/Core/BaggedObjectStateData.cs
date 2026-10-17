@@ -140,7 +140,7 @@ namespace DrifterBossGrabMod.Core
                     this.smacks = Convert.ToInt32(ReflectionCache.DrifterBagController.Smacks.GetValue(bagController));
                 }
 
-                Log.Debug($"[BaggedObjectStateData] Captured state for {targetObject?.name ?? "null"}: " +
+                Log.Debug($"[BaggedObjectStateData] Captured state for {(targetObject != null ? targetObject.name : "null")}: " +
                         $"mass={baggedMass}, scale={bagScale01}, penalty={movespeedPenalty}, " +
                         $"damage={damageStat}, attackSpeed={attackSpeedStat}, crit={critStat}, moveSpeed={moveSpeedStat}");
             }
@@ -172,7 +172,7 @@ namespace DrifterBossGrabMod.Core
                     this.smacks = (int)ReflectionCache.DrifterBagController.Smacks.GetValue(breakoutBagController);
                 }
 
-                Log.Debug($"[BaggedObjectStateData] Captured breakout state for {targetObject?.name ?? "null"}: " +
+                Log.Debug($"[BaggedObjectStateData] Captured breakout state for {(targetObject != null ? targetObject.name : "null")}: " +
                         $"age={elapsedBreakoutTime}, breakoutTime={breakoutTime}");
             }
             catch (Exception ex)
@@ -264,7 +264,6 @@ namespace DrifterBossGrabMod.Core
         public void ApplyToCharacterBody(CharacterBody body)
         {
             if (body == null) return;
-
 
             if (baseMaxHealth <= 0)
             {
@@ -366,27 +365,9 @@ namespace DrifterBossGrabMod.Core
                     hasCapturedRigidbodyState = true;
                 }
 
-
                 baggedMass = controller.CalculateBaggedObjectMass(targetObject);
 
-                float massValue = baggedMass;
-                float maxCapacity = controller != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(controller) : DrifterBagController.maxMass;
-
-                if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
-                {
-                    float maxScale = 1f;
-                    if (float.TryParse(PluginConfig.Instance.BagScaleCap.Value, out float parsedBagScaleCap) && parsedBagScaleCap > 1f)
-                    {
-                        maxScale = parsedBagScaleCap;
-                    }
-                    massValue = Mathf.Clamp(baggedMass, 1f, maxCapacity);
-                }
-                else
-                {
-                    massValue = Mathf.Max(baggedMass, 1f);
-                }
-                float t = (massValue - 1f) / (maxCapacity - 1f);
-                bagScale01 = 0.5f + 0.5f * t;
+                bagScale01 = StateCalculator.CalculateBagScale01(controller, baggedMass);
 
                 float penalty = 0f;
                 if (PluginConfig.Instance.EnableBalance.Value && controller != null)
@@ -424,7 +405,6 @@ namespace DrifterBossGrabMod.Core
                     penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);
                 }
                 movespeedPenalty = penalty;
-
 
                 if (targetBody != null)
                 {
@@ -540,7 +520,7 @@ namespace DrifterBossGrabMod.Core
             this.elapsedBreakoutTime = 0f;
             this.smacks = 0;
 
-            Log.Debug($"[BaggedObjectStateData] Reset breakout data for {targetObject?.name ?? "null"}");
+            Log.Debug($"[BaggedObjectStateData] Reset breakout data for {(targetObject != null ? targetObject.name : "null")}");
         }
     }
 }

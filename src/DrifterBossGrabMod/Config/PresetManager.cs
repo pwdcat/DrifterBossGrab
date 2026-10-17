@@ -44,8 +44,20 @@ namespace DrifterBossGrabMod.Config
             {
                 int appliedCount = 0;
 
+                if (presetType == PresetType.Vanilla)
+                {
+                    var config = PluginConfig.Instance.SelectedPreset.ConfigFile;
+                    foreach (var entry in config.Select(pair => pair.Value).ToArray())
+                    {
+                        if (ReferenceEquals(entry, PluginConfig.Instance.SelectedPreset)
+                            || ReferenceEquals(entry, PluginConfig.Instance.LastSelectedPreset)) continue;
+                        entry.BoxedValue = entry.DefaultValue;
+                    }
+                }
+
                 foreach (var setting in presetValues)
                 {
+                    if (setting.Key.StartsWith("Hud.", StringComparison.Ordinal)) continue;
                     var configEntry = GetConfigEntry(setting.Key);
                     if (configEntry != null)
                     {
@@ -151,6 +163,7 @@ namespace DrifterBossGrabMod.Config
 
             foreach (var kvp in presetValues)
             {
+                if (presetType != PresetType.Vanilla && kvp.Key.StartsWith("Hud.", StringComparison.Ordinal)) continue;
                 var entry = GetConfigEntry(kvp.Key);
                 if (entry == null) continue;
 
@@ -238,9 +251,10 @@ namespace DrifterBossGrabMod.Config
         // ========================================================================================
         // EVENT HANDLERS
         // ========================================================================================
-        public static void OnSettingModified()
+        public static void OnSettingModified(ConfigEntryBase? changedEntry = null)
         {
             if (_isApplyingPreset) return;
+            if (changedEntry?.Definition.Section == "Hud" && PluginConfig.Instance.SelectedPreset.Value != PresetType.Vanilla) return;
             if (PluginConfig.Instance.SelectedPreset.Value != PresetType.Custom)
             {
                 PluginConfig.Instance.SelectedPreset.Value = PresetType.Custom;
@@ -319,11 +333,11 @@ namespace DrifterBossGrabMod.Config
             return key switch
             {
                 "EnableBossGrabbing" => instance.EnableBossGrabbing,
+                "EnableSelfGrabbing" => instance.EnableSelfGrabbing,
                 "EnableNPCGrabbing" => instance.EnableNPCGrabbing,
                 "EnableEnvironmentGrabbing" => instance.EnableEnvironmentGrabbing,
                 "EnableLockedObjectGrabbing" => instance.EnableLockedObjectGrabbing,
                 "ProjectileGrabbingMode" => instance.ProjectileGrabbingMode,
-                "SearchRadiusMultiplier" => instance.SearchRadiusMultiplier,
                 "BodyBlacklist" => instance.BodyBlacklist,
                 "RecoveryObjectBlacklist" => instance.RecoveryObjectBlacklist,
                 "GrabbableComponentTypes" => instance.GrabbableComponentTypes,
@@ -422,6 +436,7 @@ namespace DrifterBossGrabMod.Config
                 "SideSlotShowHealthBar" => instance.SideSlotShowHealthBar,
                 "SideSlotShowSlotNumber" => instance.SideSlotShowSlotNumber,
                 "EnableDamagePreview" => instance.EnableDamagePreview,
+                "EliteHealthBarColorIntensity" => instance.EliteHealthBarColorIntensity,
                 "DamagePreviewColor" => instance.DamagePreviewColor,
                 "UseNewWeightIcon" => instance.UseNewWeightIcon,
                 "WeightDisplayMode" => instance.WeightDisplayMode,
@@ -450,11 +465,16 @@ namespace DrifterBossGrabMod.Config
         private static ConfigEntryBase? GetBalanceConfigEntry(string key)
         {
             var instance = PluginConfig.Instance;
+            if (key.StartsWith("EliteThrowEffect_", StringComparison.Ordinal))
+                return API.EliteThrowEffectsAPI.Entries.FirstOrDefault(e => "EliteThrowEffect_" + e.Id == key)?.Enabled;
+            if (key.StartsWith("EliteGrabEffect_", StringComparison.Ordinal))
+                return API.EliteThrowEffectsAPI.Entries.FirstOrDefault(e => "EliteGrabEffect_" + e.Id == key)?.GrabEnabled;
             return key switch
             {
                 "EnableBalance" => instance.EnableBalance,
-                "BreakoutTimeMultiplier" => instance.BreakoutTimeMultiplier,
-                "MaxSmacks" => instance.MaxSmacks,
+                "BreakoutTimeFormula" => instance.BreakoutTimeFormula,
+                "GrabRangeFormula" => instance.GrabRangeFormula,
+                "MaxSmacksFormula" => instance.MaxSmacksFormula,
                 "AoEDamageDistribution" => instance.AoEDamageDistribution,
                 "MassCapacityFormula" => instance.MassCapacityFormula,
                 "SlamDamageFormula" => instance.SlamDamageFormula,
@@ -464,7 +484,6 @@ namespace DrifterBossGrabMod.Config
                 "BagScaleCap" => instance.BagScaleCap,
                 "MassCap" => instance.MassCap,
                 "MaxLaunchSpeed" => instance.MaxLaunchSpeed,
-                "SearchRadiusMultiplier" => instance.SearchRadiusMultiplier,
                 _ => null
             };
         }

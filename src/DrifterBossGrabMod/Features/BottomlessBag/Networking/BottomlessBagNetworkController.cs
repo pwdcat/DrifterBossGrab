@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -56,6 +57,15 @@ namespace DrifterBossGrabMod.Networking
         private readonly Dictionary<uint, (float progress, float attempts, float interval, float receivedAt)> _breakoutPresentation = new();
         private float _nextBagPresentationTime;
         private bool _sentBagPresentation;
+        private float _nextDurabilityRefreshTime;
+        private readonly List<uint> _presentationIds = new();
+        private readonly List<float> _presentationProgress = new();
+        private readonly List<float> _presentationAttempts = new();
+        private readonly List<float> _presentationIntervals = new();
+        private readonly List<uint> _presentationDurabilityIds = new();
+        private readonly List<int> _presentationDurability = new();
+        private readonly List<int> _presentationMaxDurability = new();
+        private readonly BreakoutPresentationMessage _presentationMessage = new();
 
         private void LateUpdate()
         {
@@ -76,13 +86,20 @@ namespace DrifterBossGrabMod.Networking
             if (controller == null) return;
             var passengers = BagPatches.GetState(controller).BaggedObjects;
             if (passengers.Count == 0 && !_sentBagPresentation) return;
-            var ids = new List<uint>();
-            var progress = new List<float>();
-            var attempts = new List<float>();
-            var intervals = new List<float>();
-            var durabilityIds = new List<uint>();
-            var durability = new List<int>();
-            var maxDurability = new List<int>();
+            var ids = _presentationIds;
+            ids.Clear();
+            var progress = _presentationProgress;
+            progress.Clear();
+            var attempts = _presentationAttempts;
+            attempts.Clear();
+            var intervals = _presentationIntervals;
+            intervals.Clear();
+            var durabilityIds = _presentationDurabilityIds;
+            durabilityIds.Clear();
+            var durability = _presentationDurability;
+            durability.Clear();
+            var maxDurability = _presentationMaxDurability;
+            maxDurability.Clear();
             foreach (var passenger in passengers)
             {
                 if (passenger == null) continue;
@@ -105,18 +122,37 @@ namespace DrifterBossGrabMod.Networking
                 intervals.Add(interval);
             }
             if (ids.Count == 0 && durabilityIds.Count == 0 && !_sentBagPresentation) return;
+            if (ids.Count == 0 && durabilityIds.Count > 0 && _presentationMessage.passengerIds.Length == 0 &&
+                Time.time < _nextDurabilityRefreshTime &&
+                PresentationBufferMatches(durabilityIds, _presentationMessage.durabilityPassengerIds) &&
+                PresentationBufferMatches(durability, _presentationMessage.durability) &&
+                PresentationBufferMatches(maxDurability, _presentationMessage.maxDurability)) return;
             _sentBagPresentation = ids.Count > 0 || durabilityIds.Count > 0;
-            NetworkMessageRegistry.SendToAll(Constants.Network.BreakoutPresentationSubMessageType, new BreakoutPresentationMessage
-            {
-                controllerNetId = netId,
-                passengerIds = ids.ToArray(),
-                progress = progress.ToArray(),
-                attempts = attempts.ToArray(),
-                intervals = intervals.ToArray(),
-                durabilityPassengerIds = durabilityIds.ToArray(),
-                durability = durability.ToArray(),
-                maxDurability = maxDurability.ToArray()
-            });
+            _nextDurabilityRefreshTime = Time.time + 1f;
+            _presentationMessage.controllerNetId = netId;
+            CopyPresentationBuffer(ids, ref _presentationMessage.passengerIds);
+            CopyPresentationBuffer(progress, ref _presentationMessage.progress);
+            CopyPresentationBuffer(attempts, ref _presentationMessage.attempts);
+            CopyPresentationBuffer(intervals, ref _presentationMessage.intervals);
+            CopyPresentationBuffer(durabilityIds, ref _presentationMessage.durabilityPassengerIds);
+            CopyPresentationBuffer(durability, ref _presentationMessage.durability);
+            CopyPresentationBuffer(maxDurability, ref _presentationMessage.maxDurability);
+            NetworkMessageRegistry.SendToAll(Constants.Network.BreakoutPresentationSubMessageType, _presentationMessage);
+        }
+
+        private static bool PresentationBufferMatches<T>(List<T> source, T[] snapshot)
+        {
+            if (source.Count != snapshot.Length) return false;
+            var comparer = EqualityComparer<T>.Default;
+            for (int i = 0; i < source.Count; i++)
+                if (!comparer.Equals(source[i], snapshot[i])) return false;
+            return true;
+        }
+
+        private static void CopyPresentationBuffer<T>(List<T> source, ref T[] target)
+        {
+            if (target.Length != source.Count) target = source.Count == 0 ? Array.Empty<T>() : new T[source.Count];
+            source.CopyTo(target);
         }
 
         internal void ApplyBreakoutPresentation(BreakoutPresentationMessage message)
@@ -280,7 +316,8 @@ namespace DrifterBossGrabMod.Networking
             var controller = GetComponent<DrifterBagController>();
             if (controller != null && !NetworkServer.active)
                 BagPatches.GetState(controller).EmptySlotIndex = emptySlotIndex < 0 ? -1 : Mathf.Clamp(emptySlotIndex, 0, baggedIds.Length);
-            _lastScrollDirection = direction;
+            bool sameSelection = index == selectedIndex && _baggedObjectNetIdsTarget.SequenceEqual(baggedIds);
+            _lastScrollDirection = MergePendingScrollDirection(_lastScrollDirection, direction, sameSelection);
 
             if (!NetworkServer.active)
             {
@@ -294,6 +331,9 @@ namespace DrifterBossGrabMod.Networking
             _receivedTotalTimes = totalTimes;
             UpdateLocalState(index, new List<uint>(baggedIds), new List<uint>(seatIds));
         }
+
+        internal static int MergePendingScrollDirection(int pending, int incoming, bool sameSelection)
+            => incoming != 0 ? incoming : sameSelection ? pending : 0;
 
         private void ApplyReceivedObjectStates(DrifterBagController controller)
         {
@@ -415,6 +455,8 @@ namespace DrifterBossGrabMod.Networking
                 Log.Debug($"[BottomlessBagNetworkController] Starting state sync for {controller.name}");
             }
 
+            yield return null;
+
             while (elapsed < timeout)
             {
                 if (Run.instance != run || client == null || !client.isConnected || NetworkManager.singleton?.client != client)
@@ -512,6 +554,7 @@ namespace DrifterBossGrabMod.Networking
 
                 if (!NetworkServer.active)
                 {
+                    PrepareClientBagSelection(controller, ctx.MainSeatObject, oldMain);
                     DoSync_Client_Actions(controller, ref ctx);
                 }
 
@@ -602,6 +645,25 @@ namespace DrifterBossGrabMod.Networking
             }
         }
 
+        private static void PrepareClientBagSelection(DrifterBagController controller, GameObject? mainPassenger, GameObject? oldMain)
+        {
+            if (mainPassenger == null || (oldMain != null && mainPassenger != oldMain))
+                BaggedObjectStatePatches.ForceCleanupOverrides(controller, oldMain);
+
+            if (controller.baggedObject != mainPassenger)
+                controller.OnSyncBaggedObject(mainPassenger);
+
+            if (mainPassenger == null)
+            {
+                var bagStateMachine = EntityStateMachine.FindByCustomName(controller.gameObject, "Bag");
+                if (bagStateMachine != null && bagStateMachine.state is BaggedObject)
+                    bagStateMachine.SetState(EntityStateCatalog.InstantiateState(ref bagStateMachine.mainStateType));
+            }
+
+            if (!ReferenceEquals(oldMain, mainPassenger))
+                Log.Debug($"[ClientBagSelection] frame={Time.frameCount}, controller={controller.GetInstanceID()}, previous={(oldMain != null ? oldMain.name : "empty")}, selected={(mainPassenger != null ? mainPassenger.name : "empty")}");
+        }
+
         private void DoSync_Client_Actions(DrifterBagController? controller, ref DoSyncContext ctx)
         {
             if (controller == null) return;
@@ -673,10 +735,6 @@ namespace DrifterBossGrabMod.Networking
                         }
                     }
                 }
-            }
-            else if (controller != null && ctx.MainSeatObject == null)
-            {
-                BaggedObjectStatePatches.ForceCleanupOverrides(controller, null);
             }
 
             if (ctx.SyncedObjects != null && ctx.AdditionalSeatDict != null && controller != null)
@@ -778,7 +836,7 @@ namespace DrifterBossGrabMod.Networking
 
             if (controller != null)
             {
-                if (ctx.MainSeatObject == null || (oldMain != null && ctx.MainSeatObject != oldMain))
+                if (NetworkServer.active && (ctx.MainSeatObject == null || (oldMain != null && ctx.MainSeatObject != oldMain)))
                 {
                     BaggedObjectStatePatches.ForceCleanupOverrides(controller, oldMain);
                 }

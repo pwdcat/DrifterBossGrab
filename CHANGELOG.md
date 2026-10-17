@@ -3,6 +3,51 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1]
+
+### Added
+- Elite health bar colors
+- Elite effects when throwing or bagging enemies
+    - Blazing, Glacial, Overloading and Perfected
+        - Need to do more planning with the others
+        - Overloading bagged effect sucks
+    - Throw / Bagged effects checkboxes under Balance > Elites
+- Self grab
+    - Since they removed it for some reason
+    - Look directly up and double tab repossess
+    - It's in general
+- Slam animation feedback
+
+### Fixed
+- Bag not growing with unlimited mass capacity
+- Stock refresh clamping ignoring extra bag slots from formulas
+- Settings overlapping after closing the HUD editor
+- In game hud editor dropdown
+- Hud editor overlaps
+- Solus changes
+    - Solus heart will be grabbed propertly (only his head)
+    - Solus wing won't fly up anymore and get instantly killed
+- Loading a save with big objects or enemies slamming you into the ground
+- Weird edge case for bottomless causing a mismatch on the thrown projectile's passenger
+- Controller binds showing up as unbound until refreshed
+- Small bag sync issues for multiplayer
+- Mid game preset switching causing the game to freeze for config sync
+
+### Changed
+- Faster settings tabs
+- Sliders/Multipliers are now formulas
+- Presets
+- UncappedBagScale
+    - Fixed and reworked it
+- EnableStockRefreshClamping and SuccessiveGrabStockRefresh
+    - Clamping is final capacity - occupied slots
+    - Successive grab will fresh on throw too
+- More cleanup and less log spam
+
+### Note
+- Still some annoying edge cases for animations and config sync for the client
+- Desync with self grab
+
 ## [1.9.0]
 
 ### Added

@@ -162,6 +162,7 @@ namespace DrifterBossGrabMod
         public static PluginConfig Instance => _instance ??= new PluginConfig();
 
         public ConfigEntry<bool> EnableBossGrabbing { get; private set; } = null!;
+        public ConfigEntry<bool> EnableSelfGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableNPCGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableEnvironmentGrabbing { get; private set; } = null!;
         public ConfigEntry<bool> EnableLockedObjectGrabbing { get; private set; } = null!;
@@ -170,7 +171,6 @@ namespace DrifterBossGrabMod
         public ConfigEntry<string> RecoveryObjectBlacklist { get; private set; } = null!;
         public ConfigEntry<string> GrabbableComponentTypes { get; private set; } = null!;
         public ConfigEntry<string> GrabbableKeywordBlacklist { get; private set; } = null!;
-        public ConfigEntry<float> SearchRadiusMultiplier { get; private set; } = null!;
         public ConfigEntry<bool> EnableDebugLogs { get; private set; } = null!;
         public ConfigEntry<ComponentChooserSortMode> ComponentChooserSortModeEntry { get; private set; } = null!;
         public ConfigEntry<ComponentChooserDummy> ComponentChooserDummyEntry { get; private set; } = null!;
@@ -253,6 +253,7 @@ namespace DrifterBossGrabMod
         public ConfigEntry<bool> ScaleWeightColor { get; private set; } = null!;
         public ConfigEntry<bool> ShowTotalMassOnWeightIcon { get; private set; } = null!;
         public ConfigEntry<bool> ShowOverencumberIcon { get; private set; } = null!;
+        public ConfigEntry<float> EliteHealthBarColorIntensity { get; private set; } = null!;
         public ConfigEntry<bool> EnableDamagePreview { get; private set; } = null!;
         public ConfigEntry<Color> DamagePreviewColor { get; private set; } = null!;
         public ConfigEntry<bool> SmoothCapacityFill { get; private set; } = null!;
@@ -276,8 +277,9 @@ namespace DrifterBossGrabMod
 
         public ConfigEntry<bool> EnableBalance { get; private set; } = null!;
         public ConfigEntry<AoEDamageMode> AoEDamageDistribution { get; private set; } = null!;
-        public ConfigEntry<float> BreakoutTimeMultiplier { get; private set; } = null!;
-        public ConfigEntry<int> MaxSmacks { get; private set; } = null!;
+        public ConfigEntry<string> BreakoutTimeFormula { get; private set; } = null!;
+        public ConfigEntry<string> GrabRangeFormula { get; private set; } = null!;
+        public ConfigEntry<string> MaxSmacksFormula { get; private set; } = null!;
         public ConfigEntry<string> BagScaleCap { get; private set; } = null!;
         public ConfigEntry<string> MassCap { get; private set; } = null!;
         public ConfigEntry<string> MaxLaunchSpeed { get; private set; } = null!;
@@ -353,6 +355,8 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_TOTAL_MASS.CHECKBOX"] = new[] { HudElementType.WeightIcon },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.SHOW_OVERENCUMBERED_ICON.CHECKBOX"] = new[] { HudElementType.WeightIcon },
 
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ELITE_HEALTH_BAR_COLORS.CHECKBOX"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Cards, HudElementType.DamagePreview },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ELITE_HEALTH_BAR_COLOR_INTENSITY.STEP_SLIDER"] = new[] { HudElementType.MainSlot, HudElementType.SideSlots, HudElementType.Cards, HudElementType.DamagePreview },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.ENABLE_DAMAGE_PREVIEW.CHECKBOX"] = new[] { HudElementType.DamagePreview },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.HUD.DAMAGE_PREVIEW_COLOR.COLOR"] = new[] { HudElementType.DamagePreview },
 
@@ -381,6 +385,7 @@ namespace DrifterBossGrabMod
 
         public static readonly Dictionary<string, BalanceSubTabType[]> BalanceSettingToSubTab = new()
         {
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MASS_CAPACITY_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
 
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.FLAG.CHOICE"] = new[] { BalanceSubTabType.Multipliers },
@@ -395,9 +400,8 @@ namespace DrifterBossGrabMod
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAG_VISUAL_SIZE_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BAGGED_ENTITY_MASS_CAP.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.AOE_DAMAGE.CHOICE"] = new[] { BalanceSubTabType.Limits },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Multipliers },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_TIME_MULTIPLIER.STEP_SLIDER"] = new[] { BalanceSubTabType.Multipliers },
-            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_HITS_BEFORE_BREAKOUT.INT_SLIDER"] = new[] { BalanceSubTabType.Limits },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.GRAB_RANGE_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
+            ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.BREAKOUT_HIT_LIMIT.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.MAX_LAUNCH_SPEED.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Limits },
             ["COM.PWDCAT.DRIFTERBOSSGRAB.BALANCE.SLAM_DAMAGE_FORMULA.STRING_INPUT_FIELD"] = new[] { BalanceSubTabType.Formulas }
         };
@@ -546,6 +550,7 @@ namespace DrifterBossGrabMod
             InitHudConfig(cfg);
             InitBottomlessBagConfig(cfg);
             InitBalanceConfig(cfg);
+            InitEliteThrowEffectsConfig(cfg);
             InitCharacterFlagsConfig(cfg);
             InitBlacklistCaches();
             Instance.RefreshCachedConfigStrings();

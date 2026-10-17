@@ -32,6 +32,7 @@ namespace DrifterBossGrabMod.Patches
         private static readonly MethodInfo _tryOverridePrimaryMethod = ReflectionCache.BaggedObject.TryOverridePrimary;
         private static readonly FieldInfo _bagScale01Field = ReflectionCache.BaggedObject.BagScale01;
         private static readonly MethodInfo _setScaleMethod = ReflectionCache.BaggedObject.SetScale;
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DrifterBagController, BaggedObject> _initializingBagStates = new();
 
         public static BaggedObject? FindExistingBaggedObjectState(DrifterBagController bagController, GameObject? targetObject)
         {
@@ -48,6 +49,7 @@ namespace DrifterBossGrabMod.Patches
         public static void SynchronizeBaggedObjectState(DrifterBagController bagController, GameObject? targetObject)
         {
             if (bagController == null) return;
+            if (_initializingBagStates.TryGetValue(bagController, out _)) return;
 
             BaggedObject? baggedObject = null;
             if (targetObject != null)
@@ -160,7 +162,6 @@ namespace DrifterBossGrabMod.Patches
         {
             if (instance == null || instance.targetObject == null) return;
 
-
             bool isBody = instance.targetObject.TryGetComponent<CharacterBody>(out var body);
             if (ReflectionCache.BaggedObject.IsBody != null)
             {
@@ -182,56 +183,22 @@ namespace DrifterBossGrabMod.Patches
         {
             if (baggedObject == null) return;
 
-            float maxCapacity = DrifterBagController.maxMass;
             var controller = baggedObject.outer.GetComponent<DrifterBagController>();
-            if (controller != null)
-            {
-                maxCapacity = Balance.CapacityScalingSystem.CalculateMassCapacity(controller);
-            }
-
-            float value = mass;
-            if (!PluginConfig.Instance.EnableBalance.Value || !PluginConfig.Instance.IsBagScaleCapInfinite)
-            {
-                value = Mathf.Clamp(mass, 1f, maxCapacity);
-            }
-            else
-            {
-                value = Mathf.Max(mass, 1f);
-            }
-
-            float t = StateCalculator.GetMassScaleRatio(value, maxCapacity);
-            float bagScale01 = 0.5f + 0.5f * t;
+            float bagScale01 = StateCalculator.CalculateBagScale01(controller, mass);
 
             if (_bagScale01Field != null)
             {
                 _bagScale01Field.SetValue(baggedObject, bagScale01);
             }
 
-            if (PluginConfig.Instance.EnableBalance.Value)
-            {
-                bool isScaleUncapped = PluginConfig.Instance.IsBagScaleCapInfinite;
-                if (isScaleUncapped || PluginConfig.Instance.ParsedBagScaleCap > 1f)
-                {
-                    if (controller != null)
-                    {
-                        BagPassengerManager.UpdateUncappedBagScale(controller, mass);
-                    }
+            if (controller != null && (PluginConfig.Instance.EnableBalance.Value &&
+                (PluginConfig.Instance.IsBagScaleCapInfinite || PluginConfig.Instance.ParsedBagScaleCap > 1f) ||
+                controller.GetComponent<UncappedBagScaleComponent>() != null))
+                BagPassengerManager.UpdateUncappedBagScale(controller, mass);
 
-                    bool uncappedActivelyScaling = mass > maxCapacity;
-                    if (!uncappedActivelyScaling && _setScaleMethod != null)
-                    {
-                        _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
-                    }
-                }
-                else if (_setScaleMethod != null)
-                {
-                    _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
-                }
-            }
-            else if (_setScaleMethod != null)
-            {
+            if (_setScaleMethod != null)
                 _setScaleMethod.Invoke(baggedObject, new object[] { bagScale01 });
-            }
+
         }
 
         // ========================================================================================
@@ -342,7 +309,6 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-
                 if (shouldAllowOverride)
                 {
                     return true;
@@ -392,7 +358,6 @@ namespace DrifterBossGrabMod.Patches
 
                 bool shouldAllowOverride = isMainSeatOccupant || isBeingCycledToMain;
 
-
                 if (shouldAllowOverride)
                 {
                     return true;
@@ -431,7 +396,8 @@ namespace DrifterBossGrabMod.Patches
         public static BaggedObject? FindOrCreateBaggedObjectState(DrifterBagController bagController, GameObject? targetObject)
         {
             if (bagController == null || targetObject == null) return null;
-
+            if (_initializingBagStates.TryGetValue(bagController, out var initializingState))
+                return initializingState.targetObject == targetObject ? initializingState : null;
 
             var bagStateMachine = EntityStateMachine.FindByCustomName(bagController.gameObject, "Bag");
             if (bagStateMachine != null && bagStateMachine.state is BaggedObject bo && bo.targetObject == targetObject)
@@ -483,7 +449,15 @@ namespace DrifterBossGrabMod.Patches
                             ReflectionCache.BaggedObject.DrifterBagController?.SetValue(newBaggedObject, bagCtrl);
                         }
                         Log.Debug($"[FindOrCreateBaggedObjectState] Creating NEW BaggedObject with targetObject={(!targetObject ? "null" : targetObject!.name)}, drifterBagController={(!bagCtrl ? "null" : bagCtrl!.name)}");
-                        targetStateMachine.SetState(newBaggedObject);
+                        _initializingBagStates.Add(bagController, newBaggedObject);
+                        try
+                        {
+                            targetStateMachine.SetState(newBaggedObject);
+                        }
+                        finally
+                        {
+                            _initializingBagStates.Remove(bagController);
+                        }
                         return newBaggedObject;
                     }
                 }

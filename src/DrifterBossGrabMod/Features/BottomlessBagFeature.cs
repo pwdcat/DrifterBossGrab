@@ -37,7 +37,7 @@ namespace DrifterBossGrabMod
 
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnExit_Patch)).Patch();
 
-            Log.Debug($"[{FeatureName}] Patches applied successfully.");
+            Log.Debug($"[{FeatureName}] Patches applied.");
         }
     }
 }

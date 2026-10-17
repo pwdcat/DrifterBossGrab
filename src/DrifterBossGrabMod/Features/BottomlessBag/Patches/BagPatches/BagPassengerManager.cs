@@ -563,11 +563,11 @@ namespace DrifterBossGrabMod.Patches
             {
                 try
                 {
-                    Log.Debug($"[RemoveBaggedObject] About to eject passenger from main seat: {BagHelpers.GetSafeName(obj)}");
+                    Log.Debug($"[RemoveBaggedObject] Ejecting passenger from main seat: {BagHelpers.GetSafeName(obj)}");
 
                     controller.vehicleSeat.EjectPassenger(obj);
 
-                    Log.Debug($"[RemoveBaggedObject] Successfully ejected passenger from main seat");
+                    Log.Debug($"[RemoveBaggedObject] Ejected passenger from main seat");
                 }
                 catch (Exception ex)
                 {

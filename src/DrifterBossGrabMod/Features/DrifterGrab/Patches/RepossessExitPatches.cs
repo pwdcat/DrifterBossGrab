@@ -142,7 +142,7 @@ namespace DrifterBossGrabMod.Patches
 
                         if (ProjectileRecoveryPatches.IsUndergoingThrowOperation(__state))
                         {
-                            Log.Warning($"[RepossessExit Postfix] Blocking grab request for {__state.name} - object is currently undergoing throw operation");
+                            Log.Warning($"[RepossessExit Postfix] Blocking grab request for {__state.name} - object is being thrown");
                             return;
                         }
 

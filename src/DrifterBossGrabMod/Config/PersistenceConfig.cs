@@ -9,22 +9,22 @@ namespace DrifterBossGrabMod
         {
             Instance.EnableObjectPersistence = cfg.Bind("Persistence", "EnableObjectPersistence",
                 false,
-                "Save and restore bagged objects across stages.");
+                "Keep bagged objects between stages.");
             Instance.EnableAutoGrab = cfg.Bind("Persistence", "EnableAutoGrab",
                 false,
-                "Auto-grab persisted objects on stage start.");
+                "Automatically grab saved objects when a stage starts.");
             Instance.PersistBaggedBosses = cfg.Bind("Persistence", "PersistBaggedBosses",
                 true,
-                "Allow bosses to persist across stages.");
+                "Keep bagged bosses between stages.");
             Instance.PersistBaggedNPCs = cfg.Bind("Persistence", "PersistBaggedNPCs",
                 true,
-                "Allow NPCs to persist across stages.");
+                "Keep bagged NPCs between stages.");
             Instance.PersistBaggedEnvironmentObjects = cfg.Bind("Persistence", "PersistBaggedEnvironmentObjects",
                 true,
-                "Allow environment objects to persist across stages.");
+                "Keep bagged environment objects between stages.");
             Instance.PersistenceBlacklist = cfg.Bind("Persistence", "PersistenceBlacklist", "",
-                "Objects to never persist. Comma-separated.");
-            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Delay before auto-grabbing persisted objects (seconds).");
+                "Objects to leave behind when changing stages. Comma-separated.");
+            Instance.AutoGrabDelay = cfg.Bind("Persistence", "AutoGrabDelay", 1.0f, "Seconds to wait before automatically grabbing saved objects.");
         }
     }
 }

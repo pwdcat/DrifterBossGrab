@@ -294,7 +294,7 @@ namespace DrifterBossGrabMod.API
             if (bossGroup != null)
             {
                 bossGroup.bonusRewardCount = restoredStacks;
-                Log.Debug($"[RestoreTeleporterInteraction] Successfully synced bossGroup.bonusRewardCount to {restoredStacks}");
+                Log.Debug($"[RestoreTeleporterInteraction] Synced bossGroup.bonusRewardCount to {restoredStacks}");
             }
         }
 

@@ -56,9 +56,9 @@ namespace DrifterBossGrabMod.UI
 
         private void Close()
         {
+            HudContextMenu.Close();
             if (_screen != null) Destroy(_screen.gameObject);
             _screen = null;
-            HudContextMenu.Close();
             if (_eventSystem != null) _eventSystem.cursorOpenerCount = Mathf.Max(0, _eventSystem.cursorOpenerCount - 1);
             _eventSystem = null;
             Selected = null;

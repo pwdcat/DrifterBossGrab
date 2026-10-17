@@ -37,25 +37,21 @@ namespace DrifterBossGrabMod.UI
 
         public static void Close()
         {
-            if (_menuInstance != null) Destroy(_menuInstance);
+            if (_menuInstance != null)
+            {
+                _menuInstance.SetActive(false);
+                Destroy(_menuInstance);
+            }
             _menuInstance = null;
         }
 
         public static void Show(HudDraggable draggable)
         {
-            if (_menuInstance != null)
-            {
-                Destroy(_menuInstance);
-            }
+            Close();
 
             var canvas = HudEditorManager.EditorCanvas;
             if (canvas == null) canvas = draggable.GetComponentInParent<Canvas>()?.rootCanvas;
             if (canvas == null) return;
-
-            if (PluginConfig.Instance.SelectedHudElement != null)
-            {
-                PluginConfig.Instance.SelectedHudElement.Value = draggable.ElementType;
-            }
 
             _menuInstance = new GameObject("HudContextMenu");
             _menuInstance.AddComponent<HudContextMenu>();
@@ -380,9 +376,14 @@ namespace DrifterBossGrabMod.UI
 
         private void Update()
         {
+            if (!HudEditorManager.IsEditorActive)
+            {
+                Close();
+                return;
+            }
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
-                Destroy(gameObject);
+                Close();
                 return;
             }
 
@@ -409,7 +410,7 @@ namespace DrifterBossGrabMod.UI
 
                         if (!clickedInside)
                         {
-                            Destroy(gameObject);
+                            Close();
                         }
                     }
                 }

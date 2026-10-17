@@ -12,15 +12,15 @@ namespace DrifterBossGrabMod
             Instance.BottomlessBagEnabled = cfg.Bind("Bottomless Bag", "EnableBottomlessBag",
                 false,
                 "Store multiple objects and cycle through them.");
-            Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "Clamp stock refresh to empty slots.");
-            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "Refresh stock only after a successful grab at 0.");
-            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Cooldown between passenger cycles.");
-            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "Play grab animation when cycling.");
-            Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Cycle passengers via mouse wheel.");
-            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Invert mouse wheel cycle direction.");
-            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Auto-promote next object when main is removed.");
-            Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "New objects go to main seat first.");
-            Instance.SlotScalingFormula = cfg.Bind("Bottomless Bag", "SlotScalingFormula", "C + 2", "Formula for total bag slots. Supported: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage). Set to INF for infinite.");
+            Instance.EnableStockRefreshClamping = cfg.Bind("Bottomless Bag", "EnableStockRefreshClamping", false, "Limit Repossess recharge to the remaining bag slots, using the final bag capacity. Keeps at least 1 stock available and does not raise your normal stock limit.");
+            Instance.EnableSuccessiveGrabStockRefresh = cfg.Bind("Bottomless Bag", "EnableSuccessiveGrabStockRefresh", false, "Refresh Repossess stocks after a successful grab leaves you at 0.");
+            Instance.CycleCooldown = cfg.Bind("Bottomless Bag", "CycleCooldown", 0.2f, "Seconds between passenger switches.");
+            Instance.PlayAnimationOnCycle = cfg.Bind("Bottomless Bag", "PlayAnimationOnCycle", false, "Play the grab animation when switching passengers.");
+            Instance.EnableMouseWheelScrolling = cfg.Bind("Bottomless Bag", "EnableMouseWheelScrolling", true, "Switch passengers with the mouse wheel.");
+            Instance.InverseMouseWheelScrolling = cfg.Bind("Bottomless Bag", "InverseMouseWheelScrolling", false, "Reverse the mouse wheel direction for switching passengers.");
+            Instance.AutoPromoteMainSeat = cfg.Bind("Bottomless Bag", "AutoPromoteMainSeat", false, "Select the next passenger when the main passenger is removed.");
+            Instance.PrioritizeMainSeat = cfg.Bind("Bottomless Bag", "PrioritizeMainSeat", false, "Make newly grabbed objects the main passenger.");
+            Instance.SlotScalingFormula = cfg.Bind("Bottomless Bag", "SlotScalingFormula", "C + 2", "Set the number of bag slots. Variables: H (Max HP), L (Level), C (Stocks), MC (Mass Cap), S (Stage). Use INF for unlimited slots.");
 
             if (Instance.BottomlessBagEnabled.Value && !Instance.EnableCarouselHUD.Value)
             {

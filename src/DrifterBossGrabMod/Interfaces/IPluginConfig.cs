@@ -8,13 +8,11 @@ namespace DrifterBossGrabMod
 {
     public interface IPluginConfig
     {
-        ConfigEntry<float> BreakoutTimeMultiplier { get; }
         ConfigEntry<bool> EnableBossGrabbing { get; }
         ConfigEntry<bool> EnableNPCGrabbing { get; }
         ConfigEntry<bool> EnableEnvironmentGrabbing { get; }
         ConfigEntry<bool> EnableLockedObjectGrabbing { get; }
         ConfigEntry<ProjectileGrabbingMode> ProjectileGrabbingMode { get; }
-        ConfigEntry<int> MaxSmacks { get; }
         ConfigEntry<bool> EnableDebugLogs { get; }
         ConfigEntry<string> BodyBlacklist { get; }
         ConfigEntry<string> RecoveryObjectBlacklist { get; }

@@ -18,6 +18,7 @@ namespace DrifterBossGrabMod.Core
         private VehicleSeat? _lastSeat;
 
         private bool _protecting;
+        private float _restoreProtectionUntil;
         private bool _hasWingMotorSnapshot;
         private bool _wingWasCarried;
         private bool _wingMotorEnabled;
@@ -86,6 +87,17 @@ namespace DrifterBossGrabMod.Core
             Apply();
         }
 
+        internal void BeginRestoration(CharacterBody owner, float duration)
+        {
+            Begin(owner);
+            _restoreProtectionUntil = Time.unscaledTime + duration;
+        }
+
+        internal void FinishRestoration()
+        {
+            _restoreProtectionUntil = 0f;
+        }
+
         private static Collider[] GetSolidColliders(GameObject obj)
         {
             var colliders = new HashSet<Collider>(obj.GetComponentsInChildren<Collider>(true));
@@ -126,7 +138,12 @@ namespace DrifterBossGrabMod.Core
             if (!_protecting) return;
             if (_owner == null) { Clear(); return; }
             Apply();
-            if (_projectile != null || VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null) return;
+            if (VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null)
+            {
+                FinishRestoration();
+                return;
+            }
+            if (_projectile != null || Time.unscaledTime < _restoreProtectionUntil) return;
             foreach (var passenger in _passengerColliders)
             {
                 if (passenger == null || !passenger.enabled || !passenger.gameObject.activeInHierarchy) continue;
@@ -150,6 +167,7 @@ namespace DrifterBossGrabMod.Core
             _owner = null;
             _projectile = null;
             _protecting = false;
+            _restoreProtectionUntil = 0f;
             foreach (var pair in _pairs)
                 if (pair.passenger != null && pair.owner != null)
                     Physics.IgnoreCollision(pair.passenger, pair.owner, pair.ignored);
@@ -252,6 +270,53 @@ namespace DrifterBossGrabMod.Core
                     }
                 }
             }
+        }
+
+        [HarmonyPatch(typeof(VehicleSeat), "SetPassengerCollisions")]
+        public static class VehicleSeat_SetPassengerCollisions_Patch
+        {
+            private static readonly System.Reflection.FieldInfo PassengerInfoField = AccessTools.Field(typeof(VehicleSeat), "passengerInfo");
+            private static readonly System.Reflection.FieldInfo CollidersField = AccessTools.Field(PassengerInfoField.FieldType, "allColliders");
+            private static readonly System.Reflection.FieldInfo StatesField = AccessTools.Field(PassengerInfoField.FieldType, "originalCollidersState");
+
+            [HarmonyPrefix]
+            public static void Prefix(VehicleSeat __instance, bool enabled)
+            {
+                if (enabled) return;
+                var bag = __instance.GetComponentInParent<DrifterBagController>();
+                if (bag == null)
+                {
+                    var projectile = __instance.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>();
+                    var owner = projectile != null ? __instance.GetComponent<RoR2.Projectile.ProjectileController>()?.owner : null;
+                    if (owner == null || owner.GetComponent<DrifterBagController>() == null) return;
+                }
+                var passenger = __instance.NetworkpassengerBodyObject;
+                if (passenger == null || passenger.GetComponent<CharacterBody>() == null) return;
+                var info = PassengerInfoField.GetValue(__instance);
+                var colliders = (Collider[])CollidersField.GetValue(info);
+                var states = (bool[])StatesField.GetValue(info);
+                ExtendCollisionSnapshot(colliders, states, GetSolidColliders(passenger), out var extendedColliders, out var extendedStates);
+                if (extendedColliders.Length == colliders.Length) return;
+                CollidersField.SetValue(info, extendedColliders);
+                StatesField.SetValue(info, extendedStates);
+                PassengerInfoField.SetValue(__instance, info);
+            }
+        }
+
+        internal static void ExtendCollisionSnapshot(Collider[] colliders, bool[] states, IEnumerable<Collider> candidates,
+            out Collider[] extendedColliders, out bool[] extendedStates)
+        {
+            var seen = new HashSet<Collider>(colliders);
+            var result = new List<Collider>(colliders);
+            var originalStates = new List<bool>(states);
+            foreach (var collider in candidates)
+            {
+                if (collider == null || !seen.Add(collider)) continue;
+                result.Add(collider);
+                originalStates.Add(collider.enabled);
+            }
+            extendedColliders = result.ToArray();
+            extendedStates = originalStates.ToArray();
         }
     }
 }

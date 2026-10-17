@@ -192,28 +192,5 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        [HarmonyPatch(typeof(ThrownObjectProjectileController), "CheckForDeadPassenger")]
-        public class ThrownObjectProjectileController_CheckForDeadPassenger_Patch
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(ThrownObjectProjectileController __instance)
-            {
-                try
-                {
-
-                    var passenger = __instance.Networkpassenger;
-                    if (passenger == null)
-                    {
-                        return false;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[PassengerPatch] Failed to check passenger: {ex.Message}");
-                    return false;
-                }
-                return true;
-            }
-        }
     }
 }

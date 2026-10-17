@@ -24,26 +24,6 @@ namespace DrifterBossGrabMod
         private static bool isRestoringFromSceneChange = false;
         public static bool IsRestoringFromSceneChange() => isRestoringFromSceneChange;
         public static PersistenceSceneHandler Instance { get; } = new PersistenceSceneHandler();
-        private static readonly System.Reflection.FieldInfo _clientSceneObjectsField =
-            HarmonyLib.AccessTools.Field(typeof(ClientScene), "objects") ??
-            HarmonyLib.AccessTools.Field(typeof(ClientScene), "s_LocalObjects");
-        private static IDictionary<NetworkInstanceId, NetworkIdentity>? _clientSceneObjects;
-
-        static PersistenceSceneHandler()
-        {
-
-            if (_clientSceneObjectsField != null)
-            {
-                try
-                {
-                    _clientSceneObjects = _clientSceneObjectsField.GetValue(null) as IDictionary<NetworkInstanceId, NetworkIdentity>;
-                }
-                catch
-                {
-                    _clientSceneObjects = null;
-                }
-            }
-        }
 
         private static NetworkUser? FindNetworkUserById(string playerId)
         {
@@ -205,7 +185,6 @@ namespace DrifterBossGrabMod
                         continue;
                     }
 
-
                     var healthComp = obj.GetComponent<RoR2.HealthComponent>();
                     bool isAlreadyInScene = obj.scene == SceneManager.GetActiveScene();
                     var networkIdentity = obj.GetComponent<NetworkIdentity>();
@@ -215,7 +194,7 @@ namespace DrifterBossGrabMod
                         Log.Debug($"[RestorePersistedObjects] Skipping object {obj.name} (NetID: {networkIdentity?.netId}) - already in active scene.");
                         if (PluginConfig.Instance.EnableDebugLogs.Value && healthComp != null && !healthComp.alive)
                         {
-                            Log.Warning($"[DEBUG] [RestorePersistedObjects] SKIPPED object {obj.name} is already in scene but is DEAD. alive={healthComp.alive}");
+                            Log.Warning($"[RestorePersistedObjects] SKIPPED object {obj.name} is already in scene but is DEAD. alive={healthComp.alive}");
                         }
                         continue;
                     }
@@ -299,7 +278,7 @@ namespace DrifterBossGrabMod
 
                             PositionNearPlayer(obj);
 
-                            RegisterLocalObjectReflectively(networkIdentity);
+                            RegisterLocalObject(networkIdentity);
 
                             if (obj.TryGetComponent<Rigidbody>(out var rb))
                             {
@@ -393,7 +372,6 @@ namespace DrifterBossGrabMod
             }
         }
 
-        // TODO: Needs more testing. This is just to prevent objects from falling through the floor after scene transition.
         private static System.Collections.IEnumerator ClientSafetyFloat(GameObject obj, PersistenceCoroutineRunner runner)
         {
             yield return new WaitForSeconds(Constants.Timeouts.OverencumbranceDebuffRemovalDelay);
@@ -575,7 +553,14 @@ namespace DrifterBossGrabMod
 
             if (obj != null)
             {
-                TryAutoGrabObject(obj, ownerPlayerId);
+                try
+                {
+                    TryAutoGrabObject(obj, ownerPlayerId);
+                }
+                finally
+                {
+                    obj.GetComponent<Core.PassengerReleaseProtection>()?.FinishRestoration();
+                }
             }
 
             if (runner != null && runner.gameObject != null) UnityEngine.Object.Destroy(runner.gameObject);
@@ -605,7 +590,7 @@ namespace DrifterBossGrabMod
                 Log.Debug($" Skipping auto-grab for {obj.name} - object is dead (alive={healthComp.alive})");
                 return;
             }
-            Log.Debug($"[DEBUG] [TryAutoGrabObject ENTRY] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
+            Log.Debug($"[TryAutoGrabObject ENTRY] {obj.name}: alive={healthComp?.alive}, activeInHierarchy={obj.activeInHierarchy}");
 
             Log.Debug($" Attempting auto-grab for restored object {obj.name}");
 
@@ -661,7 +646,7 @@ namespace DrifterBossGrabMod
                     }
                     else
                     {
-                        Log.Debug($" No owner assigned to {obj.name}. Object will remain ungrabbed (backward compatibility for unowned objects).");
+                        Log.Debug($" No owner assigned to {obj.name}. Object will remain ungrabbed.");
                     }
                 }
                 return;
@@ -845,7 +830,7 @@ namespace DrifterBossGrabMod
                                 baggedObject.targetObject = obj;
 
                                 bagStateMachine.SetNextState(baggedObject);
-                                Log.Debug($" Successfully initiated auto-grab for {obj.name} using EntityStateMachine");
+                                Log.Debug($" Started auto-grab for {obj.name} using EntityStateMachine");
                             }
                             catch (Exception ex)
                             {
@@ -884,7 +869,7 @@ namespace DrifterBossGrabMod
                         {
                             Patches.BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, obj);
                         }
-                        Log.Debug($" Successfully auto-grabbed {obj.name} using direct assignment");
+                        Log.Debug($" Auto-grabbed {obj.name} using direct assignment");
                     }
                     catch (Exception ex)
                     {
@@ -943,7 +928,7 @@ namespace DrifterBossGrabMod
 
                 MultiTeleporterTracker.RegisterSecondary(teleporterInteraction);
 
-                Log.Debug($"[HandleSpecialObjectRestoration] Successfully patched stale references for {obj.name}");
+                Log.Debug($"[HandleSpecialObjectRestoration] Patched stale references for {obj.name}");
             }
 
             if (duringSceneRestoration)
@@ -1005,54 +990,28 @@ namespace DrifterBossGrabMod
         // ========================================================================================
         // NETWORKING HELPERS
         // ========================================================================================
-        private static void RegisterLocalObjectReflectively(NetworkIdentity networkIdentity)
+        private static void RegisterLocalObject(NetworkIdentity networkIdentity)
         {
+            if (!networkIdentity || networkIdentity.netId == NetworkInstanceId.Invalid) return;
+
             try
             {
-
-                if (_clientSceneObjects != null)
+                var objects = ClientScene.objects;
+                if (objects.TryGetValue(networkIdentity.netId, out var existing) && existing)
                 {
-                    if (!_clientSceneObjects.ContainsKey(networkIdentity.netId))
+                    if (existing != networkIdentity)
                     {
-                        _clientSceneObjects.Add(networkIdentity.netId, networkIdentity);
-                        Log.Debug($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via cached reflection.");
+                        Log.Warning($"[RegisterLocalObject] NetID {networkIdentity.netId} belongs to another live object; preserving its registration.");
                     }
-                    else
-                    {
-                        Log.Debug($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
-                    }
+                    return;
                 }
-                else
-                {
 
-                    if (_clientSceneObjectsField == null)
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Warning("[RegisterLocalObjectReflectively] Could not find 'objects' dictionary in ClientScene");
-                        return;
-                    }
-
-                    var dictionary = _clientSceneObjectsField.GetValue(null) as IDictionary<NetworkInstanceId, NetworkIdentity>;
-                    if (dictionary != null)
-                    {
-                        if (!dictionary.ContainsKey(networkIdentity.netId))
-                        {
-                            dictionary.Add(networkIdentity.netId, networkIdentity);
-                            Log.Debug($"[RegisterLocalObjectReflectively] Successfully registered NetID {networkIdentity.netId} with ClientScene via fallback Reflection.");
-                        }
-                        else
-                        {
-                            Log.Debug($"[RegisterLocalObjectReflectively] NetID {networkIdentity.netId} already registered in ClientScene.");
-                        }
-                    }
-                    else
-                    {
-                        if (PluginConfig.Instance.EnableDebugLogs.Value) Log.Warning($"[RegisterLocalObjectReflectively] Field found but value is null or not IDictionary<NetworkInstanceId, NetworkIdentity>");
-                    }
-                }
+                objects[networkIdentity.netId] = networkIdentity;
+                Log.Debug($"[RegisterLocalObject] Registered NetID {networkIdentity.netId} with ClientScene.");
             }
             catch (Exception ex)
             {
-                Log.Error($"[RegisterLocalObjectReflectively] Error: {ex.Message}");
+                Log.Error($"[RegisterLocalObject] Error: {ex.Message}");
             }
         }
     }

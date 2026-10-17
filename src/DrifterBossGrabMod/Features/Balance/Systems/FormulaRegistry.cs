@@ -2,10 +2,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using RoR2;
+using DrifterBossGrabMod.Patches;
+using UnityEngine;
 
 namespace DrifterBossGrabMod.Balance
 {
@@ -239,7 +239,6 @@ namespace DrifterBossGrabMod.Balance
 
             return upperName;
         }
-
     }
 
     public class VariableInfo
@@ -262,5 +261,75 @@ namespace DrifterBossGrabMod.Balance
     {
         Static,
         Dynamic
+    }
+
+    public static class BagFormulaContext
+    {
+        public static Dictionary<string, float> Create(CharacterBody? carrier, DrifterBagController? controller,
+            GameObject? passenger = null, float baseTime = 0f)
+        {
+            var body = passenger != null ? passenger.GetComponent<CharacterBody>() : null;
+            var values = new Dictionary<string, float>
+            {
+                ["N"] = controller != null ? BagCapacityCalculator.GetCurrentBaggedCount(controller) : 0f,
+                ["T"] = controller != null ? controller.baggedMass : 0f,
+                ["PM"] = controller != null && passenger != null ? controller.CalculateBaggedObjectMass(passenger) : 0f,
+                ["PH"] = body != null ? body.maxHealth : 0f,
+                ["PL"] = body != null ? body.level : 0f,
+                ["ELITE"] = body != null && body.isElite ? 1f : 0f,
+                ["BOSS"] = body != null && (body.isBoss || body.isChampion) ? 1f : 0f,
+                ["BT"] = baseTime
+            };
+            FlagFormulaVariables.AddTo(values, passenger != null ? body : carrier);
+            return values;
+        }
+
+        public static float EvaluatePositive(string formula, float fallback, CharacterBody? carrier,
+            DrifterBagController? controller, GameObject? passenger = null, float baseTime = 0f, bool includeFlags = true)
+        {
+            if (string.IsNullOrWhiteSpace(formula)) return fallback;
+            var variables = FormulaRegistry.GetVariables(carrier, Create(carrier, controller, passenger, baseTime));
+            if (!includeFlags)
+                foreach (string flag in FlagFormulaVariables.Names) variables.Remove(flag);
+            float value = FormulaParser.Evaluate(formula, variables);
+            return float.IsNaN(value) || float.IsInfinity(value) || value >= float.MaxValue || value <= 0f ? fallback : value;
+        }
+    }
+
+    public static class FlagFormulaVariables
+    {
+        public static readonly string[] Names = { "ELITE", "BOSS", "CHAMPION", "PLAYER", "MINION", "DRONE", "MECHANICAL", "VOID" };
+
+        public static float Value(string name, CharacterBody? body)
+        {
+            if (body == null) return 0f;
+            bool enabled = name switch
+            {
+                "ELITE" => body.isElite,
+                "BOSS" => body.isBoss || body.isChampion,
+                "CHAMPION" => body.isChampion,
+                "PLAYER" => body.isPlayerControlled,
+                "MINION" => body.master != null && body.master.minionOwnership != null && body.master.minionOwnership.ownerMaster != null,
+                "DRONE" => (body.bodyFlags & CharacterBody.BodyFlags.Drone) != 0,
+                "MECHANICAL" => (body.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0,
+                "VOID" => (body.bodyFlags & CharacterBody.BodyFlags.Void) != 0,
+                _ => false
+            };
+            return enabled ? 1f : 0f;
+        }
+
+        public static void AddTo(Dictionary<string, float> values, CharacterBody? body)
+        {
+            foreach (string name in Names) values[name] = Value(name, body);
+        }
+
+        public static void Register()
+        {
+            foreach (string name in Names)
+            {
+                string variable = name;
+                FormulaRegistry.RegisterVariable(variable, body => Value(variable, body), variable + " flag (0 or 1)");
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using RoR2;
 using RoR2.Projectile;
@@ -154,6 +155,83 @@ namespace DrifterBossGrabMod.Patches
         // ========================================================================================
         // THROWN OBJECT PATCHES
         // ========================================================================================
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "Start")]
+        public class ThrownObjectProjectileController_Start_Patch
+        {
+            [HarmonyTranspiler]
+            public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            {
+                var baggedObject = AccessTools.Field(typeof(DrifterBagController), nameof(DrifterBagController.baggedObject));
+                var ejectPassenger = AccessTools.Method(typeof(VehicleSeat), nameof(VehicleSeat.EjectPassenger), Type.EmptyTypes);
+                var resetBaggedObject = AccessTools.Method(typeof(DrifterBagController), nameof(DrifterBagController.ResetBaggedObject), Type.EmptyTypes);
+                int targets = 0, ejections = 0, resets = 0;
+                var result = new List<CodeInstruction>();
+                foreach (var instruction in instructions)
+                {
+                    if (instruction.opcode == OpCodes.Ldfld && Equals(instruction.operand, baggedObject))
+                    {
+                        instruction.opcode = OpCodes.Call;
+                        instruction.operand = AccessTools.Method(typeof(ThrownObjectProjectileController_Start_Patch), nameof(GetThrowPassenger));
+                        targets++;
+                    }
+                    else if (instruction.Calls(ejectPassenger) || instruction.Calls(resetBaggedObject))
+                    {
+                        bool eject = instruction.Calls(ejectPassenger);
+                        var loadProjectile = new CodeInstruction(OpCodes.Ldarg_0);
+                        loadProjectile.MoveLabelsFrom(instruction);
+                        loadProjectile.MoveBlocksFrom(instruction);
+                        result.Add(loadProjectile);
+                        instruction.opcode = OpCodes.Call;
+                        instruction.operand = AccessTools.Method(typeof(ThrownObjectProjectileController_Start_Patch),
+                            eject ? nameof(EjectThrowPassenger) : nameof(ResetThrownBaggedObject));
+                        if (eject) ejections++; else resets++;
+                    }
+                    result.Add(instruction);
+                }
+                if (targets != 1 || ejections != 2 || resets != 1)
+                    throw new InvalidOperationException($"Could not identify vanilla throw passenger transfer: targets={targets}, ejections={ejections}, resets={resets}.");
+                return result;
+            }
+
+            private static GameObject? GetThrowPassenger(DrifterBagController controller)
+            {
+                var passenger = controller.vehicleSeat != null ? controller.vehicleSeat.NetworkpassengerBodyObject : null;
+                if (controller.baggedObject != passenger)
+                {
+                    Log.Warning($"[ThrowPassengerMismatch] frame={Time.frameCount}, controller={controller.GetInstanceID()}, recorded={Describe(controller.baggedObject)}, seat={Describe(passenger)}. Using the seat passenger.");
+                    controller.OnSyncBaggedObject(passenger);
+                }
+                if (BagPatches.GetMainSeatObject(controller) != passenger)
+                    BagPatches.SetMainSeatObject(controller, passenger);
+                Log.Debug($"[ThrowPassengerTransfer] frame={Time.frameCount}, controller={controller.GetInstanceID()}, passenger={Describe(passenger)}");
+                return passenger;
+            }
+
+            private static void EjectThrowPassenger(VehicleSeat seat, ThrownObjectProjectileController projectile)
+            {
+                var passenger = projectile.Networkpassenger;
+                if (passenger != null && seat.NetworkpassengerBodyObject == passenger)
+                    seat.EjectPassenger(passenger);
+                else if (seat.NetworkpassengerBodyObject != null)
+                    Log.Warning($"[ThrowPassengerMismatch] frame={Time.frameCount}, projectile={projectile.GetInstanceID()}, thrown={Describe(passenger)}, seat={Describe(seat.NetworkpassengerBodyObject)}. Preserving the other passenger.");
+            }
+
+            private static void ResetThrownBaggedObject(DrifterBagController controller, ThrownObjectProjectileController projectile)
+            {
+                if (controller.baggedObject == projectile.Networkpassenger)
+                    controller.ResetBaggedObject();
+                else if (controller.baggedObject != null)
+                    Log.Warning($"[ThrowPassengerMismatch] frame={Time.frameCount}, projectile={projectile.GetInstanceID()}, thrown={Describe(projectile.Networkpassenger)}, recorded={Describe(controller.baggedObject)}. Preserving the new bag target.");
+            }
+
+            private static string Describe(GameObject? obj)
+            {
+                if (obj == null) return "null";
+                var identity = obj.GetComponent<NetworkIdentity>();
+                return $"{obj.name}(instance={obj.GetInstanceID()},netId={(identity != null ? identity.netId.Value : 0)})";
+            }
+        }
+
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "OnSyncPassenger")]
         public class ThrownObjectProjectileController_OnSyncPassenger_Patch
         {
@@ -280,7 +358,6 @@ namespace DrifterBossGrabMod.Patches
                         var protection = passenger.GetComponent<Core.PassengerReleaseProtection>() ?? passenger.AddComponent<Core.PassengerReleaseProtection>();
                         protection.Begin(bagController.characterBody, __instance.gameObject);
                     }
-
 
                     if (NetworkServer.active)
                     {

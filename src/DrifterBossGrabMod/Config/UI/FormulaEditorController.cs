@@ -41,7 +41,6 @@ namespace DrifterBossGrabMod.Config.UI
         protected override void Start()
         {
             _originalValue = Entry.Value;
-            AddSamples();
             Build();
             _built = true;
             Entry.SettingChanged += OnEntryChanged;
@@ -58,7 +57,7 @@ namespace DrifterBossGrabMod.Config.UI
         private void Update()
         {
             if (_built && _expanded) RefreshCurrentButton();
-            if (_built && _draft.isFocused)
+            if (_built && _draft != null && _draft.isFocused)
             {
                 _selectionStart = _draft.selectionStringAnchorPosition;
                 _selectionEnd = _draft.selectionStringFocusPosition;
@@ -86,8 +85,8 @@ namespace DrifterBossGrabMod.Config.UI
             }
             if (Kind == FormulaEditorKind.Slam)
             {
-                Add("BASE_COEF", "Base coefficient", SlamDamageCalculator.DefaultBaseDamageCoef);
-                Add("MASS_SCALING", "Mass scaling", SlamDamageCalculator.DefaultMassScaling);
+                Add("BASE_COEF", "Base", SlamDamageCalculator.DefaultBaseDamageCoef);
+                Add("MASS_SCALING", "Scaling", SlamDamageCalculator.DefaultMassScaling);
                 Add("BM", "Bagged mass", 350f);
                 Add("MC", "Mass capacity", 700f);
             }
@@ -96,27 +95,44 @@ namespace DrifterBossGrabMod.Config.UI
                 Add("T", "Total mass", 350f);
                 Add("M", "Mass capacity", 700f);
                 Add("C", "Total slots", 3f);
-                Add("H", "Max health", 1000f);
+                Add("H", "Max HP", 1000f);
                 Add("L", "Level", 5f);
-                Add("MC", "Mass cap setting", 700f);
+                Add("MC", "Passenger cap", 700f);
                 Add("S", "Stage", 3f);
             }
             else
             {
-                Add("H", "Max health", 1000f);
-                Add("L", "Level", 5f);
-                Add("C", "Utility stocks", 1f);
+                bool breakout = Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.MaxSmacks;
+                Add("H", breakout ? "Drifter max HP" : "Max HP", 1000f);
+                Add("L", breakout ? "Drifter level" : "Level", 5f);
+                Add("C", breakout ? "Drifter stocks" : "Utility stocks", 1f);
                 Add("S", "Stage", 3f);
-                if (Kind != FormulaEditorKind.Slots) Add("MC", "Mass cap setting", 700f);
+                if (Kind != FormulaEditorKind.Slots) Add("MC", "Passenger cap", 700f);
                 if (Kind == FormulaEditorKind.Flag)
                 {
                     Add("B", "Base mass", 100f);
-                    Add("BH", "Base max health", 1000f);
+                    Add("BH", "Base max HP", 1000f);
                 }
             }
+            if (Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.GrabRange || Kind == FormulaEditorKind.MaxSmacks || Kind == FormulaEditorKind.Slam)
+            {
+                Add("N", "Passenger count", 2f);
+                if (Kind != FormulaEditorKind.Slam) Add("T", "Total bag mass", 350f);
+            }
+            if (Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.MaxSmacks)
+            {
+                Add("PM", "Passenger mass", 100f);
+                Add("PH", "Passenger max HP", 1000f);
+                Add("PL", "Passenger level", 5f);
+
+                if (Kind == FormulaEditorKind.Breakout) Add("BT", "Seconds", 10f);
+            }
+            if (Kind != FormulaEditorKind.GrabRange)
+                foreach (string flag in FlagFormulaVariables.Names)
+                    Add(flag, CultureInfo.InvariantCulture.TextInfo.ToTitleCase(flag.ToLowerInvariant()), 0f);
             if (Kind == FormulaEditorKind.Capacity || Kind == FormulaEditorKind.Slam)
             {
-                Add("BH", "Base max health", 1000f);
+                Add("BH", "Base max HP", 1000f);
                 Add("B", "Base mass", 0f);
             }
             if (Kind == FormulaEditorKind.Slam)
@@ -140,6 +156,11 @@ namespace DrifterBossGrabMod.Config.UI
             var edit = MakeButton(header, "Edit", ToggleExpanded);
             Place(edit, 0.8f, 0.98f, 8f, 48f);
             _editLabel = edit.GetComponentInChildren<TMP_Text>();
+        }
+
+        private void BuildBody()
+        {
+            AddSamples();
             _body = Rect("Formula Editor", transform);
             Surface(_body, PanelColor);
             var hint = Text(_body, "Edit a draft, then Apply. Variable buttons insert at the cursor.", 18f);
@@ -151,7 +172,8 @@ namespace DrifterBossGrabMod.Config.UI
             _draft.textComponent.overflowMode = TextOverflowModes.Masking;
             Place((RectTransform)_draft.transform, 0.02f, 0.98f, 38f, 68f);
             _draft.onValueChanged.AddListener(_ => UpdatePreview());
-            var sampleTitle = Text(_body, "Preview inputs (no gameplay changes)", 18f);
+            var sampleTitle = Text(_body, Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.MaxSmacks
+                ? "Preview only; passenger flags are 0/1" : "Preview inputs; flags are 0/1", 18f);
             Place(sampleTitle.rectTransform, 0.02f, 0.76f, 114f, 28f);
             var reset = MakeButton(_body, "Reset", ResetSamples);
             reset.GetComponentInChildren<TMP_Text>().fontSize = 16f;
@@ -167,7 +189,11 @@ namespace DrifterBossGrabMod.Config.UI
             {
                 var variable = _variables[i];
                 var button = MakeButton(_body, $"{variable.Label} ({variable.Name})", () => Insert(variable.Name));
-                button.GetComponentInChildren<TMP_Text>().fontSize = 16f;
+                var label = button.GetComponentInChildren<TMP_Text>();
+                label.enableAutoSizing = true;
+                label.fontSizeMin = 12f;
+                label.fontSizeMax = 16f;
+                label.enableWordWrapping = false;
                 float left = 0.02f + (i % 2) * 0.49f;
                 float top = 186f + (i / 2) * 36f;
                 Place(button, left, left + 0.32f, top, 32f);
@@ -211,7 +237,8 @@ namespace DrifterBossGrabMod.Config.UI
             var localBody = LocalUserManager.GetFirstLocalUser()?.cachedBody;
             if (localBody == null) return false;
             bag = localBody.GetComponent<DrifterBagController>();
-            if ((Kind == FormulaEditorKind.Slam || Kind == FormulaEditorKind.Penalty) && bag == null)
+            if ((Kind == FormulaEditorKind.Slam || Kind == FormulaEditorKind.Penalty
+                || Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.MaxSmacks) && bag == null)
             {
                 context = "Requires Drifter's bag";
                 return false;
@@ -227,6 +254,17 @@ namespace DrifterBossGrabMod.Config.UI
             }
             else body = localBody;
             context = "From: " + Language.GetString(body.baseNameToken);
+            if (Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.MaxSmacks)
+            {
+                var passenger = BagPatches.GetMainSeatObject(bag!);
+                if (passenger == null)
+                {
+                    context = "Select a bagged object";
+                    return false;
+                }
+                var passengerBody = passenger.GetComponent<CharacterBody>();
+                context += " + " + (passengerBody != null ? Language.GetString(passengerBody.baseNameToken) : passenger.name);
+            }
             return true;
         }
 
@@ -267,6 +305,20 @@ namespace DrifterBossGrabMod.Config.UI
                 values["T"] = bag.baggedMass;
                 values["M"] = CapacityScalingSystem.CalculateMassCapacity(bag);
                 values["C"] = CapacityScalingSystem.GetTotalCapacity(bag);
+            }
+            if (Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.GrabRange || Kind == FormulaEditorKind.MaxSmacks || Kind == FormulaEditorKind.Slam)
+            {
+                var passenger = Kind != FormulaEditorKind.GrabRange && bag != null ? BagPatches.GetMainSeatObject(bag) : null;
+                float baseTime = 0f;
+                if (Kind == FormulaEditorKind.Breakout && bag != null && passenger != null)
+                {
+                    var settings = new EntityStates.Drifter.Bag.BaggedObject();
+                    baseTime = Mathf.Max(settings.baseBreakoutTime - 0.005f * bag.CalculateBaggedObjectMass(passenger), 1f);
+                    var passengerBody = passenger.GetComponent<CharacterBody>();
+                    if (passengerBody != null && passengerBody.isElite) baseTime *= settings.eliteBreakoutTimeCoefficient;
+                }
+                foreach (var variable in BagFormulaContext.Create(body, bag, passenger, baseTime))
+                    values[variable.Key] = variable.Value;
             }
             if (Kind == FormulaEditorKind.Flag)
                 values["B"] = RepossessPatches.GetBaseObjectMass(body.gameObject);
@@ -326,6 +378,12 @@ namespace DrifterBossGrabMod.Config.UI
                 _samples[sample.Key] = sampleValue;
             }
             _valid = FormulaParser.TryPreview(_draft.text, _samples, out float value, out string? error);
+            if (_valid && (Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.GrabRange)
+                && (value <= 0f || value >= float.MaxValue))
+            {
+                _valid = false;
+                error = "Enter a positive finite value.";
+            }
             _apply.interactable = _valid && _draft.text.Trim() != Entry.Value;
             _result.color = _valid ? new Color(0.8f, 0.91f, 0.8f) : new Color(1f, 0.7f, 0.65f);
             if (!_valid) { _result.text = error ?? "Invalid formula."; return; }
@@ -335,7 +393,9 @@ namespace DrifterBossGrabMod.Config.UI
             if (Kind == FormulaEditorKind.Capacity && value <= 0f) result = "Unlimited mass capacity";
             if (Kind == FormulaEditorKind.Penalty && value < float.MaxValue && value > float.MinValue)
                 result = (value * 100d).ToString("0.#", CultureInfo.InvariantCulture) + "% speed penalty (before limits)";
-            if (Kind == FormulaEditorKind.Slam || Kind == FormulaEditorKind.Flag) result += "x";
+            if (Kind == FormulaEditorKind.Slam || Kind == FormulaEditorKind.Flag || Kind == FormulaEditorKind.Breakout || Kind == FormulaEditorKind.GrabRange) result += "x";
+            if (Kind == FormulaEditorKind.MaxSmacks) result = value >= float.MaxValue ? "Unlimited hits" : Math.Floor(value).ToString(CultureInfo.InvariantCulture) + " hits";
+            if (Kind == FormulaEditorKind.Breakout) result += " interval multiplier (" + (_samples["BT"] * value).ToString("0.###", CultureInfo.InvariantCulture) + " seconds)";
             _result.text = "Sample result: " + result;
         }
 
@@ -352,6 +412,7 @@ namespace DrifterBossGrabMod.Config.UI
         private void ToggleExpanded()
         {
             if (_expanded) { Cancel(); return; }
+            if (!_body) BuildBody();
             RefreshFromConfig();
             _expanded = true;
             _body.gameObject.SetActive(true);
@@ -373,8 +434,21 @@ namespace DrifterBossGrabMod.Config.UI
         }
         private void RefreshFromConfig()
         {
-            _summary.text = Entry.Value;
-            _draft.SetTextWithoutNotify(Entry.Value);
+            string value = Entry.Value;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                float? fallback = Kind switch
+                {
+                    FormulaEditorKind.Breakout => 1.0f,
+                    FormulaEditorKind.GrabRange => 1.0f,
+                    FormulaEditorKind.MaxSmacks => 3f,
+                    _ => null
+                };
+                if (fallback.HasValue) value = fallback.Value.ToString("R", CultureInfo.InvariantCulture);
+            }
+            _summary.text = value;
+            if (!_body) return;
+            _draft.SetTextWithoutNotify(value);
             _selectionStart = _selectionEnd = _draft.text.Length;
             UpdatePreview();
         }

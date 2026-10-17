@@ -147,7 +147,7 @@ namespace DrifterBossGrabMod.Networking
             }
 
             InvalidateReadyCache(obj);
-            Log.Debug($"[NetworkUtils.TryEnsureNetworkIdentityActive] Successfully re-enabled NetworkIdentity for {obj.name}");
+            Log.Debug($"[NetworkUtils.TryEnsureNetworkIdentityActive] Re-enabled NetworkIdentity for {obj.name}");
             return true;
         }
 

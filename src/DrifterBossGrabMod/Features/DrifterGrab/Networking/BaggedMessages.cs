@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using UnityEngine.Networking;
@@ -225,15 +225,16 @@ namespace DrifterBossGrabMod.Networking
     {
 
         public bool EnableBossGrabbing;
+        public bool EnableSelfGrabbing;
         public bool EnableNPCGrabbing;
         public bool EnableEnvironmentGrabbing;
         public bool EnableLockedObjectGrabbing;
         public ProjectileGrabbingMode ProjectileGrabbingMode;
-        public float SearchRadiusMultiplier;
         public ComponentChooserSortMode ComponentChooserSortMode;
 
-        public float BreakoutTimeMultiplier;
-        public int MaxSmacks;
+        public string GrabRangeFormula = "";
+        public string MaxSmacksFormula = "";
+        public string BreakoutTimeFormula = "";
         public string MaxLaunchSpeed = "100";
 
         public string BodyBlacklist = string.Empty;
@@ -261,6 +262,8 @@ namespace DrifterBossGrabMod.Networking
         public float CycleCooldown;
 
         public bool EnableBalance;
+        public string EnabledEliteThrowEffects = "";
+        public string EnabledEliteGrabEffects = "Blazing";
         public AoEDamageMode AoEDamageDistribution;
         public string BagScaleCap = "1";
         public string MassCap = "700";
@@ -288,11 +291,8 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(EnableEnvironmentGrabbing);
             writer.Write(EnableLockedObjectGrabbing);
             writer.Write((int)ProjectileGrabbingMode);
-            writer.Write(SearchRadiusMultiplier);
             writer.Write((int)ComponentChooserSortMode);
 
-            writer.Write(BreakoutTimeMultiplier);
-            writer.Write(MaxSmacks);
             writer.Write(MaxLaunchSpeed);
 
             writer.Write(BodyBlacklist);
@@ -338,6 +338,12 @@ namespace DrifterBossGrabMod.Networking
             writer.Write(MechanicalFlagMultiplier);
             writer.Write(VoidFlagMultiplier);
             writer.Write(AllFlagMultiplier);
+            writer.Write(BreakoutTimeFormula);
+            writer.Write(EnableSelfGrabbing);
+            writer.Write(GrabRangeFormula);
+            writer.Write(MaxSmacksFormula);
+            writer.Write(EnabledEliteThrowEffects);
+            writer.Write(EnabledEliteGrabEffects);
         }
 
         public override void Deserialize(NetworkReader reader)
@@ -348,11 +354,8 @@ namespace DrifterBossGrabMod.Networking
             EnableEnvironmentGrabbing = reader.ReadBoolean();
             EnableLockedObjectGrabbing = reader.ReadBoolean();
             ProjectileGrabbingMode = (ProjectileGrabbingMode)reader.ReadInt32();
-            SearchRadiusMultiplier = reader.ReadSingle();
             ComponentChooserSortMode = (ComponentChooserSortMode)reader.ReadInt32();
 
-            BreakoutTimeMultiplier = reader.ReadSingle();
-            MaxSmacks = reader.ReadInt32();
             MaxLaunchSpeed = reader.ReadString();
 
             BodyBlacklist = reader.ReadString();
@@ -398,6 +401,12 @@ namespace DrifterBossGrabMod.Networking
             MechanicalFlagMultiplier = reader.ReadString();
             VoidFlagMultiplier = reader.ReadString();
             AllFlagMultiplier = reader.ReadString();
+            BreakoutTimeFormula = reader.Position < reader.Length ? reader.ReadString() : "";
+            EnableSelfGrabbing = reader.Position < reader.Length && reader.ReadBoolean();
+            GrabRangeFormula = reader.Position < reader.Length ? reader.ReadString() : "";
+            MaxSmacksFormula = reader.Position < reader.Length ? reader.ReadString() : "";
+            EnabledEliteThrowEffects = reader.Position < reader.Length ? reader.ReadString() : "";
+            EnabledEliteGrabEffects = reader.Position < reader.Length ? reader.ReadString() : "Blazing";
         }
     }
 

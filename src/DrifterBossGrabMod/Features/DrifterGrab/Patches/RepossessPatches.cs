@@ -1,11 +1,13 @@
 #nullable enable
 using System;
-using System.Reflection;
 using HarmonyLib;
 using RoR2;
 using UnityEngine;
 using EntityStates.Drifter;
 using EntityStates.Drifter.Bag;
+using System.Runtime.CompilerServices;
+using UnityEngine.Networking;
+
 namespace DrifterBossGrabMod.Patches
 {
 
@@ -15,9 +17,6 @@ namespace DrifterBossGrabMod.Patches
     public static class RepossessPatches
     {
 
-        // ========================================================================================
-        // MASS CALCULATION
-        // ========================================================================================
         public static float GetBaseObjectMass(GameObject targetObject)
         {
             float mass = 0f;
@@ -150,9 +149,6 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // ========================================================================================
-        // BAG STATE PATCHES
-        // ========================================================================================
         [HarmonyPatch(typeof(DrifterBagController), "OnSyncBaggedObject")]
         public class DrifterBagController_OnSyncBaggedObject_Patch
         {
@@ -172,7 +168,6 @@ namespace DrifterBossGrabMod.Patches
                             {
                                 baggedObject.targetObject = __instance.baggedObject;
                                 BaggedObjectPatches.UpdateTargetFields(baggedObject);
-                                Log.Debug($"[OnSyncBaggedObject] Active Recovery: Pushed {__instance.baggedObject.name} into BaggedObject state.");
                             }
                             break;
                         }
@@ -188,7 +183,7 @@ namespace DrifterBossGrabMod.Patches
             {
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    __instance.maxSmacks = PluginConfig.Instance.MaxSmacks.Value;
+                    __instance.maxSmacks = Core.StateCalculator.CalculateMaxSmacks(__instance);
                 }
 
                 if (__instance.GetComponent<Networking.BottomlessBagNetworkController>() == null)
@@ -217,7 +212,7 @@ namespace DrifterBossGrabMod.Patches
                     var currentBreakoutTime = (float)ReflectionCache.BaggedObject.BreakoutTime.GetValue(__instance);
                     float interval = storedState != null && storedState.breakoutTime > 0f
                         ? storedState.breakoutTime
-                        : currentBreakoutTime * PluginConfig.Instance.BreakoutTimeMultiplier.Value;
+                        : currentBreakoutTime * Core.StateCalculator.CalculateBreakoutTimeMultiplier(controller, targetObject, currentBreakoutTime);
                     ReflectionCache.BaggedObject.BreakoutTime.SetValue(__instance, interval);
                 }
                 if (targetObject != null && UnityEngine.Networking.NetworkServer.active)
@@ -226,28 +221,22 @@ namespace DrifterBossGrabMod.Patches
                     if (networkIdentity != null)
                     {
                         UnityEngine.Networking.NetworkServer.Spawn(targetObject);
-
                     }
                 }
                 bool alreadyPersisted = PersistenceObjectManager.IsObjectPersisted(targetObject!);
                 if (UnityEngine.Networking.NetworkServer.active && PluginConfig.Instance.EnableObjectPersistence.Value && !alreadyPersisted)
                 {
                     PersistenceNetworkHandler.SendBaggedObjectsPersistenceMessage(new System.Collections.Generic.List<GameObject> { targetObject! });
-
                 }
 
                 var bagController = __instance.outer?.GetComponent<DrifterBagController>();
                 if (bagController != null && targetObject != null)
                 {
                     BaggedObjectPatches.RefreshUIOverlayForMainSeat(bagController, targetObject);
-
                 }
             }
         }
 
-        // ========================================================================================
-        // TARGETABILITY OVERRIDES
-        // ========================================================================================
         [HarmonyPatch(typeof(SpecialObjectAttributes), "isTargetable", MethodType.Getter)]
         public class SpecialObjectAttributes_get_isTargetable
         {
@@ -285,14 +274,10 @@ namespace DrifterBossGrabMod.Patches
                 if (PluginConfig.Instance.EnableLockedObjectGrabbing.Value && __instance.locked)
                 {
                     __result = true;
-
                 }
             }
         }
 
-        // ========================================================================================
-        // SEARCH REQUIREMENTS
-        // ========================================================================================
         [HarmonyPatch(typeof(RepossessBullseyeSearch), "HurtBoxPassesRequirements")]
         public class RepossessBullseyeSearch_HurtBoxPassesRequirements
         {
@@ -324,7 +309,6 @@ namespace DrifterBossGrabMod.Patches
                     if (allowTargeting && !PluginConfig.IsBlacklisted(body!.name))
                     {
                         __result = true;
-
                     }
                 }
             }
@@ -353,21 +337,16 @@ namespace DrifterBossGrabMod.Patches
             }
         }
 
-        // ========================================================================================
-        // AIM/REPOSSESS RANGE
-        // ========================================================================================
         [HarmonyPatch(typeof(EntityStates.Drifter.AimRepossess), "OnEnter")]
         public class AimRepossess_OnEnter_Patch
         {
             [HarmonyPrefix]
             public static void Prefix(EntityStates.Drifter.AimRepossess __instance)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[AimRepossess.OnEnter] Prefix: range={__instance.searchRange}.");
 
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+                    __instance.searchRange *= Core.StateCalculator.CalculateGrabRangeMultiplier(__instance.characterBody);
                 }
             }
         }
@@ -378,15 +357,156 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(EntityStates.Drifter.Repossess __instance)
             {
-                if (PluginConfig.Instance.EnableDebugLogs.Value)
-                    Log.Debug($"[Repossess.OnEnter] Prefix: range={__instance.searchRange}.");
 
                 if (PluginConfig.Instance.EnableBalance.Value)
                 {
-                    __instance.searchRange *= PluginConfig.Instance.SearchRadiusMultiplier.Value;
+                    __instance.searchRange *= Core.StateCalculator.CalculateGrabRangeMultiplier(__instance.characterBody);
                 }
             }
         }
+    }
 
+    // ========================================================================================
+    // SELF GRAB PATCHES
+    // ========================================================================================
+    public static class SelfGrabPatches
+    {
+        private const float DoubleTapWindow = 0.3f;
+        private static readonly float MinimumAimY = Mathf.Sin(68f * Mathf.Deg2Rad);
+        private static readonly ConditionalWeakTable<CharacterBody, TapState> Taps = new();
+        private static readonly ConditionalWeakTable<CharacterBody, AnimationRecovery> Animations = new();
+
+        private sealed class AnimationRecovery
+        {
+            public float Speed = 1f;
+            public bool Pending;
+        }
+
+        private static void RestoreAnimation(CharacterBody body)
+        {
+            if (!Animations.TryGetValue(body, out var recovery) || !recovery.Pending
+                || body.currentVehicle != null || body.healthComponent == null
+                || !body.healthComponent.alive) return;
+            var model = body.modelLocator != null ? body.modelLocator.modelTransform : null;
+            var animator = model != null ? model.GetComponent<Animator>() : null;
+            if (animator == null || !animator.isActiveAndEnabled) return;
+
+            animator.speed = recovery.Speed;
+            animator.SetBool("sideways", false);
+            foreach (string layerName in new[] { "FullBody, Override", "MostBody, Override" })
+            {
+                int layer = animator.GetLayerIndex(layerName);
+                int empty = Animator.StringToHash("BufferEmpty");
+                if (layer >= 0 && animator.HasState(layer, empty))
+                    animator.Play(empty, layer, 0f);
+            }
+            Animations.Remove(body);
+        }
+
+        [HarmonyPatch(typeof(BaggedObject), nameof(BaggedObject.OnEnter))]
+        public class BaggedObject_OnEnter
+        {
+            [HarmonyPrefix]
+            public static void Prefix(BaggedObject __instance)
+            {
+                var body = __instance.outer != null ? __instance.outer.GetComponent<CharacterBody>() : null;
+                if (body == null || __instance.targetObject != body.gameObject) return;
+                var model = body.modelLocator != null ? body.modelLocator.modelTransform : null;
+                var animator = model != null ? model.GetComponent<Animator>() : null;
+                Animations.GetValue(body, _ => new AnimationRecovery
+                {
+                    Speed = animator != null && animator.speed > 0f ? animator.speed : 1f
+                });
+            }
+        }
+
+        [HarmonyPatch(typeof(BaggedObject), nameof(BaggedObject.OnExit))]
+        public class BaggedObject_OnExit
+        {
+            [HarmonyPostfix]
+            public static void Postfix(BaggedObject __instance)
+            {
+                var body = __instance.outer != null ? __instance.outer.GetComponent<CharacterBody>() : null;
+                if (body == null || __instance.targetObject != body.gameObject
+                    || !Animations.TryGetValue(body, out var recovery)) return;
+                recovery.Pending = true;
+                RestoreAnimation(body);
+            }
+        }
+
+        [HarmonyPatch(typeof(VehicleSeat), "OnPassengerExit")]
+        public class VehicleSeat_OnPassengerExit
+        {
+            [HarmonyPostfix]
+            public static void Postfix(GameObject passenger)
+            {
+                var body = passenger != null ? passenger.GetComponent<CharacterBody>() : null;
+                if (body == null || !Animations.TryGetValue(body, out var recovery)) return;
+                recovery.Pending = true;
+                RestoreAnimation(body);
+            }
+        }
+
+        private sealed class TapState
+        {
+            public bool WasDown;
+            public float LastTap = float.NegativeInfinity;
+        }
+
+        internal static bool CanSelfGrab(CharacterBody body)
+        {
+            return PluginConfig.Instance.EnableSelfGrabbing.Value
+                && body.healthComponent != null && body.healthComponent.alive
+                && body.currentVehicle == null
+                && !PluginConfig.IsBlacklisted(body.gameObject.name);
+        }
+
+        [HarmonyPatch(typeof(CharacterBody), nameof(CharacterBody.FixedUpdate))]
+        public class CharacterBody_FixedUpdate
+        {
+            [HarmonyPrefix]
+            public static void Prefix(CharacterBody __instance)
+            {
+                RestoreAnimation(__instance);
+                if (!__instance.hasEffectiveAuthority || __instance.inputBank == null
+                    || !__instance.TryGetComponent<DrifterBagController>(out var controller)) return;
+
+                var taps = Taps.GetValue(__instance, _ => new TapState());
+                bool down = __instance.inputBank.skill3.down;
+                bool pressed = down && !taps.WasDown;
+                taps.WasDown = down;
+                if (!CanSelfGrab(__instance) || __instance.inputBank.aimDirection.y < MinimumAimY)
+                {
+                    taps.LastTap = float.NegativeInfinity;
+                    return;
+                }
+                if (!pressed) return;
+
+                float previousTap = taps.LastTap;
+                taps.LastTap = Time.fixedTime;
+                if (Time.fixedTime - previousTap > DoubleTapWindow) return;
+                taps.LastTap = float.NegativeInfinity;
+
+                EntityStateMachine? aimMachine = null;
+                foreach (var machine in __instance.GetComponents<EntityStateMachine>())
+                    if (machine.state is AimRepossess) { aimMachine = machine; break; }
+                var bodyMachine = EntityStateMachine.FindByCustomName(__instance.gameObject, "Body");
+                var bagMachine = EntityStateMachine.FindByCustomName(__instance.gameObject, "Bag");
+                if (bodyMachine == null || bagMachine == null) return;
+                bool aiming = aimMachine != null && aimMachine.state is AimRepossess;
+                bool grabbing = bodyMachine.state is Repossess;
+                if (!aiming && !grabbing) return;
+
+                if (aiming)
+                {
+                    AccessTools.Field(typeof(AimRepossess), "canceled").SetValue(aimMachine!.state, false);
+                    aimMachine.SetNextStateToMain();
+                }
+                if (grabbing) bodyMachine.SetNextStateToMain();
+                bagMachine.SetNextState(new BaggedObject { targetObject = __instance.gameObject });
+                if (!NetworkServer.active && NetworkClient.active)
+                    Networking.CycleNetworkHandler.SendGrabObjectRequest(controller, __instance.gameObject);
+            }
+        }
     }
 }

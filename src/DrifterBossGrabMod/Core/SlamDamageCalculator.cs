@@ -5,7 +5,6 @@ using DrifterBossGrabMod;
 using DrifterBossGrabMod.Patches;
 using DrifterBossGrabMod.Balance;
 
-using System.Reflection;
 using System.Collections.Generic;
 
 namespace DrifterBossGrabMod.Core
@@ -103,9 +102,12 @@ namespace DrifterBossGrabMod.Core
                 { "BASE_COEF", DefaultBaseDamageCoef },
                 { "MASS_SCALING", DefaultMassScaling },
                 { "BM", baggedMass },
-                { "MC", maxCapacity }
+                { "MC", maxCapacity },
+                { "N", bagController != null ? BagCapacityCalculator.GetCurrentBaggedCount(bagController) : 0f }
             };
 
+            var passenger = bagController != null ? BagPatches.GetMainSeatObject(bagController) : null;
+            FlagFormulaVariables.AddTo(localVars, passenger != null ? passenger.GetComponent<CharacterBody>() : null);
             string formula = PluginConfig.Instance.SlamDamageFormula.Value;
             float result = FormulaParser.Evaluate(formula, body, localVars);
 
@@ -142,73 +144,6 @@ namespace DrifterBossGrabMod.Core
             }
 
             return itemDamageMultiplier;
-        }
-
-        public static void LogDetails(DrifterBagController? bagController, GameObject? target)
-        {
-            if (!PluginConfig.Instance.EnableDebugLogs.Value) return;
-
-            float baseDamageCoef = DefaultBaseDamageCoef;
-            float massScaling = DefaultMassScaling;
-            bool foundState = false;
-
-            if (bagController != null)
-            {
-                var stateMachines = bagController.GetComponents<EntityStateMachine>();
-                foreach (var esm in stateMachines)
-                {
-                    if (esm.state is EntityStates.Drifter.SuffocateSlam slamState)
-                    {
-                        baseDamageCoef = slamState.damageCoefficient;
-                        massScaling = slamState.damageCoefficientIncreaseWithMass;
-                        foundState = true;
-                        break;
-                    }
-                }
-            }
-
-            float mass = bagController != null ? bagController.baggedMass : 0f;
-            float maxCapacity = bagController != null ? CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
-            float massFraction = (bagController != null && maxCapacity > 0) ? (bagController.baggedMass / maxCapacity) : 0f;
-            float effectiveCoef = foundState ? baseDamageCoef : (baseDamageCoef + (massScaling * massFraction));
-
-            var drifterBody = bagController ? bagController!.GetComponent<CharacterBody>() : null;
-            float damageStat = drifterBody ? drifterBody!.damage : 0f;
-            float baseDamage = damageStat * effectiveCoef;
-
-            float finalDamage = GetPredictedDamage(bagController, target);
-
-            if (target == null) return;
-            var junkController = target.GetComponent<JunkCubeController>();
-            var body = target.GetComponent<CharacterBody>();
-
-            if (junkController)
-            {
-                var field = typeof(JunkCubeController).GetField("_maxActivationCount", BindingFlags.NonPublic | BindingFlags.Instance);
-                int maxCount = field != null ? (int)field.GetValue(junkController) : 3;
-                float frac = maxCount > 0 ? 1f / maxCount : 0f;
-                Log.Debug($"  FractionPath: JUNK_CUBE (ActivationCount logic: 1/{maxCount} = {frac:F3})");
-            }
-
-            else if (body && body.healthComponent)
-            {
-                float totalHealth = body.healthComponent.fullCombinedHealth;
-                float frac = totalHealth > 0f ? Mathf.Clamp01(finalDamage / totalHealth) : 1f;
-                Log.Debug($"  FractionPath: HEALTH (hp={body.healthComponent.combinedHealth:F1}/{totalHealth:F1}, previewFrac={frac:F3})");
-            }
-
-            else
-            {
-                var attributes = target.GetComponent<SpecialObjectAttributes>();
-                if (attributes && attributes.maxDurability > 0)
-                {
-                    Log.Debug($"  FractionPath: DURABILITY (durability={attributes.durability}/{attributes.maxDurability}, previewFrac={1f / attributes.maxDurability:F3})");
-                }
-                else
-                {
-                    Log.Debug($"  FractionPath: NONE (hasAttributes={attributes != null}, hasBody={body != null}, hasHC={body?.healthComponent != null})");
-                }
-            }
         }
     }
 }

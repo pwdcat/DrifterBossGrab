@@ -2,20 +2,29 @@
 using System;
 using UnityEngine;
 using RoR2;
+using DrifterBossGrabMod.Core;
+using UnityEngine.SceneManagement;
 
 namespace DrifterBossGrabMod.Features
 {
 
+    [DefaultExecutionOrder(10000)]
     public class UncappedBagScaleComponent : MonoBehaviour
     {
         private DrifterBagController? _bagController;
         private SkinnedMeshRenderer? _skinnedMeshRenderer;
         private Transform[]? _bones;
-        private Transform[]? _filteredBones;
-        private Vector3[]? _originalBoneScales;
+        private Transform? _scalePivot;
+        private Transform? _modelTransform;
+        private GameObject? _renderRig;
+        private Transform[]? _renderBones;
+        private bool[]? _bagBodyBones;
+        private const float BackwardOffsetPerScale = 0.1f;
+        private Bounds _originalBounds;
         private float _targetScale = 1f;
         private float _currentScale = 1f;
         private bool _isInitialized = false;
+        private bool _usingRenderBones;
 
         public bool IsInitialized => _isInitialized;
 
@@ -24,14 +33,13 @@ namespace DrifterBossGrabMod.Features
             get => _targetScale;
             set
             {
-                _targetScale = Mathf.Max(value, 1.0f);
+                _targetScale = float.IsNaN(value) || float.IsInfinity(value) ? 1f : Mathf.Max(value, 1f);
             }
         }
         public void Initialize(DrifterBagController bagController)
         {
             if (_isInitialized)
             {
-                Log.Debug("[UncappedBagScaleComponent] Already initialized, skipping duplicate initialization");
                 return;
             }
 
@@ -46,9 +54,14 @@ namespace DrifterBossGrabMod.Features
 
             if (_skinnedMeshRenderer != null && _bones != null)
             {
-                FilterAndCacheBagBones();
+                _scalePivot = FindScalePivot();
+                _bagBodyBones = new bool[_bones.Length];
+                for (int i = 0; i < _bones.Length; i++)
+                {
+                    _bagBodyBones[i] = _bones[i] != null && IsBagBodyBone(_bones[i].name);
+                }
+                _originalBounds = _skinnedMeshRenderer.localBounds;
                 _isInitialized = true;
-                Log.Debug("[UncappedBagScaleComponent] Successfully initialized with " + (_filteredBones?.Length ?? 0) + " bag bones");
             }
             else
             {
@@ -64,86 +77,58 @@ namespace DrifterBossGrabMod.Features
             if (characterBody != null && characterBody.modelLocator != null)
             {
                 var modelTransform = characterBody.modelLocator.modelTransform;
+                _modelTransform = modelTransform;
                 if (modelTransform != null)
                 {
                     foundTransform = modelTransform.Find("meshBag");
-
-                    if (foundTransform != null)
-                    {
-                        Log.Debug($"[UncappedBagScaleComponent] Found meshBag via modelLocator: {modelTransform.name}>meshBag");
-                    }
                 }
             }
 
             if (foundTransform != null)
             {
                 _skinnedMeshRenderer = foundTransform.GetComponent<SkinnedMeshRenderer>();
-                _bones = _skinnedMeshRenderer.bones;
+                _bones = _skinnedMeshRenderer != null ? _skinnedMeshRenderer.bones : null;
             }
         }
 
-        private void FilterAndCacheBagBones()
+        private Transform? FindScalePivot()
         {
-            if (_bones == null || _skinnedMeshRenderer == null) return;
-
-            string[] scaleKeywords = new string[]
-            {
-                "bagMaster_l",
-                "bag04_l",
-                "bagBulk_l",
-                "bagBulk_l_end",
-                "bagBulgeBt_l",
-                "bagBulgeRt_l",
-                "bagBulgeRt_l_end",
-                "bagBulgeLf_l",
-                "bagBulgeLf_l_end",
-                "bagPocketRt_l",
-                "bagPocketRt_l_end",
-                "bagPocketLf_l",
-                "bagPocketLf_l_end",
-                "bagFlap1_l",
-                "bagFlap2_l",
-                "bagFlap3_l"
-            };
-
-            int bagBoneCount = 0;
-            for (int i = 0; i < _bones.Length; i++)
-            {
-                if (_bones[i] != null && ShouldScaleBone(_bones[i].name, scaleKeywords))
-                {
-                    bagBoneCount++;
-                }
-            }
-
-            Log.Debug($"[UncappedBagScaleComponent] Found {bagBoneCount} bones matching scale keywords out of {_bones.Length} total bones");
-
-            _filteredBones = new Transform[bagBoneCount];
-            _originalBoneScales = new Vector3[bagBoneCount];
-
-            int filteredIndex = 0;
-            for (int i = 0; i < _bones.Length; i++)
-            {
-                if (_bones[i] != null && ShouldScaleBone(_bones[i].name, scaleKeywords))
-                {
-                    _filteredBones[filteredIndex] = _bones[i];
-                    _originalBoneScales[filteredIndex] = _bones[i].localScale;
-                    Log.Debug($"[UncappedBagScaleComponent] Filtered bone [{filteredIndex}]: {_bones[i].name}");
-                    filteredIndex++;
-                }
-            }
+            if (_bones == null) return null;
+            foreach (var bone in _bones)
+                if (bone != null && string.Equals(bone.name, "bag04_l", StringComparison.OrdinalIgnoreCase)) return bone;
+            foreach (var bone in _bones)
+                if (bone != null && string.Equals(bone.name, "bagMaster_l", StringComparison.OrdinalIgnoreCase)) return bone;
+            var body = _bagController != null ? _bagController.GetComponent<CharacterBody>() : null;
+            var model = body != null && body.modelLocator != null ? body.modelLocator.modelTransform : null;
+            if (model != null)
+                foreach (var bone in model.GetComponentsInChildren<Transform>(true))
+                    if (string.Equals(bone.name, "bagMaster_l", StringComparison.OrdinalIgnoreCase)) return bone;
+            return model != null ? model : _skinnedMeshRenderer?.transform;
         }
 
-        private bool ShouldScaleBone(string boneName, string[] keywords)
+        private static bool IsBagBodyBone(string name)
         {
-            string boneNameLower = boneName.ToLower();
-            foreach (string keyword in keywords)
+            return string.Equals(name, "bag04_l", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("bagBulk", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("bagBulge", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("bagPocket", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("bagFlap", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void EnsureRenderBones()
+        {
+            if (_renderRig != null || _bones == null) return;
+            _renderRig = new GameObject("DrifterBagRenderRig");
+            if (gameObject.scene.IsValid() && gameObject.scene.isLoaded)
+                SceneManager.MoveGameObjectToScene(_renderRig, gameObject.scene);
+            _renderBones = new Transform[_bones.Length];
+            for (int i = 0; i < _bones.Length; i++)
             {
-                if (boneNameLower == keyword.ToLower())
-                {
-                    return true;
-                }
+                if (_bones[i] == null) continue;
+                var bone = new GameObject(_bones[i].name + "_BagRender").transform;
+                bone.SetParent(_renderRig.transform, false);
+                _renderBones[i] = bone;
             }
-            return false;
         }
 
         public void UpdateScaleFromMass(float mass)
@@ -154,117 +139,94 @@ namespace DrifterBossGrabMod.Features
                 return;
             }
 
-            if (_filteredBones == null)
+            if (_bones == null)
             {
-                Log.Warning("[UncappedBagScaleComponent] UpdateScaleFromMass called but filtered bones are null");
+                Log.Warning("[UncappedBagScaleComponent] UpdateScaleFromMass called but bones are null");
                 return;
             }
 
             var bagController = GetComponent<DrifterBagController>();
             float maxCapacity = bagController != null ? Balance.CapacityScalingSystem.CalculateMassCapacity(bagController) : DrifterBagController.maxMass;
 
-            if (mass <= maxCapacity)
+            if (!PluginConfig.Instance.EnableBalance.Value)
             {
-                TargetScale = 1.0f;
-                Log.Debug($"[UncappedBagScaleComponent] Mass {mass} <= maxCapacity {maxCapacity}, using original animation system");
+                TargetScale = 1f;
                 return;
             }
 
-            float value = Mathf.Max(mass, 1f);
-
-            float t = Core.StateCalculator.GetMassScaleRatio(value, maxCapacity);
-
-            float newScale = 1.0f + t;
-
-            if (!PluginConfig.Instance.IsBagScaleCapInfinite)
-            {
-                newScale = Mathf.Min(newScale, PluginConfig.Instance.ParsedBagScaleCap);
-            }
-
-            TargetScale = newScale;
-
-            Log.Debug($"[UncappedBagScaleComponent] Mass {mass} > maxCapacity {maxCapacity}, calculated scale {newScale:F2} (t={t:F2})");
+            float cap = PluginConfig.Instance.IsBagScaleCapInfinite ? float.PositiveInfinity : PluginConfig.Instance.ParsedBagScaleCap;
+            TargetScale = StateCalculator.CalculateBagExtraScale(mass, maxCapacity, cap);
         }
 
         private void LateUpdate()
         {
-            if (!_isInitialized)
+            if (!_isInitialized || _skinnedMeshRenderer == null || _bones == null || _scalePivot == null) return;
+            float target = PluginConfig.Instance.EnableBalance.Value ? _targetScale : 1f;
+            if (!PluginConfig.Instance.IsBagScaleCapInfinite)
             {
+                float cap = PluginConfig.Instance.ParsedBagScaleCap;
+                target = float.IsNaN(cap) || float.IsInfinity(cap) ? 1f : Mathf.Min(target, Mathf.Max(1f, cap));
+            }
+            _currentScale = Mathf.Lerp(_currentScale, target, 1f - Mathf.Exp(-10f * Time.deltaTime));
+            if (Mathf.Abs(_currentScale - target) < 0.0001f) _currentScale = target;
+            if (_currentScale == 1f)
+            {
+                RestoreRenderBones();
                 return;
             }
-
-            if (_filteredBones == null || _originalBoneScales == null)
+            EnsureRenderBones();
+            if (_renderBones == null || _bagBodyBones == null) return;
+            Vector3 pivot = _scalePivot.position;
+            float offset = BackwardOffsetPerScale * (_currentScale - 1f);
+            Vector3 backwardOffset = _modelTransform != null
+                ? _modelTransform.TransformVector(Vector3.back * offset)
+                : Vector3.zero;
+            for (int i = 0; i < _bones.Length; i++)
             {
-                return;
+                var source = _bones[i];
+                var render = _renderBones[i];
+                if (source == null || render == null) continue;
+                float scale = _bagBodyBones[i] ? _currentScale : 1f;
+                render.SetPositionAndRotation(pivot + (source.position - pivot) * scale + backwardOffset, source.rotation);
+                render.localScale = source.lossyScale * scale;
             }
-
-            if (_targetScale <= 1.0f)
+            if (!_usingRenderBones)
             {
-                if (_currentScale <= 1.0f) return;
-
-                _currentScale = Mathf.Lerp(_currentScale, 1.0f, Time.deltaTime * 10f);
-
-                if (Mathf.Approximately(_currentScale, 1.0f))
-                {
-                    _currentScale = 1.0f;
-                    ResetBoneScales();
-                    return;
-                }
-
-                for (int i = 0; i < _filteredBones.Length; i++)
-                {
-                    if (_filteredBones[i] != null)
-                    {
-                        _filteredBones[i].localScale = _originalBoneScales[i] * _currentScale;
-                    }
-                }
-                return;
+                _skinnedMeshRenderer.bones = _renderBones;
+                _usingRenderBones = true;
             }
-
-            if (Mathf.Approximately(_currentScale, _targetScale)) return;
-
-            _currentScale = Mathf.Lerp(_currentScale, _targetScale, Time.deltaTime * 10f);
-
-            int bonesUpdated = 0;
-            for (int i = 0; i < _filteredBones.Length; i++)
-            {
-                if (_filteredBones[i] != null)
-                {
-                    Vector3 newBoneScale = _originalBoneScales[i] * _currentScale;
-                    _filteredBones[i].localScale = newBoneScale;
-                    bonesUpdated++;
-                }
-            }
-
-            if (bonesUpdated > 0)
-            {
-                Log.Debug($"[UncappedBagScaleComponent] Applied scale {_currentScale:F2} (target: {_targetScale:F2}) to {bonesUpdated} bag bones");
-            }
+            Vector3 localPivot = _skinnedMeshRenderer.transform.InverseTransformPoint(pivot);
+            var bounds = new Bounds(
+                localPivot + (_originalBounds.center - localPivot) * _currentScale,
+                _originalBounds.size * _currentScale);
+            bounds.Encapsulate(_originalBounds);
+            bounds.center += _skinnedMeshRenderer.transform.InverseTransformVector(backwardOffset);
+            _skinnedMeshRenderer.localBounds = bounds;
         }
+
+        private void RestoreRenderBones()
+        {
+            if (!_usingRenderBones || _skinnedMeshRenderer == null || _bones == null) return;
+            _skinnedMeshRenderer.bones = _bones;
+            _skinnedMeshRenderer.localBounds = _originalBounds;
+            _usingRenderBones = false;
+        }
+
+        private void OnDisable() => ResetBoneScales();
 
         private void OnDestroy()
         {
-
             ResetBoneScales();
+            if (_renderRig != null) Destroy(_renderRig);
             _isInitialized = false;
         }
 
         public void ResetBoneScales()
         {
-            if (_filteredBones == null || _originalBoneScales == null) return;
-
-            for (int i = 0; i < _filteredBones.Length; i++)
-            {
-                if (_filteredBones[i] != null)
-                {
-                    _filteredBones[i].localScale = _originalBoneScales[i];
-                }
-            }
+            RestoreRenderBones();
 
             _currentScale = 1.0f;
             _targetScale = 1.0f;
-
-            Log.Debug($"[UncappedBagScaleComponent] Reset {_filteredBones.Length} bag bones to original scales");
         }
 
     }

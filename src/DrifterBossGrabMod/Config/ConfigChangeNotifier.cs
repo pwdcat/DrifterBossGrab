@@ -38,13 +38,15 @@ namespace DrifterBossGrabMod
 
         public static void Init()
         {
-            PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.BreakoutTimeFormula.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.GrabRangeFormula.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.MaxSmacksFormula.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EnableSelfGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged += configChangedHandler;
             PluginConfig.Instance.ProjectileGrabbingMode.SettingChanged += configChangedHandler;
-            PluginConfig.Instance.MaxSmacks.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableDebugLogs.SettingChanged += configChangedHandler;
             PluginConfig.Instance.BodyBlacklist.SettingChanged += configChangedHandler;
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged += configChangedHandler;
@@ -90,6 +92,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged += configChangedHandler;
             PluginConfig.Instance.SideSlotShowSlotNumber.SettingChanged += configChangedHandler;
             PluginConfig.Instance.EnableDamagePreview.SettingChanged += configChangedHandler;
+            PluginConfig.Instance.EliteHealthBarColorIntensity.SettingChanged += configChangedHandler;
             PluginConfig.Instance.DamagePreviewColor.SettingChanged += configChangedHandler;
             PluginConfig.Instance.UseNewWeightIcon.SettingChanged += configChangedHandler;
             PluginConfig.Instance.WeightDisplayMode.SettingChanged += configChangedHandler;
@@ -111,13 +114,15 @@ namespace DrifterBossGrabMod
 
         public static void Cleanup()
         {
-            PluginConfig.Instance.BreakoutTimeMultiplier.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.BreakoutTimeFormula.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.GrabRangeFormula.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.MaxSmacksFormula.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableBossGrabbing.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EnableSelfGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableNPCGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableEnvironmentGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableLockedObjectGrabbing.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.ProjectileGrabbingMode.SettingChanged -= configChangedHandler;
-            PluginConfig.Instance.MaxSmacks.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableDebugLogs.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.BodyBlacklist.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.RecoveryObjectBlacklist.SettingChanged -= configChangedHandler;
@@ -163,6 +168,7 @@ namespace DrifterBossGrabMod
             PluginConfig.Instance.SideSlotShowHealthBar.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.SideSlotShowSlotNumber.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.EnableDamagePreview.SettingChanged -= configChangedHandler;
+            PluginConfig.Instance.EliteHealthBarColorIntensity.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.DamagePreviewColor.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.UseNewWeightIcon.SettingChanged -= configChangedHandler;
             PluginConfig.Instance.WeightDisplayMode.SettingChanged -= configChangedHandler;

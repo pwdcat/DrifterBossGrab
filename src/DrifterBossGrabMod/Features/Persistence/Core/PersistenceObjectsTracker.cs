@@ -120,7 +120,7 @@ namespace DrifterBossGrabMod
                 if (PluginConfig.Instance.EnableDebugLogs.Value)
                 {
                     var health = obj.GetComponent<RoR2.HealthComponent>();
-                    Log.Debug($"[DEBUG] [TrackBaggedObject] {obj.name}: alive={health?.alive}");
+                    Log.Debug($"[TrackBaggedObject] {obj.name}: alive={health?.alive}");
                 }
             }
         }
@@ -135,7 +135,7 @@ namespace DrifterBossGrabMod
                     if (PluginConfig.Instance.EnableDebugLogs.Value)
                     {
                         var health = obj.GetComponent<RoR2.HealthComponent>();
-                        Log.Debug($"[DEBUG] [UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
+                        Log.Debug($"[UntrackBaggedObject] {obj.name}: alive={health?.alive}, isDestroying={isDestroying}");
                     }
 
                     PersistenceManager.RemovePersistedObject(obj, isDestroying);
