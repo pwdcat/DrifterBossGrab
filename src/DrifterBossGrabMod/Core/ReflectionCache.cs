@@ -89,10 +89,6 @@ namespace DrifterBossGrabMod
             private static readonly Type BaggedObjectType = System.Type.GetType("EntityStates.Drifter.Bag.BaggedObject, RoR2") ?? typeof(EntityStates.Drifter.Bag.BaggedObject);
 
             public static readonly FieldInfo MovespeedPenalty = AccessTools.Field(BaggedObjectType, "movespeedPenalty");
-            public static readonly FieldInfo? AttackSpeedStat = null;
-            public static readonly FieldInfo? DamageStat = null;
-            public static readonly FieldInfo? CritStat = null;
-            public static readonly FieldInfo? MoveSpeedStat = null;
         }
 
         public static class RepossessExit
@@ -103,23 +99,7 @@ namespace DrifterBossGrabMod
 
         public static class JunkCubeController
         {
-            private static FieldInfo? _maxActivationCount;
-
-            public static FieldInfo? MaxActivationCount
-            {
-                get
-                {
-                    if (_maxActivationCount == null)
-                    {
-                        var junkCubeType = Type.GetType("RoR2.JunkCubeController, RoR2");
-                        if (junkCubeType != null)
-                        {
-                            _maxActivationCount = AccessTools.Field(junkCubeType, "_maxActivationCount");
-                        }
-                    }
-                    return _maxActivationCount;
-                }
-            }
+            public static readonly FieldInfo MaxActivationCount = AccessTools.Field(typeof(global::JunkCubeController), "_maxActivationCount");
         }
 
         public static class NetworkIdentity
@@ -137,24 +117,14 @@ namespace DrifterBossGrabMod
                 {
                     if (_applyToControllerMapMethod == null)
                     {
-                        var actionElementMapType = Type.GetType("Rewired.Data.Mapping.ActionElementMap, Rewired_Core");
-                        if (actionElementMapType != null)
+                        foreach (var method in typeof(global::Rewired.ActionElementMap).GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
                         {
-                            foreach (var method in actionElementMapType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
+                            if (method.ReturnType != typeof(void)) continue;
+                            var parameters = method.GetParameters();
+                            if (parameters.Length == 1 && parameters[0].ParameterType == typeof(global::Rewired.ControllerMap))
                             {
-                                if (method.ReturnType == typeof(void))
-                                {
-                                    var parameters = method.GetParameters();
-                                    if (parameters.Length == 1)
-                                    {
-                                        var controllerMapType = Type.GetType("Rewired.ControllerMap, Rewired_Core");
-                                        if (controllerMapType != null && controllerMapType.IsAssignableFrom(parameters[0].ParameterType))
-                                        {
-                                            _applyToControllerMapMethod = method;
-                                            break;
-                                        }
-                                    }
-                                }
+                                _applyToControllerMapMethod = method;
+                                break;
                             }
                         }
                     }

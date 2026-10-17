@@ -23,10 +23,6 @@ namespace DrifterBossGrabMod.Core
         private static readonly FieldInfo _baggedMassField = ReflectionCache.BaggedObject.BaggedMass;
         private static readonly FieldInfo _bagScale01Field = ReflectionCache.BaggedObject.BagScale01;
         private static readonly FieldInfo _movespeedPenaltyField = ReflectionCache.BaggedObjectAdditional.MovespeedPenalty;
-        private static readonly FieldInfo? _attackSpeedStatField = ReflectionCache.BaggedObjectAdditional.AttackSpeedStat;
-        private static readonly FieldInfo? _damageStatField = ReflectionCache.BaggedObjectAdditional.DamageStat;
-        private static readonly FieldInfo? _critStatField = ReflectionCache.BaggedObjectAdditional.CritStat;
-        private static readonly FieldInfo? _moveSpeedStatField = ReflectionCache.BaggedObjectAdditional.MoveSpeedStat;
         private static readonly FieldInfo _drifterBagControllerField = ReflectionCache.BaggedObject.DrifterBagController;
 
         public CharacterBody? targetBody;
@@ -98,10 +94,10 @@ namespace DrifterBossGrabMod.Core
                 bagScale01 = _bagScale01Field != null ? (float)_bagScale01Field.GetValue(state) : 0.5f;
                 movespeedPenalty = _movespeedPenaltyField != null ? (float)_movespeedPenaltyField.GetValue(state) : 0f;
 
-                attackSpeedStat = _attackSpeedStatField != null ? (float)_attackSpeedStatField.GetValue(state) : 1f;
-                damageStat = _damageStatField != null ? (float)_damageStatField.GetValue(state) : 0f;
-                critStat = _critStatField != null ? (float)_critStatField.GetValue(state) : 0f;
-                moveSpeedStat = _moveSpeedStatField != null ? (float)_moveSpeedStatField.GetValue(state) : 0f;
+                attackSpeedStat = targetBody != null ? targetBody.attackSpeed : 1f;
+                damageStat = targetBody != null ? targetBody.baseDamage : 0f;
+                critStat = targetBody != null ? targetBody.crit : 0f;
+                moveSpeedStat = targetBody != null ? targetBody.moveSpeed : 0f;
 
                 if (targetBody != null)
                 {
@@ -215,10 +211,6 @@ namespace DrifterBossGrabMod.Core
                 _bagScale01Field?.SetValue(state, bagScale01);
                 _movespeedPenaltyField?.SetValue(state, movespeedPenalty);
 
-                _attackSpeedStatField?.SetValue(state, attackSpeedStat);
-                _damageStatField?.SetValue(state, damageStat);
-                _critStatField?.SetValue(state, critStat);
-                _moveSpeedStatField?.SetValue(state, moveSpeedStat);
 
                 if (ReflectionCache.BaggedObject.BreakoutTime != null && breakoutTime > 0f)
                 {
@@ -399,7 +391,8 @@ namespace DrifterBossGrabMod.Core
                         ["C"] = totalCapacity,
                         ["H"] = health,
                         ["L"] = level,
-                        ["MC"] = massCap
+                        ["MC"] = massCap,
+                        ["S"] = Run.instance ? Run.instance.stageClearCount + 1 : 1
                     };
 
                     penalty = FormulaParser.Evaluate(PluginConfig.Instance.MovespeedPenaltyFormula.Value, penaltyVars);

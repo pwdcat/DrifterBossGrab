@@ -20,6 +20,9 @@ namespace DrifterBossGrabMod.UI
         [HarmonyPatch(typeof(ModOptionPanelController), "CheckIfRestartNeeded")]
         [HarmonyPatch(typeof(ModOptionPanelController), "ShowRestartWarning")]
         [HarmonyPatch(typeof(ModOptionPanelController), "HideRestartWarning")]
+        [HarmonyPatch(typeof(ModOptionPanelController), "Awake")]
+        [HarmonyPatch(typeof(ModOptionPanelController), "Start")]
+        [HarmonyPatch(typeof(ModOptionPanelController), "OnDestroy")]
         [HarmonyPrefix]
         internal static bool Prefix(ModOptionPanelController __instance)
         {
@@ -216,7 +219,7 @@ namespace DrifterBossGrabMod.UI
                     return;
                 }
 
-                var dummyContainer = new GameObject("DummyControllerContainer");
+                var dummyContainer = new GameObject("DrifterHUD_DummyController");
                 dummyContainer.transform.SetParent(_menuInstance.transform, false);
                 dummyContainer.SetActive(false);
 

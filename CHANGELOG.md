@@ -27,11 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Solus changes
     - Solus heart will be grabbed propertly (only his head)
     - Solus wing won't fly up anymore and get instantly killed
+    - Solus vender (SPEX) won't float away from you after a grab
 - Loading a save with big objects or enemies slamming you into the ground
 - Weird edge case for bottomless causing a mismatch on the thrown projectile's passenger
 - Controller binds showing up as unbound until refreshed
 - Small bag sync issues for multiplayer
 - Mid game preset switching causing the game to freeze for config sync
+- Bug with clients where its sending the slot index for animation direction
+- Networking cycling errors + collisions for clients
+- Optimizations
 
 ### Changed
 - Faster settings tabs
@@ -46,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Note
 - Still some annoying edge cases for animations and config sync for the client
-- Desync with self grab
+- Small insignificant errors in multiplayer still
 
 ## [1.9.0]
 

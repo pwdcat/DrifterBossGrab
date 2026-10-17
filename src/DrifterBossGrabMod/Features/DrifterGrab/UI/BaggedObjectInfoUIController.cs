@@ -212,6 +212,12 @@ namespace DrifterBossGrabMod.UI
         {
             if (_statsText == null || _uiPanel == null) return;
 
+            if (!showFullStats && _detailsGroup.alpha <= 0f && _summaryGroup.alpha <= 0f && _timerGroup.alpha <= 0f)
+            {
+                SetUIVisible(false);
+                return;
+            }
+
             if (_carousel == null && _hud != null)
                 _carousel = _hud.mainContainer.GetComponentInChildren<BaggedObjectCarousel>(true);
             var selectedObject = BagPatches.GetMainSeatObject(_bagController);

@@ -284,6 +284,21 @@ namespace DrifterBossGrabMod
                     yield return setting;
         }
 
+        internal void RefreshRiskOfOptionsUI(bool presetOnly = false)
+        {
+            foreach (var setting in CurrentRooSettings().ToArray())
+            {
+                if (setting == null) continue;
+                if (presetOnly && !setting.settingToken.EndsWith(".SELECTED_PRESET.CHOICE", StringComparison.OrdinalIgnoreCase)) continue;
+                var row = setting.gameObject;
+                if (row != null && row.activeSelf)
+                {
+                    row.SetActive(false);
+                    row.SetActive(true);
+                }
+            }
+        }
+
         private void SetRooVisibility(Component setting, bool visible, bool enabled)
         {
             if (!_rooLayouts.TryGetValue(setting, out var row))

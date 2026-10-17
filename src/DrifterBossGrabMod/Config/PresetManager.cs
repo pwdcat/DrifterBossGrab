@@ -234,18 +234,7 @@ namespace DrifterBossGrabMod.Config
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshAllRiskOfOptionsUIInternal()
         {
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-
-            foreach (var setting in allSettings)
-            {
-
-                var gameObject = setting.gameObject;
-                if (gameObject != null && gameObject.activeSelf)
-                {
-                    gameObject.SetActive(false);
-                    gameObject.SetActive(true);
-                }
-            }
+            DrifterBossGrabPlugin.Instance?.RefreshRiskOfOptionsUI();
         }
 
         // ========================================================================================
@@ -270,18 +259,7 @@ namespace DrifterBossGrabMod.Config
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         private static void RefreshPresetDropdownUIInternal()
         {
-            var allSettings = UnityEngine.Object.FindObjectsByType<RiskOfOptions.Components.Options.ModSetting>(UnityEngine.FindObjectsSortMode.None);
-
-            foreach (var setting in allSettings)
-            {
-
-                var gameObject = setting.gameObject;
-                if (gameObject != null && gameObject.activeSelf)
-                {
-                    gameObject.SetActive(false);
-                    gameObject.SetActive(true);
-                }
-            }
+            DrifterBossGrabPlugin.Instance?.RefreshRiskOfOptionsUI(true);
         }
 
         // ========================================================================================

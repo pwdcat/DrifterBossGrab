@@ -42,6 +42,18 @@ namespace DrifterBossGrabMod.UI
         private float _cachedDamageFraction = 0f;
         private int _cachedTargetInstanceId = 0;
         private bool _cacheValid = false;
+        private GameObject? _lastCheckedTarget;
+        private bool _isTargetEmptySlot;
+
+        private bool IsEmptySlotMarker(GameObject obj)
+        {
+            if (!ReferenceEquals(_lastCheckedTarget, obj))
+            {
+                _lastCheckedTarget = obj;
+                _isTargetEmptySlot = obj.name.StartsWith("EmptySlotMarker", System.StringComparison.Ordinal);
+            }
+            return _isTargetEmptySlot;
+        }
 
         private void Awake()
         {
@@ -57,7 +69,7 @@ namespace DrifterBossGrabMod.UI
                 return;
             }
 
-            if (!_healthBar || !bagController || !targetObject || targetObject!.name.Contains("EmptySlotMarker"))
+            if (!_healthBar || !bagController || targetObject == null || IsEmptySlotMarker(targetObject))
             {
                 if (_previewRect && _previewRect!.gameObject.activeSelf)
                     _previewRect.gameObject.SetActive(false);

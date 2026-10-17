@@ -158,6 +158,15 @@ namespace DrifterBossGrabMod.Patches
         [HarmonyPatch(typeof(ThrownObjectProjectileController), "Start")]
         public class ThrownObjectProjectileController_Start_Patch
         {
+            [HarmonyPostfix]
+            public static void Postfix(ThrownObjectProjectileController __instance)
+            {
+                if (!NetworkServer.active || __instance == null || __instance.Networkpassenger != null) return;
+                var owner = __instance.GetComponent<ProjectileController>()?.owner;
+                if (owner != null && owner.GetComponent<DrifterBagController>() != null)
+                    UnityEngine.Object.Destroy(__instance.gameObject);
+            }
+
             [HarmonyTranspiler]
             public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
             {
@@ -236,7 +245,7 @@ namespace DrifterBossGrabMod.Patches
         public class ThrownObjectProjectileController_OnSyncPassenger_Patch
         {
             [HarmonyPostfix]
-            public static void Postfix(ThrownObjectProjectileController __instance, GameObject passengerObject)
+            public static void Postfix(ThrownObjectProjectileController __instance, GameObject passengerObject, ref bool ___wasKinematic)
             {
                 if (passengerObject == null)
                 {
@@ -244,6 +253,8 @@ namespace DrifterBossGrabMod.Patches
                     return;
                 }
 
+                PreserveCapturedPassengerPhysics(__instance, passengerObject, ref ___wasKinematic);
+                PreserveRemotePassengerPhysics(__instance, passengerObject, ref ___wasKinematic);
                 ExtendPassengerCollisionIgnores(__instance, passengerObject);
 
                 if (!NetworkUtils.ValidateObjectReadyWithRecovery(passengerObject))
@@ -271,6 +282,27 @@ namespace DrifterBossGrabMod.Patches
                     ProcessThrownObject(__instance, passengerObject!);
                 }
             }
+        }
+
+        internal static void PreserveCapturedPassengerPhysics(ThrownObjectProjectileController projectile, GameObject passenger, ref bool wasKinematic)
+        {
+            if (projectile == null || passenger == null || passenger.GetComponent<CharacterBody>() == null) return;
+            var owner = projectile.GetComponent<ProjectileController>()?.owner;
+            var controller = owner != null ? owner.GetComponent<DrifterBagController>() : null;
+            if (controller == null) return;
+            var state = BaggedObjectPatches.LoadObjectState(controller, passenger);
+            if (state != null && state.hasCapturedRigidbodyState) wasKinematic = state.originalIsKinematic;
+        }
+
+        internal static void PreserveRemotePassengerPhysics(ThrownObjectProjectileController projectile, GameObject passenger, ref bool wasKinematic)
+        {
+            if (NetworkServer.active || projectile == null || passenger == null) return;
+            var body = passenger.GetComponent<CharacterBody>();
+            if (body == null || body.hasEffectiveAuthority ||
+                passenger.GetComponent<RoR2.Networking.CharacterNetworkTransform>() == null) return;
+            var owner = projectile.GetComponent<ProjectileController>()?.owner;
+            if (owner == null || owner.GetComponent<DrifterBagController>() == null) return;
+            wasKinematic = true;
         }
 
         private static void ExtendPassengerCollisionIgnores(ThrownObjectProjectileController projectile, GameObject passenger)
@@ -577,6 +609,7 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPrefix]
             public static void Prefix(ThrownObjectProjectileController __instance)
             {
+                DetachExplosionCallback(__instance);
                 if (__instance.Networkpassenger != null)
                 {
                     lock (_throwTrackingLock)
@@ -590,6 +623,20 @@ namespace DrifterBossGrabMod.Patches
                     RemoveFromProjectileState(__instance.Networkpassenger);
                 }
             }
+        }
+
+        internal static void DetachExplosionCallback(ThrownObjectProjectileController controller)
+        {
+            if (controller == null) return;
+            var explosion = controller.GetComponent<ProjectileImpactExplosion>();
+            if (explosion != null) explosion.OnProjectileExplosion -= controller.CheckForDeadPassenger;
+        }
+
+        [HarmonyPatch(typeof(ThrownObjectProjectileController), "CheckForDeadPassenger")]
+        public class ThrownObjectProjectileController_CheckForDeadPassenger_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(ThrownObjectProjectileController __instance) => __instance != null;
         }
 
         // ========================================================================================

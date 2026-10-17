@@ -18,6 +18,8 @@ namespace DrifterBossGrabMod.Core
         private VehicleSeat? _lastSeat;
 
         private bool _protecting;
+        private bool _clientBagged;
+        private readonly Dictionary<Collider, bool> _clientBagColliderStates = new();
         private float _restoreProtectionUntil;
         private bool _hasWingMotorSnapshot;
         private bool _wingWasCarried;
@@ -39,7 +41,7 @@ namespace DrifterBossGrabMod.Core
 
         private void RestoreEncounterMotor()
         {
-            if (!_hasWingMotorSnapshot || !_wingWasCarried || _projectile != null ||
+            if (!_hasWingMotorSnapshot || !_wingWasCarried || _clientBagged || _projectile != null ||
                 Patches.ProjectileRecoveryPatches.IsInProjectileState(gameObject) ||
                 VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null) return;
             var body = GetComponent<CharacterBody>();
@@ -55,7 +57,7 @@ namespace DrifterBossGrabMod.Core
         {
             if (passenger == null || passenger.GetComponent<CharacterBody>() == null) return;
             var bag = seat.GetComponentInParent<DrifterBagController>();
-            if (bag == null || bag.characterBody == null) return;
+            if (bag == null || bag.characterBody == null || passenger == bag.gameObject) return;
             var protection = passenger.GetComponent<PassengerReleaseProtection>() ?? passenger.AddComponent<PassengerReleaseProtection>();
             CaptureEncounterMotor(passenger);
             protection._wingWasCarried = protection._hasWingMotorSnapshot;
@@ -79,6 +81,7 @@ namespace DrifterBossGrabMod.Core
 
         public void Begin(CharacterBody owner, GameObject? projectile = null)
         {
+            if (owner == null || owner.gameObject == gameObject) return;
             if (_owner == null && _snapshotOwner == owner) _owner = owner;
             else Capture(owner);
             if (projectile != null) _projectile = projectile;
@@ -96,6 +99,7 @@ namespace DrifterBossGrabMod.Core
         internal void FinishRestoration()
         {
             _restoreProtectionUntil = 0f;
+            StartSeparationWatch();
         }
 
         private static Collider[] GetSolidColliders(GameObject obj)
@@ -130,20 +134,122 @@ namespace DrifterBossGrabMod.Core
             _projectile = null;
             Apply();
             RestoreEncounterMotor();
+            StartSeparationWatch();
         }
 
-        private void FixedUpdate()
+        internal void SetClientBagged(CharacterBody? owner, bool bagged)
         {
-            RestoreEncounterMotor();
-            if (!_protecting) return;
-            if (_owner == null) { Clear(); return; }
-            Apply();
-            if (VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null)
+            if (UnityEngine.Networking.NetworkServer.active) return;
+            if (bagged && (owner == null || owner.gameObject == gameObject)) return;
+            if (bagged) Begin(owner!);
+            _clientBagged = bagged;
+            if (!bagged)
             {
-                FinishRestoration();
+                RestoreClientBagColliders();
+                StartSeparationWatch();
                 return;
             }
-            if (_projectile != null || Time.unscaledTime < _restoreProtectionUntil) return;
+
+            var body = GetComponent<CharacterBody>();
+            var seat = body != null ? body.currentVehicle : null;
+            foreach (var collider in GetSolidColliders(gameObject))
+            {
+                if (!_clientBagColliderStates.ContainsKey(collider))
+                {
+                    bool original = collider.enabled;
+                    if (seat != null && VehicleSeat_SetPassengerCollisions_Patch.TryGetOriginalState(seat, collider, out bool seatOriginal))
+                        original = seatOriginal;
+                    _clientBagColliderStates.Add(collider, original);
+                }
+                collider.enabled = false;
+            }
+        }
+
+        private void RestoreClientBagColliders(bool force = false)
+        {
+            if (_clientBagColliderStates.Count == 0) return;
+            if (!force)
+            {
+                var seat = VehicleSeat.FindVehicleSeatWithPassenger(gameObject);
+                if (seat != null && (seat.GetComponentInParent<DrifterBagController>() != null ||
+                    seat.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>() != null)) return;
+                if (Patches.ProjectileRecoveryPatches.IsInProjectileState(gameObject)) return;
+            }
+            bool dead = BodyColliderCache.ProtectDeadPassenger(gameObject);
+            foreach (var pair in _clientBagColliderStates)
+                if (pair.Key != null && !dead) pair.Key.enabled = pair.Value;
+            _clientBagColliderStates.Clear();
+        }
+
+        private Coroutine? _separationRoutine;
+
+        private void LateUpdate()
+        {
+            if (UnityEngine.Networking.NetworkServer.active) return;
+            if (_clientBagged)
+            {
+                foreach (var collider in _clientBagColliderStates.Keys)
+                    if (collider != null && collider.enabled) collider.enabled = false;
+            }
+            else RestoreClientBagColliders();
+        }
+
+        internal void StartSeparationWatch()
+        {
+            if (!gameObject.activeInHierarchy || !_protecting || _clientBagged) return;
+            if (_separationRoutine != null)
+            {
+                StopCoroutine(_separationRoutine);
+            }
+            _separationRoutine = StartCoroutine(SeparationRoutine());
+        }
+
+        private System.Collections.IEnumerator SeparationRoutine()
+        {
+            float timeout = Time.unscaledTime + 1.0f;
+            var wait = new WaitForFixedUpdate();
+
+            while (true)
+            {
+                yield return wait;
+
+                if (_clientBagged)
+                {
+                    _separationRoutine = null;
+                    yield break;
+                }
+
+                if (!_protecting || _owner == null)
+                {
+                    Clear();
+                    yield break;
+                }
+
+                if (VehicleSeat.FindVehicleSeatWithPassenger(gameObject) != null ||
+                    _projectile != null || Patches.ProjectileRecoveryPatches.IsInProjectileState(gameObject) ||
+                    Time.unscaledTime < _restoreProtectionUntil)
+                {
+                    timeout = Time.unscaledTime + 1.0f;
+                    continue;
+                }
+
+                RestoreClientBagColliders();
+                if (_clientBagColliderStates.Count != 0) continue;
+
+                if (!IsOverlappingOwner() || Time.unscaledTime >= timeout)
+                {
+                    break;
+                }
+            }
+
+            RestoreEncounterMotor();
+            Clear();
+            _separationRoutine = null;
+        }
+
+        private bool IsOverlappingOwner()
+        {
+            if (_owner == null) return false;
             foreach (var passenger in _passengerColliders)
             {
                 if (passenger == null || !passenger.enabled || !passenger.gameObject.activeInHierarchy) continue;
@@ -151,10 +257,11 @@ namespace DrifterBossGrabMod.Core
                 {
                     if (carrier == null || !carrier.enabled || !carrier.gameObject.activeInHierarchy) continue;
                     if (Physics.ComputePenetration(carrier, carrier.transform.position, carrier.transform.rotation,
-                        passenger, passenger.transform.position, passenger.transform.rotation, out _, out _)) return;
+                        passenger, passenger.transform.position, passenger.transform.rotation, out _, out _))
+                        return true;
                 }
             }
-            Clear();
+            return false;
         }
 
         private void OnDisable() => Clear();
@@ -163,6 +270,13 @@ namespace DrifterBossGrabMod.Core
 
         private void Clear()
         {
+            if (_separationRoutine != null)
+            {
+                StopCoroutine(_separationRoutine);
+                _separationRoutine = null;
+            }
+            _clientBagged = false;
+            RestoreClientBagColliders(true);
             _active.Remove(this);
             _owner = null;
             _projectile = null;
@@ -238,6 +352,14 @@ namespace DrifterBossGrabMod.Core
                     __instance.GetComponent<RoR2.Projectile.ThrownObjectProjectileController>() == null)
                     CaptureEncounterMotor(passenger);
             }
+
+            [HarmonyPostfix]
+            public static void Postfix(VehicleSeat __instance, GameObject passenger)
+            {
+                if (passenger == null) return;
+                var protection = passenger.GetComponent<PassengerReleaseProtection>();
+                protection?.StartSeparationWatch();
+            }
         }
 
         [HarmonyPatch(typeof(CharacterMotor), nameof(CharacterMotor.IsColliderValidForCollisions))]
@@ -278,6 +400,16 @@ namespace DrifterBossGrabMod.Core
             private static readonly System.Reflection.FieldInfo PassengerInfoField = AccessTools.Field(typeof(VehicleSeat), "passengerInfo");
             private static readonly System.Reflection.FieldInfo CollidersField = AccessTools.Field(PassengerInfoField.FieldType, "allColliders");
             private static readonly System.Reflection.FieldInfo StatesField = AccessTools.Field(PassengerInfoField.FieldType, "originalCollidersState");
+
+            internal static bool TryGetOriginalState(VehicleSeat seat, Collider collider, out bool enabled)
+            {
+                var info = PassengerInfoField.GetValue(seat);
+                var colliders = (Collider[]?)CollidersField.GetValue(info);
+                var states = (bool[]?)StatesField.GetValue(info);
+                int index = colliders != null ? System.Array.IndexOf(colliders, collider) : -1;
+                enabled = index >= 0 && states != null && index < states.Length && states[index];
+                return index >= 0 && states != null && index < states.Length;
+            }
 
             [HarmonyPrefix]
             public static void Prefix(VehicleSeat __instance, bool enabled)

@@ -390,6 +390,8 @@ namespace DrifterBossGrabMod.Patches
                 Log.Debug($"[CycleToNextObject] Invalid Seat Conf, Aborting.");
                 return;
             }
+            if (!BagCarouselUpdater.BeginTransition(bagController)) return;
+            bool wasSwapping = DrifterBossGrabPlugin._isSwappingPassengers;
             DrifterBossGrabPlugin._isSwappingPassengers = true;
             try
             {
@@ -419,13 +421,14 @@ namespace DrifterBossGrabMod.Patches
 
                 BagPatches.GetState(bagController).AdditionalSeats = localSeatDict;
 
-                BagCarouselUpdater.UpdateCarousel(bagController, direction);
-                BagCarouselUpdater.UpdateNetworkBagState(bagController, direction);
             }
             finally
             {
-                DrifterBossGrabPlugin._isSwappingPassengers = false;
+                BagCarouselUpdater.EndTransition(bagController);
+                DrifterBossGrabPlugin._isSwappingPassengers = wasSwapping;
             }
+            BagCarouselUpdater.UpdateCarousel(bagController, direction);
+            BagCarouselUpdater.UpdateNetworkBagState(bagController, direction);
             if (!nextIsNull)
             {
                 var targetObject = nextIndex < validObjects.Count ? validObjects[nextIndex] : null;

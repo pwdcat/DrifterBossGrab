@@ -65,6 +65,45 @@ namespace DrifterBossGrabMod.UI
         private bool _hasPresentation;
         private bool _balancePresentation;
         private bool _editorPreview;
+        private bool _presentationIdle;
+        private MeterLayout _fillLayout;
+        private MeterLayout _overFillLayout;
+
+        private readonly struct MeterLayout
+        {
+            private readonly Image? _image;
+            private readonly Rect _rect;
+            private readonly Vector3 _position;
+            private readonly Vector3 _scale;
+            private readonly Quaternion _rotation;
+            private readonly Sprite? _sprite;
+            private readonly bool _preserveAspect;
+            private readonly int _fillOrigin;
+
+            internal MeterLayout(Image? image)
+            {
+                _image = image;
+                _rect = image != null ? image.GetPixelAdjustedRect() : default;
+                _position = image != null ? image.rectTransform.localPosition : default;
+                _scale = image != null ? image.rectTransform.localScale : default;
+                _rotation = image != null ? image.rectTransform.localRotation : default;
+                _sprite = image != null ? image.overrideSprite != null ? image.overrideSprite : image.sprite : null;
+                _preserveAspect = image != null && image.preserveAspect;
+                _fillOrigin = image != null ? image.fillOrigin : 0;
+            }
+
+            internal bool Matches(Image? image)
+            {
+                if (_image != image) return false;
+                if (image == null) return true;
+                return _rect == image.GetPixelAdjustedRect() &&
+                    _position == image.rectTransform.localPosition &&
+                    _scale == image.rectTransform.localScale &&
+                    _rotation == image.rectTransform.localRotation &&
+                    _sprite == (image.overrideSprite != null ? image.overrideSprite : image.sprite) &&
+                    _preserveAspect == image.preserveAspect && _fillOrigin == image.fillOrigin;
+            }
+        }
 
         private const float ShowUIThreshold = 1.0f;
 
@@ -438,6 +477,7 @@ namespace DrifterBossGrabMod.UI
         private void LateUpdate()
         {
             if (_massCapacityUIInstance == null || !_massCapacityUIInstance.activeInHierarchy || !_hasPresentation) return;
+            if (_presentationIdle && _fillLayout.Matches(_fillBarImage) && _overFillLayout.Matches(_overencumbranceFillImage)) return;
             ApplyPresentation(Time.unscaledDeltaTime);
         }
 
@@ -570,10 +610,26 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
             }
+            _fillLayout = new MeterLayout(_fillBarImage);
+            _overFillLayout = new MeterLayout(_overencumbranceFillImage);
+            _presentationIdle = IsPresentationSettled();
+        }
+
+        private bool IsPresentationSettled()
+        {
+            if (_displayFill != _targetFill || _displayOverFill != _targetOverFill) return false;
+            if (!PluginConfig.Instance.EnableCapacityFlashes.Value || PluginConfig.Instance.CapacityFlashStrength.Value <= 0f ||
+                (HudEditorManager.IsEditorActive && !_editorPreview)) return true;
+            return _accentAge >= 0.22f && (_targetFill < 1f || GetSettleStrength(_limitAccentAge) <= 0f &&
+                _limitAccentAge >= PluginConfig.Instance.CapacityFlashDuration.Value) &&
+                (_targetOverFill <= 0f || (_limitAccentAge >= PluginConfig.Instance.CapacityFlashDuration.Value &&
+                    _overEntryAccentAge >= PluginConfig.Instance.CapacityFlashDuration.Value &&
+                    GetSettleStrength(_limitAccentAge) <= 0f && GetSettleStrength(_overEntryAccentAge) <= 0f));
         }
 
         public void UpdateConfig()
         {
+            _presentationIdle = false;
             bool shouldExist = HudEditorManager.IsEditorActive || PluginConfig.Instance.EnableMassCapacityUI.Value;
 
             if (_massCapacityUIInstance == null)

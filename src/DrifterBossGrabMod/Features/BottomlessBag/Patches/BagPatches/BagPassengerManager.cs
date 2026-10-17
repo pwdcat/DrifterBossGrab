@@ -571,7 +571,7 @@ namespace DrifterBossGrabMod.Patches
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[RemoveBaggedObject] Error ejecting passenger: {ex.GetType().Name} - {ex.Message}");
+                    Log.Error($"[RemoveBaggedObject] Error ejecting passenger: {ex}");
 
                     try
                     {

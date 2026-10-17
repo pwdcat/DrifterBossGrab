@@ -16,6 +16,11 @@ namespace DrifterBossGrabMod.Patches
     {
 
         internal static readonly List<UI.BaggedObjectCarousel> ActiveCarousels = new List<UI.BaggedObjectCarousel>();
+        private static readonly HashSet<DrifterBagController> _transitions = new();
+
+        internal static bool BeginTransition(DrifterBagController controller) => _transitions.Add(controller);
+
+        internal static void EndTransition(DrifterBagController controller) => _transitions.Remove(controller);
 
         internal static void AnimatePassengerExit(DrifterBagController controller, GameObject obj, bool wasDestroyed)
         {
@@ -58,6 +63,7 @@ namespace DrifterBossGrabMod.Patches
 
         public static void UpdateCarousel(DrifterBagController controller, int direction = 0)
         {
+            if (controller == null || _transitions.Contains(controller)) return;
             Log.Debug($"[UpdateCarousel] Controller: {(controller ? controller.name : "null")} Dir: {direction}.");
             for (int i = ActiveCarousels.Count - 1; i >= 0; i--)
             {
@@ -67,13 +73,14 @@ namespace DrifterBossGrabMod.Patches
                     ActiveCarousels.RemoveAt(i);
                     continue;
                 }
-                carousel.PopulateCarousel(direction);
+                if (carousel.IsForController(controller)) carousel.PopulateCarousel(direction);
             }
         }
 
         public static void UpdateNetworkBagState(DrifterBagController? controller, int direction = 0)
         {
             if (ReferenceEquals(controller, null) || (controller is UnityEngine.Object uController && !uController)) return;
+            if (_transitions.Contains(controller)) return;
 
             if (!NetworkServer.active && !controller.hasAuthority) return;
 

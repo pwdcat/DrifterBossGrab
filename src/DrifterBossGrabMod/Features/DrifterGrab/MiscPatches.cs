@@ -169,7 +169,10 @@ namespace DrifterBossGrabMod.Patches
                 __state = null;
                 if (__instance == null) return false;
                 if (__instance.GetComponent<ThrownObjectProjectileController>() != null)
-                    __state = __instance.currentPassengerTransform?.GetComponent<GongLandingPlacement>();
+                {
+                    var passenger = __instance.currentPassengerTransform;
+                    if (passenger != null) __state = passenger.GetComponent<GongLandingPlacement>();
+                }
                 return true;
             }
 

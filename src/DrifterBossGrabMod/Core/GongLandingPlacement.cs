@@ -47,10 +47,13 @@ namespace DrifterBossGrabMod.Core
             _pendingPlacement = true;
         }
 
+        private void Awake() => enabled = false;
+
         public void BeginFlight(VehicleSeat seat)
         {
             if (!_pendingPlacement || _flightAnchor != null || _gongBody == null || _hinge == null || _frame == null) return;
             if (_hinge.connectedBody != null) return;
+            enabled = true;
             GetComponent<ModelLocator>()?.LateUpdate();
             PlaceDiscOnFrame();
             var anchorObject = new GameObject("DBG_GongFlightAnchor");
@@ -84,6 +87,7 @@ namespace DrifterBossGrabMod.Core
 
         private void EndFlight()
         {
+            enabled = false;
             if (_flightAnchor == null) return;
             if (_hinge != null && _hinge.connectedBody == _flightAnchor)
             {

@@ -57,34 +57,54 @@ namespace DrifterBossGrabMod.UI
             highlightObj.SetActive(false);
         }
 
+        private void Start()
+        {
+            ApplyConfigValues();
+        }
+
+        private void OnEnable()
+        {
+            ApplyConfigValues();
+        }
+
+        public void ApplyConfigValues()
+        {
+            if (_rectTransform == null) _rectTransform = GetComponent<RectTransform>();
+            if (_rectTransform != null && XConfig != null && YConfig != null)
+            {
+                _rectTransform.anchoredPosition = new Vector2(XConfig.Value, YConfig.Value);
+            }
+            if (ScaleConfig != null && ElementType != HudElementType.MainSlot)
+            {
+                transform.localScale = Vector3.one * ScaleConfig.Value;
+            }
+        }
+
         private void Update()
         {
             bool editorActive = HudEditorManager.IsEditorActive;
-            if (!editorActive) _isDragging = false;
-            if (editorActive) UpdateBounds();
-            if (_highlight != null && _highlight.gameObject.activeSelf != editorActive)
+            if (!editorActive)
             {
-                _highlight.gameObject.SetActive(editorActive);
-                if (editorActive)
-                    _highlight.transform.SetAsLastSibling();
+                if (_isDragging) _isDragging = false;
+                if (_highlight != null && _highlight.gameObject.activeSelf)
+                    _highlight.gameObject.SetActive(false);
+                return;
+            }
 
+            UpdateBounds();
+            if (_highlight != null && !_highlight.gameObject.activeSelf)
+            {
+                _highlight.gameObject.SetActive(true);
+                _highlight.transform.SetAsLastSibling();
                 UpdateHighlightColor();
             }
 
-            if (!_isDragging && _rectTransform != null)
+            if (!_isDragging)
             {
-
-                if (XConfig != null && YConfig != null)
-                {
-                    _rectTransform.anchoredPosition = new Vector2(XConfig.Value, YConfig.Value);
-                }
-                if (ScaleConfig != null && ElementType != HudElementType.MainSlot)
-                {
-                    transform.localScale = Vector3.one * ScaleConfig.Value;
-                }
+                ApplyConfigValues();
             }
 
-            if (editorActive && _isDragging && ScaleConfig != null)
+            if (_isDragging && ScaleConfig != null)
             {
                 float scroll = UnityEngine.Input.mouseScrollDelta.y;
                 if (scroll != 0)

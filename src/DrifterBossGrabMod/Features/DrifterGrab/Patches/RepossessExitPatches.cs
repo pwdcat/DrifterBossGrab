@@ -49,6 +49,22 @@ namespace DrifterBossGrabMod.Patches
         // ========================================================================================
         // GRAB LOGIC
         // ========================================================================================
+        internal static bool RejectDeadTarget(RepossessExit instance)
+        {
+            var target = instance.chosenTarget;
+            if (target == null || BagPatches.DrifterBagController_AssignPassenger.IsPassengerAlive(target)) return false;
+            instance.chosenTarget = null;
+            StoreOriginalTarget(instance, null);
+            return true;
+        }
+
+        [HarmonyPatch(typeof(RepossessExit), "BagObject")]
+        public class RepossessExit_BagObject_Patch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(RepossessExit __instance) => !RejectDeadTarget(__instance);
+        }
+
         [HarmonyPatch(typeof(RepossessExit), "OnEnter")]
         public class RepossessExit_OnEnter_Patch
         {
@@ -73,6 +89,11 @@ namespace DrifterBossGrabMod.Patches
                         return true;
                     }
                 }
+                if (RejectDeadTarget(__instance))
+                {
+                    __state = null;
+                    return true;
+                }
                 __state = chosenTarget;
 
                 StoreOriginalTarget(__instance, chosenTarget);
@@ -89,6 +110,12 @@ namespace DrifterBossGrabMod.Patches
             [HarmonyPostfix]
             public static void Postfix(RepossessExit __instance, GameObject? __state)
             {
+                if (__state != null && !BagPatches.DrifterBagController_AssignPassenger.IsPassengerAlive(__state))
+                {
+                    __instance.chosenTarget = null;
+                    StoreOriginalTarget(__instance, null);
+                    return;
+                }
 
                 if (!PluginConfig.Instance.EnableBossGrabbing.Value && !PluginConfig.Instance.EnableNPCGrabbing.Value)
                     return;

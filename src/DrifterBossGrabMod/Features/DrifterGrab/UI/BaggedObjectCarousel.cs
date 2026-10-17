@@ -396,6 +396,8 @@ namespace DrifterBossGrabMod.UI
             return attributes != null && attributes.durability <= 0f;
         }
 
+        internal bool IsForController(DrifterBagController controller) => GetOrRefreshBagController() == controller;
+
         public void PopulateCarousel(int direction = 0)
         {
             if (_slots.Count == 0)
@@ -421,13 +423,23 @@ namespace DrifterBossGrabMod.UI
 
             List<GameObject> passengerList = new List<GameObject>();
             GameObject? mainPassenger = null;
+            BagState? syncedSelectionState = null;
 
             if (bagController != null)
             {
                 var netController = bagController.GetComponent<Networking.BottomlessBagNetworkController>();
                 var localList = BagPatches.GetState(bagController).BaggedObjects;
 
-                if (bagController.hasAuthority && localList != null)
+                if (!NetworkServer.active && netController != null)
+                {
+                    if (!netController.TryGetCarouselState(out passengerList, out mainPassenger, out int syncedEmptySlotIndex))
+                    {
+                        foreach (var slot in _slots) slot.SetActive(false);
+                        return;
+                    }
+                    syncedSelectionState = new BagState { EmptySlotIndex = syncedEmptySlotIndex };
+                }
+                else if (bagController.hasAuthority && localList != null)
                 {
                     localList.RemoveAll(obj => obj == null || !obj);
                     passengerList = localList;
@@ -487,6 +499,8 @@ namespace DrifterBossGrabMod.UI
                 mainPassenger = null;
             }
 
+            bool addingPassengers = _hasLayout && passengerList.Count > _layoutPassengers.Count &&
+                _layoutPassengers.All(passengerList.Contains);
             if (!_layoutPassengers.SequenceEqual(passengerList)) direction = 0;
 
             if (mainPassenger == null && passengerList.Count > 0 && direction == 0 &&
@@ -554,7 +568,7 @@ namespace DrifterBossGrabMod.UI
                     _slots.Add(extra);
                 }
             }
-            var selectionState = bagController != null ? BagPatches.GetState(bagController) : new BagState();
+            var selectionState = syncedSelectionState ?? (bagController != null ? BagPatches.GetState(bagController) : new BagState());
             int emptySlotIndex = selectionState.GetEmptySlotIndex(passengerList.Count);
             bool layoutUnchanged = _hasLayout && _layoutEmptySlotIndex == emptySlotIndex && _layoutMainPassenger == mainPassenger &&
                 _layoutCapacity == animationCapacity && _layoutPassengers.SequenceEqual(passengerList);
@@ -616,8 +630,7 @@ namespace DrifterBossGrabMod.UI
             HashSet<GameObject?> foundPassengers = new();
             HashSet<GameObject?> wrappedPassengers = new();
 
-            bool reuseClientCards = !NetworkServer.active && cycleCount == 2;
-            var slotsToProcess = _slots.Where(slot => reuseClientCards || !_exitingSlots.Contains(slot)).OrderBy(slot =>
+            var slotsToProcess = _slots.Where(slot => addingPassengers || !_exitingSlots.Contains(slot)).OrderBy(slot =>
             {
                 if (!_slotToPassenger.TryGetValue(slot, out var passenger) ||
                     !_slotToState.TryGetValue(slot, out int previousState)) return int.MaxValue;
@@ -632,13 +645,6 @@ namespace DrifterBossGrabMod.UI
                 if (!_slotToPassenger.TryGetValue(slot, out var passenger)) continue;
 
                 int newState = -99;
-                if (reuseClientCards && direction != 0 && _slotToState.TryGetValue(slot, out int previousPosition))
-                {
-                    int expectedPosition = previousPosition - Math.Sign(direction);
-                    if (IsVisibleState(expectedPosition, cycleCount) &&
-                        targetPassengers.TryGetValue(expectedPosition, out var expectedPassenger) && expectedPassenger == passenger)
-                        newState = expectedPosition;
-                }
                 foreach (var kvp in targetPassengers)
                 {
                     if (newState != -99 && IsVisibleState(newState, cycleCount)) break;
@@ -654,7 +660,7 @@ namespace DrifterBossGrabMod.UI
                     }
                 }
 
-                bool wraps = !reuseClientCards && cycleCount > 1 && newState != -99 &&
+                bool wraps = !addingPassengers && cycleCount > 1 && newState != -99 &&
                     _slotToState.TryGetValue(slot, out int oldState) &&
                     (direction != 0 ? newState != oldState - Math.Sign(direction)
                         : (oldState < 0 && newState > 0) || (oldState > 0 && newState < 0));
@@ -678,7 +684,7 @@ namespace DrifterBossGrabMod.UI
                 }
                 else
                 {
-                    if (reuseClientCards)
+                    if (addingPassengers)
                     {
                         if (_activeCoroutines.TryGetValue(slot, out var animation)) StopCoroutine(animation);
                         _activeCoroutines.Remove(slot);

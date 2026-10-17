@@ -12,7 +12,8 @@ namespace DrifterBossGrabMod
         protected override void ApplyPatches(Harmony harmony)
         {
             harmony.CreateClassProcessor(typeof(Patches.UnlimitedHitsPatches)).Patch();
-            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.CharacterBody_FixedUpdate)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.AimRepossess_FixedUpdate_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.Repossess_FixedUpdate_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.BaggedObject_OnEnter)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.BaggedObject_OnExit)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SelfGrabPatches.VehicleSeat_OnPassengerExit)).Patch();
@@ -29,12 +30,14 @@ namespace DrifterBossGrabMod
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_ImpactBehavior_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_OnDestroy_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.ProjectileRecoveryPatches.ThrownObjectProjectileController_CheckForDeadPassenger_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_OnEnable_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_OnDisable_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.SpecialObjectAttributes_Start_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.SpecialObjectAttributesPatches.BaggedObject_OnEnter_Patch)).Patch();
 
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnEnter_Patch)).Patch();
+            harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_BagObject_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnSerialize_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.RepossessExit_OnDeserialize_Patch)).Patch();
             harmony.CreateClassProcessor(typeof(Patches.RepossessExitPatches.BaggedObject_OnEnter_Patch)).Patch();

@@ -21,7 +21,7 @@ namespace DrifterBossGrabMod.Networking
 
         public static GameObject? FindLocalObjectWithLogging(NetworkInstanceId netId, string operation, bool isServer = true)
         {
-            var obj = NetworkServer.FindLocalObject(netId);
+            var obj = isServer ? NetworkServer.FindLocalObject(netId) : ClientScene.FindLocalObject(netId);
 
             if (obj != null)
             {
@@ -30,24 +30,10 @@ namespace DrifterBossGrabMod.Networking
 
             Log.Error($"[NetworkUtils.{operation}] Failed to find object (netId={netId.Value}) on {(isServer ? "server" : "client")}");
 
-            if (netId != NetworkInstanceId.Invalid)
+            if (isServer && netId != NetworkInstanceId.Invalid)
             {
-
-                bool isInServerLookup = false;
-                try
-                {
-
-                    var serverLookupField = typeof(NetworkServer).GetField("s_Spawned", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                    if (serverLookupField != null)
-                    {
-                        var lookupDict = serverLookupField.GetValue(null) as Dictionary<NetworkInstanceId, NetworkIdentity>;
-                        isInServerLookup = lookupDict != null && lookupDict.ContainsKey(netId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"[NetworkUtils.{operation}] Could not check server lookup: {ex.Message}");
-                }
+                var lookup = NetworkServer.objects;
+                bool isInServerLookup = lookup != null && lookup.ContainsKey(netId);
 
                 if (isInServerLookup)
                 {

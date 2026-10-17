@@ -461,52 +461,59 @@ namespace DrifterBossGrabMod.Patches
                 && !PluginConfig.IsBlacklisted(body.gameObject.name);
         }
 
-        [HarmonyPatch(typeof(CharacterBody), nameof(CharacterBody.FixedUpdate))]
-        public class CharacterBody_FixedUpdate
+        private static void CheckSelfGrabInput(EntityStates.BaseState state)
+        {
+            var body = state.characterBody;
+            if (body == null || !state.isAuthority || state.inputBank == null
+                || !body.TryGetComponent<DrifterBagController>(out var controller)) return;
+
+            var taps = Taps.GetValue(body, _ => new TapState());
+            bool down = state.inputBank.skill3.down;
+            bool pressed = down && !taps.WasDown;
+            taps.WasDown = down;
+            if (!CanSelfGrab(body) || state.inputBank.aimDirection.y < MinimumAimY)
+            {
+                taps.LastTap = float.NegativeInfinity;
+                return;
+            }
+            if (!pressed) return;
+
+            float previousTap = taps.LastTap;
+            taps.LastTap = Time.fixedTime;
+            if (Time.fixedTime - previousTap > DoubleTapWindow) return;
+            taps.LastTap = float.NegativeInfinity;
+
+            var bodyMachine = EntityStateMachine.FindByCustomName(body.gameObject, "Body");
+            var bagMachine = EntityStateMachine.FindByCustomName(body.gameObject, "Bag");
+            if (bodyMachine == null || bagMachine == null) return;
+
+            if (state is AimRepossess aimState)
+            {
+                AccessTools.Field(typeof(AimRepossess), "canceled")?.SetValue(aimState, false);
+                state.outer.SetNextStateToMain();
+            }
+            else if (state is Repossess)
+            {
+                bodyMachine.SetNextStateToMain();
+            }
+
+            bagMachine.SetNextState(new BaggedObject { targetObject = body.gameObject });
+            if (!NetworkServer.active && NetworkClient.active)
+                Networking.CycleNetworkHandler.SendGrabObjectRequest(controller, body.gameObject);
+        }
+
+        [HarmonyPatch(typeof(AimRepossess), nameof(AimRepossess.FixedUpdate))]
+        public class AimRepossess_FixedUpdate_Patch
         {
             [HarmonyPrefix]
-            public static void Prefix(CharacterBody __instance)
-            {
-                RestoreAnimation(__instance);
-                if (!__instance.hasEffectiveAuthority || __instance.inputBank == null
-                    || !__instance.TryGetComponent<DrifterBagController>(out var controller)) return;
+            public static void Prefix(AimRepossess __instance) => CheckSelfGrabInput(__instance);
+        }
 
-                var taps = Taps.GetValue(__instance, _ => new TapState());
-                bool down = __instance.inputBank.skill3.down;
-                bool pressed = down && !taps.WasDown;
-                taps.WasDown = down;
-                if (!CanSelfGrab(__instance) || __instance.inputBank.aimDirection.y < MinimumAimY)
-                {
-                    taps.LastTap = float.NegativeInfinity;
-                    return;
-                }
-                if (!pressed) return;
-
-                float previousTap = taps.LastTap;
-                taps.LastTap = Time.fixedTime;
-                if (Time.fixedTime - previousTap > DoubleTapWindow) return;
-                taps.LastTap = float.NegativeInfinity;
-
-                EntityStateMachine? aimMachine = null;
-                foreach (var machine in __instance.GetComponents<EntityStateMachine>())
-                    if (machine.state is AimRepossess) { aimMachine = machine; break; }
-                var bodyMachine = EntityStateMachine.FindByCustomName(__instance.gameObject, "Body");
-                var bagMachine = EntityStateMachine.FindByCustomName(__instance.gameObject, "Bag");
-                if (bodyMachine == null || bagMachine == null) return;
-                bool aiming = aimMachine != null && aimMachine.state is AimRepossess;
-                bool grabbing = bodyMachine.state is Repossess;
-                if (!aiming && !grabbing) return;
-
-                if (aiming)
-                {
-                    AccessTools.Field(typeof(AimRepossess), "canceled").SetValue(aimMachine!.state, false);
-                    aimMachine.SetNextStateToMain();
-                }
-                if (grabbing) bodyMachine.SetNextStateToMain();
-                bagMachine.SetNextState(new BaggedObject { targetObject = __instance.gameObject });
-                if (!NetworkServer.active && NetworkClient.active)
-                    Networking.CycleNetworkHandler.SendGrabObjectRequest(controller, __instance.gameObject);
-            }
+        [HarmonyPatch(typeof(Repossess), nameof(Repossess.FixedUpdate))]
+        public class Repossess_FixedUpdate_Patch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(Repossess __instance) => CheckSelfGrabInput(__instance);
         }
     }
 }

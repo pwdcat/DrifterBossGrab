@@ -7,6 +7,7 @@ using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Reflection;
+using System.Reflection.Emit;
 using DrifterBossGrabMod;
 using DrifterBossGrabMod.Core;
 using DrifterBossGrabMod.Networking;
@@ -47,27 +48,24 @@ namespace DrifterBossGrabMod.Patches
         }
     }
 
-    public class DelayedAutoPromote : MonoBehaviour
+    public static class DelayedAutoPromote
     {
-        private DrifterBagController? _controller;
-        private GameObject? _newMain;
-        private float _delayTime = 0f;
-        private float _elapsedTime = 0f;
-
         public static void Schedule(DrifterBagController? controller, GameObject? newMain, float delay = 0.0f)
         {
-            if (!NetworkServer.active || !AuthorityGuard.ShouldAutoPromote(controller)) return;
+            if (!NetworkServer.active || !AuthorityGuard.ShouldAutoPromote(controller) || controller == null || newMain == null) return;
             if (delay <= 0f)
             {
                 ExecutePromotionImmediate(controller, newMain);
                 return;
             }
 
-            var go = new GameObject($"DelayedAutoPromote_{BagHelpers.GetSafeName(newMain)}");
-            var delayed = go.AddComponent<DelayedAutoPromote>();
-            delayed._controller = controller;
-            delayed._newMain = newMain;
-            delayed._delayTime = delay;
+            controller.StartCoroutine(DelayPromotionRoutine(controller, newMain, delay));
+        }
+
+        private static System.Collections.IEnumerator DelayPromotionRoutine(DrifterBagController controller, GameObject newMain, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            ExecutePromotionImmediate(controller, newMain);
         }
 
         private static void ExecutePromotionImmediate(DrifterBagController? controller, GameObject? newMain)
@@ -180,109 +178,6 @@ namespace DrifterBossGrabMod.Patches
             }
             return null;
         }
-
-        private void Update()
-        {
-            _elapsedTime += Time.deltaTime;
-            if (_elapsedTime >= _delayTime)
-            {
-                ExecutePromotion();
-            }
-        }
-
-        private void ExecutePromotion()
-        {
-            if (NetworkServer.active && AuthorityGuard.ShouldAutoPromote(_controller) &&
-                _controller != null && _newMain != null && !ProjectileRecoveryPatches.IsInProjectileState(_newMain))
-            {
-                var state = BagPatches.GetState(_controller);
-                bool stillInBag;
-                lock (state.BagLock)
-                {
-                    stillInBag = state.BaggedObjects.Contains(_newMain);
-                }
-                if (!stillInBag)
-                {
-                    Destroy(gameObject);
-                    return;
-                }
-
-                DrifterBossGrabPlugin._isSwappingPassengers = true;
-                try
-                {
-                    if (ReflectionCache.DrifterBagController.Smacks != null)
-                    {
-                        ReflectionCache.DrifterBagController.Smacks.SetValue(_controller, 0);
-                    }
-
-                    if (NetworkServer.active)
-                    {
-                        var stateMachines = _controller.GetComponents<EntityStateMachine>();
-                        foreach (var esm in stateMachines)
-                        {
-                            if (esm.customName == "Bag")
-                            {
-                                if (esm.state is BaggedObject)
-                                {
-                                    esm.SetNextStateToMain();
-                                }
-                                break;
-                            }
-                        }
-                    }
-
-                    if (state.AdditionalSeats.TryGetValue(_newMain, out var existingSeat) && existingSeat != null)
-                    {
-                        if (NetworkServer.active)
-                            existingSeat.EjectPassenger(_newMain);
-                        state.AdditionalSeats.TryRemove(_newMain, out _);
-                    }
-
-                    if (NetworkServer.active)
-                    {
-                        if (_controller.vehicleSeat != null && _controller.vehicleSeat.hasPassenger)
-                        {
-                            var currentPassenger = _controller.vehicleSeat.NetworkpassengerBodyObject;
-                            bool isDeadOrDestroyed = currentPassenger == null ||
-                                (currentPassenger.GetComponent<HealthComponent>()?.alive == false) ||
-                                (currentPassenger.GetComponent<SpecialObjectAttributes>()?.durability <= 0);
-                            if (isDeadOrDestroyed)
-                            {
-                                _controller.vehicleSeat.EjectPassenger();
-                            }
-                        }
-
-                        _controller.AssignPassenger(_newMain);
-
-                        if (_controller.vehicleSeat != null)
-                        {
-                            if (_controller.vehicleSeat.NetworkpassengerBodyObject != _newMain)
-                            {
-                                _controller.vehicleSeat.AssignPassenger(_newMain);
-                            }
-
-                            var stateMachines = _controller.GetComponents<EntityStateMachine>();
-                            foreach (var esm in stateMachines)
-                            {
-                                if (esm.customName == "Bag")
-                                {
-                                    var newState = new BaggedObject();
-                                    newState.targetObject = _newMain;
-                                    esm.SetNextState(newState);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    DrifterBossGrabPlugin._isSwappingPassengers = false;
-                }
-                PublishPromotion(_controller, _newMain);
-            }
-            Destroy(gameObject);
-        }
     }
 
     public static class BagPatches
@@ -317,9 +212,47 @@ namespace DrifterBossGrabMod.Patches
         {
             private static bool _usingAdditionalSeat = false;
 
-            [HarmonyPrefix]
-            public static bool Prefix(DrifterBagController __instance, GameObject passengerObject)
+            [HarmonyTranspiler]
+            public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
             {
+                var acquire = AccessTools.Method(typeof(RoR2.CharacterAI.BaseAI), nameof(RoR2.CharacterAI.BaseAI.ForceAcquireNearestEnemyIfNoCurrentEnemy));
+                var safeAcquire = AccessTools.Method(typeof(DrifterBagController_AssignPassenger), nameof(AcquireEnemyIfReady));
+                foreach (var instruction in instructions)
+                {
+                    if (instruction.Calls(acquire))
+                    {
+                        instruction.opcode = OpCodes.Call;
+                        instruction.operand = safeAcquire;
+                    }
+                    yield return instruction;
+                }
+            }
+
+            internal static void AcquireEnemyIfReady(RoR2.CharacterAI.BaseAI ai)
+            {
+                if (ai == null || ai.body == null || ai.body.healthComponent == null || !ai.body.healthComponent.alive) return;
+                ai.ForceAcquireNearestEnemyIfNoCurrentEnemy();
+            }
+
+            internal static bool IsPassengerAlive(GameObject passenger)
+            {
+                if (passenger == null) return false;
+                var body = passenger.GetComponent<CharacterBody>();
+                return body == null || (body.healthComponent != null && body.healthComponent.alive);
+            }
+
+            [HarmonyPrefix]
+            public static bool Prefix(DrifterBagController __instance, GameObject passengerObject, out bool __state)
+            {
+                __state = false;
+                _usingAdditionalSeat = false;
+                if (passengerObject == null) return true;
+                if (PluginConfig.IsBlacklisted(passengerObject.name) || !IsPassengerAlive(passengerObject)) return false;
+                var body = passengerObject.GetComponent<CharacterBody>();
+                if (body != null && (body.baseMaxHealth <= 0 || body.levelMaxHealth < 0 ||
+                    body.teamComponent == null || body.teamComponent.teamIndex < 0)) return false;
+                __state = true;
+
                 if (passengerObject != null && !PluginConfig.IsBlacklisted(passengerObject.name))
                     Core.EnvironmentCarryState.Prepare(passengerObject);
 
@@ -350,9 +283,11 @@ namespace DrifterBossGrabMod.Patches
                     }
                 }
 
-                _usingAdditionalSeat = false;
-                if (passengerObject && PluginConfig.IsBlacklisted(passengerObject!.name)) return false;
-                if (passengerObject == null) return true;
+                if (passengerObject == null || !IsPassengerAlive(passengerObject))
+                {
+                    __state = false;
+                    return false;
+                }
 
                 if (ProjectileRecoveryPatches.IsInProjectileState(passengerObject))
                 {
@@ -362,19 +297,8 @@ namespace DrifterBossGrabMod.Patches
                 var modelLocator = passengerObject.GetComponent<ModelLocator>();
                 if (modelLocator != null) modelLocator.dontDetatchFromParent = true;
 
-                var body = passengerObject.GetComponent<CharacterBody>();
-                if (body)
+                if (body != null)
                 {
-                    if (body.baseMaxHealth <= 0 || body.levelMaxHealth < 0 ||
-                        body.teamComponent == null || body.teamComponent.teamIndex < 0) return false;
-
-                    var healthComponent = body.healthComponent;
-                    if (healthComponent != null && !healthComponent.alive)
-                    {
-                        Log.Debug($"[AssignPassenger.Prefix] Blocking grab of dead body: {passengerObject.name}");
-                        return false;
-                    }
-
                     if (body.bodyFlags.HasFlag(CharacterBody.BodyFlags.Ungrabbable) && body.currentVehicle != null)
                     {
                         bool isOurOwnSeat = body.currentVehicle == __instance.vehicleSeat ||
@@ -439,9 +363,9 @@ namespace DrifterBossGrabMod.Patches
             }
 
             [HarmonyPostfix]
-            public static void Postfix(DrifterBagController __instance, GameObject passengerObject)
+            public static void Postfix(DrifterBagController __instance, GameObject passengerObject, bool __state)
             {
-                if (passengerObject == null || ProjectileRecoveryPatches.IsInProjectileState(passengerObject)) return;
+                if (!__state || !IsPassengerAlive(passengerObject) || ProjectileRecoveryPatches.IsInProjectileState(passengerObject)) return;
 
                 Log.Debug($"[AssignPassenger.Postfix] START: passengerObject={passengerObject.name}, _usingAdditionalSeat={_usingAdditionalSeat}.");
 
@@ -502,22 +426,7 @@ namespace DrifterBossGrabMod.Patches
 
                 if (!DrifterBossGrabPlugin.IsSwappingPassengers)
                 {
-                    int finalIndex = -1;
-
-                    var currentMain = GetMainSeatObject(__instance);
-                    if (currentMain != null)
-                    {
-                        finalIndex = list.IndexOf(currentMain);
-                    }
-
-                    if (finalIndex < 0)
-                    {
-                        finalIndex = list.Count > 0 ? list.Count - 1 : 0;
-                    }
-
-                    Log.Debug($"[AssignPassenger.Postfix] Updating selection to {finalIndex} for {passengerObject.name}");
-
-                    BagCarouselUpdater.UpdateNetworkBagState(__instance, finalIndex);
+                    BagCarouselUpdater.UpdateNetworkBagState(__instance);
                 }
                 DamagePreviewOverlay.InvalidateAllCaches();
             }
@@ -733,6 +642,31 @@ namespace DrifterBossGrabMod.Patches
     [HarmonyPatch(typeof(RoR2.VehicleSeat), "OnPassengerExit")]
     public static class VehicleSeat_OnPassengerExit_Patch
     {
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var canInterrupt = AccessTools.Method(typeof(EntityStateMachine), nameof(EntityStateMachine.CanInterruptState));
+            var safeCanInterrupt = AccessTools.Method(typeof(VehicleSeat_OnPassengerExit_Patch), nameof(CanInterruptPassengerState));
+            int replacements = 0;
+            foreach (var instruction in instructions)
+            {
+                if (instruction.Calls(canInterrupt))
+                {
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = safeCanInterrupt;
+                    replacements++;
+                }
+                yield return instruction;
+            }
+            if (replacements != 1) throw new InvalidOperationException("Could not identify the passenger exit state interruption check.");
+        }
+
+        internal static bool CanInterruptPassengerState(EntityStateMachine stateMachine, InterruptPriority priority)
+        {
+            return stateMachine != null && (stateMachine.nextState ?? stateMachine.state) != null &&
+                stateMachine.CanInterruptState(priority);
+        }
+
         [HarmonyPrefix]
         public static void Prefix(RoR2.VehicleSeat __instance, GameObject passenger)
         {

@@ -40,6 +40,9 @@ namespace DrifterBossGrabMod.Networking
         private int _previousSelectedIndex = -1;
         private bool _hasCarouselSelection;
         private GameObject? _lastCarouselSelection;
+        private readonly List<GameObject> _carouselPassengers = new();
+        private int _carouselEmptySlotIndex = -1;
+        private readonly HashSet<GameObject> _clientCollisionPassengers = new();
 
         private readonly Dictionary<NetworkInstanceId, GameObject> _netIdCache = new();
 
@@ -53,6 +56,7 @@ namespace DrifterBossGrabMod.Networking
         private const float CAROUSEL_UPDATE_MIN_INTERVAL = 0.05f;
         private bool _carouselUpdatePending;
         private int _pendingCarouselDirection;
+        private GameObject? _pendingCarouselSelection;
 
         private readonly Dictionary<uint, (float progress, float attempts, float interval, float receivedAt)> _breakoutPresentation = new();
         private float _nextBagPresentationTime;
@@ -335,6 +339,25 @@ namespace DrifterBossGrabMod.Networking
         internal static int MergePendingScrollDirection(int pending, int incoming, bool sameSelection)
             => incoming != 0 ? incoming : sameSelection ? pending : 0;
 
+        internal int ApplyCarouselSnapshot(List<GameObject>? passengers, GameObject? mainPassenger, int emptySlotIndex, int direction)
+        {
+            if (_hasCarouselSelection && ReferenceEquals(_lastCarouselSelection, mainPassenger)) direction = 0;
+            _carouselPassengers.Clear();
+            if (passengers != null) _carouselPassengers.AddRange(passengers);
+            _lastCarouselSelection = mainPassenger;
+            _carouselEmptySlotIndex = emptySlotIndex;
+            _hasCarouselSelection = true;
+            return direction;
+        }
+
+        internal bool TryGetCarouselState(out List<GameObject> passengers, out GameObject? mainPassenger, out int emptySlotIndex)
+        {
+            passengers = new List<GameObject>(_carouselPassengers);
+            mainPassenger = _lastCarouselSelection;
+            emptySlotIndex = _carouselEmptySlotIndex;
+            return _hasCarouselSelection;
+        }
+
         private void ApplyReceivedObjectStates(DrifterBagController controller)
         {
             if (_receivedElapsedTimes.Length != _baggedObjectNetIds.Count ||
@@ -552,20 +575,15 @@ namespace DrifterBossGrabMod.Networking
                     state.BaggedObjects = ctx.SyncedObjects;
                 }
 
+                int carouselDirection = scrollDirection;
                 if (!NetworkServer.active)
                 {
+                    UpdateClientBagCollisionProtection(controller, ctx.SyncedObjects);
                     PrepareClientBagSelection(controller, ctx.MainSeatObject, oldMain);
                     DoSync_Client_Actions(controller, ref ctx);
+                    carouselDirection = ApplyCarouselSnapshot(ctx.SyncedObjects, ctx.MainSeatObject, state.EmptySlotIndex, scrollDirection);
                 }
 
-                int carouselDirection = scrollDirection;
-                if (!NetworkServer.active && triggerUIUpdate)
-                {
-                    if (_hasCarouselSelection && ReferenceEquals(_lastCarouselSelection, ctx.MainSeatObject))
-                        carouselDirection = 0;
-                    _lastCarouselSelection = ctx.MainSeatObject;
-                    _hasCarouselSelection = true;
-                }
                 DoSync_Shared(controller, ref ctx, triggerUIUpdate, carouselDirection, oldMain);
             }
             finally
@@ -643,6 +661,40 @@ namespace DrifterBossGrabMod.Networking
                     }
                 }
             }
+        }
+
+        private void UpdateClientBagCollisionProtection(DrifterBagController controller, List<GameObject>? passengers)
+        {
+            var current = new HashSet<GameObject>();
+            if (passengers != null)
+                foreach (var passenger in passengers)
+                    if (passenger != null && passenger != controller.gameObject && passenger.GetComponent<CharacterBody>() != null &&
+                        !ProjectileRecoveryPatches.IsInProjectileState(passenger)) current.Add(passenger);
+            foreach (var previous in _clientCollisionPassengers)
+                if (previous != null && !current.Contains(previous))
+                    previous.GetComponent<Core.PassengerReleaseProtection>()?.SetClientBagged(null, false);
+            var owner = controller.GetComponent<CharacterBody>();
+            foreach (var passenger in current)
+            {
+                var protection = passenger.GetComponent<Core.PassengerReleaseProtection>() ??
+                    passenger.AddComponent<Core.PassengerReleaseProtection>();
+                protection.SetClientBagged(owner, true);
+            }
+            _clientCollisionPassengers.Clear();
+            _clientCollisionPassengers.UnionWith(current);
+        }
+
+        private void OnDisable()
+        {
+            _hasCarouselSelection = false;
+            _carouselPassengers.Clear();
+            _lastCarouselSelection = null;
+            _carouselUpdatePending = false;
+            _pendingCarouselSelection = null;
+            _pendingCarouselDirection = 0;
+            foreach (var passenger in _clientCollisionPassengers)
+                if (passenger != null) passenger.GetComponent<Core.PassengerReleaseProtection>()?.SetClientBagged(null, false);
+            _clientCollisionPassengers.Clear();
         }
 
         private static void PrepareClientBagSelection(DrifterBagController controller, GameObject? mainPassenger, GameObject? oldMain)
@@ -748,7 +800,7 @@ namespace DrifterBossGrabMod.Networking
 
                     if (ProjectileRecoveryPatches.IsInProjectileState(obj)) continue;
 
-                    if (obj.transform.parent != controller.transform && !PersistenceObjectManager.IsObjectPersisted(obj))
+                    if (obj != controller.gameObject && obj.transform.parent != controller.transform && !PersistenceObjectManager.IsObjectPersisted(obj))
                     {
                         obj.transform.SetParent(controller.transform);
                         obj.transform.localPosition = Vector3.zero;
@@ -845,7 +897,9 @@ namespace DrifterBossGrabMod.Networking
 
                 if (triggerUIUpdate)
                 {
-                    if (!_carouselUpdatePending || scrollDirection != 0) _pendingCarouselDirection = scrollDirection;
+                    _pendingCarouselDirection = MergePendingScrollDirection(_pendingCarouselDirection, scrollDirection,
+                        _carouselUpdatePending && ReferenceEquals(_pendingCarouselSelection, ctx.MainSeatObject));
+                    _pendingCarouselSelection = ctx.MainSeatObject;
                     _carouselUpdatePending = true;
                     if (Patches.BagPassengerManager.IsProcessingThrowRemoval)
                     {

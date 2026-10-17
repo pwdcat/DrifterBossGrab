@@ -34,6 +34,10 @@ namespace DrifterBossGrabMod.Features
             set
             {
                 _targetScale = float.IsNaN(value) || float.IsInfinity(value) ? 1f : Mathf.Max(value, 1f);
+                if (Mathf.Abs(_targetScale - _currentScale) > 0.0001f || _targetScale > 1f)
+                {
+                    enabled = true;
+                }
             }
         }
         public void Initialize(DrifterBagController bagController)
@@ -62,6 +66,10 @@ namespace DrifterBossGrabMod.Features
                 }
                 _originalBounds = _skinnedMeshRenderer.localBounds;
                 _isInitialized = true;
+                if (_currentScale == 1f && _targetScale == 1f)
+                {
+                    enabled = false;
+                }
             }
             else
             {
@@ -169,9 +177,10 @@ namespace DrifterBossGrabMod.Features
             }
             _currentScale = Mathf.Lerp(_currentScale, target, 1f - Mathf.Exp(-10f * Time.deltaTime));
             if (Mathf.Abs(_currentScale - target) < 0.0001f) _currentScale = target;
-            if (_currentScale == 1f)
+            if (_currentScale == 1f && target == 1f)
             {
                 RestoreRenderBones();
+                enabled = false;
                 return;
             }
             EnsureRenderBones();

@@ -1324,6 +1324,7 @@ namespace DrifterBossGrabMod.Patches
 
                 var obj = __instance.gameObject;
                 if (obj == null) return;
+                if (obj == controller.gameObject) return;
 
                 string newStateName = newState.GetType().Name;
                 string currentStateName = __instance.state?.GetType()?.Name ?? "null";
